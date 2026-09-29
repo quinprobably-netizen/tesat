@@ -5,12 +5,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Neon Runner</title>
 <style>
-  html,body{margin:0;height:100%;background:#0b0014;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#ff5cf4}
-  canvas{max-width:100vw;max-height:100vh;image-rendering:pixelated;box-shadow:0 0 40px #ff2bd6aa}
+  :root{--bg:#0b0014;--pink:#ff2bd6;--cyan:#00f0ff;--text:#ff5cf4;color-scheme:dark}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:monospace}
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding-inline:16px;box-sizing:border-box;overflow:hidden}
+  canvas{display:block;width:100%;max-width:960px;max-height:calc(100% - 110px);aspect-ratio:16/9;object-fit:contain;box-shadow:0 0 40px #ff2bd6aa;touch-action:none;outline:none}
+  #pad{display:none;width:100%;max-width:960px;justify-content:space-between;gap:12px;user-select:none;-webkit-user-select:none;touch-action:none}
+  #pad div{display:flex;gap:12px}
+  #pad button{width:72px;height:72px;border-radius:50%;border:2px solid var(--cyan);background:transparent;color:var(--cyan);font:bold 20px monospace;box-shadow:0 0 14px var(--cyan) inset}
+  #pad button.a{border-color:var(--pink);color:var(--pink);box-shadow:0 0 14px var(--pink) inset}
+  @media (pointer:coarse){#pad{display:flex}canvas{max-height:calc(100% - 100px)}}
 </style>
 </head>
 <body>
-<canvas id="c" width="960" height="540"></canvas>
+<canvas id="c" width="960" height="540" tabindex="0"></canvas>
+<div id="pad"><div><button data-k="ArrowLeft">&#9664;</button><button data-k="ArrowRight">&#9654;</button></div><div><button class="a" data-k="ShiftLeft">RUN</button><button class="a" data-k="Space">JUMP</button></div></div>
 <script>
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const W=960,H=540,T=40,G=0.6;
@@ -40,7 +48,7 @@ function load(){
   }));
   player={x:80,y:300,w:28,h:38,vx:0,vy:0,on:false,face:1};cam=0;state='play';
 }
-score=0;lives=3;load();
+score=0;lives=3;load();state='title';
 const solid=(tx,ty)=>{const c=(tiles[ty]||[])[tx];return c==='#'||c==='B'||c==='?'||c==='U'};
 function move(o,isP){
   o.x+=o.vx;
@@ -64,7 +72,7 @@ function bump(tx,ty){
 function burst(x,y,col){for(let i=0;i<14;i++)parts.push({x,y,vx:(Math.random()-.5)*8,vy:-Math.random()*8,l:40,col})}
 function die(){lives--;burst(player.x,player.y,'#00f0ff');if(lives<0){state='over'}else load()}
 function update(){
-  if(state!=='play'){if(keys.Enter||keys.Space||keys.ArrowUp){if(state==='over'){score=0;lives=3}load()}return}
+  if(state!=='play'){if(keys.Enter||keys.Space||keys.ArrowUp||keys.tap){keys.tap=0;if(state==='over'){score=0;lives=3}load();keys.Space=keys.ArrowUp=0}return}
   const p=player,run=keys.ShiftLeft||keys.KeyX?1.6:1;
   const dir=(keys.ArrowRight||keys.KeyD?1:0)-(keys.ArrowLeft||keys.KeyA?1:0);
   p.vx+=dir*0.5*run;p.vx*=p.on?0.85:0.93;
@@ -139,11 +147,15 @@ function draw(){
   glow('#ff2bd6',10);ctx.fillStyle='#ff5cf4';ctx.font='bold 22px monospace';
   ctx.fillText('SCORE '+String(score).padStart(6,'0'),20,34);ctx.fillText('LIVES '+Math.max(lives,0),W-150,34);
   if(state!=='play'){ctx.fillStyle='#0009';ctx.fillRect(0,0,W,H);ctx.textAlign='center';ctx.font='bold 64px monospace';ctx.fillStyle='#00f0ff';glow('#00f0ff',25);
-    ctx.fillText(state==='win'?'LEVEL CLEAR':'GAME OVER',W/2,H/2);ctx.font='20px monospace';ctx.fillStyle='#ff5cf4';ctx.fillText('press ENTER',W/2,H/2+50);ctx.textAlign='left'}
+    ctx.fillText(state==='win'?'LEVEL CLEAR':state==='over'?'GAME OVER':'NEON RUNNER',W/2,H/2);ctx.font='20px monospace';ctx.fillStyle='#ff5cf4';ctx.fillText(state==='title'?'click or press ENTER to start':'press ENTER or tap to play again',W/2,H/2+50);ctx.textAlign='left'}
   ctx.shadowBlur=0;
 }
 addEventListener('keydown',e=>{keys[e.code]=1;keys[e.key]=1;if(e.code.startsWith('Arrow')||e.code==='Space')e.preventDefault()});
 addEventListener('keyup',e=>{keys[e.code]=0;keys[e.key]=0});
+['pointerdown','touchstart','click'].forEach(ev=>cv.addEventListener(ev,()=>{cv.focus();if(state!=='play')keys.tap=1},{passive:true}));
+document.querySelectorAll('#pad button').forEach(b=>{const k=b.dataset.k;
+  b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=1;if(state!=='play')keys.tap=1});
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=0))});
 (function loop(){update();draw();requestAnimationFrame(loop)})();
 </script>
 </body>
