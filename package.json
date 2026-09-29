@@ -1,0 +1,10 @@
+{
+  "name": "nightmarket",
+  "private": true,
+  "scripts": {
+    "test": "node tests/ui.test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}
