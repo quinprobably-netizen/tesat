@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lunar Rally</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:ui-monospace,Menlo,Consolas,monospace;color:#cfe}
+  canvas{display:block}
+  #hud{position:fixed;top:10px;left:12px;font-size:14px;line-height:1.5;text-shadow:0 0 4px #000;pointer-events:none;white-space:pre}
+  #help{position:fixed;bottom:10px;left:12px;font-size:12px;opacity:.7;pointer-events:none}
+  #sel{position:fixed;top:10px;right:12px;font-size:13px}
+  #sel button{font:inherit;background:#123;color:#cfe;border:1px solid #4a8;padding:4px 8px;margin-left:4px;cursor:pointer}
+  #sel button.on{background:#4a8;color:#000}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+<div id="sel">Body:
+  <button data-g="1.62" class="on">Moon</button>
+  <button data-g="3.71">Mars</button>
+  <button data-g="0.62">Ceres*</button>
+</div>
+<div id="help">W/↑ throttle · S/↓ brake/reverse · A/D steer · Space handbrake · Shift RCS thrusters (downforce) · R reset</div>
+<script>
+// ---------- Lunar Rally: 2D rigid-body car with load-sensitive tyres in low gravity ----------
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let W, H; function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; } resize(); addEventListener('resize', resize);
+
+let G = 1.62; // m/s^2
+document.querySelectorAll('#sel button').forEach(b => b.onclick = () => {
+  G = +b.dataset.g; document.querySelectorAll('#sel button').forEach(x => x.classList.toggle('on', x === b)); b.blur();
+});
+
+// ---- car parameters (lunar rover-ish rally buggy) ----
+const P = {
+  mass: 900, inertia: 1100, cgToFront: 1.3, cgToRear: 1.4, cgHeight: 0.6, halfWidth: 0.9,
+  wheelRadius: 0.4, maxSteer: 0.55, steerSpeed: 2.5,
+  engineForce: 5200, brakeForce: 9000, handbrake: 4000, rcsForce: 6000,
+  mu: 0.9,            // regolith friction coefficient
+  cornerStiffF: 7.0, cornerStiffR: 7.5, // per unit load (1/rad)
+  rollRes: 0.02, airDrag: 0              // vacuum: no aero drag!
+};
+
+// ---- track: closed spline through checkpoints ----
+const ctrl = [[0,0],[120,-30],[220,40],[260,160],[180,250],[60,220],[-40,300],[-160,240],[-200,120],[-120,40],[-60,-80]];
+function catmull(p0,p1,p2,p3,t){const t2=t*t,t3=t2*t;return [0,1].map(i=>.5*((2*p1[i])+(-p0[i]+p2[i])*t+(2*p0[i]-5*p1[i]+4*p2[i]-p3[i])*t2+(-p0[i]+3*p1[i]-3*p2[i]+p3[i])*t3));}
+const track = [];
+for (let i=0;i<ctrl.length;i++){const n=ctrl.length;for(let k=0;k<20;k++)track.push(catmull(ctrl[(i-1+n)%n],ctrl[i],ctrl[(i+1)%n],ctrl[(i+2)%n],k/20));}
+const TRACK_W = 14;
+function distToTrack(x,y){let best=1e9;for(let i=0;i<track.length;i++){const a=track[i],b=track[(i+1)%track.length];const dx=b[0]-a[0],dy=b[1]-a[1];let t=((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy);t=Math.max(0,Math.min(1,t));const px=a[0]+dx*t-x,py=a[1]+dy*t-y;best=Math.min(best,px*px+py*py);}return Math.sqrt(best);}
+
+// ---- terrain: craters & rocks (deterministic RNG) ----
+let seed=7; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+const craters=[]; for(let i=0;i<260;i++){const x=rnd()*900-450,y=rnd()*900-350,r=3+rnd()*rnd()*40;craters.push({x,y,r});}
+const rocks=[]; for(let i=0;i<120;i++){const x=rnd()*900-450,y=rnd()*900-350;if(distToTrack(x,y)>TRACK_W+2)rocks.push({x,y,r:.6+rnd()*1.6});}
+const stars=[]; for(let i=0;i<400;i++)stars.push({x:rnd(),y:rnd(),b:rnd()});
+const checkpoints = ctrl.map(p=>({x:p[0],y:p[1]}));
+
+// ---- car state ----
+const car = {};
+function reset(){
+  const a=track[0],b=track[3];
+  Object.assign(car,{x:a[0],y:a[1],h:Math.atan2(b[1]-a[1],b[0]-a[0]),vx:0,vy:0,w:0,steer:0,ax:0,ay:0,
+    airborne:0,vz:0,z:0,next:1,lap:0,lapStart:performance.now(),lastLap:null,best:null,slipF:0,slipR:0});
+}
+reset();
+const keys={}; addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyR')reset();if(e.code==='Space')e.preventDefault();});
+addEventListener('keyup',e=>keys[e.code]=false);
+
+// Pacejka-like combined force curve (normalized): peaks around ~8° slip then falls off
+const tyre = (slip, stiff) => { const B=stiff, C=1.4, E=-0.2; const bx=B*slip; return Math.sin(C*Math.atan(bx-E*(bx-Math.atan(bx)))); };
+
+const dust=[];
+function step(dt){
+  const throttle=(keys.KeyW||keys.ArrowUp)?1:0, brakeKey=(keys.KeyS||keys.ArrowDown)?1:0;
+  const steerIn=((keys.KeyA||keys.ArrowLeft)?-1:0)+((keys.KeyD||keys.ArrowRight)?1:0);
+  const hb=keys.Space?1:0, rcs=(keys.ShiftLeft||keys.ShiftRight)?1:0;
+
+  const cs=Math.cos(car.h), sn=Math.sin(car.h);
+  // local velocity (x forward, y right)
+  const lvx= cs*car.vx+sn*car.vy, lvy=-sn*car.vx+cs*car.vy;
+  const speed=Math.hypot(car.vx,car.vy);
+
+  // speed-sensitive steering (less lock at speed)
+  const steerTarget=steerIn*P.maxSteer/(1+speed*0.04);
+  car.steer+=Math.max(-P.steerSpeed*dt,Math.min(P.steerSpeed*dt,steerTarget-car.steer));
+
+  // reverse when stopped and holding brake
+  let drive=throttle*P.engineForce, brake=0;
+  if(brakeKey){ if(lvx>0.5) brake=P.brakeForce; else drive=-P.engineForce*0.5; }
+  // engine torque falls with speed (power limit)
+  drive*=Math.min(1, 14/Math.max(1,Math.abs(lvx)));
+
+  // off-track: loose deep dust → less grip, more rolling resistance
+  const off=distToTrack(car.x,car.y)>TRACK_W;
+  const mu=P.mu*(off?0.6:1), rr=P.rollRes*(off?5:1);
+
+  // weight (gravity + RCS downforce) and longitudinal/lateral load transfer
+  const Wt=P.mass*G + rcs*P.rcsForce;
+  const L=P.cgToFront+P.cgToRear;
+  let Nf=Wt*P.cgToRear/L - P.mass*car.ax*P.cgHeight/L;
+  let Nr=Wt*P.cgToFront/L + P.mass*car.ax*P.cgHeight/L;
+  const onGround=car.z<=0.001;
+  if(!onGround){Nf=Nr=0;}
+  Nf=Math.max(0,Nf); Nr=Math.max(0,Nr);
+
+  // slip angles
+  const yawF=car.w*P.cgToFront, yawR=-car.w*P.cgToRear;
+  const vxs=Math.max(Math.abs(lvx),1.0)*Math.sign(lvx||1);
+  const slipF=Math.atan2(lvy+yawF,Math.abs(vxs))-car.steer*Math.sign(vxs);
+  const slipR=Math.atan2(lvy+yawR,Math.abs(vxs));
+  car.slipF=slipF; car.slipR=slipR;
+
+  // longitudinal demand (rear-wheel drive, 4-wheel brakes)
+  const bdir=-Math.sign(lvx);
+  let FxR=drive + (brake*0.4 + hb*P.handbrake)*bdir*(Math.abs(lvx)>0.1?1:0);
+  let FxF=brake*0.6*bdir*(Math.abs(lvx)>0.1?1:0);
+  FxR=Math.max(-mu*Nr,Math.min(mu*Nr,FxR)); FxF=Math.max(-mu*Nf,Math.min(mu*Nf,FxF));
+
+  // lateral via friction circle: remaining grip after longitudinal use
+  const gripR=Math.sqrt(Math.max(0,(mu*Nr)**2-FxR*FxR))*(hb?0.35:1);
+  const gripF=Math.sqrt(Math.max(0,(mu*Nf)**2-FxF*FxF));
+  let FyF=-gripF*tyre(slipF,P.cornerStiffF);
+  let FyR=-gripR*tyre(slipR,P.cornerStiffR);
+  if(speed<0.5 && !throttle){FyF*=speed*2;FyR*=speed*2;}
+
+  // forces in local frame (front force rotated by steer)
+  const cst=Math.cos(car.steer), snt=Math.sin(car.steer);
+  let fx=FxR + FxF*cst - FyF*snt;
+  let fy=FyR + FxF*snt + FyF*cst;
+  fx-=rr*Wt*Math.sign(lvx)*Math.min(1,Math.abs(lvx)) * (onGround?1:0);
+  const torque=(FxF*snt+FyF*cst)*P.cgToFront - FyR*P.cgToRear;
+
+  car.ax=fx/P.mass; car.ay=fy/P.mass;
+  car.vx+=(cs*fx-sn*fy)/P.mass*dt; car.vy+=(sn*fx+cs*fy)/P.mass*dt;
+  car.w+=torque/P.inertia*dt;
+  if(!onGround) car.w*=1; // conservation of angular momentum in vacuum
+  car.x+=car.vx*dt; car.y+=car.vy*dt; car.h+=car.w*dt;
+
+  // vertical: crater rims launch you; low g = long hang time
+  for(const c of craters){const d=Math.hypot(car.x-c.x,car.y-c.y);if(onGround&&Math.abs(d-c.r)<0.6&&c.r>6&&speed>8){const out=((car.x-c.x)*car.vx+(car.y-c.y)*car.vy)/d; if(out>4){car.vz=Math.max(car.vz,Math.min(6,out*0.25));}}}
+  car.vz-=G*dt; car.z+=car.vz*dt; if(car.z<0){ if(car.vz<-2){car.vz*=-0.25;} else car.vz=0; car.z=0; }
+
+  // rock collisions
+  for(const r of rocks){const dx=car.x-r.x,dy=car.y-r.y,d=Math.hypot(dx,dy),m=r.r+1.1;if(d<m&&car.z<r.r){const nx=dx/d,ny=dy/d;car.x+=nx*(m-d);car.y+=ny*(m-d);const vn=car.vx*nx+car.vy*ny;if(vn<0){car.vx-=1.5*vn*nx;car.vy-=1.5*vn*ny;car.w+=(Math.random()-.5)*vn*0.3;}}}
+
+  // dust: regolith follows ballistic arcs (no air), slow fall
+  const slide=Math.abs(slipR)+Math.abs(slipF);
+  if(onGround&&speed>3&&(slide>0.12||off||throttle&&Math.abs(FxR)>=mu*Nr*0.99)){
+    for(let i=0;i<2;i++){const rx=car.x-cs*P.cgToRear+(i?-1:1)*sn*P.halfWidth,ry=car.y-sn*P.cgToRear-(i?-1:1)*cs*P.halfWidth;
+      dust.push({x:rx,y:ry,z:0,vx:car.vx*0.3+(Math.random()-.5)*4,vy:car.vy*0.3+(Math.random()-.5)*4,vz:1+Math.random()*3});}
+  }
+  for(const d of dust){d.x+=d.vx*dt;d.y+=d.vy*dt;d.vz-=G*dt;d.z+=d.vz*dt;}
+  for(let i=dust.length-1;i>=0;i--)if(dust[i].z<0)dust.splice(i,1);
+  if(dust.length>1500)dust.splice(0,dust.length-1500);
+
+  // checkpoints & laps
+  const cp=checkpoints[car.next];
+  if(Math.hypot(car.x-cp.x,car.y-cp.y)<TRACK_W+4){
+    car.next=(car.next+1)%checkpoints.length;
+    if(car.next===1){const t=(performance.now()-car.lapStart)/1000;car.lastLap=t;if(!car.best||t<car.best)car.best=t;car.lap++;car.lapStart=performance.now();}
+  }
+  return {lvx,rcs,off,Nf,Nr,throttle};
+}
+
+// ---------- rendering ----------
+let cam={x:0,y:0,zoom:9,rot:0}, info={};
+function draw(){
+  const speed=Math.hypot(car.vx,car.vy);
+  cam.x+=(car.x+car.vx*0.4-cam.x)*0.1; cam.y+=(car.y+car.vy*0.4-cam.y)*0.1;
+  const tz=10/(1+speed*0.03); cam.zoom+=(tz-cam.zoom)*0.03;
+  let dr=-car.h-Math.PI/2-cam.rot; dr=Math.atan2(Math.sin(dr),Math.cos(dr)); cam.rot+=dr*0.05;
+
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  for(const s of stars){ctx.fillStyle=`rgba(255,255,255,${s.b*0.8})`;ctx.fillRect(s.x*W,s.y*H,1.2,1.2);}
+  // earth in the sky corner
+  const g=ctx.createRadialGradient(W-120,110,5,W-110,120,46);g.addColorStop(0,'#8cf');g.addColorStop(.6,'#2a6bb0');g.addColorStop(1,'#0a1a33');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(W-110,120,44,0,7);ctx.fill();
+
+  ctx.save();ctx.translate(W/2,H*0.62);ctx.scale(cam.zoom,cam.zoom);ctx.rotate(cam.rot);ctx.translate(-cam.x,-cam.y);
+  // ground patch
+  ctx.fillStyle='#5b5a58';ctx.fillRect(-600,-500,1300,1200);
+  for(const c of craters){ctx.fillStyle='rgba(0,0,0,0.22)';ctx.beginPath();ctx.arc(c.x+c.r*.15,c.y+c.r*.15,c.r,0,7);ctx.fill();
+    ctx.strokeStyle='rgba(200,200,195,0.35)';ctx.lineWidth=Math.max(.3,c.r*.08);ctx.beginPath();ctx.arc(c.x,c.y,c.r,0,7);ctx.stroke();}
+  // track
+  ctx.lineJoin='round';ctx.lineCap='round';
+  const path=()=>{ctx.beginPath();track.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();};
+  path();ctx.strokeStyle='#8a8884';ctx.lineWidth=TRACK_W*2;ctx.stroke();
+  path();ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=0.3;ctx.setLineDash([3,4]);ctx.stroke();ctx.setLineDash([]);
+  // checkpoints
+  checkpoints.forEach((c,i)=>{ctx.strokeStyle=i===car.next?'#4f8':i===0?'#fff':'rgba(255,255,255,.2)';ctx.lineWidth=.6;ctx.beginPath();ctx.arc(c.x,c.y,TRACK_W+4,0,7);ctx.stroke();});
+  for(const r of rocks){ctx.fillStyle='#3c3b39';ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,7);ctx.fill();}
+  // dust (height as vertical offset + shadow)
+  for(const d of dust){ctx.fillStyle='rgba(0,0,0,.15)';ctx.fillRect(d.x,d.y,.25,.25);ctx.fillStyle='rgba(210,205,195,.7)';ctx.fillRect(d.x,d.y-d.z*.5,.3,.3);}
+  // car shadow + body (lifted when airborne)
+  ctx.save();ctx.translate(car.x+car.z*.6,car.y+car.z*.6);ctx.rotate(car.h);ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(-P.cgToRear-.3,-1.1,P.cgToRear+P.cgToFront+.6,2.2);ctx.restore();
+  ctx.save();ctx.translate(car.x,car.y);ctx.rotate(car.h);const s=1+car.z*0.08;ctx.scale(s,s);
+  ctx.fillStyle='#111';
+  for(const [wx,st] of [[P.cgToFront,car.steer],[-P.cgToRear,0]])for(const sy of[-1,1]){ctx.save();ctx.translate(wx,sy*P.halfWidth);ctx.rotate(st);ctx.fillRect(-.4,-.18,.8,.36);ctx.restore();}
+  ctx.fillStyle='#e8e2d0';ctx.fillRect(-P.cgToRear-.2,-.75,P.cgToRear+P.cgToFront+.4,1.5);
+  ctx.fillStyle='#c33';ctx.fillRect(-.3,-.75,.4,1.5);
+  ctx.fillStyle='#246';ctx.fillRect(.3,-.55,.8,1.1);
+  if(info.rcs){ctx.fillStyle='rgba(120,200,255,.8)';for(const[a,b]of[[1.3,.8],[1.3,-.8],[-1.4,.8],[-1.4,-.8]]){ctx.beginPath();ctx.arc(a,b,.25+Math.random()*.15,0,7);ctx.fill();}}
+  ctx.restore();
+  ctx.restore();
+
+  // HUD
+  const t=(performance.now()-car.lapStart)/1000;
+  const fmt=v=>v==null?'--.--':v.toFixed(2);
+  const gf=Math.hypot(car.ax,car.ay)/9.81;
+  document.getElementById('hud').textContent=
+`SPEED  ${(speed*3.6).toFixed(0).padStart(3)} km/h
+LAP    ${car.lap+1}   TIME ${fmt(t)}
+LAST   ${fmt(car.lastLap)}   BEST ${fmt(car.best)}
+GRAVITY ${G} m/s²   ACCEL ${gf.toFixed(2)} g
+LOAD   F ${(info.Nf|0)} N  R ${(info.Nr|0)} N
+SLIP   F ${(car.slipF*57.3).toFixed(0)}°  R ${(car.slipR*57.3).toFixed(0)}°
+${car.z>0.05?'AIRBORNE  '+car.z.toFixed(1)+' m':''}${info.off?'  LOOSE REGOLITH':''}${info.rcs?'  RCS':''}`;
+}
+
+let last=performance.now(), acc=0;
+function loop(now){
+  acc+=Math.min(0.1,(now-last)/1000); last=now;
+  while(acc>=1/240){info=step(1/240); acc-=1/240;}
+  draw(); requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
