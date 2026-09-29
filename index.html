@@ -145,6 +145,80 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
 #modalMsg{font-size:12px;color:var(--dim);min-height:16px}
 #progRival{position:absolute;top:-2px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#ff4fd8;opacity:.8;box-shadow:0 0 8px #ff4fd8}
 #finRally{margin-top:8px}
+/* home screen */
+#home{justify-content:flex-start;background:linear-gradient(90deg,rgba(3,5,12,.88),rgba(3,5,12,.45) 55%,rgba(3,5,12,.7))}
+.home-wrap{display:flex;gap:48px;align-items:center;justify-content:center;flex-wrap:wrap;width:min(1240px,100%);margin:auto 0;padding-bottom:24px}
+.home-main{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+.home-main .logo{text-align:left;font-size:clamp(40px,5.6vw,76px)}
+.home-main .tagline{text-align:left;margin:10px 0 26px}
+.home-nav{display:flex;flex-direction:column;gap:10px;width:min(420px,92vw)}
+.hbtn{pointer-events:auto;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1px solid var(--line);border-left:4px solid transparent;
+  background:rgba(7,10,20,.6);border-radius:10px;padding:12px 18px;transition:transform .12s,border-color .12s,background .12s}
+.hbtn b{font-size:24px;font-weight:900;font-style:italic;letter-spacing:.08em}
+.hbtn small{font-size:11px;color:var(--dim);letter-spacing:.1em;font-weight:700}
+.hbtn:hover,.hbtn.sel{transform:translateX(8px);border-color:var(--accent);background:rgba(255,181,46,.12)}
+.hbtn.sel b{color:var(--accent)}
+.home-main .toggles{justify-content:flex-start;margin-top:18px}
+.home-foot{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.24em;font-weight:800;color:var(--dim)}
+.ride{width:min(340px,92vw);text-align:left;padding:18px 20px}
+.ride h4{margin:0 0 10px;font-size:11px;letter-spacing:.24em;color:var(--accent)}
+.ride-head{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.ride-head img{width:84px;height:84px;border-radius:12px;border:2px solid var(--line);flex:none}
+.ride-head b{display:block;font-size:24px;font-style:italic;font-weight:900;letter-spacing:.04em}
+.ride-head small{display:block;font-size:10px;letter-spacing:.2em;color:var(--dim);font-weight:800}
+.ride-parts{font-size:11px;letter-spacing:.08em;color:#c9d2e6;font-weight:700;margin-top:6px;line-height:1.5}
+.sbars{display:flex;flex-direction:column;gap:6px}
+.sbar{display:grid;grid-template-columns:78px 1fr;align-items:center;gap:8px;font-size:10px;letter-spacing:.14em;font-weight:900;color:var(--dim)}
+.segs{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+.segs i{height:9px;border-radius:2px;background:rgba(255,255,255,.1)}
+.segs i.f{background:linear-gradient(180deg,#ffd06a,var(--accent))}
+.segs i.up{background:var(--good)} .segs i.dn{background:var(--bad);opacity:.8}
+.ride .btn{margin:14px 0 0;width:100%}
+/* stage select header */
+.sel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(1000px,100%);margin-bottom:18px}
+.sel-title{font-size:clamp(24px,4vw,40px);font-weight:900;font-style:italic;letter-spacing:.06em}
+.ride-chip{max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* garage */
+#garage{background:linear-gradient(90deg,rgba(3,5,12,.7),rgba(3,5,12,0) 45%);padding:0;pointer-events:auto;cursor:grab;overflow:hidden}
+.gar-top{position:absolute;top:14px;left:16px;right:16px;display:flex;align-items:center;gap:14px;pointer-events:none}
+.gar-top>*{pointer-events:auto}
+.gar-top h2{margin:0;font-size:30px;font-style:italic;font-weight:900;letter-spacing:.06em}
+.gar-hint{margin-left:auto;font-size:10px;letter-spacing:.2em;font-weight:800;color:var(--dim)}
+.gar-panel{position:absolute;left:16px;top:66px;bottom:16px;width:min(440px,calc(42vw - 20px));padding:14px;display:flex;flex-direction:column;text-align:left;cursor:default}
+.gar-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px}
+.gar-tabs button{pointer-events:auto;flex:1;min-width:64px;border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:8px;padding:9px 4px;font-size:11px;font-weight:900;letter-spacing:.12em;color:var(--dim)}
+.gar-tabs button.on{background:var(--accent);border-color:var(--accent);color:#1a1204}
+.gar-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow:auto;flex:1;align-content:start;padding:2px}
+.gar-opts.pilot{grid-template-columns:repeat(3,1fr)}
+.gar-opts.color{grid-template-columns:repeat(4,1fr)}
+.gtile{pointer-events:auto;text-align:left;border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:10px;padding:10px;transition:border-color .12s,transform .12s}
+.gtile:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.35)}
+.gtile.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 6px 24px rgba(255,181,46,.18)}
+.gtile b{display:block;font-size:13px;font-weight:900;font-style:italic;letter-spacing:.06em}
+.gtile small{display:block;font-size:9px;letter-spacing:.18em;color:var(--dim);font-weight:800}
+.gtile.pt{text-align:center;padding:6px}
+.gtile.pt img{width:100%;aspect-ratio:1;border-radius:8px;display:block;margin-bottom:5px}
+.gtile.sw{text-align:center;padding:8px 4px}
+.gtile.sw i{display:block;width:38px;height:38px;margin:0 auto 6px;border-radius:50%;background:var(--c);border:2px solid rgba(255,255,255,.3)}
+.gtile.sw b{font-size:10px}
+.chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+.chips em{font-style:normal;font-size:8.5px;letter-spacing:.08em;font-weight:900;padding:2px 5px;border-radius:4px;background:rgba(255,255,255,.08);color:var(--dim)}
+.chips em.up{color:var(--good);background:rgba(61,255,138,.1)} .chips em.dn{color:var(--bad);background:rgba(255,77,94,.1)}
+.gar-desc{font-size:12px;line-height:1.5;color:#c9d2e6;margin-top:10px;min-height:36px}
+.gar-desc b{color:var(--accent);margin-right:4px}
+.gar-stats{position:absolute;right:16px;top:60px;width:min(320px,34vw);padding:14px 16px;text-align:left;cursor:default}
+.gar-stats .ride-head img{width:56px;height:56px}
+.gar-stats .ride-head b{font-size:20px}
+@media (max-width:760px){
+  .home-wrap{gap:18px} .home-main{align-items:center} .home-main .logo,.home-main .tagline{text-align:center} .home-main .toggles{justify-content:center}
+  .hbtn{padding:9px 14px} .hbtn b{font-size:19px} .ride{padding:12px 14px} .home-foot{display:none}
+  .gar-hint{display:none}
+  .gar-panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:48vh}
+  .gar-stats{top:60px;right:8px;bottom:auto;width:min(230px,56vw);padding:8px 10px;transform-origin:top right}
+  .gar-stats .ride-head{margin-bottom:6px} .gar-stats .ride-head img{width:36px;height:36px} .gar-stats .ride-parts{display:none}
+  .sbar{grid-template-columns:62px 1fr;font-size:8.5px} .segs i{height:6px}
+  .gar-opts.pilot{grid-template-columns:repeat(3,1fr)}
+}
 /* centre panels when they fit, scroll (never clip) when they don't */
 .overlay>.panel{margin:auto 0}
 #loading{justify-content:center}
@@ -235,9 +309,47 @@ body.touch #stageName{display:none}
   </div>
 
   <!-- ======================= MENU / STAGE SELECT ======================= -->
+  <div id="home" class="overlay hidden">
+    <div class="home-wrap">
+      <div class="home-main">
+        <div class="logo">REGOLITH <span>RALLY</span></div>
+        <div class="tagline">POINT-TO-POINT STAGES ACROSS THE OUTER SYSTEM</div>
+        <div class="home-nav" id="homeNav">
+          <button class="hbtn" data-go="play"><b>PLAY</b><small>Pick a stage and race the clock</small></button>
+          <button class="hbtn" data-go="rally"><b>RALLY</b><small id="homeRally">All three stages back to back</small></button>
+          <button class="hbtn" data-go="garage"><b>GARAGE</b><small>Pilot, body, engine, wheels and paint</small></button>
+          <button class="hbtn" data-go="code"><b>STAGE CODE</b><small>Load a friend's stage or ghost</small></button>
+        </div>
+        <div class="toggles">
+          <button class="tog" id="hSound">SOUND</button>
+          <button class="tog" id="hVoice">CO-DRIVER VOICE</button>
+          <button class="tog" id="hGhost">GHOST</button>
+          <button class="tog" id="hCam">BUMPER CAM</button>
+        </div>
+      </div>
+      <div class="panel ride" id="homeRide"></div>
+    </div>
+    <div class="home-foot">&uarr; &darr; CHOOSE &nbsp;·&nbsp; ENTER SELECT &nbsp;·&nbsp; GAMEPAD D-PAD + A</div>
+  </div>
+
+  <!-- ======================= GARAGE ======================= -->
+  <div id="garage" class="overlay hidden">
+    <div class="gar-top"><button class="mini" id="garBack">&#9666; DONE</button><h2>GARAGE</h2><span class="gar-hint">&uarr;&darr; PART &nbsp; &larr;&rarr; CHOOSE &nbsp; DRAG TO SPIN</span></div>
+    <div class="panel gar-panel">
+      <div class="gar-tabs" id="garTabs"></div>
+      <div class="gar-opts" id="garOpts"></div>
+      <div class="gar-desc" id="garDesc"></div>
+    </div>
+    <div class="panel gar-stats" id="garStats"></div>
+  </div>
+
+  <!-- ======================= STAGE SELECT ======================= -->
   <div id="menu" class="overlay hidden">
-    <div class="logo">REGOLITH <span>RALLY</span></div>
-    <div class="tagline">POINT-TO-POINT STAGES ACROSS THE OUTER SYSTEM</div>
+    <div class="sel-head">
+      <button class="mini" id="homeBtn">&#9666; HOME</button>
+      <div class="sel-title">STAGE SELECT</div>
+      <button class="mini ride-chip" id="selGarage"></button>
+    </div>
     <div id="cards"></div>
     <div class="coderow">
       STAGE CODE <b id="stageCode">RR-L-1969</b><button class="mini" id="copyCode">COPY</button>
@@ -312,6 +424,7 @@ body.touch #stageName{display:none}
       <div id="svcRally" class="svc-rally hidden"></div>
       <div id="svcRows"></div>
       <div class="sub" id="svcHint" style="text-align:center;margin-top:6px"></div>
+      <div class="sub" id="svcRide" style="text-align:center;margin-top:6px"></div>
       <div class="row">
         <button class="btn alt" id="svcRec">USE RECOMMENDED &#9733;</button>
         <button class="btn" id="svcGo">TO THE START &#9656;</button>
@@ -451,7 +564,7 @@ function fmtDelta(d) { return (d < 0 ? '-' : '+') + Math.abs(d).toFixed(2); }
 const Store = {
   key: 'regolithRally.v1',
   data: { best: {}, settings: { muted: false, voice: true, ghost: true, cam: 'chase', name: 'DRIVER' },
-    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null },
+    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null },
   load() {
     try {
       const raw = window.localStorage.getItem(this.key);
@@ -462,6 +575,7 @@ const Store = {
         if (d.settings && typeof d.settings === 'object') Object.assign(this.data.settings, d.settings);
         for (const k of ['targets', 'setups', 'boards', 'rival']) if (d[k] && typeof d[k] === 'object') this.data[k] = d[k];
         if (d.rallyBest && typeof d.rallyBest === 'object') this.data.rallyBest = d.rallyBest;
+        this.data.garage = d.garage;
       }
     } catch (e) { /* storage unavailable or corrupt: play without persistence */ }
   },
@@ -470,7 +584,7 @@ const Store = {
     catch (e) {
       // Probably quota: retry without ghost replays, which are the bulk of the data.
       try {
-        const slim = { best: {}, settings: this.data.settings, targets: this.data.targets, setups: this.data.setups, rallyBest: this.data.rallyBest, boards: {}, rival: {} };
+        const slim = { best: {}, settings: this.data.settings, targets: this.data.targets, setups: this.data.setups, rallyBest: this.data.rallyBest, garage: this.data.garage, boards: {}, rival: {} };
         for (const k in this.data.boards) slim.boards[k] = this.data.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own }));
         for (const k in this.data.best) { const b = this.data.best[k]; slim.best[k] = { time: b.time, splits: b.splits }; }
         window.localStorage.setItem(this.key, JSON.stringify(slim));
@@ -604,9 +718,66 @@ const TUNE = {
 };
 const RECOMMENDED = [{ susp: 0, gear: 2, tyre: 0 }, { susp: 1, gear: 0, tyre: 1 }, { susp: 2, gear: 0, tyre: 2 }];
 const DEFAULT_SETUP = { susp: 1, gear: 1, tyre: 0 };
-function tuneFor(setup) {
+/* ---- garage: pilot + vehicle parts (chosen in the garage, kept for every stage) ----
+   Each option shifts six stats from a neutral 5. The default build (NOVA, ROVER, TWIN ION,
+   STANDARD) is all zeros, so it drives exactly like the original buggy. */
+const STAT_KEYS = ['spd', 'acc', 'han', 'grip', 'wgt', 'bst'];
+const STAT_NAMES = { spd: 'SPEED', acc: 'ACCEL', han: 'HANDLING', grip: 'GRIP', wgt: 'WEIGHT', bst: 'BOOST' };
+const st6 = (spd, acc, han, grip, wgt, bst) => ({ spd, acc, han, grip, wgt, bst });
+const GARAGE = {
+  pilot: { label: 'PILOT', opts: [
+    { name: 'NOVA', cls: 'MEDIUM', kind: 'astro', suit: '#f2f4f8', trim: '#ff7a1a', visor: '#ffb52e', bg: '#27406e', blurb: 'Rookie astronaut. Balanced at everything.', s: st6(0, 0, 0, 0, 0, 0) },
+    { name: 'ZIX', cls: 'LIGHT', kind: 'alien', suit: '#7ee05a', trim: '#2f7a2a', visor: '#101418', bg: '#3b1f5e', blurb: 'Tiny and twitchy. Quick off the line, gets knocked about.', s: st6(-1, 1, 1, 0, -2, 0) },
+    { name: 'BOLT-9', cls: 'HEAVY', kind: 'robot', suit: '#9aa6b8', trim: '#3a4150', visor: '#58f0ff', bg: '#16324a', blurb: 'Retired loader bot. Heavy, fast, slow to get going.', s: st6(1, -1, -1, 0, 2, 0) },
+    { name: 'MISO', cls: 'LIGHT', kind: 'cat', suit: '#ffb36b', trim: '#ffffff', visor: '#8ef0ff', bg: '#5e2a3a', blurb: 'Station cat with sharp reflexes and sure paws.', s: st6(-1, 1, 0, 1, -1, 0) },
+    { name: 'GRAVL', cls: 'HEAVY', kind: 'golem', suit: '#8a7f73', trim: '#5a5047', visor: '#ff9a3c', bg: '#3e2a1c', blurb: 'Living asteroid. Enormous top speed, shrugs off hits.', s: st6(2, -2, -1, 0, 3, -1) },
+    { name: 'PIP', cls: 'FEATHER', kind: 'drone', suit: '#e8ecf2', trim: '#ff4fd8', visor: '#ff4fd8', bg: '#1d3a3a', blurb: 'Survey drone. Explosive acceleration, loves to boost.', s: st6(-2, 2, 1, 0, -3, 1) },
+  ] },
+  body: { label: 'BODY', opts: [
+    { name: 'ROVER', blurb: 'The classic rally buggy.', s: st6(0, 0, 0, 0, 0, 0) },
+    { name: 'DART', blurb: 'Low wedge. Slippery and sharp, but light on grip.', s: st6(1, 0, 1, -1, -1, 0) },
+    { name: 'BRUISER', blurb: 'Armoured hauler. Planted and tough, a bit lazy.', s: st6(0, -1, -1, 1, 2, 0) },
+    { name: 'SKIFF', blurb: 'Open tube frame. Weighs nothing, jumps off the line.', s: st6(-1, 2, 1, 0, -2, 0) },
+  ] },
+  engine: { label: 'ENGINE', opts: [
+    { name: 'TWIN ION', flame: 0x6fdcff, blurb: 'Two reliable ion thrusters.', s: st6(0, 0, 0, 0, 0, 0) },
+    { name: 'PULSE ROCKET', flame: 0xffa040, blurb: 'One huge nozzle. Top speed first, everything else later.', s: st6(2, -1, 0, 0, 1, -1) },
+    { name: 'ARC COIL', flame: 0xb58cff, blurb: 'Electric coils. Instant torque, runs out of puff.', s: st6(-1, 2, 0, 0, 0, 0) },
+    { name: 'NOVA BURNER', flame: 0xff5a8a, blurb: 'Quad afterburners. Stronger boost that refills faster.', s: st6(0, -1, 0, 0, 0, 2) },
+  ] },
+  wheels: { label: 'WHEELS', opts: [
+    { name: 'STANDARD', blurb: 'All-round rally tyres.', s: st6(0, 0, 0, 0, 0, 0) },
+    { name: 'CRAWLER', blurb: 'Big knobbly tyres. Huge grip, a little slow to turn.', s: st6(-1, 0, -1, 2, 1, 0) },
+    { name: 'SLICK ROLLER', blurb: 'Low-profile slicks. Fast and precise, slides easily.', s: st6(1, 0, 1, -2, 0, 0) },
+    { name: 'HOVER PADS', blurb: 'Grav pads instead of wheels. Nimble, a little floaty.', s: st6(0, 1, 2, -1, -1, 0) },
+  ] },
+  color: { label: 'PAINT', opts: [
+    { name: 'BLAZE', hex: 0xff7a1a }, { name: 'NEBULA', hex: 0x8b5cff }, { name: 'COMET', hex: 0x19c8e6 }, { name: 'SOLAR', hex: 0xffd21f },
+    { name: 'MARS', hex: 0xe8322e }, { name: 'AURORA', hex: 0x2ee07a }, { name: 'VOID', hex: 0x2a2d36 }, { name: 'LUNAR', hex: 0xe9edf2 },
+  ] },
+};
+const GARAGE_KEYS = ['pilot', 'body', 'engine', 'wheels', 'color'];
+const DEFAULT_BUILD = { pilot: 0, body: 0, engine: 0, wheels: 0, color: 0 };
+function cleanBuild(b) {
+  const out = Object.assign({}, DEFAULT_BUILD);
+  if (b && typeof b === 'object') for (const k of GARAGE_KEYS) { const v = b[k]; if (Number.isInteger(v) && v >= 0 && v < GARAGE[k].opts.length) out[k] = v; }
+  return out;
+}
+/** Stats on a 1..10 scale (5 = the original buggy). */
+function buildStats(build) {
+  const s = {};
+  for (const k of STAT_KEYS) {
+    let v = 5;
+    for (const part of ['pilot', 'body', 'engine', 'wheels']) v += GARAGE[part].opts[build[part]].s[k];
+    s[k] = clamp(v, 1, 10);
+  }
+  return s;
+}
+function tuneFor(setup, build) {
   const su = TUNE.susp[setup.susp], g = TUNE.gear[setup.gear];
-  return { k: su.k, c: su.c, land: su.land, a: g.a, v: g.v, mu: TUNE.tyre[setup.tyre] };
+  const s = buildStats(build || DEFAULT_BUILD), gripF = 1 + (s.grip - 5) * 0.025;
+  return { k: su.k, c: su.c, land: su.land + (s.wgt - 5) * 0.12, a: g.a * (1 + (s.acc - 5) * 0.05), v: g.v * (1 + (s.spd - 5) * 0.022),
+    mu: TUNE.tyre[setup.tyre].map((m) => m * gripF), steer: 1 + (s.han - 5) * 0.035, boost: 1 + (s.bst - 5) * 0.08, dmg: 1 - (s.wgt - 5) * 0.06 };
 }
 
 /* =============================================================================
@@ -2218,7 +2389,7 @@ const car = {
   damage: 0, boost: 0.5, boosting: false, drifting: false, slip: 0, hullContact: false,
   events: [], flipTimer: 0, offTimer: 0, globalTimer: 0, tune: null,
 };
-car.tune = tuneFor(DEFAULT_SETUP);
+car.tune = tuneFor(DEFAULT_SETUP, DEFAULT_BUILD);
 const AX = new THREE.Vector3(), AY = new THREE.Vector3(), AZ = new THREE.Vector3();
 const F = new THREE.Vector3(), T = new THREE.Vector3();
 const _r = new THREE.Vector3(), _vp = new THREE.Vector3(), _fw = new THREE.Vector3(), _lt = new THREE.Vector3(), _cp = new THREE.Vector3();
@@ -2240,7 +2411,7 @@ function stepVehicle(dt, ctl) {
   carAxes();
   F.set(0, -m * g, 0); T.set(0, 0, 0);
   const vLongBody = car.vel.dot(AZ);
-  const steerMax = CAR.maxSteer / (1 + Math.abs(vLongBody) * CAR.steerFalloff);
+  const steerMax = CAR.maxSteer * car.tune.steer / (1 + Math.abs(vLongBody) * CAR.steerFalloff);
   car.steerAngle = damp(car.steerAngle, -ctl.steer * steerMax, 12, dt);
   const tn = car.tune;
   const kS = m * def.suspG * tn.k / (4 * 0.2), cD = 2 * def.damping * tn.c * Math.sqrt(kS * m / 4);
@@ -2341,7 +2512,7 @@ function stepVehicle(dt, ctl) {
     }
   }
   // 4) boost thrusters work anywhere — including mid-air
-  if (car.boosting && vLongBody < CAR.vmax * CAR.boostVmax * dmgF * tn.v) F.addScaledVector(AZ, m * CAR.boostAccel);
+  if (car.boosting && vLongBody < CAR.vmax * CAR.boostVmax * dmgF * tn.v) F.addScaledVector(AZ, m * CAR.boostAccel * tn.boost);
   // 5) air control + landing detection
   if (nG === 0) {
     car.airTime += dt;
@@ -2422,7 +2593,7 @@ function stepVehicle(dt, ctl) {
   const vl = car.vel.dot(AZ), vs = car.vel.dot(AX);
   car.slip = Math.atan2(Math.abs(vs), Math.abs(vl) + 0.01);
   car.drifting = nG >= 2 && car.speed > 9 && vl > 5 && car.slip > 0.18;
-  if (car.drifting && Game.state === 'racing') car.boost = Math.min(1, car.boost + dt * 0.24 * Math.min(1.5, (car.slip - 0.18) * 3 + 0.45));
+  if (car.drifting && Game.state === 'racing') car.boost = Math.min(1, car.boost + car.tune.boost * dt * 0.24 * Math.min(1.5, (car.slip - 0.18) * 3 + 0.45));
 }
 
 function collideObstacles() {
@@ -2501,59 +2672,133 @@ function placeCar(s, d, speed) {
 }
 
 /* ---- vehicle model ---- */
-function buildCarModel(accentHex) {
+function buildCarModel(build) {
+  build = cleanBuild(build);
+  const accentHex = GARAGE.color.opts[build.color].hex, pilot = GARAGE.pilot.opts[build.pilot], engine = GARAGE.engine.opts[build.engine];
+  const body = build.body, wheelKind = build.wheels;
   const g = new THREE.Group();
   const paint = new THREE.MeshStandardMaterial({ color: accentHex, metalness: 0.45, roughness: 0.32 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x1b1e24, metalness: 0.5, roughness: 0.55 });
   const trim = new THREE.MeshStandardMaterial({ color: 0xcfd5de, metalness: 0.85, roughness: 0.25 });
-  const glass = new THREE.MeshStandardMaterial({ color: 0x0c2036, metalness: 0.9, roughness: 0.06, envMapIntensity: 2.2 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x0c2036, metalness: 0.9, roughness: 0.06, envMapIntensity: 2.2, transparent: true, opacity: 0.55, depthWrite: false });
   const rubber = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.92, flatShading: true });
   const headMat = new THREE.MeshBasicMaterial({ color: 0xe6f8ff, toneMapped: false });
   const tailMat = new THREE.MeshBasicMaterial({ color: 0x551015, toneMapped: false });
   const accentCss = '#' + new THREE.Color(accentHex).getHexString();
+  const numCss = new THREE.Color(accentHex).getHSL({}).l > 0.6 ? '#15171b' : '#f2f2f2';
   const livery = makeCanvas(256, 128, (c, w, h) => {
     c.fillStyle = accentCss; c.fillRect(0, 0, w, h);
     c.fillStyle = '#15171b'; c.fillRect(0, h * 0.64, w, h * 0.12);
-    c.fillStyle = '#f2f2f2'; c.fillRect(0, h * 0.77, w, h * 0.05);
-    c.beginPath(); c.arc(w * 0.5, h * 0.34, 32, 0, TAU); c.fill();
-    c.fillStyle = '#111'; c.font = 'italic 900 42px "Segoe UI", system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('07', w * 0.5, h * 0.35);
+    c.fillStyle = pilot.trim; c.fillRect(0, h * 0.77, w, h * 0.05);
+    c.fillStyle = numCss; c.beginPath(); c.arc(w * 0.5, h * 0.34, 32, 0, TAU); c.fill();
+    c.fillStyle = numCss === '#f2f2f2' ? '#111' : '#f2f2f2'; c.font = 'italic 900 42px "Segoe UI", system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(String(build.pilot * 11 + 7).padStart(2, '0'), w * 0.5, h * 0.35);
   });
   const side = new THREE.MeshStandardMaterial({ map: livery, metalness: 0.45, roughness: 0.32 });
   const add = (geo, mat, x, y, z, rx, ry, rz) => {
     const mm = new THREE.Mesh(geo, mat); mm.position.set(x, y, z); mm.rotation.set(rx || 0, ry || 0, rz || 0);
     mm.castShadow = true; mm.receiveShadow = true; g.add(mm); return mm;
   };
-  add(new THREE.BoxGeometry(1.9, 0.46, 3.6), [side, side, paint, dark, paint, paint], 0, -0.02, 0);
-  add(new THREE.BoxGeometry(1.7, 0.12, 3.9), dark, 0, -0.3, 0.05);
-  add(new THREE.BoxGeometry(1.8, 0.28, 1.0), paint, 0, 0.12, 1.72, 0.32, 0, 0);
-  add(new THREE.BoxGeometry(1.5, 0.34, 1.7), dark, 0, 0.36, -0.28);
-  const canopy = add(new THREE.SphereGeometry(0.82, 20, 12, 0, TAU, 0, Math.PI / 2), glass, 0, 0.5, 0.05);
-  canopy.scale.set(0.9, 0.62, 1.25);
-  for (const z of [-0.62, 0.72]) { const hoop = add(new THREE.TorusGeometry(0.76, 0.045, 6, 16, Math.PI), trim, 0, 0.5, z); hoop.scale.y = 0.78; }
-  add(new THREE.BoxGeometry(0.06, 0.06, 1.4), trim, 0, 1.08, 0.05);
-  add(new THREE.BoxGeometry(1.35, 0.5, 0.8), dark, 0, 0.3, -1.55);
-  add(new THREE.BoxGeometry(2.1, 0.07, 0.42), paint, 0, 0.72, -1.85);              // rear wing
-  for (const sx of [-0.8, 0.8]) add(new THREE.BoxGeometry(0.06, 0.34, 0.3), dark, sx, 0.55, -1.85);
-  for (const cw of CAR.wheels) add(new THREE.BoxGeometry(0.52, 0.1, 1.08), paint, cw.x * 0.98, 0.26, cw.z);
-  for (const sx of [-0.6, 0.6]) add(new THREE.BoxGeometry(0.42, 0.13, 0.06), headMat, sx, 0.08, 2.08);
-  add(new THREE.BoxGeometry(1.1, 0.1, 0.16), headMat, 0, 0.86, 0.72);             // roof light bar
-  for (const sx of [-0.72, 0.72]) add(new THREE.BoxGeometry(0.34, 0.12, 0.06), tailMat, sx, 0.12, -1.82);
+  const tube = (x0, y0, z0, x1, y1, z1, r, mat) => {       // straight tube between two points
+    const a = new THREE.Vector3(x0, y0, z0), b = new THREE.Vector3(x1, y1, z1), len = a.distanceTo(b);
+    const mm = add(new THREE.CylinderGeometry(r, r, len, 6), mat, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    mm.quaternion.setFromUnitVectors(UP, b.sub(a).normalize());
+    return mm;
+  };
+  // ---- body shell (physics hull is shared; only the look changes) ----
+  let seatY = 0.5, seatZ = 0.05, rearZ = -2.02, thrY = 0.34, lightZ = 2.08, lightY = 0.08;
+  if (body === 0) {            // ROVER: the original buggy
+    add(new THREE.BoxGeometry(1.9, 0.46, 3.6), [side, side, paint, dark, paint, paint], 0, -0.02, 0);
+    add(new THREE.BoxGeometry(1.7, 0.12, 3.9), dark, 0, -0.3, 0.05);
+    add(new THREE.BoxGeometry(1.8, 0.28, 1.0), paint, 0, 0.12, 1.72, 0.32, 0, 0);
+    add(new THREE.BoxGeometry(1.5, 0.34, 1.7), dark, 0, 0.36, -0.28);
+    const canopy = add(new THREE.SphereGeometry(0.82, 20, 12, 0, TAU, 0, Math.PI / 2), glass, 0, 0.5, 0.05);
+    canopy.scale.set(0.9, 0.62, 1.25); canopy.userData.keep = true; canopy.castShadow = false;
+    for (const z of [-0.62, 0.72]) { const hoop = add(new THREE.TorusGeometry(0.76, 0.045, 6, 16, Math.PI), trim, 0, 0.5, z); hoop.scale.y = 0.78; }
+    add(new THREE.BoxGeometry(0.06, 0.06, 1.4), trim, 0, 1.08, 0.05);
+    add(new THREE.BoxGeometry(1.35, 0.5, 0.8), dark, 0, 0.3, -1.55);
+    add(new THREE.BoxGeometry(2.1, 0.07, 0.42), paint, 0, 0.72, -1.85);              // rear wing
+    for (const sx of [-0.8, 0.8]) add(new THREE.BoxGeometry(0.06, 0.34, 0.3), dark, sx, 0.55, -1.85);
+    for (const cw of CAR.wheels) add(new THREE.BoxGeometry(0.52, 0.1, 1.08), paint, cw.x * 0.98, 0.26, cw.z);
+    add(new THREE.BoxGeometry(1.1, 0.1, 0.16), headMat, 0, 0.86, 0.72);             // roof light bar
+  } else if (body === 1) {     // DART: low wedge with a tall tail fin
+    add(new THREE.BoxGeometry(1.8, 0.34, 3.4), [side, side, paint, dark, paint, paint], 0, -0.1, -0.15);
+    add(new THREE.BoxGeometry(1.66, 0.1, 4.1), dark, 0, -0.32, 0.05);
+    const nose = add(new THREE.CylinderGeometry(0.02, 0.9, 1.3, 4, 1), paint, 0, -0.06, 2.0, Math.PI / 2, Math.PI / 4, 0);
+    nose.scale.set(1, 1, 0.3);
+    const canopy = add(new THREE.SphereGeometry(0.7, 20, 12, 0, TAU, 0, Math.PI / 2), glass, 0, 0.08, 0.2);
+    canopy.scale.set(0.95, 0.7, 1.6); canopy.userData.keep = true; canopy.castShadow = false;
+    seatY = -0.02; seatZ = 0.15;
+    add(new THREE.BoxGeometry(0.08, 0.7, 0.9), paint, 0, 0.42, -1.5, -0.35, 0, 0);    // tail fin
+    add(new THREE.BoxGeometry(2.3, 0.05, 0.5), dark, 0, 0.55, -1.8);                  // high wing
+    for (const sx of [-1.05, 1.05]) add(new THREE.BoxGeometry(0.06, 0.4, 0.5), paint, sx, 0.35, -1.8);
+    for (const cw of CAR.wheels) add(new THREE.BoxGeometry(0.48, 0.07, 1.0), dark, cw.x * 0.98, 0.18, cw.z);
+    for (const sx of [-0.75, 0.75]) add(new THREE.BoxGeometry(0.18, 0.05, 2.2), headMat, sx, 0.08, 0.2);   // side light strips
+    thrY = 0.1; rearZ = -1.95; lightY = -0.04; lightZ = 2.02;
+  } else if (body === 2) {     // BRUISER: armoured box with a roll cage and bull bar
+    add(new THREE.BoxGeometry(2.02, 0.62, 3.7), [side, side, paint, dark, paint, paint], 0, 0.05, 0);
+    add(new THREE.BoxGeometry(1.8, 0.14, 4.0), dark, 0, -0.3, 0.05);
+    add(new THREE.BoxGeometry(1.66, 0.5, 1.5), glass, 0, 0.6, -0.05).userData.keep = true;
+    add(new THREE.BoxGeometry(1.74, 0.08, 1.62), paint, 0, 0.88, -0.05);
+    seatY = 0.46;
+    for (const sx of [-0.86, 0.86]) for (const z of [-0.8, 0.7]) tube(sx, 0.35, z, sx, 0.9, z, 0.05, trim);
+    for (const z of [-0.8, 0.7]) tube(-0.86, 0.92, z, 0.86, 0.92, z, 0.05, trim);
+    tube(-0.9, -0.1, 2.12, 0.9, -0.1, 2.12, 0.07, trim);                            // bull bar
+    for (const sx of [-0.6, 0.6]) tube(sx, -0.25, 1.9, sx, 0.2, 2.12, 0.06, trim);
+    add(new THREE.BoxGeometry(1.3, 0.1, 0.12), headMat, 0, 0.98, 0.55);
+    for (const sx of [-0.45, -0.15, 0.15, 0.45]) add(new THREE.CylinderGeometry(0.08, 0.08, 0.06, 10), headMat, sx, 1.02, 0.66, Math.PI / 2, 0, 0);
+    for (const cw of CAR.wheels) add(new THREE.BoxGeometry(0.58, 0.12, 1.14), dark, cw.x * 1.0, 0.3, cw.z);
+    add(new THREE.BoxGeometry(1.5, 0.55, 0.7), dark, 0, 0.35, -1.6);
+    thrY = 0.38; rearZ = -2.08; lightY = 0.12; lightZ = 1.9;
+  } else {                     // SKIFF: open tube frame, pilot out in the vacuum
+    add(new THREE.BoxGeometry(1.5, 0.12, 3.8), dark, 0, -0.26, 0.05);
+    add(new THREE.BoxGeometry(1.2, 0.2, 1.1), [side, side, paint, dark, paint, paint], 0, -0.12, 1.5);
+    add(new THREE.BoxGeometry(0.9, 0.36, 0.7), dark, 0, 0.05, -0.2);                  // seat
+    add(new THREE.BoxGeometry(0.9, 0.7, 0.14), paint, 0, 0.35, -0.55);                // seat back
+    seatY = 0.42; seatZ = -0.2;
+    for (const sx of [-0.7, 0.7]) {
+      tube(sx, -0.2, 1.95, sx, 0.25, 0.9, 0.05, paint); tube(sx, 0.25, 0.9, sx, 0.95, -0.35, 0.05, paint);
+      tube(sx, 0.95, -0.35, sx, -0.2, -1.7, 0.05, paint); tube(sx, -0.2, 1.95, sx, -0.2, -1.7, 0.05, trim);
+    }
+    tube(-0.7, 0.95, -0.35, 0.7, 0.95, -0.35, 0.05, paint);
+    tube(-0.7, 0.25, 0.9, 0.7, 0.25, 0.9, 0.05, trim);
+    for (const cw of CAR.wheels) { tube(cw.x * 0.35, -0.2, cw.z, cw.x * 0.85, -0.3, cw.z, 0.06, trim); add(new THREE.BoxGeometry(0.44, 0.05, 0.8), paint, cw.x, 0.2, cw.z); }
+    add(new THREE.BoxGeometry(1.8, 0.06, 0.36), paint, 0, 0.62, -1.75);
+    for (const sx of [-0.6, 0.6]) tube(sx, 0.0, -1.55, sx, 0.62, -1.75, 0.04, trim);
+    thrY = 0.1; rearZ = -1.9; lightY = -0.05; lightZ = 2.0;
+  }
+  for (const sx of [-0.6, 0.6]) add(new THREE.BoxGeometry(0.42, 0.13, 0.06), headMat, sx, lightY, lightZ);
+  for (const sx of [-0.72, 0.72]) add(new THREE.BoxGeometry(0.34, 0.12, 0.06), tailMat, sx, thrY - 0.2, rearZ + 0.2);
   add(new THREE.CylinderGeometry(0.015, 0.015, 1.1, 4), trim, 0.62, 1.05, -1.45);
   const tip = add(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff3030, toneMapped: false }), 0.62, 1.62, -1.45);
   tip.userData.keep = true;
-  // thrusters with boost flames
-  const flameGeo = new THREE.ConeGeometry(0.2, 1.4, 12, 1, true); flameGeo.translate(0, 0.7, 0); flameGeo.rotateX(-Math.PI / 2);
-  const flameMat = new THREE.MeshBasicMaterial({ color: 0x6fdcff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
-  const nozzleMat = new THREE.MeshBasicMaterial({ color: 0xff8a3a, toneMapped: false });
+  // ---- engine: thrusters with boost flames ----
+  const flameMat = new THREE.MeshBasicMaterial({ color: engine.flame, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  const nozzleMat = new THREE.MeshBasicMaterial({ color: build.engine === 2 ? 0xb58cff : 0xff8a3a, toneMapped: false });
   const flames = [];
-  for (const sx of [-0.45, 0.45]) {
-    add(new THREE.CylinderGeometry(0.22, 0.27, 0.55, 12), trim, sx, 0.34, -2.02, Math.PI / 2, 0, 0);
-    const noz = new THREE.Mesh(new THREE.CircleGeometry(0.18, 14), nozzleMat); noz.position.set(sx, 0.34, -2.3); noz.rotation.y = Math.PI; g.add(noz);
-    const fl = new THREE.Mesh(flameGeo, flameMat); fl.position.set(sx, 0.34, -2.3); fl.scale.set(1, 1, 0.001); fl.visible = false; g.add(fl);
+  const thruster = (x, y, r, len) => {
+    add(new THREE.CylinderGeometry(r, r * 1.22, len, 14), trim, x, y, rearZ + len / 2 - 0.27, Math.PI / 2, 0, 0);
+    const z = rearZ - 0.28;
+    const noz = new THREE.Mesh(new THREE.CircleGeometry(r * 0.82, 14), nozzleMat); noz.position.set(x, y, z); noz.rotation.y = Math.PI; g.add(noz);
+    const fg = new THREE.ConeGeometry(r * 0.9, 1.4 * r / 0.22, 12, 1, true); fg.translate(0, 0.7 * r / 0.22, 0); fg.rotateX(-Math.PI / 2);
+    const fl = new THREE.Mesh(fg, flameMat); fl.position.set(x, y, z); fl.scale.set(1, 1, 0.001); fl.visible = false; g.add(fl);
     fl.userData.keep = true;
     flames.push(fl);
-  }
+  };
+  if (build.engine === 0) for (const sx of [-0.45, 0.45]) thruster(sx, thrY, 0.22, 0.55);
+  else if (build.engine === 1) { thruster(0, thrY + 0.04, 0.4, 0.8); add(new THREE.TorusGeometry(0.46, 0.05, 6, 20), paint, 0, thrY + 0.04, rearZ + 0.05); }
+  else if (build.engine === 2) {
+    const coilMat = new THREE.MeshBasicMaterial({ color: 0xb58cff, toneMapped: false });
+    for (const sx of [-0.45, 0.45]) {
+      thruster(sx, thrY, 0.18, 0.7);
+      for (let k = 0; k < 3; k++) add(new THREE.TorusGeometry(0.22, 0.03, 6, 16), coilMat, sx, thrY, rearZ + 0.12 + k * 0.16);
+    }
+  } else for (const sx of [-0.32, 0.32]) for (const dy of [-0.13, 0.17]) thruster(sx, thrY + dy, 0.13, 0.5);
+  // ---- pilot, sitting under (or, in the SKIFF, above) the canopy ----
+  const P = buildPilotHead(pilot);
+  P.position.set(0, seatY, seatZ);
+  if (body === 1) P.scale.setScalar(0.85);
+  g.add(P);
   // hover-tech underglow
   const glowTex = makeCanvas(64, 128, (c, w, h) => {
     const grd = c.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, w / 2);
@@ -2564,17 +2809,35 @@ function buildCarModel(accentHex) {
   under.rotation.x = -Math.PI / 2; under.position.y = -0.37; g.add(under);
   under.userData.keep = true;
   mergeStatic(g);                                           // ~40 static parts → one mesh per material
-  // wheels: pivot (steer + suspension) → spin group (tyre, hub, spoke)
-  const wheelGeo = new THREE.CylinderGeometry(CAR.radius, CAR.radius, 0.36, 12); wheelGeo.rotateZ(Math.PI / 2);
-  const hubGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.38, 6); hubGeo.rotateZ(Math.PI / 2);
-  const spokeGeo = new THREE.BoxGeometry(0.39, 0.08, 0.64);
+  // ---- wheels: pivot (steer + suspension) → spin group (tyre, hub, spoke). Hover pads sit in the pivot. ----
   const wheels = [];
+  const R = [CAR.radius, 0.5, 0.41, CAR.radius][wheelKind], W = [0.36, 0.46, 0.3, 0][wheelKind];
+  let tireGeo = null, hubGeo = null, spokeGeo = null, treadGeo = null, padGeo = null, padGlow = null, rimMat = trim;
+  if (wheelKind !== 3) {
+    tireGeo = new THREE.CylinderGeometry(R, R, W, wheelKind === 1 ? 10 : 14); tireGeo.rotateZ(Math.PI / 2);
+    hubGeo = new THREE.CylinderGeometry(wheelKind === 2 ? 0.3 : 0.2, wheelKind === 2 ? 0.3 : 0.2, W + 0.02, wheelKind === 2 ? 14 : 6); hubGeo.rotateZ(Math.PI / 2);
+    spokeGeo = new THREE.BoxGeometry(W + 0.03, 0.08, R * 1.5);
+    if (wheelKind === 1) treadGeo = new THREE.BoxGeometry(W + 0.04, 0.1, 0.14);
+    if (wheelKind === 2) rimMat = paint;
+  } else {
+    padGeo = new THREE.CylinderGeometry(0.46, 0.36, 0.16, 20);
+    padGlow = new THREE.Mesh(new THREE.RingGeometry(0.12, 0.34, 24), new THREE.MeshBasicMaterial({ color: 0x78f0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+  }
   for (const cw of CAR.wheels) {
     const pivot = new THREE.Group(); pivot.position.set(cw.x, CAR.mountY - CAR.rest, cw.z); g.add(pivot);
     const spin = new THREE.Group(); pivot.add(spin);
-    const tire = new THREE.Mesh(wheelGeo, rubber); tire.castShadow = true; spin.add(tire);
-    spin.add(new THREE.Mesh(hubGeo, trim));
-    spin.add(new THREE.Mesh(spokeGeo, paint));
+    if (tireGeo) {
+      spin.position.y = R - CAR.radius;                     // keep the contact patch where the physics has it
+      const tire = new THREE.Mesh(tireGeo, rubber); tire.castShadow = true; spin.add(tire);
+      spin.add(new THREE.Mesh(hubGeo, rimMat));
+      spin.add(new THREE.Mesh(spokeGeo, wheelKind === 2 ? dark : paint));
+      if (treadGeo) for (let k = 0; k < 10; k++) { const t = new THREE.Mesh(treadGeo, rubber); const a = k / 10 * TAU; t.position.set(0, Math.cos(a) * R, Math.sin(a) * R); t.rotation.x = -a; spin.add(t); }
+    } else {
+      const pad = new THREE.Mesh(padGeo, dark); pad.position.y = -CAR.radius + 0.3; pad.castShadow = true; pivot.add(pad);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.04, 6, 20), paint); rim.rotation.x = Math.PI / 2; rim.position.y = pad.position.y + 0.05; pivot.add(rim);
+      const glow = padGlow.clone(); glow.rotation.x = Math.PI / 2; glow.position.y = pad.position.y - 0.09; pivot.add(glow);
+      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 6), trim); strut.position.y = pad.position.y + 0.25; pivot.add(strut);
+    }
     wheels.push({ pivot, spin });
   }
   // headlight
@@ -2582,7 +2845,52 @@ function buildCarModel(accentHex) {
   spot.position.set(0, 0.5, 1.9);
   spot.target.position.set(0, -1.2, 14);
   g.add(spot, spot.target);
-  return { group: g, wheels, flames, tailMat, tip, under, spot };
+  return { group: g, wheels, flames, tailMat, tip, under, spot, pilot: P };
+}
+/** A small 3D bust of the chosen pilot (about 0.6 m tall), built from primitives. */
+function buildPilotHead(p) {
+  const g = new THREE.Group();
+  const suit = new THREE.MeshStandardMaterial({ color: p.suit, metalness: 0.2, roughness: 0.5 });
+  const trimM = new THREE.MeshStandardMaterial({ color: p.trim, metalness: 0.3, roughness: 0.45 });
+  const visor = new THREE.MeshStandardMaterial({ color: p.visor, metalness: 0.9, roughness: 0.1, emissive: p.visor, emissiveIntensity: 0.25 });
+  const glow = new THREE.MeshBasicMaterial({ color: p.visor, toneMapped: false });
+  const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+  add(new THREE.CylinderGeometry(0.2, 0.3, 0.26, 12), suit, 0, 0.05, 0);                // shoulders
+  const k = p.kind;
+  if (k === 'astro' || k === 'cat') {
+    add(new THREE.SphereGeometry(0.24, 18, 12), suit, 0, 0.36, 0);
+    const v = add(new THREE.SphereGeometry(0.2, 18, 10, -Math.PI * 0.42, Math.PI * 0.84, Math.PI * 0.25, Math.PI * 0.42), visor, 0, 0.37, 0.06);
+    v.rotation.y = 0;
+    add(new THREE.TorusGeometry(0.2, 0.035, 6, 16), trimM, 0, 0.17, 0).rotation.x = Math.PI / 2;
+    if (k === 'cat') for (const sx of [-0.13, 0.13]) { const e = add(new THREE.ConeGeometry(0.08, 0.16, 4), suit, sx, 0.6, -0.02); e.rotation.z = -sx * 1.6; }
+  } else if (k === 'alien') {
+    const h = add(new THREE.SphereGeometry(0.22, 16, 12), suit, 0, 0.38, 0); h.scale.set(1, 1.2, 1);
+    for (const sx of [-0.09, 0.09]) { const e = add(new THREE.SphereGeometry(0.075, 10, 8), visor, sx, 0.42, 0.17); e.scale.set(1, 1.35, 0.6); }
+    for (const sx of [-0.1, 0.1]) { add(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 4), trimM, sx * 1.2, 0.7, 0); add(new THREE.SphereGeometry(0.04, 8, 6), glow, sx * 1.35, 0.8, 0); }
+  } else if (k === 'robot') {
+    add(new THREE.BoxGeometry(0.38, 0.32, 0.34), suit, 0, 0.36, 0);
+    add(new THREE.BoxGeometry(0.3, 0.07, 0.02), glow, 0, 0.4, 0.175);
+    add(new THREE.BoxGeometry(0.42, 0.1, 0.1), trimM, 0, 0.36, 0);
+    add(new THREE.CylinderGeometry(0.015, 0.015, 0.2, 4), trimM, 0.1, 0.6, 0); add(new THREE.SphereGeometry(0.035, 8, 6), glow, 0.1, 0.7, 0);
+  } else if (k === 'golem') {
+    const h = add(new THREE.DodecahedronGeometry(0.27, 0), suit, 0, 0.38, 0); h.rotation.set(0.4, 0.3, 0.2);
+    for (const sx of [-0.09, 0.09]) add(new THREE.BoxGeometry(0.08, 0.035, 0.02), glow, sx, 0.42, 0.25);
+    add(new THREE.DodecahedronGeometry(0.1, 0), trimM, 0.18, 0.55, -0.05);
+  } else {                     // drone
+    add(new THREE.SphereGeometry(0.2, 18, 12), suit, 0, 0.4, 0);
+    add(new THREE.TorusGeometry(0.28, 0.03, 6, 24), trimM, 0, 0.4, 0).rotation.x = Math.PI / 2;
+    add(new THREE.SphereGeometry(0.08, 12, 8), glow, 0, 0.42, 0.15);
+  }
+  return g;
+}
+/** Swap the player's car model for the current garage build. */
+function rebuildCarModel() {
+  const old = Game.carModel;
+  if (old) { scene.remove(old.group); disposeObject(old.group); }
+  Game.carModel = buildCarModel(Store.data.garage);
+  scene.add(Game.carModel.group);
+  linearizeMaterials(Game.carModel.group);
+  updateCarVisual(0, IDLE_CTL);
 }
 function buildGhostModel(color) {
   const g = new THREE.Group();
@@ -2823,7 +3131,9 @@ const Input = {
       this.keys.add(e.code);
       if (e.repeat) return;
       const map = { KeyR: 'reset', KeyC: 'camera', Escape: 'pause', KeyP: 'pause', KeyM: 'mute', KeyV: 'voice', KeyG: 'ghost',
-        Enter: 'confirm', NumpadEnter: 'confirm', ArrowLeft: 'navLeft', ArrowRight: 'navRight', KeyA: 'navLeft', KeyD: 'navRight' };
+        Enter: 'confirm', NumpadEnter: 'confirm', ArrowLeft: 'navLeft', ArrowRight: 'navRight', KeyA: 'navLeft', KeyD: 'navRight',
+        ArrowUp: 'navUp', ArrowDown: 'navDown', KeyW: 'navUp', KeyS: 'navDown' };
+      if ((e.code === 'Enter' || e.code === 'NumpadEnter') && e.target && e.target.matches && e.target.matches('button')) return;   // the button's own click handles it
       if (map[e.code]) this.actions.push(map[e.code]);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -2889,7 +3199,7 @@ const Input = {
       if (lt > 0.05) brake = Math.max(brake, lt);
       if (btn(0) > 0.5) handbrake = true;
       if (btn(2) > 0.5 || btn(5) > 0.5) boost = true;
-      const edges = { 9: 'pause', 3: 'camera', 8: 'reset', 0: 'confirm', 1: 'back', 14: 'navLeft', 15: 'navRight' };
+      const edges = { 9: 'pause', 3: 'camera', 8: 'reset', 0: 'confirm', 1: 'back', 12: 'navUp', 13: 'navDown', 14: 'navLeft', 15: 'navRight' };
       for (const bi in edges) {
         const p = btn(+bi) > 0.5;
         if (p && !this.padPrev[bi]) { this.actions.push(edges[bi]); AudioSys.unlock(); }
@@ -3473,10 +3783,12 @@ const Service = {
         (Rally.damage > 0.005 ? ` <button class="mini" id="svcRepair">FULL REPAIR  +${cost}s</button>` : ' · CAR IS PRISTINE');
     }
     document.getElementById('svcBack').textContent = Rally.active ? 'ABANDON RALLY' : 'BACK';
+    const gb = Store.data.garage;
+    document.getElementById('svcRide').textContent = 'PILOT ' + GARAGE.pilot.opts[gb.pilot].name + ' · ' + rideSummary(gb) + ' (CHANGE IN THE GARAGE)';
   },
 };
 function openService() {
-  for (const id of ['menu', 'pause', 'finish']) document.getElementById(id).classList.add('hidden');
+  for (const id of ['menu', 'home', 'garage', 'pause', 'finish']) document.getElementById(id).classList.add('hidden');
   if (Rally.active && !Rally.serviced) { Rally.damage = Math.max(0, Rally.damage - 0.4); Rally.serviced = true; }
   Game.state = 'service';
   HUD.show(false);
@@ -3509,7 +3821,7 @@ function aiControl(skill, stopping) {
   const ff = Math.atan(2.68 * TR.kap[fi]);
   const damping = -0.06 * (car.w.y - TR.kap[fi] * sp);
   const delta = ang + cross + ff + damping;
-  c.steer = clamp(-delta / (CAR.maxSteer / (1 + sp * CAR.steerFalloff)), -1, 1);
+  c.steer = clamp(-delta / (CAR.maxSteer * car.tune.steer / (1 + sp * CAR.steerFalloff)), -1, 1);
   c.handbrake = false; c.boost = false;
   if (stopping) { c.throttle = 0; c.brake = sp > 1 ? 0.7 : 0; return c; }
   let vt = TR.vprof[clamp(Math.round((car.s + 6 + sp * 0.35) / DS), 0, TR.N - 1)] * skill;
@@ -3552,14 +3864,14 @@ function chooseControls() {
   const st = Game.state;
   if (Game.forceCtl && st === 'racing') return Game.forceCtl;
   if (st === 'racing') return Game.autopilot ? aiControl(0.97, false) : Input.ctl;
-  if (st === 'countdown' || st === 'service') return IDLE_CTL;
+  if (st === 'countdown' || st === 'service' || st === 'garage') return IDLE_CTL;
   if (st === 'finished') return aiControl(1, true);
   return aiControl(0.92, false);   // menu demo
 }
 
 function addDamage(x, why) {
   if (Game.state !== 'racing') return;
-  car.damage = Math.min(1, car.damage + x);
+  car.damage = Math.min(1, car.damage + x * car.tune.dmg);
   if (why) Game.stats['dmg_' + why] = (Game.stats['dmg_' + why] || 0) + x;
 }
 
@@ -3583,7 +3895,7 @@ function processCarEvents() {
         addDamage((ev.impact - hardAt) * 0.035, 'landing');
         if (racing) HUD.toast('HARD LANDING', '#ff4d5e');
       } else if (ev.air > 0.7 && ev.align > 0.9 && racing) {
-        const gain = Math.min(0.35, 0.08 + ev.air * 0.07);
+        const gain = Math.min(0.35, (0.08 + ev.air * 0.07) * car.tune.boost);
         car.boost = Math.min(1, car.boost + gain);
         HUD.toast('CLEAN LANDING  +' + Math.round(gain * 100) + '% BOOST', '#58f0ff');
       }
@@ -3933,12 +4245,16 @@ function resetRunState() {
   HUD.el.delta.textContent = ''; HUD.el.delta.className = '';
   HUD.showNotes(null, null);
 }
-function enterMenu() {
+/** Home screen or stage select (both keep the AI demo drive running behind them). */
+function enterMenu(screen) {
+  if (screen === 'home' || screen === 'stages') Menu.screen = screen;
   Game.state = 'menu';
   Rally.active = false;
-  car.tune = tuneFor(DEFAULT_SETUP);
-  for (const id of ['pause', 'finish', 'service']) document.getElementById(id).classList.add('hidden');
-  document.getElementById('menu').classList.remove('hidden');
+  car.tune = tuneFor(DEFAULT_SETUP, Store.data.garage);
+  camera.clearViewOffset();
+  for (const id of ['pause', 'finish', 'service', 'garage']) document.getElementById(id).classList.add('hidden');
+  document.getElementById('menu').classList.toggle('hidden', Menu.screen !== 'stages');
+  document.getElementById('home').classList.toggle('hidden', Menu.screen !== 'home');
   HUD.show(false);
   resetRunState();
   placeCar(TR.startS + 2, 0, 0);
@@ -3947,8 +4263,8 @@ function enterMenu() {
   AudioSys.stopSpeech();
 }
 function startRace() {
-  for (const id of ['menu', 'pause', 'finish', 'service']) document.getElementById(id).classList.add('hidden');
-  car.tune = tuneFor(currentSetup());
+  for (const id of ['menu', 'home', 'garage', 'pause', 'finish', 'service']) document.getElementById(id).classList.add('hidden');
+  car.tune = tuneFor(currentSetup(), Store.data.garage);
   resetRunState();
   placeCar(TR.startS - 6, 0, 0);
   AI.line = 0;
@@ -4010,12 +4326,14 @@ function handleActions() {
       case 'pause':
         if (!document.getElementById('modal').classList.contains('hidden')) Modal.close();
         else if (st === 'racing' || st === 'countdown') pauseGame(); else if (st === 'paused') resumeGame(); else if (st === 'service') enterMenu();
+        else if (st === 'garage') Garage.close(); else if (st === 'menu' && Menu.screen === 'stages') enterMenu('home');
         break;
       case 'blur': if (st === 'racing' || st === 'countdown') pauseGame(); break;
       case 'reset': if (st === 'racing' && !Game.pendingReset) { resetToCheckpoint(0); HUD.toast('RESET TO CHECKPOINT'); } break;
       case 'confirm':
         if (!document.getElementById('modal').classList.contains('hidden')) break;
-        if (st === 'menu') openService();
+        if (st === 'menu') { if (Menu.screen === 'home') Menu.homeGo(Menu.homeIdx); else openService(); }
+        else if (st === 'garage') Garage.close();
         else if (st === 'service') leaveService();
         else if (st === 'paused') resumeGame();
         else if (st === 'finished' && Game.finishShown) { if (Rally.active) { if (!Rally.done) goNext(); else enterMenu(); } else startRace(); }
@@ -4024,10 +4342,19 @@ function handleActions() {
         if (!document.getElementById('modal').classList.contains('hidden')) { Modal.close(); break; }
         if (st === 'paused') resumeGame();
         else if (st === 'service') enterMenu();
-        else if (st === 'finished' && Game.finishShown) enterMenu();
+        else if (st === 'garage') Garage.close();
+        else if (st === 'menu' && Menu.screen === 'stages') enterMenu('home');
+        else if (st === 'finished' && Game.finishShown) enterMenu('stages');
         break;
+      case 'navUp': case 'navDown': {
+        const d = a === 'navUp' ? -1 : 1;
+        if (st === 'menu' && Menu.screen === 'home') { Menu.homeIdx = (Menu.homeIdx + d + 4) % 4; Menu.refresh(); }
+        else if (st === 'garage') Garage.setTab(Garage.tab + d);
+        break;
+      }
       case 'navLeft': case 'navRight':
-        if (st === 'menu') {
+        if (st === 'garage') { Garage.cycle(a === 'navLeft' ? -1 : 1); break; }
+        if (st === 'menu' && Menu.screen === 'stages') {
           const n = clamp(Game.stageIdx + (a === 'navLeft' ? -1 : 1), 0, STAGES.length - 1);
           if (n !== Game.stageIdx) loadStage(n, enterMenu);
         }
@@ -4036,9 +4363,195 @@ function handleActions() {
   }
 }
 
+/* ---- pilot portraits: drawn once on a 2D canvas, used by the home screen and garage ---- */
+const _portraits = new Map();
+function pilotPortrait(i) {
+  if (_portraits.has(i)) return _portraits.get(i);
+  const p = GARAGE.pilot.opts[i], c = document.createElement('canvas'), S = 160;
+  c.width = S; c.height = S;
+  const x = c.getContext('2d'), cx = S / 2;
+  const bg = x.createRadialGradient(cx, S * 0.4, 10, cx, S * 0.5, S * 0.75);
+  bg.addColorStop(0, p.bg); bg.addColorStop(1, '#05060c');
+  x.fillStyle = bg; x.fillRect(0, 0, S, S);
+  x.fillStyle = 'rgba(255,255,255,.55)';
+  for (let k = 0; k < 18; k++) { const r = mulberry32(i * 97 + k)(); x.fillRect((r * 997) % S, (r * 6133) % (S * 0.6), 1.5, 1.5); }
+  const circle = (px, py, r, col) => { x.fillStyle = col; x.beginPath(); x.arc(px, py, r, 0, TAU); x.fill(); };
+  const ellipse = (px, py, rx, ry, col, rot) => { x.fillStyle = col; x.beginPath(); x.ellipse(px, py, rx, ry, rot || 0, 0, TAU); x.fill(); };
+  // shoulders
+  x.fillStyle = p.suit; x.beginPath(); x.moveTo(cx - 62, S); x.quadraticCurveTo(cx - 58, S * 0.72, cx, S * 0.7); x.quadraticCurveTo(cx + 58, S * 0.72, cx + 62, S); x.fill();
+  x.fillStyle = p.trim; x.fillRect(cx - 40, S * 0.84, 80, 6);
+  const shine = (px, py, r) => { x.fillStyle = 'rgba(255,255,255,.45)'; x.beginPath(); x.ellipse(px, py, r * 0.5, r * 0.25, -0.6, 0, TAU); x.fill(); };
+  switch (p.kind) {
+    case 'astro': case 'cat':
+      if (p.kind === 'cat') for (const sx of [-1, 1]) { x.fillStyle = p.suit; x.beginPath(); x.moveTo(cx + sx * 20, 34); x.lineTo(cx + sx * 44, 10); x.lineTo(cx + sx * 48, 46); x.fill(); x.fillStyle = '#ff8fa8'; x.beginPath(); x.moveTo(cx + sx * 28, 34); x.lineTo(cx + sx * 42, 20); x.lineTo(cx + sx * 44, 40); x.fill(); }
+      circle(cx, 72, 48, p.suit);
+      ellipse(cx, 76, 36, 28, p.visor);
+      if (p.kind === 'cat') { ellipse(cx - 13, 74, 6, 9, '#15171b'); ellipse(cx + 13, 74, 6, 9, '#15171b'); x.fillStyle = '#ff8fa8'; x.beginPath(); x.moveTo(cx - 4, 86); x.lineTo(cx + 4, 86); x.lineTo(cx, 91); x.fill(); }
+      shine(cx - 14, 64, 26);
+      x.strokeStyle = p.trim; x.lineWidth = 6; x.beginPath(); x.arc(cx, 72, 48, Math.PI * 0.15, Math.PI * 0.85); x.stroke();
+      break;
+    case 'alien':
+      x.strokeStyle = p.trim; x.lineWidth = 3;
+      for (const sx of [-1, 1]) { x.beginPath(); x.moveTo(cx + sx * 14, 36); x.quadraticCurveTo(cx + sx * 26, 16, cx + sx * 30, 8); x.stroke(); circle(cx + sx * 30, 8, 6, '#caff7a'); }
+      ellipse(cx, 76, 40, 50, p.suit);
+      ellipse(cx - 17, 76, 13, 19, p.visor, 0.35); ellipse(cx + 17, 76, 13, 19, p.visor, -0.35);
+      circle(cx - 20, 70, 4, '#fff'); circle(cx + 14, 70, 4, '#fff');
+      x.strokeStyle = p.trim; x.lineWidth = 3; x.beginPath(); x.arc(cx, 104, 8, 0.2, Math.PI - 0.2); x.stroke();
+      break;
+    case 'robot':
+      x.fillStyle = p.trim; x.fillRect(cx - 3, 12, 6, 22); circle(cx, 12, 6, p.visor);
+      x.fillStyle = p.suit; x.fillRect(cx - 44, 32, 88, 80);
+      x.fillStyle = p.trim; x.fillRect(cx - 50, 56, 100, 18);
+      x.fillStyle = '#0a0f16'; x.fillRect(cx - 34, 58, 68, 14);
+      x.fillStyle = p.visor; x.shadowColor = p.visor; x.shadowBlur = 12; x.fillRect(cx - 28, 61, 56, 8); x.shadowBlur = 0;
+      x.fillStyle = p.trim; for (let k = 0; k < 5; k++) x.fillRect(cx - 24 + k * 11, 90, 6, 12);
+      break;
+    case 'golem':
+      x.fillStyle = p.suit; x.beginPath();
+      [[-44, 60], [-30, 26], [4, 18], [38, 30], [48, 70], [34, 110], [-6, 118], [-40, 100]].forEach(([dx, dy], k) => (k ? x.lineTo(cx + dx, dy) : x.moveTo(cx + dx, dy)));
+      x.fill();
+      x.fillStyle = p.trim; x.beginPath(); x.moveTo(cx - 30, 26); x.lineTo(cx + 4, 18); x.lineTo(cx - 6, 44); x.fill();
+      circle(cx + 20, 96, 6, p.trim); circle(cx - 26, 44, 4, p.trim);
+      x.fillStyle = p.visor; x.shadowColor = p.visor; x.shadowBlur = 14; x.fillRect(cx - 24, 66, 16, 6); x.fillRect(cx + 8, 66, 16, 6); x.shadowBlur = 0;
+      break;
+    default:                   // drone
+      x.strokeStyle = p.trim; x.lineWidth = 7; x.beginPath(); x.ellipse(cx, 74, 60, 16, -0.12, 0, TAU); x.stroke();
+      circle(cx, 72, 38, p.suit);
+      circle(cx, 74, 17, '#15171b'); x.shadowColor = p.visor; x.shadowBlur = 16; circle(cx, 74, 10, p.visor); x.shadowBlur = 0;
+      shine(cx - 14, 56, 20);
+  }
+  const url = c.toDataURL();
+  _portraits.set(i, url);
+  return url;
+}
+function statBarsHTML(stats, cmp) {
+  return '<div class="sbars">' + STAT_KEYS.map((k) => {
+    const v = stats[k], c = cmp ? cmp[k] : v, lo = Math.min(v, c), hi = Math.max(v, c);
+    return `<div class="sbar"><span>${STAT_NAMES[k]}</span><div class="segs">` +
+      Array.from({ length: 10 }, (_, i) => `<i class="${i < lo ? 'f' : i < hi ? (c > v ? 'up' : 'dn') : ''}"></i>`).join('') + '</div></div>';
+  }).join('') + '</div>';
+}
+function deltaChips(s) {
+  const out = STAT_KEYS.filter((k) => s[k]).map((k) => `<em class="${s[k] > 0 ? 'up' : 'dn'}">${s[k] > 0 ? '+' : '−'}${Math.abs(s[k])} ${STAT_NAMES[k]}</em>`);
+  return out.length ? out.join('') : '<em>BALANCED</em>';
+}
+function rideSummary(b) {
+  return [GARAGE.body.opts[b.body].name, GARAGE.engine.opts[b.engine].name, GARAGE.wheels.opts[b.wheels].name].join(' · ');
+}
+
+/* ---- garage: pick a pilot and vehicle parts with a live 3D preview ---- */
+const Garage = {
+  from: 'home', tab: 0, preview: null, yaw: 2.4, drag: null,
+  open(from) {
+    this.from = from || 'home';
+    for (const id of ['menu', 'home', 'pause', 'finish', 'service']) document.getElementById(id).classList.add('hidden');
+    Rally.active = false;
+    Game.state = 'garage';
+    HUD.show(false);
+    resetRunState();
+    placeCar(TR.startS + 2, 0, 0);
+    this.yaw = 2.4;
+    this.render();
+    document.getElementById('garage').classList.remove('hidden');
+  },
+  close() {
+    camera.clearViewOffset();
+    document.getElementById('garage').classList.add('hidden');
+    enterMenu(this.from);
+  },
+  pick(k, v) {
+    const b = Store.data.garage;
+    if (b[k] === v) return;
+    b[k] = v; Store.save();
+    rebuildCarModel();
+    AudioSys.unlock();
+    this.render();
+  },
+  cycle(dir) {
+    const k = GARAGE_KEYS[this.tab], n = GARAGE[k].opts.length;
+    this.pick(k, (Store.data.garage[k] + dir + n) % n);
+  },
+  setTab(t) { this.tab = (t + GARAGE_KEYS.length) % GARAGE_KEYS.length; this.preview = null; this.render(); },
+  render() {
+    const b = Store.data.garage, k = GARAGE_KEYS[this.tab], cat = GARAGE[k];
+    document.getElementById('garTabs').innerHTML = GARAGE_KEYS.map((key, i) => `<button data-tab="${i}" class="${i === this.tab ? 'on' : ''}">${GARAGE[key].label}</button>`).join('');
+    document.getElementById('garOpts').className = 'gar-opts ' + k;
+    document.getElementById('garOpts').innerHTML = cat.opts.map((o, v) => {
+      const sel = b[k] === v ? ' sel' : '';
+      if (k === 'color') return `<button class="gtile sw${sel}" data-v="${v}" style="--c:#${new THREE.Color(o.hex).getHexString()}"><i></i><b>${o.name}</b></button>`;
+      if (k === 'pilot') return `<button class="gtile pt${sel}" data-v="${v}"><img src="${pilotPortrait(v)}" alt=""><b>${o.name}</b><small>${o.cls}</small></button>`;
+      return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b><div class="chips">${deltaChips(o.s)}</div></button>`;
+    }).join('');
+    const cur = cat.opts[b[k]];
+    document.getElementById('garDesc').innerHTML = k === 'color' ? 'Paint job for the body, wings and wheel arches.' : `<b>${cur.name}</b> ${cur.blurb}`;
+    this.renderStats();
+  },
+  renderStats() {
+    const b = Store.data.garage, p = GARAGE.pilot.opts[b.pilot], stats = buildStats(b);
+    let cmp = null;
+    if (this.preview) { const pb = Object.assign({}, b, this.preview); cmp = buildStats(pb); }
+    document.getElementById('garStats').innerHTML =
+      `<div class="ride-head"><img src="${pilotPortrait(b.pilot)}" alt=""><div><b>${p.name}</b><small>${p.cls} CLASS</small><div class="ride-parts">${rideSummary(b)}</div></div></div>` +
+      statBarsHTML(stats, cmp);
+  },
+  /** Orbit camera around the parked car, framed to the right of (or above) the parts panel. */
+  updateCamera(dt) {
+    if (!this.drag) this.yaw += dt * 0.3;
+    carAxes();
+    const narrow = window.innerWidth < 760, base = Math.atan2(AZ.x, AZ.z) + this.yaw, dist = narrow ? 8.2 * clamp(1.25 * window.innerHeight / window.innerWidth, 1, 2) : 8.2;
+    camera.position.set(car.pos.x + Math.sin(base) * dist, car.pos.y + 2.2, car.pos.z + Math.cos(base) * dist);
+    camera.lookAt(car.pos.x, car.pos.y + 0.1, car.pos.z);
+    camera.fov = 42;
+    const w = window.innerWidth, h = window.innerHeight;
+    if (narrow) camera.setViewOffset(w, h, 0, h * 0.2, w, h);
+    else camera.setViewOffset(w, h, -Math.min(460, w * 0.42) / 2, -h * 0.1, w, h);
+    camera.updateProjectionMatrix();
+  },
+  init() {
+    const el = document.getElementById('garage');
+    document.getElementById('garTabs').addEventListener('click', (e) => { const t = e.target.closest('[data-tab]'); if (t) this.setTab(+t.dataset.tab); });
+    const opts = document.getElementById('garOpts');
+    opts.addEventListener('click', (e) => { const t = e.target.closest('[data-v]'); if (t) this.pick(GARAGE_KEYS[this.tab], +t.dataset.v); });
+    opts.addEventListener('pointerover', (e) => {
+      const t = e.target.closest('[data-v]'), k = GARAGE_KEYS[this.tab];
+      const pv = t && k !== 'color' ? { [k]: +t.dataset.v } : null;
+      if (JSON.stringify(pv) !== JSON.stringify(this.preview)) { this.preview = pv; this.renderStats(); }
+    });
+    opts.addEventListener('pointerleave', () => { if (this.preview) { this.preview = null; this.renderStats(); } });
+    document.getElementById('garBack').addEventListener('click', () => { if (Game.state === 'garage') this.close(); });
+    // drag on the empty space around the car to spin the view
+    el.addEventListener('pointerdown', (e) => { if (e.target === el) { this.drag = { x: e.clientX, yaw: this.yaw }; try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } } });
+    el.addEventListener('pointermove', (e) => { if (this.drag) this.yaw = this.drag.yaw - (e.clientX - this.drag.x) * 0.01; });
+    const end = () => { this.drag = null; };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  },
+};
+
 /* ---- menus ---- */
 const Menu = {
+  screen: 'home', homeIdx: 0,
+  homeGo(i) {
+    const go = ['play', 'rally', 'garage', 'code'][i];
+    if (Game.state !== 'menu') return;
+    this.homeIdx = i;
+    if (go === 'play') enterMenu('stages');
+    else if (go === 'rally') startRally();
+    else if (go === 'garage') Garage.open('home');
+    else { enterMenu('stages'); const si = document.getElementById('seedInput'); si.focus(); si.placeholder = 'PASTE A STAGE CODE'; }
+  },
   init() {
+    Garage.init();
+    document.getElementById('homeNav').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-go]'); if (!b) return;
+      AudioSys.unlock(); b.blur();
+      this.homeGo([...b.parentNode.children].indexOf(b));
+    });
+    document.getElementById('homeNav').addEventListener('pointerover', (e) => {
+      const b = e.target.closest('[data-go]'); if (!b) return;
+      const i = [...b.parentNode.children].indexOf(b);
+      if (i !== this.homeIdx) { this.homeIdx = i; this.refresh(); }
+    });
+    document.getElementById('homeRide').addEventListener('click', (e) => { if (e.target.closest('button') && Game.state === 'menu') Garage.open('home'); });
     const cards = document.getElementById('cards');
     STAGES.forEach((def, i) => {
       const c = document.createElement('div');
@@ -4055,10 +4568,12 @@ const Menu = {
     on('rallyBtn', () => { if (Game.state === 'menu') startRally(); });
     on('resumeBtn', resumeGame);
     on('restartBtn', () => { document.getElementById('pause').classList.add('hidden'); startRace(); });
-    on('menuBtn', enterMenu);
+    on('menuBtn', () => enterMenu('stages'));
+    on('homeBtn', () => { if (Game.state === 'menu') enterMenu('home'); });
+    on('selGarage', () => { if (Game.state === 'menu') Garage.open('stages'); });
     on('retryBtn', startRace);
     on('nextBtn', goNext);
-    on('finMenuBtn', enterMenu);
+    on('finMenuBtn', () => enterMenu('stages'));
     // stage codes & custom seeds
     const seedIn = document.getElementById('seedInput');
     const loadCode = () => {
@@ -4104,12 +4619,12 @@ const Menu = {
     });
     on('svcRec', () => { Store.data.setups[Game.stageIdx] = Object.assign({}, RECOMMENDED[Game.stageIdx]); Store.save(); Service.render(); });
     on('svcGo', () => { if (Game.state === 'service') leaveService(); });
-    on('svcBack', enterMenu);
+    on('svcBack', () => enterMenu('stages'));
     // modal
     on('modalOk', () => { if (Modal.onOk) Modal.onOk(document.getElementById('modalText').value); });
     on('modalClose', () => Modal.close());
-    for (const [ids, fn] of [[['togSound', 'pSound'], () => toggleSetting('muted')], [['togVoice', 'pVoice'], () => toggleSetting('voice')],
-      [['togGhost', 'pGhost'], () => toggleSetting('ghost')], [['togCam', 'pCam'], toggleCamera]]) for (const id of ids) on(id, fn);
+    for (const [ids, fn] of [[['togSound', 'pSound', 'hSound'], () => toggleSetting('muted')], [['togVoice', 'pVoice', 'hVoice'], () => toggleSetting('voice')],
+      [['togGhost', 'pGhost', 'hGhost'], () => toggleSetting('ghost')], [['togCam', 'pCam', 'hCam'], toggleCamera]]) for (const id of ids) on(id, fn);
   },
   refresh() {
     const s = Store.data.settings;
@@ -4130,10 +4645,19 @@ const Menu = {
       c.querySelector('.tgtT').textContent = tgt ? fmtTime(tgt) : '—';
     });
     const set = (ids, v, label) => ids.forEach((id) => { const e = document.getElementById(id); e.classList.toggle('on', v); e.textContent = label + (v ? ' ON' : ' OFF'); });
-    set(['togSound', 'pSound'], !s.muted, 'SOUND');
-    set(['togVoice', 'pVoice'], s.voice, 'VOICE');
-    set(['togGhost', 'pGhost'], s.ghost, 'GHOST');
-    set(['togCam', 'pCam'], Cam.mode === 'bumper', 'BUMPER CAM');
+    set(['togSound', 'pSound', 'hSound'], !s.muted, 'SOUND');
+    set(['togVoice', 'pVoice', 'hVoice'], s.voice, 'VOICE');
+    set(['togGhost', 'pGhost', 'hGhost'], s.ghost, 'GHOST');
+    set(['togCam', 'pCam', 'hCam'], Cam.mode === 'bumper', 'BUMPER CAM');
+    // home screen + garage shortcut
+    const gb = Store.data.garage, gp = GARAGE.pilot.opts[gb.pilot];
+    document.querySelectorAll('#homeNav .hbtn').forEach((b, i) => b.classList.toggle('sel', i === this.homeIdx));
+    document.getElementById('homeRally').textContent = rb ? 'All three stages back to back · best ' + fmtTime(rb.total) : 'All three stages back to back';
+    const rideHTML = `<h4>YOUR RIDE</h4><div class="ride-head"><img src="${pilotPortrait(gb.pilot)}" alt=""><div><b>${gp.name}</b><small>${gp.cls} CLASS</small>` +
+      `<div class="ride-parts">${rideSummary(gb)}<br>${GARAGE.color.opts[gb.color].name} PAINT</div></div></div>${statBarsHTML(buildStats(gb))}<button class="btn alt">OPEN GARAGE &#9656;</button>`;
+    const hr = document.getElementById('homeRide');
+    if (hr.dataset.html !== rideHTML) { hr.innerHTML = rideHTML; hr.dataset.html = rideHTML; }
+    document.getElementById('selGarage').textContent = gp.name + ' · ' + GARAGE.body.opts[gb.body].name + ' \u25B8 GARAGE';
   },
 };
 
@@ -4193,7 +4717,7 @@ function update(dt) {
     if (st === 'menu' && car.s > TR.finishS + 40) { resetRunState(); placeCar(TR.startS + 2, 0, 0); Cam.snap(); }
   }
   flashLight.intensity *= Math.exp(-6 * dt);
-  Cam.update(dt);
+  if (st === 'garage') Garage.updateCamera(dt); else Cam.update(dt);
   updateSunShadow();
   Sky.update(dt, TR.ringY);
   FX.update(st === 'paused' ? 0 : dt);
@@ -4202,7 +4726,7 @@ function update(dt) {
   const w0 = car.wheels[2].grounded ? car.wheels[2].gs : car.wheels[0].gs;
   AudioSys.update(dt, {
     speed: car.speed, throttle: st === 'paused' ? 0 : ctl.throttle, boosting: car.boosting, surf: w0.road ? w0.surf : TR.def.surf.off,
-    grounded: car.nGround > 0 ? 1 : 0, slip: car.slip, active: st === 'paused' ? 0 : (st === 'menu' || st === 'service') ? 0.35 : 1,
+    grounded: car.nGround > 0 ? 1 : 0, slip: car.slip, active: st === 'paused' ? 0 : (st === 'menu' || st === 'service' || st === 'garage') ? 0.35 : 1,
   });
   return true;
 }
@@ -4215,21 +4739,21 @@ window.addEventListener('resize', () => {
 
 function init() {
   Store.load();
+  Store.data.garage = cleanBuild(Store.data.garage);
   const s = Store.data.settings;
   AudioSys.muted = !!s.muted; AudioSys.voice = s.voice !== false;
   Cam.mode = s.cam === 'bumper' ? 'bumper' : 'chase';
   if (IS_TOUCH) document.body.classList.add('touch');
   HUD.init(); Input.init(); Sky.init(); FX.init(); Meteors.init(); Ghost.init(); Rival.init(); Menu.init();
-  Game.carModel = buildCarModel(0xff7a1a);
-  scene.add(Game.carModel.group);
-  linearizeMaterials(Game.carModel.group); linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
+  rebuildCarModel();
+  linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
   for (const m of Meteors.pool) { linearizeMaterials(m.head); linearizeMaterials(m.warn); linearizeMaterials(m.streak); }
   // Small debugging / automation surface (autopilot lets you watch the AI drive a full stage).
   window.RegolithRally = {
     Game, car, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; },
-    openService, leaveService, startRally, Rally, stageDef, stageCode, parseStageCode, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
+    openService, leaveService, startRally, Rally, Garage, Menu, GARAGE, buildStats, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
   };

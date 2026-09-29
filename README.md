@@ -28,6 +28,22 @@ Rules and scoring:
 - Boost refills when you drift or land a jump cleanly.
 - Best times, splits and a ghost replay of your best run are stored in `localStorage`.
 
+## Home screen and garage
+
+The game opens on a home screen with PLAY (stage select), RALLY, GARAGE and STAGE CODE. Your current pilot, vehicle and stats are shown beside the menu.
+
+In the **garage** you build your ride Mario Kart style, with a live 3D preview that you can drag to spin:
+
+| Part | Options |
+|---|---|
+| Pilot | NOVA (astronaut, medium), ZIX (alien, light), BOLT-9 (robot, heavy), MISO (cat, light), GRAVL (rock golem, heavy), PIP (drone, feather) |
+| Body | ROVER, DART, BRUISER, SKIFF |
+| Engine | TWIN ION, PULSE ROCKET, ARC COIL, NOVA BURNER |
+| Wheels | STANDARD, CRAWLER, SLICK ROLLER, HOVER PADS |
+| Paint | 8 colours |
+
+Each pilot and part shifts six stats (speed, acceleration, handling, grip, weight, boost) up or down from a neutral 5. Hover an option to preview the change. The default build is all neutral and drives exactly like the original buggy. In the race, the stats scale top speed (±11%), acceleration, steering lock, tyre grip, boost thrust and refill, and damage taken (heavier builds shrug off more). The build is saved in `localStorage` and applies to every stage; the service park setup still stacks on top.
+
 ## Modes and sharing
 
 - **Stage codes.** Every stage has a code such as `RR-I-4471` (template letter L/I/W + seed). Type a code or a bare seed in the menu, or press RANDOM SEED, to generate a new stage from that template. Copy the code to send a friend the exact same stage.
@@ -47,6 +63,7 @@ Rules and scoring:
 | Camera (chase / bumper) | C | Y | CAM |
 | Pause (Esc also closes dialogs) | Esc | Start | II |
 | Confirm / next (menus, service park) | Enter | A | buttons |
+| Menu / garage navigation | Arrow keys | D-pad | tap |
 | Mute / co-driver voice / ghost | M / V / G | | ♫ |
 
 ## Code layout
