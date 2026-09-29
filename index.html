@@ -74,7 +74,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 #dmgIcon{display:inline-block;width:12px;height:12px;border-radius:3px;background:#3dff8a;vertical-align:-1px;margin-left:6px}
 
 /* ---------- overlays ---------- */
-.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow:auto;
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;overflow:auto;
   background:radial-gradient(ellipse at center,rgba(3,5,12,.35),rgba(3,5,12,.9))}
 #menu{justify-content:flex-start;padding-top:max(4vh,18px);background:linear-gradient(180deg,rgba(3,5,12,.85),rgba(3,5,12,.25) 40%,rgba(3,5,12,.8))}
 .logo{font-size:clamp(36px,6.4vw,76px);font-weight:900;font-style:italic;letter-spacing:.03em;line-height:1;text-align:center;text-shadow:0 4px 30px rgba(0,0,0,.6)}
@@ -113,6 +113,41 @@ table.splits{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:13p
 table.splits td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right}
 table.splits td:first-child{text-align:left;color:var(--dim);font-weight:800;letter-spacing:.1em;font-size:11px}
 td.good{color:var(--good)} td.bad{color:var(--bad)}
+/* stage codes, leaderboard, service park, modal */
+.coderow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;margin-top:14px;font-size:11px;letter-spacing:.14em;font-weight:900;color:var(--dim)}
+.coderow b{color:var(--accent);font-size:13px;letter-spacing:.08em}
+.field{pointer-events:auto;font:inherit;font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--text);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:8px;padding:8px 10px;outline:none;-webkit-user-select:text;user-select:text}
+.field:focus{border-color:var(--cyan)}
+.mini{pointer-events:auto;border:1px solid var(--line);background:rgba(255,255,255,.08);border-radius:8px;padding:8px 12px;font-size:11px;font-weight:900;letter-spacing:.12em;color:var(--text)}
+.mini:hover,.mini.on{border-color:var(--cyan);color:var(--cyan)}
+.lb{width:min(560px,94vw);padding:12px 16px;text-align:left}
+.lb h4{margin:0 0 6px;font-size:12px;letter-spacing:.2em;color:var(--accent)}
+.lb table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.lb td{padding:3px 6px;border-bottom:1px solid var(--line)}
+.lb td.r{text-align:right}.lb tr.me td{color:var(--good)}
+.tag{font-size:9px;letter-spacing:.14em;padding:1px 5px;border-radius:4px;border:1px solid var(--line);color:var(--dim)}
+.tag.rv{border-color:#ff4fd8;color:#ff4fd8}
+.lb .empty{color:var(--dim);font-size:12px}
+#service .panel{width:min(640px,96vw);text-align:left}
+#service h2{text-align:center}
+.setrow{display:grid;grid-template-columns:120px 1fr;gap:4px 12px;align-items:center;margin:12px 0}
+.setrow>span{font-size:11px;letter-spacing:.18em;font-weight:900;color:var(--dim)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{pointer-events:auto;flex:1;min-width:90px;border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:8px;padding:9px 6px;font-size:11px;font-weight:900;letter-spacing:.1em;color:var(--text)}
+.seg button.on{background:var(--accent);color:#1a1204;border-color:var(--accent)}
+.seg button.rec::after{content:' ★';color:var(--cyan)}
+.seg button.on.rec::after{color:#1a1204}
+.setrow em{grid-column:2;font-style:normal;font-size:11.5px;color:#aab4cc}
+.svc-rally{margin:10px 0;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.05);font-size:12px;letter-spacing:.06em;line-height:1.7}
+.svc-rally b{color:var(--text)}
+#modal{z-index:40}
+#modal textarea{width:min(560px,90vw);height:130px;margin:10px 0;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;letter-spacing:0;word-break:break-all}
+#modalMsg{font-size:12px;color:var(--dim);min-height:16px}
+#progRival{position:absolute;top:-2px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#ff4fd8;opacity:.8;box-shadow:0 0 8px #ff4fd8}
+#finRally{margin-top:8px}
+/* centre panels when they fit, scroll (never clip) when they don't */
+.overlay>.panel{margin:auto 0}
+#loading{justify-content:center}
 #loading{background:#05060c;z-index:50;font-weight:900;letter-spacing:.3em;font-size:12px;color:var(--dim)}
 
 /* ---------- touch controls ---------- */
@@ -150,7 +185,7 @@ body.touch #stageName{display:none}
   <div id="hud" class="hidden">
     <div id="topbar">
       <span id="stageName"></span>
-      <div id="progress"><div id="progFill"></div><div id="progGhost" class="hidden"></div><div id="progCar"></div></div>
+      <div id="progress"><div id="progFill"></div><div id="progGhost" class="hidden"></div><div id="progRival" class="hidden"></div><div id="progCar"></div></div>
       <span id="cpLabel"></span>
     </div>
     <div id="infoBox"></div>
@@ -204,7 +239,15 @@ body.touch #stageName{display:none}
     <div class="logo">REGOLITH <span>RALLY</span></div>
     <div class="tagline">POINT-TO-POINT STAGES ACROSS THE OUTER SYSTEM</div>
     <div id="cards"></div>
-    <div class="row"><button class="btn" id="startBtn">START STAGE &#9656;</button></div>
+    <div class="coderow">
+      STAGE CODE <b id="stageCode">RR-L-1969</b><button class="mini" id="copyCode">COPY</button>
+      <input class="field" id="seedInput" maxlength="24" placeholder="STAGE CODE OR SEED" spellcheck="false" autocomplete="off">
+      <button class="mini" id="loadSeed">LOAD</button><button class="mini" id="randSeed">RANDOM SEED</button>
+    </div>
+    <div class="row"><button class="btn" id="startBtn">START STAGE &#9656;</button><button class="btn alt" id="rallyBtn">RALLY · ALL 3 STAGES</button></div>
+    <div class="coderow">DRIVER <input class="field" id="nameInput" maxlength="16" spellcheck="false" autocomplete="off" style="width:140px">
+      <button class="mini" id="importBtn">IMPORT GHOST CODE</button><button class="mini" id="exportBtn">COPY MY BEST GHOST</button></div>
+    <div class="row"><div class="panel lb" id="menuBoard"></div></div>
     <div class="toggles">
       <button class="tog" id="togSound">SOUND</button>
       <button class="tog" id="togVoice">CO-DRIVER VOICE</button>
@@ -250,11 +293,40 @@ body.touch #stageName{display:none}
       <div class="verdict" id="finVerdict"></div>
       <div class="sub" id="finMeta"></div>
       <table class="splits" id="finSplits"></table>
+      <div id="finRally" class="svc-rally hidden"></div>
+      <div id="finBoard" class="lb" style="width:100%;padding:6px 0 0"></div>
+      <div class="row" style="margin-top:4px"><button class="mini" id="finGhostBtn">COPY THIS RUN'S GHOST CODE</button></div>
       <div class="row">
         <button class="btn" id="retryBtn">RETRY &#8635;</button>
         <button class="btn alt" id="nextBtn">NEXT STAGE &#9656;</button>
         <button class="btn alt" id="finMenuBtn">STAGE SELECT</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ======================= SERVICE PARK ======================= -->
+  <div id="service" class="overlay hidden">
+    <div class="panel">
+      <h2>SERVICE PARK</h2>
+      <div class="sub" id="svcStage" style="text-align:center"></div>
+      <div id="svcRally" class="svc-rally hidden"></div>
+      <div id="svcRows"></div>
+      <div class="sub" id="svcHint" style="text-align:center;margin-top:6px"></div>
+      <div class="row">
+        <button class="btn alt" id="svcRec">USE RECOMMENDED &#9733;</button>
+        <button class="btn" id="svcGo">TO THE START &#9656;</button>
+        <button class="btn alt" id="svcBack">BACK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= GHOST CODE MODAL ======================= -->
+  <div id="modal" class="overlay hidden">
+    <div class="panel">
+      <h2 id="modalTitle">GHOST CODE</h2>
+      <textarea class="field" id="modalText" spellcheck="false"></textarea>
+      <div id="modalMsg"></div>
+      <div class="row"><button class="btn" id="modalOk">LOAD</button><button class="btn alt" id="modalClose">CLOSE</button></div>
     </div>
   </div>
 
@@ -378,7 +450,8 @@ function fmtDelta(d) { return (d < 0 ? '-' : '+') + Math.abs(d).toFixed(2); }
    ============================================================================= */
 const Store = {
   key: 'regolithRally.v1',
-  data: { best: {}, settings: { muted: false, voice: true, ghost: true, cam: 'chase' } },
+  data: { best: {}, settings: { muted: false, voice: true, ghost: true, cam: 'chase', name: 'DRIVER' },
+    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null },
   load() {
     try {
       const raw = window.localStorage.getItem(this.key);
@@ -387,7 +460,8 @@ const Store = {
       if (d && typeof d === 'object') {
         if (d.best && typeof d.best === 'object') this.data.best = d.best;
         if (d.settings && typeof d.settings === 'object') Object.assign(this.data.settings, d.settings);
-        if (d.targets && typeof d.targets === 'object') this.data.targets = d.targets;
+        for (const k of ['targets', 'setups', 'boards', 'rival']) if (d[k] && typeof d[k] === 'object') this.data[k] = d[k];
+        if (d.rallyBest && typeof d.rallyBest === 'object') this.data.rallyBest = d.rallyBest;
       }
     } catch (e) { /* storage unavailable or corrupt: play without persistence */ }
   },
@@ -396,7 +470,8 @@ const Store = {
     catch (e) {
       // Probably quota: retry without ghost replays, which are the bulk of the data.
       try {
-        const slim = { best: {}, settings: this.data.settings, targets: this.data.targets };
+        const slim = { best: {}, settings: this.data.settings, targets: this.data.targets, setups: this.data.setups, rallyBest: this.data.rallyBest, boards: {}, rival: {} };
+        for (const k in this.data.boards) slim.boards[k] = this.data.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own }));
         for (const k in this.data.best) { const b = this.data.best[k]; slim.best[k] = { time: b.time, splits: b.splits }; }
         window.localStorage.setItem(this.key, JSON.stringify(slim));
       } catch (e2) { /* give up silently */ }
@@ -494,6 +569,45 @@ const STAGES = [
     swatch: 'radial-gradient(circle at 60% 40%,#ff9a6a 0 7%,rgba(255,120,80,.25) 8% 22%,transparent 23%),linear-gradient(180deg,#1a0714 0 58%,#5b6068 59% 100%)',
   },
 ];
+
+STAGES.forEach((d, i) => { d.tpl = i; d.letter = 'LIW'[i]; });
+/** Stage share code: template letter + seed, e.g. RR-I-4471. The built-in stages are just their own seeds. */
+function stageCode(def) { return 'RR-' + def.letter + '-' + def.seed; }
+/** A stage definition for any seed, built from one of the three templates. */
+function stageDef(tpl, seed) {
+  const base = STAGES[tpl];
+  seed = Math.abs(Math.floor(seed)) % 1000000000;
+  if (seed === base.seed) return base;
+  const code = 'RR-' + base.letter + '-' + seed;
+  return Object.assign({}, base, { id: code, seed, name: base.name + ' #' + seed, region: 'CUSTOM STAGE · ' + code, custom: true });
+}
+/** Parse "RR-L-1234", "L1234", "i-99" or a bare number (keeps the current template). */
+function parseStageCode(str, fallbackTpl) {
+  const t = String(str || '').trim().toUpperCase().replace(/\s+/g, '');
+  let m = t.match(/^(?:RR-?)?([LIW])-?(\d{1,9})$/);
+  if (m) return stageDef('LIW'.indexOf(m[1]), +m[2]);
+  m = t.match(/^\d{1,9}$/);
+  if (m) return stageDef(fallbackTpl, +t);
+  return null;
+}
+
+/* ---- car setup (chosen in the service park) ---- */
+const SETUP_OPTS = {
+  susp: { label: 'SUSPENSION', names: ['SOFT', 'MEDIUM', 'STIFF'], desc: ['Soaks up landings, craters and rough ground; more body roll.', 'Balanced all-rounder.', 'Crisp and stable on smooth decks; harsh on landings.'] },
+  gear: { label: 'GEARING', names: ['SHORT', 'STANDARD', 'LONG'], desc: ['+15% acceleration, -10% top speed. Twisty stages.', 'Balanced.', '+10% top speed, -10% acceleration. Fast open stages.'] },
+  tyre: { label: 'TYRES', names: ['ALL-TERRAIN', 'STUDDED', 'SLICK'], desc: ['Consistent grip on every surface.', '+35% grip on ice, slightly less elsewhere.', '+18% grip on metal plating; poor on ice and gravel.'] },
+};
+const TUNE = {
+  susp: [{ k: 0.8, c: 0.85, land: 1.5 }, { k: 1, c: 1, land: 0 }, { k: 1.3, c: 1.2, land: -1.2 }],
+  gear: [{ a: 1.15, v: 0.9 }, { a: 1, v: 1 }, { a: 0.9, v: 1.1 }],
+  tyre: [[1, 1, 1, 1], [0.95, 1.35, 0.88, 0.97], [0.92, 0.8, 1.18, 0.88]],   // per surface: regolith, ice, metal, gravel
+};
+const RECOMMENDED = [{ susp: 0, gear: 2, tyre: 0 }, { susp: 1, gear: 0, tyre: 1 }, { susp: 2, gear: 0, tyre: 2 }];
+const DEFAULT_SETUP = { susp: 1, gear: 1, tyre: 0 };
+function tuneFor(setup) {
+  const su = TUNE.susp[setup.susp], g = TUNE.gear[setup.gear];
+  return { k: su.k, c: su.c, land: su.land, a: g.a, v: g.v, mu: TUNE.tyre[setup.tyre] };
+}
 
 /* =============================================================================
    4. RENDERER & SCENE SETUP
@@ -2102,8 +2216,9 @@ const car = {
     comp: 0, dist: 0, load: 0, arb: 0, slipLat: 0, vLong: 0, sliding: false, spinning: false, bottomed: false, spinV: 0, spinAngle: 0, emit: 0 })),
   nGround: 0, airTime: 0, wasAirborne: false, pitchLatch: false, steerLatch: false,
   damage: 0, boost: 0.5, boosting: false, drifting: false, slip: 0, hullContact: false,
-  events: [], flipTimer: 0, offTimer: 0, globalTimer: 0,
+  events: [], flipTimer: 0, offTimer: 0, globalTimer: 0, tune: null,
 };
+car.tune = tuneFor(DEFAULT_SETUP);
 const AX = new THREE.Vector3(), AY = new THREE.Vector3(), AZ = new THREE.Vector3();
 const F = new THREE.Vector3(), T = new THREE.Vector3();
 const _r = new THREE.Vector3(), _vp = new THREE.Vector3(), _fw = new THREE.Vector3(), _lt = new THREE.Vector3(), _cp = new THREE.Vector3();
@@ -2127,7 +2242,8 @@ function stepVehicle(dt, ctl) {
   const vLongBody = car.vel.dot(AZ);
   const steerMax = CAR.maxSteer / (1 + Math.abs(vLongBody) * CAR.steerFalloff);
   car.steerAngle = damp(car.steerAngle, -ctl.steer * steerMax, 12, dt);
-  const kS = m * def.suspG / (4 * 0.2), cD = 2 * def.damping * Math.sqrt(kS * m / 4);
+  const tn = car.tune;
+  const kS = m * def.suspG * tn.k / (4 * 0.2), cD = 2 * def.damping * tn.c * Math.sqrt(kS * m / 4);
   const staticLoad = m * (g + def.clampG) / 4, maxLen = CAR.rest + CAR.radius;
 
   // 1) suspension raycasts against the analytic ground
@@ -2156,7 +2272,7 @@ function stepVehicle(dt, ctl) {
   }
   // 3) spring/damper + tyre forces
   const dmgF = 1 - 0.35 * car.damage;
-  const vmaxEff = CAR.vmax * dmgF;
+  const vmaxEff = CAR.vmax * dmgF * tn.v;
   for (let k = 0; k < 4; k++) {
     const w = car.wheels[k], cw = CAR.wheels[k];
     if (!w.grounded) { w.load = 0; w.sliding = false; w.spinning = false; w.slipLat = 0; w.prevGround = false; continue; }
@@ -2186,7 +2302,7 @@ function stepVehicle(dt, ctl) {
     const vLong = _vp.dot(_fw), vLat = _vp.dot(_lt);
     const gs = w.gs;
     const loadRatio = clamp(Fs / staticLoad, 0, 2.2);
-    const gripMax = gs.mu * loadRatio * m * def.gripG / 4 * (cw.front ? 1.0 : 1.04) + 1;
+    const gripMax = gs.mu * tn.mu[gs.surf] * loadRatio * m * def.gripG / 4 * (cw.front ? 1.0 : 1.04) + 1;
     let gripLat = gripMax;
     if (ctl.handbrake && !cw.front) gripLat *= 0.36;
     // lateral: slip-angle curve (linear up to the peak slip angle, then saturates)
@@ -2194,7 +2310,7 @@ function stepVehicle(dt, ctl) {
     let Ft = -gripLat * clamp(alpha / CAR.slipPeak, -1.3, 1.3);
     let Fl = 0;
     if (ctl.throttle > 0 && vLong < vmaxEff) {
-      const a = CAR.accel * (1 - 0.25 * car.damage) * (1 - Math.max(0, vLong) / vmaxEff);
+      const a = CAR.accel * tn.a * (1 - 0.25 * car.damage) * (1 - Math.max(0, vLong) / vmaxEff);
       // light traction control: never ask a tyre for more than ~80% of its grip
       Fl += Math.min(ctl.throttle * (m / 4) * a * (cw.front ? 0.85 : 1.15), gripMax * 0.8);
     }
@@ -2225,7 +2341,7 @@ function stepVehicle(dt, ctl) {
     }
   }
   // 4) boost thrusters work anywhere — including mid-air
-  if (car.boosting && vLongBody < CAR.vmax * CAR.boostVmax * dmgF) F.addScaledVector(AZ, m * CAR.boostAccel);
+  if (car.boosting && vLongBody < CAR.vmax * CAR.boostVmax * dmgF * tn.v) F.addScaledVector(AZ, m * CAR.boostAccel);
   // 5) air control + landing detection
   if (nG === 0) {
     car.airTime += dt;
@@ -2468,9 +2584,9 @@ function buildCarModel(accentHex) {
   g.add(spot, spot.target);
   return { group: g, wheels, flames, tailMat, tip, under, spot };
 }
-function buildGhostModel() {
+function buildGhostModel(color) {
   const g = new THREE.Group();
-  const mat = new THREE.MeshBasicMaterial({ color: 0x58f0ff, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+  const mat = new THREE.MeshBasicMaterial({ color: color || 0x58f0ff, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
   const add = (geo, x, y, z) => { const mm = new THREE.Mesh(geo, mat); mm.position.set(x, y, z); g.add(mm); return mm; };
   add(new THREE.BoxGeometry(1.9, 0.46, 3.6), 0, -0.02, 0);
   add(new THREE.BoxGeometry(1.5, 0.34, 1.7), 0, 0.36, -0.28);
@@ -2701,6 +2817,7 @@ const Input = {
   init() {
     const block = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
     window.addEventListener('keydown', (e) => {
+      if (e.target && e.target.matches && e.target.matches('input,textarea')) return;   // typing a seed / ghost code
       if (block.includes(e.code)) e.preventDefault();
       AudioSys.unlock();
       this.keys.add(e.code);
@@ -3070,7 +3187,7 @@ function noteHTML(g) {
 const HUD = {
   el: {}, last: {}, toastT: 0, msgT: 0,
   init() {
-    for (const id of ['hud', 'stageName', 'progress', 'progFill', 'progCar', 'progGhost', 'cpLabel', 'infoBox', 'timer', 'delta', 'penalty', 'bestBox',
+    for (const id of ['hud', 'stageName', 'progress', 'progFill', 'progCar', 'progGhost', 'progRival', 'cpLabel', 'infoBox', 'timer', 'delta', 'penalty', 'bestBox',
       'coDriver', 'pn1', 'pn2', 'countdown', 'bigMsg', 'subMsg', 'toast', 'surfName', 'gripFill', 'gravVal', 'camVal', 'driftTag',
       'spdArc', 'boostArc', 'spdNum', 'boostLbl', 'dmgFill', 'dmgPct', 'dmgIcon', 'touch']) this.el[id] = document.getElementById(id);
   },
@@ -3139,11 +3256,16 @@ const HUD = {
     const gp = Ghost.progress();
     this.el.progGhost.classList.toggle('hidden', gp === null);
     if (gp !== null) this.el.progGhost.style.left = (clamp((gp - TR.startS) / span, 0, 1) * 100).toFixed(2) + '%';
+    const rp = Rival.progress();
+    this.el.progRival.classList.toggle('hidden', rp === null);
+    if (rp !== null) this.el.progRival.style.left = (clamp((rp - TR.startS) / span, 0, 1) * 100).toFixed(2) + '%';
+    this.setHTML('infoBox', Rally.active ? `RALLY <b>${Rally.stage + 1}/${STAGES.length}</b><br>TOTAL <b>${fmtTime(Rally.total + Rally.servicePen + Game.time)}</b>` : '');
     this.set('cpLabel', Game.nextGate >= TR.gates.length - 1 ? 'FINISH' : 'CP ' + Game.nextGate + '/' + (TR.gates.length - 1));
     this.set('timer', fmtTime(Game.time));
     this.set('penalty', Game.penalty > 0 ? '+' + Game.penalty.toFixed(0) + 's PENALTY' : '');
     const best = Store.best(def.id);
-    this.setHTML('bestBox', `BEST <b>${best ? fmtTime(best.time) : '--:--.--'}</b><br>TARGET <b>${fmtTime(TR.targetTime)}</b>`);
+    this.setHTML('bestBox', `BEST <b>${best ? fmtTime(best.time) : '--:--.--'}</b><br>TARGET <b>${fmtTime(TR.targetTime)}</b>` +
+      (Rival.play ? `<br><span style="color:#ff4fd8">RIVAL ${esc(Rival.name)}</span> <b>${fmtTime(Rival.time)}</b>` : ''));
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT <= 0) this.el.toast.style.opacity = 0; }
     if (this.msgT > 0) { this.msgT -= dt; if (this.msgT <= 0) { this.el.bigMsg.textContent = ''; this.el.subMsg.textContent = ''; } }
   },
@@ -3160,14 +3282,39 @@ const Game = {
   prevS: 0, runCount: 0, acc: 0, carModel: null, stats: {}, wasBoosting: false, autopilot: false, result: null, boostEmit: 0, smokeEmit: 0,
 };
 
-/* ---- ghost replay: 10 Hz samples of the best run, stored in localStorage ---- */
-const Ghost = {
-  rec: [], recT: 0, play: null, idx: 0, curS: null, mesh: null,
-  init() { this.mesh = buildGhostModel(); scene.add(this.mesh); },
+/* ---- ghosts: your best run (cyan) and an imported rival (magenta) ---- */
+class GhostPlayer {
+  constructor(color) { this.color = color; this.mesh = null; this.play = null; this.idx = 0; this.curS = null; this.name = ''; this.time = null; }
+  init() { this.mesh = buildGhostModel(this.color); scene.add(this.mesh); }
+  load(data, name, time) {
+    this.play = Array.isArray(data) && data.length >= 18 && data.length % 9 === 0 ? data : null;
+    this.idx = 0; this.curS = null; this.name = name || ''; this.time = time == null ? null : time; this.mesh.visible = false;
+  }
+  update(t) {
+    const on = this.play && Store.data.settings.ghost && (Game.state === 'racing' || Game.state === 'finished' || (Game.state === 'paused' && Game.prevState === 'racing'));
+    if (!on) { this.mesh.visible = false; this.curS = null; return; }
+    const d = this.play, n = d.length / 9;
+    if (t < d[this.idx * 9]) this.idx = 0;
+    while (this.idx < n - 2 && d[(this.idx + 1) * 9] <= t) this.idx++;
+    const a = this.idx * 9, b = a + 9;
+    if (t > d[d.length - 9]) { this.mesh.visible = false; this.curS = d[d.length - 1]; return; }
+    const f = d[b] > d[a] ? clamp((t - d[a]) / (d[b] - d[a]), 0, 1) : 0;
+    this.mesh.position.set(lerp(d[a + 1], d[b + 1], f), lerp(d[a + 2], d[b + 2], f), lerp(d[a + 3], d[b + 3], f));
+    _q.set(d[a + 4], d[a + 5], d[a + 6], d[a + 7]).normalize();
+    this.mesh.quaternion.set(d[b + 4], d[b + 5], d[b + 6], d[b + 7]).normalize();
+    this.mesh.quaternion.copy(_q.slerp(this.mesh.quaternion, f));
+    this.curS = lerp(d[a + 8], d[b + 8], f);
+    this.mesh.visible = true;
+  }
+  progress() { return this.curS; }
+}
+const Ghost = new GhostPlayer(0x58f0ff);           // also records the current run (10 Hz)
+Object.assign(Ghost, {
+  rec: [], recT: 0,
   startRun() {
-    this.rec = []; this.recT = 0; this.idx = 0; this.curS = null; this.mesh.visible = false;
+    this.rec = []; this.recT = 0;
     const b = Store.best(TR.def.id);
-    this.play = b && b.ghost && Array.isArray(b.ghost.data) && b.ghost.data.length > 18 ? b.ghost.data : null;
+    this.load(b && b.ghost ? b.ghost.data : null, 'BEST', b ? b.time : null);
   },
   record(t) {
     if (t < this.recT) return;
@@ -3175,24 +3322,174 @@ const Ghost = {
     const p = car.pos, q = car.q;
     this.rec.push(+t.toFixed(2), +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), +q.x.toFixed(4), +q.y.toFixed(4), +q.z.toFixed(4), +q.w.toFixed(4), +car.s.toFixed(1));
   },
-  update(t) {
-    const on = this.play && Store.data.settings.ghost && (Game.state === 'racing' || Game.state === 'finished' || (Game.state === 'paused' && Game.prevState === 'racing'));
-    if (!on) { this.mesh.visible = false; this.curS = null; return; }
-    const d = this.play, n = d.length / 9;
-    while (this.idx < n - 2 && d[(this.idx + 1) * 9] <= t) this.idx++;
-    const a = this.idx * 9, b = a + 9;
-    if (t > d[d.length - 9]) { this.mesh.visible = false; this.curS = d[d.length - 1]; return; }
-    const f = d[b] > d[a] ? clamp((t - d[a]) / (d[b] - d[a]), 0, 1) : 0;
-    this.mesh.position.set(lerp(d[a + 1], d[b + 1], f), lerp(d[a + 2], d[b + 2], f), lerp(d[a + 3], d[b + 3], f));
-    _q.set(d[a + 4], d[a + 5], d[a + 6], d[a + 7]);
-    this.mesh.quaternion.set(d[b + 4], d[b + 5], d[b + 6], d[b + 7]);
-    this.mesh.quaternion.copy(_q.slerp(this.mesh.quaternion, f));
-    this.curS = lerp(d[a + 8], d[b + 8], f);
-    this.mesh.visible = true;
-  },
-  progress() { return this.curS; },
   pack() { return { v: 1, data: this.rec }; },
+});
+const Rival = new GhostPlayer(0xff4fd8);
+Rival.startRun = function () {
+  const code = Store.data.rival[TR.def.id];
+  let g = null;
+  if (code) { try { g = decodeGhostCached(code); } catch (e) { g = null; } }
+  this.load(g ? g.data : null, g ? g.meta.n : '', g ? g.meta.t : null);
 };
+
+/* ---- shareable ghost codes: "RRG1.<meta>.<delta-varint samples>.<checksum>" ----
+   Samples are decimated to 5 Hz, quantised (1 cm-ish positions, 1/1000 quaternions),
+   delta-encoded per channel and packed as zig-zag varints → a few KB of text. */
+const GH_SCALE = [100, 20, 20, 20, 1000, 1000, 1000, 1000, 2];
+const b64u = (bin) => btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function unb64u(str) { let t = str.replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '='; return atob(t); }
+function hashStr(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+function cleanName(n) { return String(n || '').toUpperCase().replace(/[^A-Z0-9 _.\-]/g, '').trim().slice(0, 16); }
+function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function encodeGhost(data, meta) {
+  const bytes = [], prev = new Array(9).fill(0), n = data.length / 9;
+  const put = (v) => { let z = v >= 0 ? v * 2 : -v * 2 - 1; while (z >= 128) { bytes.push((z % 128) + 128); z = Math.floor(z / 128); } bytes.push(z); };
+  for (let k = 0; k < n; k++) {
+    if (k % 2 && k !== n - 1) continue;
+    for (let c = 0; c < 9; c++) { const q = Math.round(data[k * 9 + c] * GH_SCALE[c]); put(q - prev[c]); prev[c] = q; }
+  }
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  const head = b64u(unescape(encodeURIComponent(JSON.stringify(meta)))), body = b64u(bin);
+  return 'RRG1.' + head + '.' + body + '.' + hashStr(head + body);
+}
+function decodeGhost(code) {
+  const parts = String(code || '').replace(/\s+/g, '').split('.');
+  if (parts.length !== 4 || parts[0] !== 'RRG1') throw new Error('That is not a Regolith Rally ghost code.');
+  if (hashStr(parts[1] + parts[2]) !== parts[3]) throw new Error('The code is incomplete or damaged — copy it again.');
+  const meta = JSON.parse(decodeURIComponent(escape(unb64u(parts[1]))));
+  if (!meta || typeof meta.s !== 'string' || !(meta.t > 0)) throw new Error('The code is missing its stage or time.');
+  const bin = unb64u(parts[2]), data = [], prev = new Array(9).fill(0);
+  let c = 0, z = 0, mul = 1;
+  for (let i = 0; i < bin.length; i++) {
+    const byte = bin.charCodeAt(i);
+    z += (byte & 127) * mul;
+    if (byte & 128) { mul *= 128; continue; }
+    prev[c] += z % 2 ? -(z + 1) / 2 : z / 2;
+    data.push(prev[c] / GH_SCALE[c]);
+    c = (c + 1) % 9; z = 0; mul = 1;
+  }
+  if (c !== 0 || data.length < 18) throw new Error('The ghost data is truncated.');
+  return { meta, data };
+}
+const _ghostCache = new Map();
+function decodeGhostCached(code) { if (!_ghostCache.has(code)) _ghostCache.set(code, decodeGhost(code)); return _ghostCache.get(code); }
+
+/* ---- local leaderboards (your runs + imported ghosts), per stage ---- */
+function addBoardEntry(key, e) {
+  const b = Store.data.boards[key] || (Store.data.boards[key] = []);
+  if (e.g && b.some((x) => x.g === e.g)) return;
+  b.push(e); b.sort((x, y) => x.t - y.t);
+  if (b.length > 10) b.length = 10;
+}
+function boardHTML(def, hiT) {
+  const b = Store.data.boards[def.id] || [], rv = Store.data.rival[def.id];
+  const title = `<h4>LEADERBOARD · ${esc(def.name.toUpperCase())}</h4>`;
+  if (!b.length) return title + '<div class="empty">No times yet — finish the stage, or import a friend\'s ghost code to race it.</div>';
+  const rows = b.slice(0, 8).map((e, i) => `<tr class="${e.own && hiT != null && Math.abs(e.t - hiT) < 0.005 ? 'me' : ''}"><td>${i + 1}</td>` +
+    `<td>${esc(e.n || '?')} ${e.own ? '<span class="tag">YOU</span>' : '<span class="tag rv">GHOST</span>'}</td><td class="r">${fmtTime(e.t)}</td>` +
+    `<td class="r">${e.g ? `<button class="mini${rv === e.g ? ' on' : ''}" data-rival="${i}">${rv === e.g ? 'RACING' : 'RACE'}</button>` : ''}</td></tr>`).join('');
+  return title + '<table>' + rows + '</table>';
+}
+function toggleRival(def, i) {
+  const e = (Store.data.boards[def.id] || [])[i];
+  if (!e || !e.g) return;
+  if (Store.data.rival[def.id] === e.g) delete Store.data.rival[def.id]; else Store.data.rival[def.id] = e.g;
+  Store.save(); Menu.refresh();
+}
+function importGhost(code) {
+  const g = decodeGhost(code);
+  const def = parseStageCode(g.meta.s, 0);
+  if (!def) throw new Error('The ghost is for an unknown stage.');
+  const clean = String(code).replace(/\s+/g, '');
+  addBoardEntry(def.id, { n: cleanName(g.meta.n) || 'RIVAL', t: g.meta.t, g: clean, d: g.meta.d });
+  Store.data.rival[def.id] = clean;
+  Store.save();
+  if (!Game.def || def.id !== Game.def.id) loadStage(def, enterMenu); else Menu.refresh();
+  return g;
+}
+function ghostMeta(t) { return { v: 1, s: stageCode(TR.def), n: cleanName(Store.data.settings.name) || 'DRIVER', t: +t.toFixed(3), d: new Date().toISOString().slice(0, 10) }; }
+
+/* ---- clipboard with a manual-copy fallback (file:// pages often lack clipboard access) ---- */
+const Modal = {
+  onOk: null,
+  open(title, text, okLabel, onOk, msg) {
+    document.getElementById('modalTitle').textContent = title;
+    const ta = document.getElementById('modalText'); ta.value = text || '';
+    document.getElementById('modalMsg').textContent = msg || '';
+    const ok = document.getElementById('modalOk'); ok.textContent = okLabel || ''; ok.classList.toggle('hidden', !okLabel);
+    this.onOk = onOk;
+    document.getElementById('modal').classList.remove('hidden');
+    setTimeout(() => { ta.focus(); if (text) ta.select(); }, 30);
+  },
+  msg(t) { document.getElementById('modalMsg').textContent = t; },
+  close() { document.getElementById('modal').classList.add('hidden'); this.onOk = null; },
+};
+function flashButton(btn, text) {
+  if (!btn) return;
+  const old = btn.dataset.label || btn.textContent; btn.dataset.label = old;
+  btn.textContent = text; setTimeout(() => { btn.textContent = old; }, 1600);
+}
+function copyText(text, what, btn) {
+  const fallback = () => Modal.open('COPY ' + what, text, null, null, 'Select all and copy (Ctrl/Cmd+C), then send it to a friend.');
+  try {
+    if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(() => flashButton(btn, 'COPIED ✓'), fallback); return; }
+  } catch (e) { /* fall through */ }
+  fallback();
+}
+
+/* ---- rally mode: all three stages back to back, damage carries over, service between stages ---- */
+const Rally = { active: false, stage: 0, total: 0, results: [], damage: 0, servicePen: 0, serviced: false, done: false, isBest: false };
+function startRally() {
+  Object.assign(Rally, { active: true, stage: 0, total: 0, results: [], damage: 0, servicePen: 0, serviced: false, done: false, isBest: false });
+  if (Game.def === STAGES[0]) openService(); else loadStage(0, openService);
+}
+function currentSetup() {
+  const st = Store.data.setups[Game.stageIdx];
+  return Object.assign({}, DEFAULT_SETUP, st && typeof st === 'object' ? st : {});
+}
+
+/* ---- service park: pick a setup (and repair damage during a rally) ---- */
+const Service = {
+  render() {
+    const def = TR.def, su = currentSetup(), rec = RECOMMENDED[def.tpl];
+    document.getElementById('svcStage').textContent = def.name.toUpperCase() + ' · ' + stageCode(def) + ' · ' + (def.gravity / 9.81).toFixed(2) + ' G · MOSTLY ' + SURF_INFO[def.surf.base].name;
+    let html = '';
+    for (const k of ['susp', 'gear', 'tyre']) {
+      const o = SETUP_OPTS[k];
+      html += `<div class="setrow"><span>${o.label}</span><div class="seg">` +
+        o.names.map((n, v) => `<button data-k="${k}" data-v="${v}" class="${su[k] === v ? 'on' : ''}${rec[k] === v ? ' rec' : ''}">${n}</button>`).join('') +
+        `</div><em>${o.desc[su[k]]}</em></div>`;
+    }
+    document.getElementById('svcRows').innerHTML = html;
+    document.getElementById('svcHint').textContent = '★ RECOMMENDED FOR THIS STAGE: ' + ['susp', 'gear', 'tyre'].map((k) => SETUP_OPTS[k].names[rec[k]]).join(' · ');
+    const rb = document.getElementById('svcRally');
+    rb.classList.toggle('hidden', !Rally.active);
+    if (Rally.active) {
+      const cost = Math.round(Rally.damage * 100 * 0.4);
+      rb.innerHTML = `RALLY STAGE <b>${Rally.stage + 1}/${STAGES.length}</b> · TOTAL <b>${fmtTime(Rally.total + Rally.servicePen)}</b>` +
+        (Rally.servicePen ? ` · SERVICE PENALTY <b>+${Rally.servicePen}s</b>` : '') +
+        `<br>DAMAGE AFTER THE CREW'S FREE 40% REPAIR: <b>${Math.round(Rally.damage * 100)}%</b>` +
+        (Rally.damage > 0.005 ? ` <button class="mini" id="svcRepair">FULL REPAIR  +${cost}s</button>` : ' · CAR IS PRISTINE');
+    }
+    document.getElementById('svcBack').textContent = Rally.active ? 'ABANDON RALLY' : 'BACK';
+  },
+};
+function openService() {
+  for (const id of ['menu', 'pause', 'finish']) document.getElementById(id).classList.add('hidden');
+  if (Rally.active && !Rally.serviced) { Rally.damage = Math.max(0, Rally.damage - 0.4); Rally.serviced = true; }
+  Game.state = 'service';
+  HUD.show(false);
+  resetRunState();
+  placeCar(TR.startS - 6, 0, 0);
+  Cam.snap();
+  Service.render();
+  document.getElementById('service').classList.remove('hidden');
+}
+function leaveService() {
+  document.getElementById('service').classList.add('hidden');
+  startRace();
+}
 
 /* ---- AI driver: used for the menu demo, after the finish line, and as an optional autopilot ---- */
 const AI = { ctl: { steer: 0, throttle: 0, brake: 0, handbrake: false, boost: false }, line: 0, dt: 1 / 60 };
@@ -3255,7 +3552,7 @@ function chooseControls() {
   const st = Game.state;
   if (Game.forceCtl && st === 'racing') return Game.forceCtl;
   if (st === 'racing') return Game.autopilot ? aiControl(0.97, false) : Input.ctl;
-  if (st === 'countdown') return IDLE_CTL;
+  if (st === 'countdown' || st === 'service') return IDLE_CTL;
   if (st === 'finished') return aiControl(1, true);
   return aiControl(0.92, false);   // menu demo
 }
@@ -3280,9 +3577,10 @@ function processCarEvents() {
         const a = k / 26 * TAU, sp = 3 + ev.impact * 0.6;
         FX.dust.emit(car.pos.x, car.pos.y - 0.6, car.pos.z, Math.cos(a) * sp, 0.6 + Math.random(), Math.sin(a) * sp, 1.3, 0.8, 2.2, pc.r, pc.g, pc.b, 0.35, 0.2, 1.2);
       }
-      if (ev.impact > def.hardLanding) {
+      const hardAt = def.hardLanding + car.tune.land;
+      if (ev.impact > hardAt) {
         if (racing) S.hard = (S.hard || 0) + 1;
-        addDamage((ev.impact - def.hardLanding) * 0.035, 'landing');
+        addDamage((ev.impact - hardAt) * 0.035, 'landing');
         if (racing) HUD.toast('HARD LANDING', '#ff4d5e');
       } else if (ev.air > 0.7 && ev.align > 0.9 && racing) {
         const gain = Math.min(0.35, 0.08 + ev.air * 0.07);
@@ -3523,11 +3821,20 @@ function finishRace() {
   AudioSys.chime(true); AudioSys.tone('sine', 1760, 1760, 0.6, 0.08, 0.3);
   const best = Store.best(def.id);
   const isBest = !best || t < best.time;
-  Game.result = { time: t, penalty: Game.penalty, damage: car.damage, splits: Game.splits.slice(), prevBest: best ? best.time : null, prevSplits: best ? best.splits : null, isBest };
-  if (isBest) {
-    Store.data.best[def.id] = { time: +t.toFixed(3), splits: Game.splits.map((v) => +v.toFixed(3)), ghost: Ghost.pack() };
-    Store.save();
+  Game.result = { time: t, penalty: Game.penalty, damage: car.damage, splits: Game.splits.slice(), prevBest: best ? best.time : null, prevSplits: best ? best.splits : null, isBest, ghost: Ghost.rec.slice() };
+  if (isBest) Store.data.best[def.id] = { time: +t.toFixed(3), splits: Game.splits.map((v) => +v.toFixed(3)), ghost: Ghost.pack() };
+  addBoardEntry(def.id, { n: cleanName(Store.data.settings.name) || 'DRIVER', t: +t.toFixed(3), own: true, d: new Date().toISOString().slice(0, 10) });
+  if (Rally.active) {
+    Rally.results.push({ name: def.name, time: t, service: Rally.servicePen, dmg: car.damage });
+    Rally.total += t + Rally.servicePen; Rally.servicePen = 0; Rally.damage = car.damage; Rally.serviced = false;
+    if (Rally.stage >= STAGES.length - 1) {
+      Rally.done = true;
+      const rb = Store.data.rallyBest;
+      Rally.isBest = !rb || Rally.total < rb.total;
+      if (Rally.isBest) Store.data.rallyBest = { total: +Rally.total.toFixed(3), stages: Rally.results.map((q) => +q.time.toFixed(3)), n: cleanName(Store.data.settings.name) };
+    }
   }
+  Store.save();
   HUD.message(isBest ? 'NEW STAGE RECORD!' : 'FINISH', fmtTime(t), isBest ? '#3dff8a' : '#ffffff', 3);
   AudioSys.speak(isBest ? 'Stage record! Brilliant drive.' : 'Stage complete.', true);
   Game.noteQueue = []; HUD.showNotes(null, null);
@@ -3551,15 +3858,29 @@ function showFinish() {
     rows += `<tr><td>${i === r.splits.length - 1 ? 'FINISH' : 'CP ' + (i + 1)}</td><td>${fmtTime(t)}</td><td class="${d <= 0 ? 'good' : 'bad'}">${fmtDelta(d)}</td></tr>`;
   });
   document.getElementById('finSplits').innerHTML = `<tr><td>SPLIT</td><td>TIME</td><td>${r.prevSplits ? 'VS BEST' : 'VS TARGET'}</td></tr>` + rows;
-  document.getElementById('nextBtn').classList.toggle('hidden', Game.stageIdx >= STAGES.length - 1);
+  const nextBtn = document.getElementById('nextBtn');
+  nextBtn.classList.toggle('hidden', Rally.active ? Rally.done : Game.stageIdx >= STAGES.length - 1);
+  nextBtn.innerHTML = Rally.active ? 'SERVICE PARK &#9656;' : 'NEXT STAGE &#9656;';
+  document.getElementById('retryBtn').classList.toggle('hidden', Rally.active);
+  document.getElementById('finMenuBtn').textContent = Rally.active && !Rally.done ? 'ABANDON RALLY' : 'STAGE SELECT';
+  const fr = document.getElementById('finRally');
+  fr.classList.toggle('hidden', !Rally.active);
+  if (Rally.active) {
+    const rb = Store.data.rallyBest;
+    fr.innerHTML = (Rally.done ? `<b style="color:var(--accent)">RALLY COMPLETE</b> · ` : `RALLY STAGE <b>${Rally.stage + 1}/${STAGES.length}</b> · `) +
+      `TOTAL <b>${fmtTime(Rally.total)}</b>` + (Rally.done ? (Rally.isBest ? ' · <b style="color:var(--good)">NEW RALLY RECORD</b>' : ` · RECORD <b>${fmtTime(rb.total)}</b>`) : '') + '<br>' +
+      Rally.results.map((q, i) => `SS${i + 1} ${esc(q.name.toUpperCase())} <b>${fmtTime(q.time)}</b>${q.service ? ' +' + q.service + 's service' : ''}`).join('<br>') +
+      (Rally.done ? '' : `<br>DAMAGE CARRIED TO SERVICE: <b>${Math.round(Rally.damage * 100)}%</b>`);
+  }
+  document.getElementById('finBoard').innerHTML = boardHTML(def, r.time);
   document.getElementById('finish').classList.remove('hidden');
 }
 
 /* ---- flow ---- */
-function buildStage(idx) {
-  const def = STAGES[idx];
+function buildStage(def) {
+  if (typeof def === 'number') def = STAGES[def];
   const t0 = performance.now();
-  Game.stageIdx = idx;
+  Game.def = def; Game.stageIdx = def.tpl;
   scene.remove(stageGroup); disposeObject(stageGroup);
   stageGroup = new THREE.Group(); scene.add(stageGroup);
   Object.assign(Scenery, { gateAll: [], debrisMesh: null, beacons: null, beaconPhase: [], floaters: null, floaterData: [], skyStruct: null });
@@ -3584,14 +3905,15 @@ function buildStage(idx) {
   TR.buildMs = performance.now() - t0;
   console.info(`[Regolith Rally] ${def.name}: ${TR.total.toFixed(0)} m, ${TR.gates.length - 1} checkpoints, target ${fmtTime(TR.targetTime)}, layout attempt ${TR.attempts + 1}, built in ${TR.buildMs.toFixed(0)} ms`);
 }
-function loadStage(idx, then) {
+function loadStage(def, then) {
+  if (typeof def === 'number') def = STAGES[def];
   Game.state = 'loading';
   const l = document.getElementById('loading');
-  l.textContent = 'GENERATING ' + STAGES[idx].name.toUpperCase() + '…';
+  l.textContent = 'GENERATING ' + def.name.toUpperCase() + '…';
   l.classList.remove('hidden');
   AudioSys.stopSpeech();
   setTimeout(() => {
-    buildStage(idx);
+    buildStage(def);
     l.classList.add('hidden');
     if (then) then();
   }, 40);
@@ -3606,14 +3928,16 @@ function resetRunState() {
   if (HUD.ticks) HUD.ticks.forEach((t) => t.classList.remove('done'));
   Object.assign(Game, { time: 0, penalty: 0, nextGate: 0, lastCP: -1, splits: [], pendingReset: null, noteIdx: 0, noteQueue: [], clock: 0, prevS: 0,
     finishShown: false, acc: 0, goT: 0, result: null, stats: { resets: [] } });
-  car.damage = 0; car.boost = 0.5; car.boosting = false;
-  Ghost.startRun();
+  car.damage = Rally.active ? Rally.damage : 0; car.boost = 0.5; car.boosting = false;
+  Ghost.startRun(); Rival.startRun();
   HUD.el.delta.textContent = ''; HUD.el.delta.className = '';
   HUD.showNotes(null, null);
 }
 function enterMenu() {
   Game.state = 'menu';
-  for (const id of ['pause', 'finish']) document.getElementById(id).classList.add('hidden');
+  Rally.active = false;
+  car.tune = tuneFor(DEFAULT_SETUP);
+  for (const id of ['pause', 'finish', 'service']) document.getElementById(id).classList.add('hidden');
   document.getElementById('menu').classList.remove('hidden');
   HUD.show(false);
   resetRunState();
@@ -3623,7 +3947,8 @@ function enterMenu() {
   AudioSys.stopSpeech();
 }
 function startRace() {
-  for (const id of ['menu', 'pause', 'finish']) document.getElementById(id).classList.add('hidden');
+  for (const id of ['menu', 'pause', 'finish', 'service']) document.getElementById(id).classList.add('hidden');
+  car.tune = tuneFor(currentSetup());
   resetRunState();
   placeCar(TR.startS - 6, 0, 0);
   AI.line = 0;
@@ -3637,7 +3962,8 @@ function startRace() {
 function pauseGame() {
   if (Game.state !== 'racing' && Game.state !== 'countdown') return;
   Game.prevState = Game.state; Game.state = 'paused';
-  document.getElementById('pauseStage').textContent = TR.def.name.toUpperCase() + ' · ' + fmtTime(Game.time);
+  document.getElementById('pauseStage').textContent = TR.def.name.toUpperCase() + ' · ' + fmtTime(Game.time) + (Rally.active ? ' · RALLY STAGE ' + (Rally.stage + 1) : '');
+  document.getElementById('restartBtn').classList.toggle('hidden', Rally.active);
   document.getElementById('pause').classList.remove('hidden');
   AudioSys.stopSpeech();
   Menu.refresh();
@@ -3665,6 +3991,11 @@ function toggleCamera() {
   HUD.toast(Cam.mode === 'chase' ? 'CHASE CAM' : 'BUMPER CAM');
 }
 
+function goNext() {
+  document.getElementById('finish').classList.add('hidden');
+  if (Rally.active) { if (!Rally.done) { Rally.stage++; loadStage(Rally.stage, openService); } return; }
+  if (Game.stageIdx < STAGES.length - 1) loadStage(Game.stageIdx + 1, openService);
+}
 function handleActions() {
   const acts = Input.actions;
   if (!acts.length) return;
@@ -3676,16 +4007,23 @@ function handleActions() {
       case 'voice': toggleSetting('voice'); break;
       case 'ghost': toggleSetting('ghost'); break;
       case 'camera': if (st !== 'loading') toggleCamera(); break;
-      case 'pause': if (st === 'racing' || st === 'countdown') pauseGame(); else if (st === 'paused') resumeGame(); break;
+      case 'pause':
+        if (!document.getElementById('modal').classList.contains('hidden')) Modal.close();
+        else if (st === 'racing' || st === 'countdown') pauseGame(); else if (st === 'paused') resumeGame(); else if (st === 'service') enterMenu();
+        break;
       case 'blur': if (st === 'racing' || st === 'countdown') pauseGame(); break;
       case 'reset': if (st === 'racing' && !Game.pendingReset) { resetToCheckpoint(0); HUD.toast('RESET TO CHECKPOINT'); } break;
       case 'confirm':
-        if (st === 'menu') startRace();
+        if (!document.getElementById('modal').classList.contains('hidden')) break;
+        if (st === 'menu') openService();
+        else if (st === 'service') leaveService();
         else if (st === 'paused') resumeGame();
-        else if (st === 'finished' && Game.finishShown) startRace();
+        else if (st === 'finished' && Game.finishShown) { if (Rally.active) { if (!Rally.done) goNext(); else enterMenu(); } else startRace(); }
         break;
       case 'back':
+        if (!document.getElementById('modal').classList.contains('hidden')) { Modal.close(); break; }
         if (st === 'paused') resumeGame();
+        else if (st === 'service') enterMenu();
         else if (st === 'finished' && Game.finishShown) enterMenu();
         break;
       case 'navLeft': case 'navRight':
@@ -3709,25 +4047,84 @@ const Menu = {
         `<div class="stats"><span>GRAVITY <b>${(def.gravity / 9.81).toFixed(2)} G</b></span><span>LENGTH <b>~${(def.length / 1000).toFixed(1)} KM</b></span>` +
         `<span>SURFACE <b>${SURF_INFO[def.surf.base].name}</b></span><span>GATES <b>${def.checkpoints}</b></span>` +
         `<span>BEST <b class="bestT">--:--.--</b></span><span>TARGET <b class="tgtT">—</b></span></div>`;
-      c.addEventListener('click', () => { AudioSys.unlock(); if (Game.state === 'menu' && i !== Game.stageIdx) loadStage(i, enterMenu); });
+      c.addEventListener('click', () => { AudioSys.unlock(); if (Game.state === 'menu' && (i !== Game.stageIdx || Game.def.custom)) loadStage(i, enterMenu); });
       cards.appendChild(c);
     });
     const on = (id, fn) => document.getElementById(id).addEventListener('click', (e) => { e.preventDefault(); AudioSys.unlock(); fn(); });
-    on('startBtn', () => { if (Game.state === 'menu') startRace(); });
+    on('startBtn', () => { if (Game.state === 'menu') openService(); });
+    on('rallyBtn', () => { if (Game.state === 'menu') startRally(); });
     on('resumeBtn', resumeGame);
     on('restartBtn', () => { document.getElementById('pause').classList.add('hidden'); startRace(); });
     on('menuBtn', enterMenu);
     on('retryBtn', startRace);
-    on('nextBtn', () => { if (Game.stageIdx < STAGES.length - 1) { document.getElementById('finish').classList.add('hidden'); loadStage(Game.stageIdx + 1, startRace); } });
+    on('nextBtn', goNext);
     on('finMenuBtn', enterMenu);
+    // stage codes & custom seeds
+    const seedIn = document.getElementById('seedInput');
+    const loadCode = () => {
+      const def = parseStageCode(seedIn.value, Game.stageIdx);
+      if (!def) { seedIn.value = ''; seedIn.placeholder = 'TRY RR-L-1234'; return; }
+      seedIn.value = ''; seedIn.blur();
+      if (Game.state === 'menu' && def.id !== Game.def.id) loadStage(def, enterMenu);
+    };
+    on('loadSeed', loadCode);
+    seedIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadCode(); } });
+    on('randSeed', () => { if (Game.state === 'menu') loadStage(stageDef(Game.stageIdx, 1 + Math.floor(Math.random() * 999999)), enterMenu); });
+    on('copyCode', () => copyText(stageCode(Game.def), 'STAGE CODE', document.getElementById('copyCode')));
+    // driver name, ghost import / export, leaderboard rival toggles
+    const nameIn = document.getElementById('nameInput');
+    nameIn.addEventListener('change', () => { Store.data.settings.name = cleanName(nameIn.value) || 'DRIVER'; nameIn.value = Store.data.settings.name; Store.save(); });
+    nameIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') nameIn.blur(); });
+    on('importBtn', () => Modal.open('IMPORT GHOST CODE', '', 'LOAD & RACE IT', (txt) => {
+      try { const g = importGhost(txt); Modal.close(); flashButton(document.getElementById('importBtn'), 'LOADED ' + (cleanName(g.meta.n) || 'RIVAL')); }
+      catch (err) { Modal.msg(err.message); }
+    }, 'Paste a ghost code. It includes the stage, so the right stage is generated automatically.'));
+    on('exportBtn', () => {
+      const b = Store.best(Game.def.id), btn = document.getElementById('exportBtn');
+      if (!b || !b.ghost || !b.ghost.data) { flashButton(btn, 'NO BEST RUN YET'); return; }
+      const meta = { v: 1, s: stageCode(Game.def), n: cleanName(Store.data.settings.name) || 'DRIVER', t: b.time, d: new Date().toISOString().slice(0, 10) };
+      copyText(encodeGhost(b.ghost.data, meta), 'GHOST CODE', btn);
+    });
+    on('finGhostBtn', () => { const r = Game.result; if (r && r.ghost.length) copyText(encodeGhost(r.ghost, ghostMeta(r.time)), 'GHOST CODE', document.getElementById('finGhostBtn')); });
+    const boardClick = (id, after) => document.getElementById(id).addEventListener('click', (e) => {
+      const b = e.target.closest('[data-rival]'); if (!b) return;
+      toggleRival(Game.def, +b.dataset.rival); if (after) after();
+    });
+    boardClick('menuBoard');
+    boardClick('finBoard', () => { document.getElementById('finBoard').innerHTML = boardHTML(Game.def, Game.result && Game.result.time); });
+    // service park
+    document.getElementById('svcRows').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-k]'); if (!b) return;
+      const su = currentSetup(); su[b.dataset.k] = +b.dataset.v;
+      Store.data.setups[Game.stageIdx] = su; Store.save(); Service.render();
+    });
+    document.getElementById('svcRally').addEventListener('click', (e) => {
+      if (!e.target.closest('#svcRepair')) return;
+      Rally.servicePen += Math.round(Rally.damage * 100 * 0.4); Rally.damage = 0; car.damage = 0; Service.render();
+    });
+    on('svcRec', () => { Store.data.setups[Game.stageIdx] = Object.assign({}, RECOMMENDED[Game.stageIdx]); Store.save(); Service.render(); });
+    on('svcGo', () => { if (Game.state === 'service') leaveService(); });
+    on('svcBack', enterMenu);
+    // modal
+    on('modalOk', () => { if (Modal.onOk) Modal.onOk(document.getElementById('modalText').value); });
+    on('modalClose', () => Modal.close());
     for (const [ids, fn] of [[['togSound', 'pSound'], () => toggleSetting('muted')], [['togVoice', 'pVoice'], () => toggleSetting('voice')],
       [['togGhost', 'pGhost'], () => toggleSetting('ghost')], [['togCam', 'pCam'], toggleCamera]]) for (const id of ids) on(id, fn);
   },
   refresh() {
     const s = Store.data.settings;
+    if (Game.def) {
+      document.getElementById('stageCode').textContent = stageCode(Game.def) + (Game.def.custom ? ' (CUSTOM)' : '');
+      document.getElementById('menuBoard').innerHTML = boardHTML(Game.def);
+    }
+    const nameIn = document.getElementById('nameInput');
+    if (document.activeElement !== nameIn) nameIn.value = s.name || 'DRIVER';
+    const rb = Store.data.rallyBest;
+    document.getElementById('rallyBtn').textContent = 'RALLY · ALL 3 STAGES' + (rb ? ' · BEST ' + fmtTime(rb.total) : '');
     document.querySelectorAll('.card').forEach((c) => {
-      const i = +c.dataset.idx, def = STAGES[i], b = Store.best(def.id);
+      const i = +c.dataset.idx, def = i === Game.stageIdx && Game.def && Game.def.custom ? Game.def : STAGES[i], b = Store.best(def.id);
       c.classList.toggle('sel', i === Game.stageIdx);
+      c.querySelector('h3').textContent = def.name;
       c.querySelector('.bestT').textContent = b ? fmtTime(b.time) : '--:--.--';
       const tgt = TR && TR.def === def ? TR.targetTime : (Store.data.targets || {})[def.id];
       c.querySelector('.tgtT').textContent = tgt ? fmtTime(tgt) : '—';
@@ -3800,12 +4197,12 @@ function update(dt) {
   updateSunShadow();
   Sky.update(dt, TR.ringY);
   FX.update(st === 'paused' ? 0 : dt);
-  Ghost.update(Game.time);
+  Ghost.update(Game.time); Rival.update(Game.time);
   if (st === 'racing' || st === 'countdown' || st === 'finished' || st === 'paused') HUD.update(dt);
   const w0 = car.wheels[2].grounded ? car.wheels[2].gs : car.wheels[0].gs;
   AudioSys.update(dt, {
     speed: car.speed, throttle: st === 'paused' ? 0 : ctl.throttle, boosting: car.boosting, surf: w0.road ? w0.surf : TR.def.surf.off,
-    grounded: car.nGround > 0 ? 1 : 0, slip: car.slip, active: st === 'paused' ? 0 : st === 'menu' ? 0.35 : 1,
+    grounded: car.nGround > 0 ? 1 : 0, slip: car.slip, active: st === 'paused' ? 0 : (st === 'menu' || st === 'service') ? 0.35 : 1,
   });
   return true;
 }
@@ -3822,16 +4219,17 @@ function init() {
   AudioSys.muted = !!s.muted; AudioSys.voice = s.voice !== false;
   Cam.mode = s.cam === 'bumper' ? 'bumper' : 'chase';
   if (IS_TOUCH) document.body.classList.add('touch');
-  HUD.init(); Input.init(); Sky.init(); FX.init(); Meteors.init(); Ghost.init(); Menu.init();
+  HUD.init(); Input.init(); Sky.init(); FX.init(); Meteors.init(); Ghost.init(); Rival.init(); Menu.init();
   Game.carModel = buildCarModel(0xff7a1a);
   scene.add(Game.carModel.group);
-  linearizeMaterials(Game.carModel.group); linearizeMaterials(Ghost.mesh);
+  linearizeMaterials(Game.carModel.group); linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
   for (const m of Meteors.pool) { linearizeMaterials(m.head); linearizeMaterials(m.warn); linearizeMaterials(m.streak); }
   // Small debugging / automation surface (autopilot lets you watch the AI drive a full stage).
   window.RegolithRally = {
     Game, car, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; },
+    openService, leaveService, startRally, Rally, stageDef, stageCode, parseStageCode, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
   };

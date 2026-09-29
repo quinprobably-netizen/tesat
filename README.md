@@ -28,6 +28,13 @@ Rules and scoring:
 - Boost refills when you drift or land a jump cleanly.
 - Best times, splits and a ghost replay of your best run are stored in `localStorage`.
 
+## Modes and sharing
+
+- **Stage codes.** Every stage has a code such as `RR-I-4471` (template letter L/I/W + seed). Type a code or a bare seed in the menu, or press RANDOM SEED, to generate a new stage from that template. Copy the code to send a friend the exact same stage.
+- **Service park.** Before each stage, pick suspension (soft/medium/stiff), gearing (short/standard/long) and tyres (all-terrain/studded/slick). Each stage marks a recommended setup with ★, and your choice is remembered per stage type.
+- **Rally mode.** Runs all three stages back to back. Damage carries over. Between stages the crew repairs 40% for free, and a full repair costs time. Your best rally total is saved.
+- **Ghost codes and leaderboards.** Each stage keeps a local leaderboard of your runs plus imported ghosts. Use COPY THIS RUN'S GHOST CODE on the finish screen (or COPY MY BEST GHOST in the menu) to get a few-KB text code. A friend pastes it into IMPORT GHOST CODE: the right stage is generated and they race your run as a magenta rival ghost. RACE/RACING on the leaderboard picks which imported ghost to race.
+
 ## Controls
 
 | | Keyboard | Gamepad | Touch |
@@ -38,7 +45,8 @@ Rules and scoring:
 | Boost | Shift | X or RB | BOOST |
 | Reset to last checkpoint | R | Back | R |
 | Camera (chase / bumper) | C | Y | CAM |
-| Pause | Esc | Start | II |
+| Pause (Esc also closes dialogs) | Esc | Start | II |
+| Confirm / next (menus, service park) | Enter | A | buttons |
 | Mute / co-driver voice / ghost | M / V / G | | ♫ |
 
 ## Code layout
@@ -63,4 +71,5 @@ For automation and debugging, `window.RegolithRally` exposes the following. For 
 - `simulate(seconds)` runs the game headlessly.
 - `setAutopilot(bool)` hands control to the AI driver.
 - `loadStage(i, then)` builds a stage.
-- `startRace()` starts the current stage.
+- `startRace()` starts the current stage (skipping the service park).
+- `startRally()`, `openService()`, `importGhost(code)`, `encodeGhost(...)` / `decodeGhost(code)` drive the newer features.
