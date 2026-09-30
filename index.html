@@ -288,6 +288,7 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
 .opt:hover,.opt.sel{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.08)}
 .opt .field{width:min(170px,40vw)}
 .opt .go{font-style:normal;color:var(--dim)}
+.opt .mode{font-style:normal;font-weight:900;font-size:11px;letter-spacing:.12em;color:var(--cyan);min-width:66px;text-align:right}
 .switch{flex:none;width:46px;height:26px;border-radius:13px;background:rgba(255,255,255,.14);position:relative;transition:background .15s}
 .switch::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#c9d2e6;transition:transform .15s,background .15s}
 .opt.on .switch{background:rgba(88,240,255,.32)}
@@ -536,6 +537,7 @@ body.touch #stageName{display:none}
         <div class="set-group">VIEW</div>
         <button class="opt" data-set="cam"><span><b>BUMPER CAM</b><small>Drive from the front bumper instead of behind the car. Key: C</small></span><i class="switch"></i></button>
         <button class="opt" data-set="ghost"><span><b>GHOST</b><small>Race against a replay of your best run. Key: G</small></span><i class="switch"></i></button>
+        <button class="opt" data-set="line"><span><b>RACING LINE</b><small>The fastest line, green to go, amber to lift, red to brake, with a board at each braking point. BRAKING shows only the lift and brake zones. Key: L</small></span><i class="mode" id="lineMode">FULL</i></button>
         <div class="set-group">SOUND</div>
         <button class="opt" data-set="sound"><span><b>SOUND</b><small>Engine, effects and co-driver. Key: M</small></span><i class="switch"></i></button>
         <button class="opt" data-set="voice"><span><b>CO-DRIVER VOICE</b><small>Pace notes read aloud as well as shown. Key: V</small></span><i class="switch"></i></button>
@@ -553,6 +555,7 @@ body.touch #stageName{display:none}
           <tr><td>Gear up / down</td><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>D-pad &uarr; / &darr;</td><td>&#9650; / &#9660;</td></tr>
           <tr><td>Reset to checkpoint</td><td><kbd>R</kbd></td><td>Back</td><td>R</td></tr>
           <tr><td>Camera</td><td><kbd>C</kbd></td><td>Y</td><td>CAM</td></tr>
+          <tr><td>Racing line: full, braking, off</td><td><kbd>L</kbd></td><td></td><td>Settings</td></tr>
           <tr><td>Pause</td><td><kbd>Esc</kbd></td><td>Start</td><td>II</td></tr>
           <tr><td>Mute / voice / ghost</td><td><kbd>M</kbd> <kbd>V</kbd> <kbd>G</kbd></td><td></td><td>&#9835;</td></tr>
         </table>
@@ -1638,6 +1641,7 @@ function generateTrack(def) {
   }
   placeChicanes(tr);
   buildGrid();
+  computeRacingLine();
   computeSpeedProfile();
   return tr;
 }
@@ -1775,6 +1779,83 @@ function computeSpeedProfile() {
   TR.aiV = ai;
   const i0 = Math.round(TR.startS / DS), i1 = Math.round(TR.finishS / DS);
   TR.targetTime = Math.round((cum[i1] - cum[i0]) * def.targetFactor * 10) / 10;
+  computeLineProfile();
+}
+/* ---- racing line: the smoothest path through the road's usable width, clear of crater clusters and
+   weaving through the chicane rows. Each point relaxes toward the chord between its neighbours (long
+   spans first, then short ones), which converges on a minimum-curvature line clamped to the road. ---- */
+function computeRacingLine() {
+  const N = TR.N, C = CHICANE, lim = TR.hw - 1.7;
+  const lo = new Float32Array(N).fill(-lim), hi = new Float32Array(N).fill(lim);
+  const keepOut = (i, c, w) => { if (c.d > 0) hi[i] = Math.min(hi[i], c.d - w); else lo[i] = Math.max(lo[i], c.d + w); };
+  for (const c of TR.craters) {                          // round keep-out around each crater, on its own side of the road
+    const clr = c.R * 1.3 + 1.4, reach = c.R * 1.3 + 4;
+    for (let i = Math.max(0, Math.floor((c.s - reach) / DS)); i <= Math.min(N - 1, Math.ceil((c.s + reach) / DS)); i++) {
+      const t = Math.abs(i * DS - c.s);
+      keepOut(i, c, clr * Math.sqrt(Math.max(0, 1 - (t * t) / (reach * reach))));
+    }
+    // the car can't steer in the air: a crater in a landing zone sets the lane from before the take-off
+    for (const f of TR.feats) {
+      const tk = f.type === 'crest' ? f.sc : f.lip;
+      if (c.s > tk && c.s < tk + 90) for (let i = Math.max(0, Math.floor((tk - 12) / DS)); i * DS < c.s; i++) keepOut(i, c, clr);
+    }
+  }
+  for (const ch of TR.chicanes) for (const r of ch.rows) {   // pass each row on its open side, clear of the tip
+    const gap = C.over + C.clear;
+    for (let i = Math.max(0, Math.floor((r.s - 3) / DS)); i <= Math.min(N - 1, Math.ceil((r.s + 3) / DS)); i++) {
+      if (r.side > 0) hi[i] = Math.min(hi[i], -gap); else lo[i] = Math.max(lo[i], gap);
+    }
+  }
+  for (let i = 0; i < N; i++) if (lo[i] > hi[i]) lo[i] = hi[i] = (lo[i] + hi[i]) / 2;
+  const d = new Float32Array(N), cx = TR.cx, cz = TR.cz, rx = TR.rx, rz = TR.rz;
+  for (const [k, iters] of [[24, 90], [12, 90], [6, 90], [3, 60]]) {
+    for (let it = 0; it < iters; it++) {
+      for (let i = 1; i < N - 1; i++) {
+        const a = Math.max(0, i - k), b = Math.min(N - 1, i + k), wa = (b - i) / (b - a);
+        const mx = (cx[a] + rx[a] * d[a]) * wa + (cx[b] + rx[b] * d[b]) * (1 - wa), mz = (cz[a] + rz[a] * d[a]) * wa + (cz[b] + rz[b] * d[b]) * (1 - wa);
+        const want = (mx - cx[i]) * rx[i] + (mz - cz[i]) * rz[i];
+        d[i] = clamp(d[i] + (want - d[i]) * 0.7, lo[i], hi[i]);
+      }
+    }
+  }
+  d[0] = d[1]; d[N - 1] = d[N - 2];
+  TR.lineD = d;
+}
+/** Speeds along the racing line: its own curvature and length, the same crest and chicane limits, and the
+ *  same accel/brake passes as the stage profile. Feeds the line's colours and its braking points. */
+function computeLineProfile() {
+  const N = TR.N, def = TR.def, d = TR.lineD, v = new Float32Array(N), seg = new Float32Array(N), kap = new Float32Array(N);
+  const X = (i) => TR.cx[i] + TR.rx[i] * d[i], Z = (i) => TR.cz[i] + TR.rz[i] * d[i];
+  for (let i = 1; i < N; i++) seg[i] = Math.max(0.2, Math.hypot(X(i) - X(i - 1), Z(i) - Z(i - 1)));
+  for (let i = 2; i < N - 2; i++) {
+    const h0 = Math.atan2(X(i) - X(i - 2), Z(i) - Z(i - 2)), h1 = Math.atan2(X(i + 2) - X(i), Z(i + 2) - Z(i));
+    let dh = h1 - h0; dh -= Math.round(dh / TAU) * TAU;
+    kap[i] = dh / (0.5 * (seg[i - 1] + seg[i] + seg[i + 1] + seg[i + 2]));
+  }
+  const vmax = CAR.vmax * 0.97;
+  for (let i = 0; i < N; i++) v[i] = Math.min(vmax, Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * 0.72 / Math.max(Math.abs(kap[i]), 1e-5)));
+  for (const f of TR.feats) if (f.type === 'crest') {
+    const vc = Math.sqrt((def.gravity + def.clampG) * def.crest.L * def.crest.L / (2 * Math.PI * Math.PI * def.crest.h)) * 0.95;
+    for (let i = Math.max(0, Math.floor((f.s0 - 10) / DS)); i < Math.min(N, (f.sc + 10) / DS); i++) v[i] = Math.min(v[i], vc);
+  }
+  const grade = (i) => (TR.cy[Math.min(i + 1, N - 1)] - TR.cy[Math.max(i - 1, 0)]) / (2 * DS);
+  const brake = new Float32Array(N);
+  for (let i = 0; i < N; i++) brake[i] = Math.max(1, SURF_INFO[TR.surf[i]].mu * def.gripG * 0.75 + def.gravity * grade(i));
+  v[0] = 0;
+  for (let i = 1; i < N; i++) {
+    const a = Math.max(0.4, Math.min(CAR.accel * Math.max(0.05, 1 - v[i - 1] / CAR.vmax), SURF_INFO[TR.surf[i]].mu * def.gripG * 0.9) - def.gravity * grade(i));
+    v[i] = Math.min(v[i], Math.sqrt(v[i - 1] * v[i - 1] + 2 * a * seg[i]));
+  }
+  for (let i = N - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * brake[i] * seg[i + 1]));
+  // braking points: where the line's speed starts to fall by a real margin into a corner (or a crest)
+  const marks = [], i0 = Math.round(TR.startS / DS) + 4, i1 = Math.round(TR.finishS / DS);
+  for (let i = i0; i < i1; i++) {
+    if (!(v[i + 1] < v[i] - 0.01 && v[i] >= v[i - 1] - 0.01)) continue;
+    let j = i + 1; while (j < i1 && v[j + 1] < v[j] - 0.005) j++;
+    if (v[i] - v[j] >= 5 && (j - i) * DS >= 8) marks.push({ s: i * DS, v: v[j], end: j * DS });
+    i = j;
+  }
+  Object.assign(TR, { lineV: v, lineKap: kap, lineBrake: brake, lineMarks: marks });
 }
 function targetSplit(s) {
   const i0 = Math.round(TR.startS / DS), i = clamp(Math.round(s / DS), 0, TR.N - 1);
@@ -2622,6 +2703,96 @@ function buildChicanes(rng) {
   backs.castShadow = true;
   Scenery.chicaneBoards = { boards, backs };
   resetChicanes();
+}
+/* ---- racing line on the road: chevrons along the line, coloured by what the car has to do to make the
+   line's speed at each point (green: go, amber: lift or brake soon, red: brake now), plus a red brake
+   board at each braking point, shown only when the car is fast enough to need it. ---- */
+const LINE_VS = `
+attribute float aS; attribute float aV; attribute float aB; attribute float aU; attribute float aSide; attribute float aMark;
+varying float vS; varying float vV; varying float vB; varying float vU; varying float vSide; varying float vMark;
+void main(){ vS = aS; vV = aV; vB = aB; vU = aU; vSide = aSide; vMark = aMark; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const LINE_FS = `
+uniform float uCarS; uniform float uCarV; uniform float uMode;
+varying float vS; varying float vV; varying float vB; varying float vU; varying float vSide; varying float vMark;
+void main(){
+  float ds = vS - uCarS;
+  if (ds < 3.0 || ds > 250.0) discard;
+  float fade = smoothstep(3.0, 14.0, ds) * (1.0 - smoothstep(180.0, 250.0, ds));
+  float need = (uCarV * uCarV - vV * vV) / (2.0 * max(ds, 1.0) * vB);   // share of the brakes needed to be at this point's speed
+  vec3 col = mix(vec3(0.25, 1.0, 0.5), vec3(1.0, 0.78, 0.15), smoothstep(0.35, 0.5, need));
+  col = mix(col, vec3(1.0, 0.2, 0.22), smoothstep(0.75, 0.9, need));
+  float body, rim;
+  if (vMark > 0.0) {                     // brake board: red bar with a dark border
+    if (uCarV < vMark + 3.0) discard;
+    col = vec3(1.0, 0.2, 0.22);
+    body = (1.0 - smoothstep(0.72, 0.8, abs(vSide))) * (1.0 - smoothstep(0.55, 0.7, abs(vU)));
+    rim = (1.0 - smoothstep(0.9, 1.0, abs(vSide))) * (1.0 - smoothstep(0.85, 1.0, abs(vU)));
+  } else {                               // chevrons pointing along the line, each with a dark outline
+    if (uMode > 1.5 && need < 0.35) discard;
+    float c = abs(fract((vU + abs(vSide) * 0.7) / 3.0) - 0.5), w = abs(vSide);
+    body = (1.0 - smoothstep(0.14, 0.17, c)) * (1.0 - smoothstep(0.58, 0.68, w));
+    rim = (1.0 - smoothstep(0.2, 0.24, c)) * (1.0 - smoothstep(0.84, 0.96, w));
+    body = max(body, 0.22 * (1.0 - smoothstep(0.16, 0.26, w)));   // a faint thread joins the chevrons
+  }
+  gl_FragColor = vec4(mix(vec3(0.04, 0.03, 0.02), col, body / max(max(body, rim), 0.001)), max(body * 0.94, rim * 0.6) * fade);
+}`;
+const RacingLine = {
+  mesh: null,
+  build() {
+    this.mesh = null;
+    const N = TR.N, d = TR.lineD, half = 0.7;
+    const pos = [], aS = [], aV = [], aB = [], aU = [], aSide = [], aMark = [], idx = [];
+    const vert = (s, dd, side, v, b, u, mark) => {
+      worldAt(s, dd, WP);
+      pos.push(WP.x, WP.h + 0.07, WP.z); aS.push(s); aV.push(v); aB.push(b); aU.push(u); aSide.push(side); aMark.push(mark);
+      return pos.length / 3 - 1;
+    };
+    let u = 0, prev = -1;
+    const i0 = Math.max(1, Math.round((TR.startS - 20) / DS)), i1 = Math.min(N - 2, Math.round((TR.finishS + 30) / DS));
+    for (let i = i0; i <= i1; i++) {
+      const s = i * DS;
+      if (TR.chasm[i] > 0 || TR.chasm[i + 1] > 0) { prev = -1; continue; }   // the line breaks over the chasm gaps
+      const ex = TR.cx[i + 1] + TR.rx[i + 1] * d[i + 1] - (TR.cx[i - 1] + TR.rx[i - 1] * d[i - 1]);
+      const ez = TR.cz[i + 1] + TR.rz[i + 1] * d[i + 1] - (TR.cz[i - 1] + TR.rz[i - 1] * d[i - 1]);
+      u += 0.5 * Math.hypot(ex, ez);
+      const a = vert(s, d[i] - half, -1, TR.lineV[i], TR.lineBrake[i], u, 0), b = vert(s, d[i] + half, 1, TR.lineV[i], TR.lineBrake[i], u, 0);
+      if (prev >= 0) idx.push(prev, a, prev + 1, prev + 1, a, b);
+      prev = a;
+    }
+    for (const m of TR.lineMarks) {                        // brake boards: a bar across the line
+      const i = clamp(Math.round(m.s / DS), 0, N - 1), q = [];
+      for (const ds of [-0.7, 0.7]) for (const side of [-1, 1]) q.push(vert(m.s + ds, d[i] + side * 1.6, side, 0, 1, Math.sign(ds), m.v));
+      idx.push(q[0], q[2], q[1], q[1], q[2], q[3]);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    for (const [k, arr] of Object.entries({ aS, aV, aB, aU, aSide, aMark })) geo.setAttribute(k, new THREE.Float32BufferAttribute(arr, 1));
+    geo.setIndex(idx);
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uCarS: { value: 0 }, uCarV: { value: 0 }, uMode: { value: 1 } }, vertexShader: LINE_VS, fragmentShader: LINE_FS,
+      transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.frustumCulled = false; mesh.renderOrder = 2; mesh.visible = false;
+    stageGroup.add(mesh);
+    this.mesh = mesh;
+  },
+  /** Shown while driving (not behind the menus); FULL, BRAKING (lift and brake zones only) or OFF. */
+  update() {
+    const m = this.mesh; if (!m) return;
+    const mode = Store.data.settings.line || 'full', st = Game.state;
+    m.visible = mode !== 'off' && (st === 'racing' || st === 'countdown' || st === 'paused');
+    if (!m.visible) return;
+    const u = m.material.uniforms;
+    u.uCarS.value = car.s; u.uCarV.value = Math.max(0, car.vel.dot(AZ)); u.uMode.value = mode === 'brake' ? 2 : 1;
+  },
+};
+const LINE_MODES = ['full', 'brake', 'off'], LINE_NAMES = { full: 'FULL', brake: 'BRAKING', off: 'OFF' };
+function cycleLine() {
+  const s = Store.data.settings, i = LINE_MODES.indexOf(s.line || 'full');
+  s.line = LINE_MODES[(i + 1) % LINE_MODES.length];
+  HUD.toast('RACING LINE ' + LINE_NAMES[s.line]);
+  Store.save(); Menu.refresh();
 }
 const _bq = new THREE.Quaternion(), _bp = new THREE.Vector3();
 function poseBlock(b) {
@@ -4228,7 +4399,7 @@ const Input = {
       AudioSys.unlock();
       this.keys.add(e.code);
       if (e.repeat) return;
-      const map = { KeyR: 'reset', KeyC: 'camera', KeyE: 'gearUp', KeyQ: 'gearDown', Escape: 'pause', KeyP: 'pause', KeyM: 'mute', KeyV: 'voice', KeyG: 'ghost',
+      const map = { KeyR: 'reset', KeyC: 'camera', KeyE: 'gearUp', KeyQ: 'gearDown', Escape: 'pause', KeyP: 'pause', KeyM: 'mute', KeyV: 'voice', KeyG: 'ghost', KeyL: 'line',
         Enter: 'confirm', NumpadEnter: 'confirm', ArrowLeft: 'navLeft', ArrowRight: 'navRight', KeyA: 'navLeft', KeyD: 'navRight',
         ArrowUp: 'navUp', ArrowDown: 'navDown', KeyW: 'navUp', KeyS: 'navDown' };
       if ((e.code === 'Enter' || e.code === 'NumpadEnter') && e.target && e.target.matches && e.target.matches('button')) return;   // the button's own click handles it
@@ -4950,19 +5121,14 @@ function aiControl(skill, stopping) {
   else { if (AI.air > 0.3) AI.settle = AI_SETTLE; AI.air = 0; }
   AI.settle = Math.max(0, AI.settle - AI.dt);
   const settled = 1 - AI.settle / AI_SETTLE;
-  // Past a take-off (crest top, ramp or chasm lip) the car can't steer until it lands, so from
-  // well before it the line also looks over the landing zone: the car must already be in the
-  // clear lane when it leaves the ground.
-  let reach = 0;
-  for (const f of TR.feats) {
-    const tk = f.type === 'crest' ? f.sc : f.lip;
-    if (tk > LQ2.s - 3 && tk < LQ2.s + 60) reach = Math.max(reach, tk - LQ2.s + sp * 1.5);
-  }
-  // ease onto a new line (only with wheels on the ground, and gently just after a landing)
-  if (car.nGround > 0) AI.line = approach(AI.line, aiLine(LQ2.s + 12 + sp * 0.6, reach, car.s), 2.5 * AI.dt * settled);
+  // follow the racing line (which already keeps clear of craters): its offset, with its heading and curvature as feed-forward
+  const Ld = TR.lineD, j = clamp(fi, 2, TR.N - 3);
+  const fL = clamp(LQ2.s / DS, 0, TR.N - 1.001), iL = Math.floor(fL);
+  const dL = Ld[iL] + (Ld[iL + 1] - Ld[iL]) * (fL - iL), dL1 = (Ld[j + 1] - Ld[j - 1]) / (2 * DS), dL2 = (Ld[j + 2] - 2 * Ld[j] + Ld[j - 2]) / (4 * DS * DS);
+  AI.line = dL;
   // through a chicane, follow its weave closely: its heading and curvature feed the controller too
-  const cl = chicaneLine(chicaneAt(LQ2.s), LQ2.s + sp * 0.12);
-  const line = lerp(AI.line, cl.d, cl.w), angP = ang - Math.atan(cl.d1) * cl.w, kP = TR.kap[fi] - cl.d2 * cl.w;
+  const cl = chicaneLine(chicaneAt(LQ2.s), LQ2.s + sp * 0.12), rw = 1 - cl.w;
+  const line = lerp(dL, cl.d, cl.w), angP = ang - Math.atan(dL1) * rw - Math.atan(cl.d1) * cl.w, kP = TR.kap[fi] - dL2 * rw - cl.d2 * cl.w;
   const mu = SURF_INFO[TR.surf[fi]].mu;
   const cross = Math.atan(2.2 * (1 + 0.6 * cl.w) * clamp(mu / 0.8, 0.45, 1) * (LQ2.d - line) / (sp + 3)) * (0.2 + 0.8 * settled);
   const ff = Math.atan(2.68 * kP);
@@ -4984,23 +5150,6 @@ function aiControl(skill, stopping) {
   if (car.nGround === 0) { c.throttle = 0; c.brake = 0; if (Math.abs(ang) < 0.35) c.steer = 0; }
   if (car.vel.dot(AZ) < -1 && sp > 1.5) { c.throttle = 1; c.brake = 0; }
   return c;
-}
-/** Lateral line for the AI at stage distance s: centre, nudged around road craters (chicanes have their own line). */
-function aiLine(s, reach = 0, sCar = s) {
-  // craters count from the lookahead point until the car itself is past them (at speed the
-  // lookahead runs well ahead, and dropping a crater early swings the line back onto its rim)
-  const lo = Math.min(s - 22, sCar - 10), hi = s + 22 + reach;
-  const b0 = Math.max(0, (Math.floor(lo / DS) >> 2) - 1), b1 = Math.min(TR.craterBuckets.length - 1, (Math.floor(hi / DS) >> 2) + 1);
-  let best = 0, bestCost = Infinity;
-  for (let d = -TR.hw + 2; d <= TR.hw - 2; d += 1) {
-    let cost = Math.abs(d) * 0.15;
-    for (let b = b0; b <= b1; b++) for (const c of TR.craterBuckets[b]) {
-      if (c.d === undefined || c.s > hi || (c.s < s - 22 && c.s + c.R * 1.6 + 2 < sCar)) continue;
-      cost += Math.max(0, c.R * 1.3 + 1.4 - Math.abs(d - c.d)) * 10;   // keep the wheels (±1 m) off the rim too
-    }
-    if (cost < bestCost) { bestCost = cost; best = d; }
-  }
-  return best;
 }
 const IDLE_CTL = { steer: 0, throttle: 0, brake: 0, handbrake: true, boost: false };
 function chooseControls() {
@@ -5354,6 +5503,7 @@ function buildStage(def) {
   buildGates(); buildMarkers(); buildChevrons(); buildRocks(rng);
   if (def.style === 'hills') buildLunarDecor(rng); else if (def.style === 'ring') buildIceDecor(rng); else buildWreckDecor(rng);
   buildChicanes(rng);
+  RacingLine.build();
   buildPaceNotes();
   linearizeMaterials(stageGroup);
   let minY = Infinity; for (let i = 0; i < TR.N; i++) minY = Math.min(minY, TR.cy[i]);
@@ -5473,6 +5623,7 @@ function handleActions() {
       case 'mute': toggleSetting('muted'); break;
       case 'voice': toggleSetting('voice'); break;
       case 'ghost': toggleSetting('ghost'); break;
+      case 'line': cycleLine(); break;
       case 'camera': if (st !== 'loading') toggleCamera(); break;
       case 'pause':
         if (!document.getElementById('modal').classList.contains('hidden')) Modal.close();
@@ -5852,6 +6003,7 @@ const Settings = {
   toggle(k, sideways) {
     if (k === 'controls') { if (!sideways) { this.view = 'controls'; this.refresh(); } return; }
     if (k === 'name') { if (!sideways) document.getElementById('nameInput').focus(); return; }
+    if (k === 'line') { cycleLine(); return; }
     if (k === 'cam') toggleCamera(); else toggleSetting(k === 'sound' ? 'muted' : k);
   },
   nav(d) { if (this.view !== 'list') return; const n = this.rows().length; this.idx = (this.idx + d + n) % n; this.refresh(); },
@@ -5865,6 +6017,7 @@ const Settings = {
     document.getElementById('setTitle').textContent = this.view === 'controls' ? 'CONTROLS' : 'SETTINGS';
     const nameIn = document.getElementById('nameInput');
     if (document.activeElement !== nameIn) nameIn.value = s.name || 'DRIVER';
+    document.getElementById('lineMode').textContent = LINE_NAMES[s.line || 'full'];
   },
   init() {
     const list = document.getElementById('setList');
@@ -6088,6 +6241,7 @@ function update(dt) {
   Sky.update(dt, TR.ringY);
   FX.update(st === 'paused' ? 0 : dt);
   Ghost.update(Game.time); Rival.update(Game.time);
+  carAxes(); RacingLine.update();
   if (st === 'racing' || st === 'countdown' || st === 'finished' || st === 'paused') HUD.update(dt);
   const w0 = car.wheels[2].grounded ? car.wheels[2].gs : car.wheels[0].gs;
   AudioSys.update(dt, {
