@@ -40,8 +40,14 @@ Handling:
 Suspension:
 - Each corner is a coil-over: a linear coil spring and a two-stage damper. Bump and rebound are valved separately, with rebound the firmer side as on a real damper. Each side has a low-speed slope and a softer high-speed blow-off above its knee, so sharp ripples don't launch the body.
 - A progressive urethane bump stop takes over in the last 6 cm of travel before the hard stop.
-- Anti-roll bars are stiffer at the front than the rear, for a stable, slightly understeering balance on the limit.
+- Anti-roll bars link the left and right wheels on each axle, so the body rolls less in corners. Soft bars roll about twice as much as stiff ones but let each wheel follow rough ground on its own; stiff bars keep the car flat and quick to change direction, at the cost of skipping over bumps. The front bar is stiffer than the rear, for a stable, slightly understeering balance on the limit. The bars are modelled under the car and twist as it rolls.
 - The HUD shows each corner's travel: amber on the bump stop, red when bottomed out. The shocks are modelled on the car and move with the wheels.
+
+Brakes:
+- Brake pressure is progressive. The gamepad trigger is analogue, and on keyboard or touch the pedal builds from 15% to full over about 0.4 s of holding, so a tap only scrubs speed.
+- Brake force is split 61% front, 39% rear.
+- With ABS on (the default), the wheels stop just short of locking and you can still steer. With ABS off, anything past about 80% pressure locks the wheels: the tyres slide, the car takes longer to stop and it won't turn. Toggle ABS next to MANUAL GEARS. The AI always brakes with ABS.
+- The brake bar under the rev bar shows pressure. It turns amber while ABS is working and white when a wheel locks.
 
 Transmission:
 - Six-speed sequential gearbox with a torque curve that peaks around 5,700 rpm, a rev limiter at 8,200 rpm and a short torque cut on each shift.
@@ -70,7 +76,7 @@ Each pilot, car, engine, wheel and wing shifts six stats (speed, acceleration, h
 ## Modes and sharing
 
 - **Stage codes.** Every stage has a code such as `RR-I-4471` (template letter L/I/W/M/E/F + seed). Type a code or a bare seed in the menu, or press RANDOM SEED, to generate a new stage from that template. Copy the code to send a friend the exact same stage.
-- **Service park.** Before each stage, pick springs (soft/medium/stiff), dampers (soft/medium/firm), final drive (short/standard/long) and tyres (all-terrain/studded/slick). Each stage marks a recommended setup with ★, and your choice is remembered per stage type.
+- **Service park.** Before each stage, pick springs (soft/medium/stiff), dampers (soft/medium/firm), anti-roll bars (soft/medium/stiff), final drive (short/standard/long) and tyres (all-terrain/studded/slick). Each stage marks a recommended setup with ★, and your choice is remembered per stage type.
 - **Rally mode.** Runs every stage back to back. Damage carries over. Between stages the crew repairs 40% for free, and a full repair costs time. Your best rally total is saved.
 - **Ghost codes and leaderboards.** Each stage keeps a local leaderboard of your runs plus imported ghosts. Use COPY THIS RUN'S GHOST CODE on the finish screen (or COPY MY BEST GHOST in the menu) to get a few-KB text code. A friend pastes it into IMPORT GHOST CODE: the right stage is generated and they race your run as a magenta rival ghost. RACE/RACING on the leaderboard picks which imported ghost to race.
 
