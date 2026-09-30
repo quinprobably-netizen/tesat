@@ -1,6 +1,6 @@
 # Regolith Rally
 
-A point-to-point space rally game in a single self-contained HTML file. You drive a rugged buggy against the clock over the Moon, a planetary ring and a derelict station field. Everything is generated procedurally: terrain, textures, sky, particles and sound.
+A point-to-point space rally game in a single self-contained HTML file. You drive a rugged buggy against the clock across six stages: the Moon, a planetary ring, a derelict station field, a Martian canyon, the ice of Europa and an orbital smelter over Io. Everything is generated procedurally: terrain, textures, sky, particles and sound.
 
 **Play:** open `index.html` in a modern browser. It loads three.js r128 from cdnjs and needs no build step or server.
 
@@ -13,6 +13,9 @@ Each stage is generated from a fixed seed, so the layout is the same every time.
 | Lunar Dust Run | 0.33 g | Wide and forgiving regolith roads, long floaty jumps, one chasm |
 | Ice Ring Traverse | 0.51 g | Slippery ice causeway on a planetary ring under a gas giant, with drop-offs at the edges |
 | Wreckage Belt | 1.22 g | Tight metal-plated corners through station wreckage, with drifting debris |
+| Red Canyon Sprint | 0.38 g | Fast gravel roads between rust-red Martian mesas, big crests |
+| Europa Fracture Line | 0.24 g | Low-grip ice shelf with cliffs on both sides, under a huge Jupiter |
+| Foundry Gauntlet | 1.53 g | Hairpins on the metal decks of an orbital smelter over Io; the hardest stage |
 
 Hazards:
 - **Craters.** Some are built into the stage; meteor showers add new ones during a run.
@@ -28,6 +31,13 @@ Rules and scoring:
 - Boost refills when you drift or land a jump cleanly.
 - Best times, splits and a ghost replay of your best run are stored in `localStorage`.
 
+Handling:
+- The tyres use a progressive grip curve. Grip builds smoothly up to the limit, then drops slightly while sliding, so you can feel the limit before you cross it.
+- Grip is load-sensitive: weight transfer and bumps shift grip less abruptly.
+- Countersteer assist gives up to 70% more steering lock when you steer into a slide, so drifts are easy to catch.
+- At speed, yaw stability bleeds off rotation beyond what your steering asks for. It never adds rotation, and it switches off while you're deliberately drifting or on the handbrake.
+- Keyboard steering ramps in more gently at high speed.
+
 ## Home screen and garage
 
 The game opens on a home screen with PLAY (stage select), RALLY, GARAGE and STAGE CODE. Your current pilot, vehicle and stats are shown beside the menu.
@@ -36,19 +46,22 @@ In the **garage** you build your ride Mario Kart style, with a live 3D preview t
 
 | Part | Options |
 |---|---|
-| Pilot | NOVA (astronaut, medium), ZIX (alien, light), BOLT-9 (robot, heavy), MISO (cat, light), GRAVL (rock golem, heavy), PIP (drone, feather) |
-| Body | ROVER, DART, BRUISER, SKIFF |
-| Engine | TWIN ION, PULSE ROCKET, ARC COIL, NOVA BURNER |
-| Wheels | STANDARD, CRAWLER, SLICK ROLLER, HOVER PADS |
-| Paint | 8 colours |
+| Pilot | NOVA (astronaut, medium), ZIX (alien, light), BOLT-9 (robot, heavy), MISO (cat, light), GRAVL (rock golem, heavy), PIP (drone, feather), KOI (goldfish, light), VEGA (rally ace, medium) |
+| Body | ROVER, DART, BRUISER, SKIFF, BEETLE |
+| Engine | TWIN ION, PULSE ROCKET, ARC COIL, NOVA BURNER, RAMJET |
+| Wheels | STANDARD, CRAWLER, SLICK ROLLER, HOVER PADS, SPIKE RIMS |
+| Wing | STOCK, SLIPSTREAM (none), HIGH WING, SOLAR FINS |
+| Paint | 12 colours, including metallic chrome and copper |
+| Decal | CLEAN, STRIPES, FLAMES, CHECKER, BOLT, STARS |
+| Glow | Underglow in 5 colours, or off |
 
-Each pilot and part shifts six stats (speed, acceleration, handling, grip, weight, boost) up or down from a neutral 5. Hover an option to preview the change. The default build is all neutral and drives exactly like the original buggy. In the race, the stats scale top speed (±11%), acceleration, steering lock, tyre grip, boost thrust and refill, and damage taken (heavier builds shrug off more). The build is saved in `localStorage` and applies to every stage; the service park setup still stacks on top.
+Each pilot, body, engine, wheel and wing shifts six stats (speed, acceleration, handling, grip, weight, boost) up or down from a neutral 5. Hover an option to preview the change. The default build is all neutral and drives exactly like the original buggy. In the race, the stats scale top speed (±11%), acceleration, steering lock, tyre grip, boost thrust and refill, and damage taken (heavier builds shrug off more). The build is saved in `localStorage` and applies to every stage; the service park setup still stacks on top.
 
 ## Modes and sharing
 
-- **Stage codes.** Every stage has a code such as `RR-I-4471` (template letter L/I/W + seed). Type a code or a bare seed in the menu, or press RANDOM SEED, to generate a new stage from that template. Copy the code to send a friend the exact same stage.
+- **Stage codes.** Every stage has a code such as `RR-I-4471` (template letter L/I/W/M/E/F + seed). Type a code or a bare seed in the menu, or press RANDOM SEED, to generate a new stage from that template. Copy the code to send a friend the exact same stage.
 - **Service park.** Before each stage, pick suspension (soft/medium/stiff), gearing (short/standard/long) and tyres (all-terrain/studded/slick). Each stage marks a recommended setup with ★, and your choice is remembered per stage type.
-- **Rally mode.** Runs all three stages back to back. Damage carries over. Between stages the crew repairs 40% for free, and a full repair costs time. Your best rally total is saved.
+- **Rally mode.** Runs every stage back to back. Damage carries over. Between stages the crew repairs 40% for free, and a full repair costs time. Your best rally total is saved.
 - **Ghost codes and leaderboards.** Each stage keeps a local leaderboard of your runs plus imported ghosts. Use COPY THIS RUN'S GHOST CODE on the finish screen (or COPY MY BEST GHOST in the menu) to get a few-KB text code. A friend pastes it into IMPORT GHOST CODE: the right stage is generated and they race your run as a magenta rival ghost. RACE/RACING on the leaderboard picks which imported ghost to race.
 
 ## Controls
