@@ -96,33 +96,14 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* ---------- overlays ---------- */
 .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;overflow:auto;
   background:radial-gradient(ellipse at center,rgba(3,5,12,.35),rgba(3,5,12,.9))}
-#menu{justify-content:flex-start;padding-top:max(4vh,18px);background:linear-gradient(180deg,rgba(3,5,12,.85),rgba(3,5,12,.25) 40%,rgba(3,5,12,.8))}
 .logo{font-size:clamp(36px,6.4vw,76px);font-weight:900;font-style:italic;letter-spacing:.03em;line-height:1;text-align:center;text-shadow:0 4px 30px rgba(0,0,0,.6)}
 .logo span{color:var(--accent)}
 .tagline{color:var(--dim);letter-spacing:.32em;font-size:11px;font-weight:800;margin:10px 0 22px;text-align:center}
-#cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;max-width:1100px}
-.card{width:min(320px,92vw);border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--panel);cursor:pointer;
-  transition:transform .15s,border-color .15s,box-shadow .15s;text-align:left;backdrop-filter:blur(4px)}
-.card:hover{transform:translateY(-3px)}
-.card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 10px 40px rgba(255,181,46,.2)}
-.card .swatch{height:70px;border-radius:8px;margin-bottom:10px;position:relative;overflow:hidden}
-.card .swatch i{position:absolute;border-radius:50%}
-.card h3{margin:0;font-size:20px;font-style:italic;font-weight:900}
-.card .region{font-size:10px;color:var(--dim);letter-spacing:.22em;font-weight:800;margin:3px 0 8px}
-.card p{font-size:12.5px;line-height:1.45;color:#c9d2e6;margin:0 0 10px;min-height:54px}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;font-size:10.5px;letter-spacing:.08em;color:var(--dim);font-weight:800}
-.stats b{color:var(--text);font-variant-numeric:tabular-nums}
 .btn{pointer-events:auto;border:0;border-radius:8px;padding:13px 28px;font-weight:900;font-style:italic;letter-spacing:.12em;font-size:15px;
   background:var(--accent);color:#1a1204;box-shadow:0 6px 24px rgba(255,181,46,.3);margin:6px}
 .btn.alt{background:rgba(255,255,255,.08);color:var(--text);box-shadow:none;border:1px solid var(--line)}
 .btn:hover{filter:brightness(1.1)}
 .row{display:flex;flex-wrap:wrap;justify-content:center;margin-top:14px}
-.help{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:5px 22px;max-width:920px;width:100%;font-size:11.5px;color:var(--dim);letter-spacing:.04em}
-.help kbd{display:inline-block;min-width:22px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text);
-  font-family:inherit;font-weight:800;font-size:10.5px;text-align:center;margin-right:4px}
-.toggles{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center}
-.tog{pointer-events:auto;border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:20px;padding:6px 14px;font-size:11px;font-weight:900;letter-spacing:.1em;color:var(--dim)}
-.tog.on{border-color:var(--cyan);color:var(--cyan)}
 .medal{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 26px;width:min(520px,94vw);text-align:center;backdrop-filter:blur(6px)}
 .panel h2{margin:0 0 2px;font-size:28px;font-style:italic;font-weight:900;letter-spacing:.04em}
@@ -150,7 +131,7 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
 .lb .empty{color:var(--dim);font-size:12px}
 #service .panel{width:min(640px,96vw);text-align:left}
 #service h2{text-align:center}
-.setrow{display:grid;grid-template-columns:120px 1fr;gap:4px 12px;align-items:center;margin:12px 0}
+.setrow{display:grid;grid-template-columns:136px 1fr;gap:4px 12px;align-items:center;margin:12px 0}
 .setrow>span{font-size:11px;letter-spacing:.18em;font-weight:900;color:var(--dim)}
 .seg{display:flex;gap:6px;flex-wrap:wrap}
 .seg button{pointer-events:auto;flex:1;min-width:90px;border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:8px;padding:9px 6px;font-size:11px;font-weight:900;letter-spacing:.1em;color:var(--text)}
@@ -178,7 +159,6 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
 .hbtn small{font-size:11px;color:var(--dim);letter-spacing:.1em;font-weight:700}
 .hbtn:hover,.hbtn.sel{transform:translateX(8px);border-color:var(--accent);background:rgba(255,181,46,.12)}
 .hbtn.sel b{color:var(--accent)}
-.home-main .toggles{justify-content:flex-start;margin-top:18px}
 .home-foot{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.24em;font-weight:800;color:var(--dim)}
 .ride{width:min(340px,92vw);text-align:left;padding:18px 20px}
 .ride h4{margin:0 0 10px;font-size:11px;letter-spacing:.24em;color:var(--accent)}
@@ -194,10 +174,6 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
 .segs i.f{background:linear-gradient(180deg,#ffd06a,var(--accent))}
 .segs i.up{background:var(--good)} .segs i.dn{background:var(--bad);opacity:.8}
 .ride .btn{margin:14px 0 0;width:100%}
-/* stage select header */
-.sel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(1000px,100%);margin-bottom:18px}
-.sel-title{font-size:clamp(24px,4vw,40px);font-weight:900;font-style:italic;letter-spacing:.06em}
-.ride-chip{max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* garage */
 #garage{background:linear-gradient(90deg,rgba(3,5,12,.7),rgba(3,5,12,0) 45%);padding:0;pointer-events:auto;cursor:grab;overflow:hidden}
 .gar-top{position:absolute;top:14px;left:16px;right:16px;display:flex;align-items:center;gap:14px;pointer-events:none}
@@ -205,7 +181,6 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
 .gar-top h2{margin:0;font-size:30px;font-style:italic;font-weight:900;letter-spacing:.06em}
 .gar-hint{margin-left:auto;font-size:10px;letter-spacing:.2em;font-weight:800;color:var(--dim)}
 .gar-panel{position:absolute;left:16px;top:66px;bottom:16px;width:min(440px,calc(42vw - 20px));padding:14px;display:flex;flex-direction:column;text-align:left;cursor:default}
-.gar-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:12px}
 .gar-tabs button{pointer-events:auto;min-width:0;border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:8px;padding:9px 4px;font-size:11px;font-weight:900;letter-spacing:.12em;color:var(--dim)}
 .gar-tabs button.on{background:var(--accent);border-color:var(--accent);color:#1a1204}
 .gar-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow:auto;flex:1;align-content:start;padding:2px}
@@ -234,7 +209,7 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
 .gar-stats .ride-head img{width:56px;height:56px}
 .gar-stats .ride-head b{font-size:20px}
 @media (max-width:760px){
-  .home-wrap{gap:18px} .home-main{align-items:center} .home-main .logo,.home-main .tagline{text-align:center} .home-main .toggles{justify-content:center}
+  .home-wrap{gap:18px} .home-main{align-items:center} .home-main .logo,.home-main .tagline{text-align:center}
   .hbtn{padding:9px 14px} .hbtn b{font-size:19px} .ride{padding:12px 14px} .home-foot{display:none}
   .gar-hint{display:none}
   .gar-panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:48vh}
@@ -242,6 +217,104 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
   .gar-stats .ride-head{margin-bottom:6px} .gar-stats .ride-head img{width:36px;height:36px} .gar-stats .ride-parts{display:none}
   .sbar{grid-template-columns:62px 1fr;font-size:8.5px} .segs i{height:6px}
   .gar-opts.pilot{grid-template-columns:repeat(3,1fr)}
+}
+/* stage select: the stages on the left, the chosen one on the right; fits one screen on desktop */
+#menu{padding:18px 20px 12px;background:linear-gradient(90deg,rgba(3,5,12,.86),rgba(3,5,12,.5) 50%,rgba(3,5,12,.8))}
+.sel-head{display:flex;align-items:center;gap:10px;width:min(1120px,100%);margin-bottom:14px}
+.sel-title{font-size:clamp(24px,3.4vw,38px);font-weight:900;font-style:italic;letter-spacing:.06em;margin:0 auto 0 8px}
+.ride-chip{max-width:38vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini.icon{font-size:16px;line-height:1;padding:6px 11px}
+.sel-body{display:grid;grid-template-columns:minmax(260px,350px) minmax(0,1fr);gap:16px;width:min(1120px,100%);flex:1;min-height:0}
+.stage-list{display:flex;flex-direction:column;gap:8px;overflow:auto;min-height:0;padding:2px 10px 2px 2px}
+.srow{pointer-events:auto;display:flex;align-items:center;gap:12px;text-align:left;border:1px solid var(--line);border-left:4px solid transparent;background:rgba(7,10,20,.62);
+  border-radius:10px;padding:9px 12px 9px 9px;transition:transform .12s,border-color .12s,background .12s;backdrop-filter:blur(4px)}
+.srow:hover{border-color:rgba(255,255,255,.35)}
+.srow.sel{border-color:var(--accent);background:rgba(255,181,46,.12);transform:translateX(6px)}
+.srow .th{width:52px;height:36px;border-radius:7px;flex:none;border:1px solid rgba(255,255,255,.14);background:#05060c center/cover no-repeat}
+.srow .sn{flex:1;min-width:0}
+.srow .sn b{display:block;font-size:15px;font-style:italic;font-weight:900;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow.sel .sn b{color:var(--accent)}
+.srow .sn small{display:block;font-size:9.5px;letter-spacing:.14em;color:var(--dim);font-weight:800;margin-top:2px;white-space:nowrap}
+.srow .sb{font-size:12px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
+.srow .sb.none{color:var(--dim)}
+.stage-detail{width:auto;text-align:left;padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.sd-banner{height:clamp(84px,17vh,124px);flex:none;background:#05060c center 40%/cover no-repeat}
+.sd-main{padding:14px 20px 6px;display:flex;flex-direction:column;gap:10px;overflow:auto;min-height:0;flex:1}
+.sd-main h3{margin:0;font-size:clamp(24px,2.6vw,32px);font-style:italic;font-weight:900;line-height:1.1}
+.sd-main .region{font-size:10px;color:var(--dim);letter-spacing:.22em;font-weight:800;margin-top:3px}
+.sd-main p{margin:0;font-size:13px;line-height:1.5;color:#c9d2e6}
+.sd-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.sd-stats div{background:rgba(255,255,255,.05);border-radius:8px;padding:6px 10px;font-size:9.5px;letter-spacing:.16em;color:var(--dim);font-weight:800}
+.sd-stats b{display:block;font-size:14px;letter-spacing:.04em;color:var(--text);font-variant-numeric:tabular-nums;margin-top:1px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{pointer-events:auto;border:0;background:none;padding:8px 12px;font-size:11px;font-weight:900;letter-spacing:.14em;color:var(--dim);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button:hover{color:var(--text)}
+.tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.sd-pane{min-height:90px}
+.sd-pane .lb{width:100%;padding:0}
+.sd-pane .lb h4{display:none}
+.share-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px;font-size:10px;letter-spacing:.16em;font-weight:900;color:var(--dim)}
+.share-row b{color:var(--accent);font-size:14px;letter-spacing:.08em;margin-right:4px}
+.share-row .field{flex:1;min-width:150px}
+.share-note{font-weight:700;letter-spacing:.04em;font-size:11px}
+.sd-foot{padding:10px 20px 16px;flex:none}
+.sd-foot .btn{width:100%;margin:0;font-size:17px;padding:14px}
+.sel-foot{font-size:10px;letter-spacing:.24em;font-weight:800;color:var(--dim);margin-top:10px;text-align:center}
+/* pause, finish */
+.pause-panel{width:min(380px,94vw)}
+.vlist{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.vlist .btn{margin:0;width:100%}
+.vlist .btn.sel{outline:2px solid var(--cyan);outline-offset:3px}
+.fin-panel{width:min(900px,96vw);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:26px;align-items:start}
+.fin-main .sub,.fin-main .verdict{text-wrap:balance}
+.fin-side{text-align:left;display:flex;flex-direction:column;gap:12px;min-width:0}
+.fin-side table.splits{margin:0}
+.fin-side .lb{width:100%;padding:0}
+.fin-side .mini{align-self:flex-start}
+.svc-ride{font-size:10px;letter-spacing:.18em;color:var(--dim);text-align:center;margin-top:6px;font-weight:800}
+/* settings: every switch in one list, reachable from home, stage select and pause */
+#settings{z-index:30}
+.set-panel{width:min(620px,96vw);text-align:left;padding:18px 22px 20px}
+.set-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin-bottom:4px}
+.set-top .mini{justify-self:start;margin:0}
+.set-top h2{margin:0}
+.set-top .mini,.sel-head .mini{white-space:nowrap}
+#service .sub,.svc-ride{text-wrap:balance}
+.set-group{font-size:10px;letter-spacing:.24em;font-weight:900;color:var(--accent);margin:14px 0 6px}
+.opt{pointer-events:auto;display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;margin:0 0 6px;cursor:pointer}
+.opt>span{flex:1;min-width:0}
+.opt b{display:block;font-size:13px;font-weight:900;letter-spacing:.1em}
+.opt small{display:block;font-size:11px;color:var(--dim);margin-top:2px;letter-spacing:.02em;line-height:1.4}
+.opt:hover,.opt.sel{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.08)}
+.opt .field{width:min(170px,40vw)}
+.opt .go{font-style:normal;color:var(--dim)}
+.switch{flex:none;width:46px;height:26px;border-radius:13px;background:rgba(255,255,255,.14);position:relative;transition:background .15s}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#c9d2e6;transition:transform .15s,background .15s}
+.opt.on .switch{background:rgba(88,240,255,.32)}
+.opt.on .switch::after{transform:translateX(20px);background:var(--cyan)}
+.ctl-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.ctl-table th{font-size:9.5px;letter-spacing:.2em;color:var(--dim);text-align:left;padding:6px;font-weight:900;border-bottom:1px solid var(--line)}
+.ctl-table td{padding:7px 6px;border-bottom:1px solid var(--line);color:#c9d2e6}
+.ctl-table td:first-child{color:var(--text);font-weight:800}
+kbd{display:inline-block;min-width:22px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text);
+  font-family:inherit;font-weight:800;font-size:10.5px;text-align:center;margin-right:2px}
+.ctl-tips{margin-top:12px;font-size:11.5px;color:var(--dim);line-height:1.6}
+/* garage category tabs: what changes the stats, then what only changes the looks */
+.gar-tabs{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.gar-tg{display:flex;align-items:center;gap:8px}
+.gar-tg>span{width:40px;flex:none;font-size:9px;letter-spacing:.2em;color:var(--dim);font-weight:900}
+.gar-tg>div{display:grid;gap:4px;flex:1}
+.gar-tabs button{letter-spacing:.08em!important;padding:9px 2px!important}
+@media (max-width:760px){
+  .sel-body{grid-template-columns:1fr;flex:none}
+  .stage-list{flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:2px 2px 8px}
+  .srow{flex:0 0 auto;padding:7px 12px 7px 7px} .srow.sel{transform:none} .srow .sn small,.srow .sb{display:none}
+  .stage-detail,.sd-main{overflow:visible}
+  .sd-stats{grid-template-columns:repeat(2,1fr)}
+  .sel-foot{display:none} .ride-chip{display:none} .sel-title{font-size:22px;white-space:nowrap;margin-left:4px}
+  .fin-panel{grid-template-columns:1fr}
+  .set-panel{padding:14px 14px 16px} .set-top h2{font-size:22px}
+  .setrow{grid-template-columns:1fr;gap:6px;margin:10px 0} .setrow em{grid-column:1} .seg button{min-width:0}
 }
 /* centre panels when they fit, scroll (never clip) when they don't */
 .overlay>.panel{margin:auto 0}
@@ -349,16 +422,8 @@ body.touch #stageName{display:none}
         <div class="home-nav" id="homeNav">
           <button class="hbtn" data-go="play"><b>PLAY</b><small>Pick a stage and race the clock</small></button>
           <button class="hbtn" data-go="rally"><b>RALLY</b><small id="homeRally">Every stage back to back</small></button>
-          <button class="hbtn" data-go="garage"><b>GARAGE</b><small>Pilot, Group B car, engine, wheels, wing, paint and more</small></button>
-          <button class="hbtn" data-go="code"><b>STAGE CODE</b><small>Load a friend's stage or ghost</small></button>
-        </div>
-        <div class="toggles">
-          <button class="tog" id="hSound">SOUND</button>
-          <button class="tog" id="hVoice">CO-DRIVER VOICE</button>
-          <button class="tog" id="hGhost">GHOST</button>
-          <button class="tog" id="hCam">BUMPER CAM</button>
-          <button class="tog" id="hGear">MANUAL GEARS</button>
-          <button class="tog" id="hAbs">ABS</button>
+          <button class="hbtn" data-go="garage"><b>GARAGE</b><small>Pilot, car, parts and paint</small></button>
+          <button class="hbtn" data-go="settings"><b>SETTINGS</b><small>Gears, ABS, camera, sound and controls</small></button>
         </div>
       </div>
       <div class="panel ride" id="homeRide"></div>
@@ -383,73 +448,64 @@ body.touch #stageName{display:none}
       <button class="mini" id="homeBtn">&#9666; HOME</button>
       <div class="sel-title">STAGE SELECT</div>
       <button class="mini ride-chip" id="selGarage"></button>
+      <button class="mini icon" id="selSettings" title="Settings" aria-label="Settings">&#9881;</button>
     </div>
-    <div id="cards"></div>
-    <div class="coderow">
-      STAGE CODE <b id="stageCode">RR-L-1969</b><button class="mini" id="copyCode">COPY</button>
-      <input class="field" id="seedInput" maxlength="24" placeholder="STAGE CODE OR SEED" spellcheck="false" autocomplete="off">
-      <button class="mini" id="loadSeed">LOAD</button><button class="mini" id="randSeed">RANDOM SEED</button>
+    <div class="sel-body">
+      <div class="stage-list" id="stageList"></div>
+      <div class="panel stage-detail">
+        <div class="sd-banner" id="sdBanner"></div>
+        <div class="sd-main">
+          <div><h3 id="sdName"></h3><div class="region" id="sdRegion"></div></div>
+          <p id="sdBlurb"></p>
+          <div class="sd-stats" id="sdStats"></div>
+          <div class="tabs" id="sdTabs"><button data-tab="board" class="on">LEADERBOARD</button><button data-tab="share">CODES &amp; GHOSTS</button></div>
+          <div class="sd-pane" id="sdBoard"><div class="lb" id="menuBoard"></div></div>
+          <div class="sd-pane hidden" id="sdShare">
+            <div class="share-row">THIS STAGE <b id="stageCode">RR-L-1969</b><button class="mini" id="copyCode">COPY CODE</button><button class="mini" id="exportBtn">COPY MY BEST GHOST</button></div>
+            <div class="share-row"><input class="field" id="seedInput" maxlength="24" placeholder="STAGE CODE OR SEED" spellcheck="false" autocomplete="off"><button class="mini" id="loadSeed">LOAD</button><button class="mini" id="randSeed">RANDOM SEED</button></div>
+            <div class="share-row"><button class="mini" id="importBtn">IMPORT A GHOST CODE</button><span class="share-note">A friend's ghost loads its own stage.</span></div>
+          </div>
+        </div>
+        <div class="sd-foot"><button class="btn" id="startBtn">START STAGE &#9656;</button></div>
+      </div>
     </div>
-    <div class="row"><button class="btn" id="startBtn">START STAGE &#9656;</button><button class="btn alt" id="rallyBtn">RALLY · ALL STAGES</button></div>
-    <div class="coderow">DRIVER <input class="field" id="nameInput" maxlength="16" spellcheck="false" autocomplete="off" style="width:140px">
-      <button class="mini" id="importBtn">IMPORT GHOST CODE</button><button class="mini" id="exportBtn">COPY MY BEST GHOST</button></div>
-    <div class="row"><div class="panel lb" id="menuBoard"></div></div>
-    <div class="toggles">
-      <button class="tog" id="togSound">SOUND</button>
-      <button class="tog" id="togVoice">CO-DRIVER VOICE</button>
-      <button class="tog" id="togGhost">GHOST</button>
-      <button class="tog" id="togCam">BUMPER CAM</button>
-      <button class="tog" id="togGear">MANUAL GEARS</button>
-      <button class="tog" id="togAbs">ABS</button>
-    </div>
-    <div class="help">
-      <div><kbd>W</kbd><kbd>&uarr;</kbd> throttle &nbsp; <kbd>S</kbd><kbd>&darr;</kbd> brake / reverse</div>
-      <div><kbd>A</kbd><kbd>D</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> steer (air: yaw, W/S pitch)</div>
-      <div><kbd>Space</kbd> handbrake &nbsp; <kbd>Shift</kbd> boost &nbsp; <kbd>E</kbd>/<kbd>Q</kbd> gear up / down</div>
-      <div><kbd>R</kbd> reset to checkpoint &nbsp; <kbd>C</kbd> camera</div>
-      <div><kbd>Esc</kbd> pause &nbsp; <kbd>M</kbd> mute &nbsp; <kbd>V</kbd> voice &nbsp; <kbd>G</kbd> ghost</div>
-      <div>Gamepad: RT/LT drive, stick steer, A handbrake, X/RB boost, d-pad &uarr;/&darr; gears, Y cam, Back reset, Start pause</div>
-      <div>Drift and land jumps cleanly to refill boost. Miss a gate: back to the last one +5s.</div>
-    </div>
+    <div class="sel-foot">&uarr; &darr; STAGE &nbsp;·&nbsp; ENTER START &nbsp;·&nbsp; ESC BACK</div>
   </div>
 
   <!-- ======================= PAUSE ======================= -->
   <div id="pause" class="overlay hidden">
-    <div class="panel">
+    <div class="panel pause-panel">
       <h2>PAUSED</h2>
       <div class="sub" id="pauseStage"></div>
-      <div class="row">
+      <div class="vlist" id="pauseList">
         <button class="btn" id="resumeBtn">RESUME</button>
         <button class="btn alt" id="restartBtn">RESTART</button>
-        <button class="btn alt" id="menuBtn">STAGE SELECT</button>
-      </div>
-      <div class="toggles">
-        <button class="tog" id="pSound">SOUND</button>
-        <button class="tog" id="pVoice">CO-DRIVER VOICE</button>
-        <button class="tog" id="pGhost">GHOST</button>
-        <button class="tog" id="pCam">BUMPER CAM</button>
-        <button class="tog" id="pGear">MANUAL GEARS</button>
-        <button class="tog" id="pAbs">ABS</button>
+        <button class="btn alt" id="pauseSettings">SETTINGS</button>
+        <button class="btn alt" id="menuBtn">QUIT TO STAGE SELECT</button>
       </div>
     </div>
   </div>
 
   <!-- ======================= FINISH ======================= -->
   <div id="finish" class="overlay hidden">
-    <div class="panel">
-      <h2>STAGE COMPLETE</h2>
-      <div class="sub" id="finStage"></div>
-      <div class="bigtime" id="finTime"></div>
-      <div class="verdict" id="finVerdict"></div>
-      <div class="sub" id="finMeta"></div>
-      <table class="splits" id="finSplits"></table>
-      <div id="finRally" class="svc-rally hidden"></div>
-      <div id="finBoard" class="lb" style="width:100%;padding:6px 0 0"></div>
-      <div class="row" style="margin-top:4px"><button class="mini" id="finGhostBtn">COPY THIS RUN'S GHOST CODE</button></div>
-      <div class="row">
-        <button class="btn" id="retryBtn">RETRY &#8635;</button>
-        <button class="btn alt" id="nextBtn">NEXT STAGE &#9656;</button>
-        <button class="btn alt" id="finMenuBtn">STAGE SELECT</button>
+    <div class="panel fin-panel">
+      <div class="fin-main">
+        <h2>STAGE COMPLETE</h2>
+        <div class="sub" id="finStage"></div>
+        <div class="bigtime" id="finTime"></div>
+        <div class="verdict" id="finVerdict"></div>
+        <div class="sub" id="finMeta"></div>
+        <div id="finRally" class="svc-rally hidden"></div>
+        <div class="vlist">
+          <button class="btn" id="retryBtn">RETRY &#8635;</button>
+          <button class="btn alt" id="nextBtn">NEXT STAGE &#9656;</button>
+          <button class="btn alt" id="finMenuBtn">STAGE SELECT</button>
+        </div>
+      </div>
+      <div class="fin-side">
+        <table class="splits" id="finSplits"></table>
+        <div id="finBoard" class="lb"></div>
+        <button class="mini" id="finGhostBtn">COPY THIS RUN'S GHOST CODE</button>
       </div>
     </div>
   </div>
@@ -457,16 +513,50 @@ body.touch #stageName{display:none}
   <!-- ======================= SERVICE PARK ======================= -->
   <div id="service" class="overlay hidden">
     <div class="panel">
-      <h2>SERVICE PARK</h2>
+      <div class="set-top"><button class="mini" id="svcBack">&#9666; STAGES</button><h2>SERVICE PARK</h2></div>
       <div class="sub" id="svcStage" style="text-align:center"></div>
+      <div class="svc-ride" id="svcRide"></div>
       <div id="svcRally" class="svc-rally hidden"></div>
       <div id="svcRows"></div>
-      <div class="sub" id="svcHint" style="text-align:center;margin-top:6px"></div>
-      <div class="sub" id="svcRide" style="text-align:center;margin-top:6px"></div>
       <div class="row">
-        <button class="btn alt" id="svcRec">USE RECOMMENDED &#9733;</button>
         <button class="btn" id="svcGo">TO THE START &#9656;</button>
-        <button class="btn alt" id="svcBack">BACK</button>
+        <button class="btn alt" id="svcRec">USE RECOMMENDED &#9733;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= SETTINGS ======================= -->
+  <div id="settings" class="overlay hidden">
+    <div class="panel set-panel">
+      <div class="set-top"><button class="mini" id="setBack">&#9666; BACK</button><h2 id="setTitle">SETTINGS</h2></div>
+      <div id="setList">
+        <div class="set-group">DRIVING</div>
+        <button class="opt" data-set="manual"><span><b>MANUAL GEARS</b><small>Shift yourself with E / Q or the d-pad. Off: automatic gearbox.</small></span><i class="switch"></i></button>
+        <button class="opt" data-set="abs"><span><b>ABS</b><small>Stops the wheels locking under hard braking. Off: squeeze the brakes.</small></span><i class="switch"></i></button>
+        <div class="set-group">VIEW</div>
+        <button class="opt" data-set="cam"><span><b>BUMPER CAM</b><small>Drive from the front bumper instead of behind the car. Key: C</small></span><i class="switch"></i></button>
+        <button class="opt" data-set="ghost"><span><b>GHOST</b><small>Race against a replay of your best run. Key: G</small></span><i class="switch"></i></button>
+        <div class="set-group">SOUND</div>
+        <button class="opt" data-set="sound"><span><b>SOUND</b><small>Engine, effects and co-driver. Key: M</small></span><i class="switch"></i></button>
+        <button class="opt" data-set="voice"><span><b>CO-DRIVER VOICE</b><small>Pace notes read aloud as well as shown. Key: V</small></span><i class="switch"></i></button>
+        <div class="set-group">PROFILE</div>
+        <label class="opt" data-set="name"><span><b>DRIVER NAME</b><small>Shown on leaderboards and in your ghost codes.</small></span><input class="field" id="nameInput" maxlength="16" spellcheck="false" autocomplete="off"></label>
+        <button class="opt" data-set="controls"><span><b>CONTROLS</b><small>Keyboard, gamepad and touch.</small></span><i class="go">&#9656;</i></button>
+      </div>
+      <div id="setControls" class="hidden">
+        <table class="ctl-table">
+          <tr><th></th><th>KEYBOARD</th><th>GAMEPAD</th><th>TOUCH</th></tr>
+          <tr><td>Throttle / brake, reverse</td><td><kbd>W</kbd><kbd>S</kbd> or <kbd>&uarr;</kbd><kbd>&darr;</kbd></td><td>RT / LT</td><td>GAS / BRAKE</td></tr>
+          <tr><td>Steer (in the air: yaw)</td><td><kbd>A</kbd><kbd>D</kbd> or <kbd>&larr;</kbd><kbd>&rarr;</kbd></td><td>Left stick</td><td>Steering pad</td></tr>
+          <tr><td>Handbrake</td><td><kbd>Space</kbd></td><td>A</td><td>HAND BRAKE</td></tr>
+          <tr><td>Boost</td><td><kbd>Shift</kbd></td><td>X or RB</td><td>BOOST</td></tr>
+          <tr><td>Gear up / down</td><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>D-pad &uarr; / &darr;</td><td>&#9650; / &#9660;</td></tr>
+          <tr><td>Reset to checkpoint</td><td><kbd>R</kbd></td><td>Back</td><td>R</td></tr>
+          <tr><td>Camera</td><td><kbd>C</kbd></td><td>Y</td><td>CAM</td></tr>
+          <tr><td>Pause</td><td><kbd>Esc</kbd></td><td>Start</td><td>II</td></tr>
+          <tr><td>Mute / voice / ghost</td><td><kbd>M</kbd> <kbd>V</kbd> <kbd>G</kbd></td><td></td><td>&#9835;</td></tr>
+        </table>
+        <div class="ctl-tips">Drift, or land jumps cleanly, to refill boost. Missing a checkpoint sends you back to the last one (+5 s); passing a chicane row on the wrong side costs +5 s.</div>
       </div>
     </div>
   </div>
@@ -669,7 +759,6 @@ const STAGES = [
       road: 0x9c978d, roadDark: 0x7c776f, off: 0x87827a, offB: 0x6c6862, offC: 0xa8a39a,
       surf: [0x9c978d, 0xbfe3f5, 0x9aa2ab, 0x7d7163], rock: 0x8a857d, marker: [0xff9a2e, 0xe8f2ff], accent: 0xff7a1a,
     },
-    swatch: 'radial-gradient(circle at 78% 30%,#5d9bff 0 12%,transparent 13%),linear-gradient(180deg,#0a0d1c 0 55%,#8c877f 56% 100%)',
   },
   {
     id: 'ice', name: 'Ice Ring Traverse', region: 'KHARON RING B · STAGE 2', seed: 4471,
@@ -694,7 +783,6 @@ const STAGES = [
       road: 0xc5e6f7, roadDark: 0x9cc6de, off: 0xb4d4ea, offB: 0x86acc8, offC: 0xdcecf7,
       surf: [0xe4e9ee, 0xc5e6f7, 0x9aa2ab, 0x5d6068], rock: 0xa9d2ea, marker: [0x58f0ff, 0xffffff], accent: 0x2e8bff,
     },
-    swatch: 'radial-gradient(circle at 70% 95%,#e9c48f 0 38%,#b98a55 39% 41%,transparent 42%),linear-gradient(180deg,#07121c 0 60%,#bfe3f5 61% 100%)',
   },
   {
     id: 'wreck', name: 'Wreckage Belt', region: 'DERELICT STATION FIELD · STAGE 3', seed: 90210,
@@ -719,7 +807,6 @@ const STAGES = [
       road: 0x8e959e, roadDark: 0x6c727b, off: 0x5a524d, offB: 0x3e3936, offC: 0x7a5540,
       surf: [0x9a8e80, 0x8fe3ee, 0x8e959e, 0x6a625a], rock: 0x6a615a, marker: [0xff4040, 0xffc830], accent: 0xffc01a,
     },
-    swatch: 'radial-gradient(circle at 60% 40%,#ff9a6a 0 7%,rgba(255,120,80,.25) 8% 22%,transparent 23%),linear-gradient(180deg,#1a0714 0 58%,#5b6068 59% 100%)',
   },
   {
     id: 'mars', name: 'Red Canyon Sprint', region: 'VALLES MARINERIS · STAGE 4', seed: 1976, letter: 'M',
@@ -744,7 +831,6 @@ const STAGES = [
       road: 0xa8664a, roadDark: 0x874f38, off: 0xb2603c, offB: 0x86442a, offC: 0xc98a5e,
       surf: [0xb2603c, 0xe8dcd4, 0x9aa2ab, 0xa8664a], rock: 0x8a4a32, marker: [0x58f0ff, 0xfff2e0], accent: 0x2ec8ff,
     },
-    swatch: 'radial-gradient(circle at 25% 28%,#b9b0a6 0 5%,transparent 6%),linear-gradient(180deg,#2a120c 0 55%,#b2603c 56% 100%)',
   },
   {
     id: 'europa', name: 'Europa Fracture Line', region: 'JOVIAN ICE SHELF · STAGE 5', seed: 1610, letter: 'E',
@@ -769,7 +855,6 @@ const STAGES = [
       road: 0xe6ddd0, roadDark: 0xc2b3a0, off: 0xd8cbb8, offB: 0xa4876a, offC: 0xf2ece2,
       surf: [0xe4e9ee, 0xe6ddd0, 0x9aa2ab, 0x8a6a52], rock: 0xc9b8a4, marker: [0xff7a1a, 0xffffff], accent: 0xff7a1a,
     },
-    swatch: 'radial-gradient(circle at 55% 30%,#e9d6bc 0 30%,#c49a70 31% 33%,transparent 34%),linear-gradient(180deg,#0b0a14 0 58%,#e6ddd0 59% 100%)',
   },
   {
     id: 'foundry', name: 'Foundry Gauntlet', region: 'IO ORBITAL SMELTER · STAGE 6', seed: 2718, letter: 'F',
@@ -794,7 +879,6 @@ const STAGES = [
       road: 0x7d828a, roadDark: 0x5c6068, off: 0x4a3a30, offB: 0x2e2420, offC: 0x9a4a20,
       surf: [0x9a8e80, 0x8fe3ee, 0x7d828a, 0x5a4a3e], rock: 0x5a4a40, marker: [0xff7a1a, 0xfff0a0], accent: 0xff5a1a,
     },
-    swatch: 'radial-gradient(circle at 72% 32%,#e8d070 0 16%,#b89a3a 17% 19%,transparent 20%),linear-gradient(180deg,#1c0a04 0 58%,#7d828a 59% 100%)',
   },
 ];
 
@@ -4790,7 +4874,6 @@ const Service = {
         `</div><em>${o.desc[su[k]]}</em></div>`;
     }
     document.getElementById('svcRows').innerHTML = html;
-    document.getElementById('svcHint').textContent = '★ RECOMMENDED FOR THIS STAGE: ' + SETUP_KEYS.map((k) => SETUP_OPTS[k].names[rec[k]]).join(' · ');
     const rb = document.getElementById('svcRally');
     rb.classList.toggle('hidden', !Rally.active);
     if (Rally.active) {
@@ -4800,13 +4883,14 @@ const Service = {
         `<br>DAMAGE AFTER THE CREW'S FREE 40% REPAIR: <b>${Math.round(Rally.damage * 100)}%</b>` +
         (Rally.damage > 0.005 ? ` <button class="mini" id="svcRepair">FULL REPAIR  +${cost}s</button>` : ' · CAR IS PRISTINE');
     }
-    document.getElementById('svcBack').textContent = Rally.active ? 'ABANDON RALLY' : 'BACK';
+    document.getElementById('svcBack').textContent = Rally.active ? '\u25C2 ABANDON RALLY' : '\u25C2 STAGES';
     const gb = Store.data.garage;
-    document.getElementById('svcRide').textContent = 'PILOT ' + GARAGE.pilot.opts[gb.pilot].name + ' · ' + rideSummary(gb) + ' (CHANGE IN THE GARAGE)';
+    document.getElementById('svcRide').textContent = GARAGE.pilot.opts[gb.pilot].name + ' · ' + rideSummary(gb);
   },
 };
 function openService() {
-  for (const id of ['menu', 'home', 'garage', 'pause', 'finish']) document.getElementById(id).classList.add('hidden');
+  for (const id of ['menu', 'home', 'garage', 'pause', 'finish', 'settings']) document.getElementById(id).classList.add('hidden');
+  Settings.from = null;
   if (Rally.active && !Rally.serviced) { Rally.damage = Math.max(0, Rally.damage - 0.4); Rally.serviced = true; }
   Game.state = 'service';
   HUD.show(false);
@@ -5157,8 +5241,7 @@ function raceLogic(dt) {
   }
 }
 
-function medalFor(t) {
-  const T = TR.targetTime;
+function medalFor(t, T = TR.targetTime) {
   if (t <= T) return { name: 'GOLD', color: '#ffd23d' };
   if (t <= T * 1.08) return { name: 'SILVER', color: '#d8e0ec' };
   if (t <= T * 1.18) return { name: 'BRONZE', color: '#e0955a' };
@@ -5194,9 +5277,9 @@ function showFinish() {
   Game.finishShown = true;
   const r = Game.result, def = TR.def;
   const m = medalFor(r.time);
-  document.getElementById('finStage').textContent = def.name.toUpperCase() + ' · ' + def.region;
+  document.getElementById('finStage').textContent = def.name.toUpperCase() + ' · ' + stageCode(def);
   document.getElementById('finTime').textContent = fmtTime(r.time);
-  let verdict = r.isBest ? (r.prevBest ? 'NEW BEST  ' + fmtDelta(r.time - r.prevBest) : 'FIRST CLEAR — BEST TIME SET') : 'BEST ' + fmtTime(r.prevBest) + '  (' + fmtDelta(r.time - r.prevBest) + ')';
+  let verdict = r.isBest ? (r.prevBest ? 'NEW BEST  ' + fmtDelta(r.time - r.prevBest) : 'FIRST CLEAR') : 'BEST ' + fmtTime(r.prevBest) + '  (' + fmtDelta(r.time - r.prevBest) + ')';
   const v = document.getElementById('finVerdict');
   v.innerHTML = (m ? `<span class="medal" style="background:${m.color}"></span>${m.name} · ` : '') + verdict;
   v.style.color = r.isBest ? 'var(--good)' : 'var(--text)';
@@ -5289,7 +5372,8 @@ function enterMenu(screen) {
   Rally.active = false;
   car.tune = tuneFor(DEFAULT_SETUP, Store.data.garage);
   camera.clearViewOffset();
-  for (const id of ['pause', 'finish', 'service', 'garage']) document.getElementById(id).classList.add('hidden');
+  for (const id of ['pause', 'finish', 'service', 'garage', 'settings']) document.getElementById(id).classList.add('hidden');
+  Settings.from = null;
   document.getElementById('menu').classList.toggle('hidden', Menu.screen !== 'stages');
   document.getElementById('home').classList.toggle('hidden', Menu.screen !== 'home');
   HUD.show(false);
@@ -5300,7 +5384,8 @@ function enterMenu(screen) {
   AudioSys.stopSpeech();
 }
 function startRace() {
-  for (const id of ['menu', 'home', 'garage', 'pause', 'finish', 'service']) document.getElementById(id).classList.add('hidden');
+  for (const id of ['menu', 'home', 'garage', 'pause', 'finish', 'service', 'settings']) document.getElementById(id).classList.add('hidden');
+  Settings.from = null;
   car.tune = tuneFor(currentSetup(), Store.data.garage);
   resetRunState();
   placeCar(TR.startS - 6, 0, 0);
@@ -5318,6 +5403,7 @@ function pauseGame() {
   document.getElementById('pauseStage').textContent = TR.def.name.toUpperCase() + ' · ' + fmtTime(Game.time) + (Rally.active ? ' · RALLY STAGE ' + (Rally.stage + 1) : '');
   document.getElementById('restartBtn').classList.toggle('hidden', Rally.active);
   document.getElementById('pause').classList.remove('hidden');
+  Menu.pauseIdx = 0;
   AudioSys.stopSpeech();
   Menu.refresh();
   HUD.refreshTouch();
@@ -5364,26 +5450,29 @@ function handleActions() {
       case 'camera': if (st !== 'loading') toggleCamera(); break;
       case 'pause':
         if (!document.getElementById('modal').classList.contains('hidden')) Modal.close();
+        else if (Settings.from) Settings.back();
         else if (st === 'racing' || st === 'countdown') pauseGame(); else if (st === 'paused') resumeGame(); else if (st === 'service') enterMenu();
         else if (st === 'garage') Garage.close(); else if (st === 'menu' && Menu.screen === 'stages') enterMenu('home');
         break;
       case 'blur': if (st === 'racing' || st === 'countdown') pauseGame(); break;
       case 'gearUp': case 'gearDown':
         if (st !== 'racing' && st !== 'countdown') break;
-        if (!Store.data.settings.manual) { HUD.toast('AUTOMATIC GEARBOX · MANUAL GEARS IS IN THE PAUSE MENU', '#c3cce0', 1.4); break; }
+        if (!Store.data.settings.manual) { HUD.toast('AUTOMATIC GEARBOX · TURN ON MANUAL GEARS IN SETTINGS', '#c3cce0', 1.4); break; }
         car.shiftReq = a === 'gearUp' ? 1 : -1;
         break;
       case 'reset': if (st === 'racing' && !Game.pendingReset) { resetToCheckpoint(0); HUD.toast('RESET TO CHECKPOINT'); } break;
       case 'confirm':
         if (!document.getElementById('modal').classList.contains('hidden')) break;
+        if (Settings.from) { Settings.activate(); break; }
         if (st === 'menu') { if (Menu.screen === 'home') Menu.homeGo(Menu.homeIdx); else openService(); }
         else if (st === 'garage') Garage.close();
         else if (st === 'service') leaveService();
-        else if (st === 'paused') resumeGame();
+        else if (st === 'paused') Menu.pauseGo();
         else if (st === 'finished' && Game.finishShown) { if (Rally.active) { if (!Rally.done) goNext(); else enterMenu(); } else startRace(); }
         break;
       case 'back':
         if (!document.getElementById('modal').classList.contains('hidden')) { Modal.close(); break; }
+        if (Settings.from) { Settings.back(); break; }
         if (st === 'paused') resumeGame();
         else if (st === 'service') enterMenu();
         else if (st === 'garage') Garage.close();
@@ -5392,11 +5481,15 @@ function handleActions() {
         break;
       case 'navUp': case 'navDown': {
         const d = a === 'navUp' ? -1 : 1;
-        if (st === 'menu' && Menu.screen === 'home') { Menu.homeIdx = (Menu.homeIdx + d + 4) % 4; Menu.refresh(); }
+        if (Settings.from) Settings.nav(d);
+        else if (st === 'menu' && Menu.screen === 'home') { Menu.homeIdx = (Menu.homeIdx + d + 4) % 4; Menu.refresh(); }
+        else if (st === 'menu' && Menu.screen === 'stages') { const n = clamp(Game.stageIdx + d, 0, STAGES.length - 1); if (n !== Game.stageIdx) loadStage(n, enterMenu); }
+        else if (st === 'paused') { const n = Menu.pauseItems().length; Menu.pauseIdx = (Menu.pauseIdx + d + n) % n; Menu.refresh(); }
         else if (st === 'garage') Garage.setTab(Garage.tab + d);
         break;
       }
       case 'navLeft': case 'navRight':
+        if (Settings.from) { Settings.activate(true); break; }
         if (st === 'garage') { Garage.cycle(a === 'navLeft' ? -1 : 1); break; }
         if (st === 'menu' && Menu.screen === 'stages') {
           const n = clamp(Game.stageIdx + (a === 'navLeft' ? -1 : 1), 0, STAGES.length - 1);
@@ -5405,6 +5498,109 @@ function handleActions() {
         break;
     }
   }
+}
+
+/* ---- stage art: a small painted view of each stage (sky, planet, horizon, road) for the stage select ---- */
+const _stageArt = new Map();
+function stageArt(def, W, H) {
+  const key = def.id + ':' + def.seed + ':' + W + 'x' + H;
+  if (_stageArt.has(key)) return _stageArt.get(key);
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'), rnd = mulberry32(def.seed * 13 + 5);
+  const rgb = (a, k = 1, al = 1) => `rgba(${a.map((v) => Math.round(clamp(v * k, 0, 1) * 255)).join(',')},${al})`;
+  const hex = (n, al = 1) => `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${al})`;
+  const sky = def.sky, pl = def.planet, col = def.colors, hz = Math.round(H * 0.62);
+  // sky: deep space fading to the nebula tint at the horizon, then stars
+  let g = x.createLinearGradient(0, 0, 0, hz);
+  g.addColorStop(0, '#020309'); g.addColorStop(1, rgb(sky.nebA, 0.8));
+  x.fillStyle = g; x.fillRect(0, 0, W, hz);
+  g = x.createRadialGradient(W * 0.3, hz * 0.4, 0, W * 0.3, hz * 0.4, W * 0.5);
+  g.addColorStop(0, rgb(sky.nebB, 1, 0.5 * sky.nebStrength)); g.addColorStop(1, rgb(sky.nebB, 1, 0));
+  x.fillStyle = g; x.fillRect(0, 0, W, hz);
+  for (let i = 0, n = (W * hz / 240) * sky.stars; i < n; i++) {
+    x.fillStyle = `rgba(255,255,255,${0.2 + rnd() * 0.65})`;
+    const s = rnd() < 0.08 ? 2 : 1; x.fillRect(rnd() * W, rnd() * hz, s, s);
+  }
+  // sun glow, then the planet in front of it
+  const sx = W * (0.5 - sky.sunDir[0] * 0.45), sy = hz * (1 - sky.sunDir[1] * 1.6), sr = H * 0.5 * Math.sqrt(sky.sunSize);
+  g = x.createRadialGradient(sx, sy, 0, sx, sy, sr);
+  g.addColorStop(0, hex(sky.sunColor)); g.addColorStop(0.06, hex(sky.sunColor, 0.8)); g.addColorStop(0.2, hex(sky.sunColor, 0.18)); g.addColorStop(1, hex(sky.sunColor, 0));
+  x.fillStyle = g; x.fillRect(0, 0, W, hz);
+  const pr = H * clamp(pl.angRadius * 1.2, 0.1, 0.7), px = W * (0.5 - pl.dir[0] * 0.55), py = hz * (1 - pl.dir[1] * 1.8);
+  const ring = (a0, a1) => {
+    for (let k = 0; k < 5; k++) {
+      x.strokeStyle = rgb(k % 2 ? pl.colB : pl.colA, 1, 0.5 - k * 0.06); x.lineWidth = Math.max(1, pr * 0.05);
+      x.beginPath(); x.ellipse(px, py, pr * (1.3 + k * 0.09), pr * (0.2 + k * 0.014), -0.16, a0, a1); x.stroke();
+    }
+  };
+  if (pl.rings) ring(Math.PI, TAU);
+  x.save(); x.beginPath(); x.arc(px, py, pr, 0, TAU); x.clip();
+  x.fillStyle = rgb(pl.colA); x.fillRect(px - pr, py - pr, pr * 2, pr * 2);
+  if (pl.type === 1) {          // gas giant: bands
+    for (let y = -pr; y < pr; y += pr * (0.07 + rnd() * 0.1)) {
+      x.fillStyle = rgb(rnd() < 0.6 ? pl.colB : pl.colC, 1, 0.3 + rnd() * 0.45);
+      x.fillRect(px - pr, py + y, pr * 2, pr * (0.03 + rnd() * 0.07));
+    }
+  } else {                      // continents and clouds, or craters and lava
+    for (let i = 0; i < 16; i++) {
+      const a = rnd() * TAU, d = Math.sqrt(rnd()) * pr, r = pr * (0.1 + rnd() * 0.28);
+      x.fillStyle = rgb(i % 4 === 3 ? pl.colC : pl.colB, 1, i % 4 === 3 ? 0.5 : 0.75);
+      x.beginPath(); x.ellipse(px + Math.cos(a) * d, py + Math.sin(a) * d, r, r * (0.45 + rnd() * 0.5), rnd() * TAU, 0, TAU); x.fill();
+    }
+  }
+  const lx = sx > px ? 1 : -1;  // lit from the sun's side
+  g = x.createRadialGradient(px + lx * pr * 0.45, py - pr * 0.35, pr * 0.1, px, py, pr * 1.2);
+  g.addColorStop(0, 'rgba(255,255,255,.14)'); g.addColorStop(0.5, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.72)');
+  x.fillStyle = g; x.fillRect(px - pr, py - pr, pr * 2, pr * 2);
+  x.restore();
+  x.save(); x.shadowColor = rgb(pl.atmo); x.shadowBlur = pr * 0.3; x.strokeStyle = rgb(pl.atmo, 1, 0.6); x.lineWidth = Math.max(1, pr * 0.035);
+  x.beginPath(); x.arc(px, py, pr, 0, TAU); x.stroke(); x.restore();
+  if (pl.rings) ring(0, Math.PI);
+  // ground: far ridges on hilly stages, deck plating on the stations, then the road
+  g = x.createLinearGradient(0, hz, 0, H);
+  g.addColorStop(0, hex(col.offB)); g.addColorStop(1, hex(col.off));
+  x.fillStyle = g; x.fillRect(0, hz, W, H - hz);
+  if (def.style === 'hills') {
+    for (let layer = 0; layer < 2; layer++) {
+      const amp = H * (0.09 - layer * 0.04), f = 2 + rnd() * 3, ph = rnd() * TAU;
+      x.fillStyle = hex(layer ? col.offC : col.offB); x.globalAlpha = layer ? 0.5 : 1;
+      x.beginPath(); x.moveTo(0, hz + 1);
+      for (let px2 = 0; px2 <= W; px2 += 3) {
+        const u = px2 / W, h = Math.max(0, Math.sin(u * f * Math.PI + ph)) * (0.6 + 0.4 * Math.sin(u * 17 + ph * 3));
+        x.lineTo(px2, hz + 1 - amp * Math.min(1, h * 1.3));
+      }
+      x.lineTo(W, hz + 1); x.closePath(); x.fill(); x.globalAlpha = 1;
+    }
+  }
+  const vx = W * 0.44, bw = Math.min(H * 0.85, W * 0.3), bend = (rnd() - 0.5) * bw * 1.4, gh = H - hz;
+  if (def.style === 'platform') {
+    x.strokeStyle = hex(col.roadDark, 0.45); x.lineWidth = 1;
+    for (let k = 1; k < 8; k++) { const y = hz + gh * Math.pow(k / 8, 1.7); x.beginPath(); x.moveTo(0, y); x.lineTo(W, y); x.stroke(); }
+    for (let k = -14; k <= 14; k++) { x.beginPath(); x.moveTo(vx + k * W * 0.012, hz); x.lineTo(vx + k * W * 0.16, H); x.stroke(); }
+  }
+  // road edges are quadratic curves from the vanishing point, bending a little
+  const edge = (side, t) => {
+    const x0 = vx + side, x1 = vx + bend + side * bw * 0.3, x2 = vx + side * bw, y1 = hz + gh * 0.45, u = 1 - t;
+    return [u * u * x0 + 2 * u * t * x1 + t * t * x2, u * u * hz + 2 * u * t * y1 + t * t * H];
+  };
+  x.beginPath(); x.moveTo(vx - 1, hz);
+  x.quadraticCurveTo(vx + bend - bw * 0.3, hz + gh * 0.45, vx - bw, H); x.lineTo(vx + bw, H);
+  x.quadraticCurveTo(vx + bend + bw * 0.3, hz + gh * 0.45, vx + 1, hz); x.closePath();
+  g = x.createLinearGradient(0, hz, 0, H); g.addColorStop(0, hex(col.roadDark)); g.addColorStop(1, hex(col.road));
+  x.fillStyle = g; x.fill();
+  for (const t of [0.12, 0.22, 0.36, 0.56, 0.84]) {
+    for (const side of [-1, 1]) {
+      const [ex, ey] = edge(side, t), ph = H * 0.16 * t * t + 1.5;
+      x.fillStyle = hex(col.marker[side > 0 ? 1 : 0]); x.fillRect(ex + side * (2 + bw * 0.08 * t) - 0.75, ey - ph, Math.max(1, 3 * t), ph);
+    }
+  }
+  // haze along the horizon, and a fade into the panel below
+  g = x.createLinearGradient(0, hz - H * 0.08, 0, hz + H * 0.06);
+  g.addColorStop(0, rgb(pl.atmo, 0.5, 0)); g.addColorStop(0.6, rgb(pl.atmo, 0.5, 0.22)); g.addColorStop(1, rgb(pl.atmo, 0.5, 0));
+  x.fillStyle = g; x.fillRect(0, hz - H * 0.08, W, H * 0.14);
+  const url = c.toDataURL('image/jpeg', 0.88);
+  _stageArt.set(key, url);
+  return url;
 }
 
 /* ---- pilot portraits: drawn once on a 2D canvas, used by the home screen and garage ---- */
@@ -5517,7 +5713,8 @@ const Garage = {
   from: 'home', tab: 0, preview: null, yaw: 2.4, drag: null,
   open(from) {
     this.from = from || 'home';
-    for (const id of ['menu', 'home', 'pause', 'finish', 'service']) document.getElementById(id).classList.add('hidden');
+    for (const id of ['menu', 'home', 'pause', 'finish', 'service', 'settings']) document.getElementById(id).classList.add('hidden');
+    Settings.from = null;
     Rally.active = false;
     Game.state = 'garage';
     HUD.show(false);
@@ -5547,7 +5744,9 @@ const Garage = {
   setTab(t) { this.tab = (t + GARAGE_KEYS.length) % GARAGE_KEYS.length; this.preview = null; this.render(); },
   render() {
     const b = Store.data.garage, k = GARAGE_KEYS[this.tab], cat = GARAGE[k];
-    document.getElementById('garTabs').innerHTML = GARAGE_KEYS.map((key, i) => `<button data-tab="${i}" class="${i === this.tab ? 'on' : ''}">${GARAGE[key].label}</button>`).join('');
+    document.getElementById('garTabs').innerHTML = [['BUILD', STAT_PARTS], ['LOOKS', GARAGE_KEYS.filter((key) => !STAT_PARTS.includes(key))]].map(([label, keys]) =>
+      `<div class="gar-tg"><span>${label}</span><div style="grid-template-columns:repeat(${keys.length},1fr)">` +
+      keys.map((key) => { const i = GARAGE_KEYS.indexOf(key); return `<button data-tab="${i}" class="${i === this.tab ? 'on' : ''}">${GARAGE[key].label}</button>`; }).join('') + '</div></div>').join('');
     document.getElementById('garOpts').className = 'gar-opts ' + k;
     document.getElementById('garOpts').innerHTML = cat.opts.map((o, v) => {
       const sel = b[k] === v ? ' sel' : '';
@@ -5603,18 +5802,73 @@ const Garage = {
   },
 };
 
+/* ---- settings: every switch in one list, opened from home, stage select or the pause menu ---- */
+const Settings = {
+  from: null, idx: 0, view: 'list',
+  rows() { return [...document.querySelectorAll('#setList .opt')]; },
+  open(from) {
+    this.from = from; this.idx = 0; this.view = 'list';
+    for (const id of ['home', 'menu', 'pause']) document.getElementById(id).classList.add('hidden');
+    document.getElementById('settings').classList.remove('hidden');
+    this.refresh();
+  },
+  close() {
+    const from = this.from;
+    if (!from) return;
+    this.from = null;
+    document.getElementById('nameInput').blur();
+    document.getElementById('settings').classList.add('hidden');
+    if (from === 'pause') { if (Game.state === 'paused') document.getElementById('pause').classList.remove('hidden'); }
+    else if (Game.state === 'menu') document.getElementById(from === 'home' ? 'home' : 'menu').classList.remove('hidden');
+    Menu.refresh();
+  },
+  back() { if (this.view === 'controls') { this.view = 'list'; this.refresh(); } else this.close(); },
+  toggle(k, sideways) {
+    if (k === 'controls') { if (!sideways) { this.view = 'controls'; this.refresh(); } return; }
+    if (k === 'name') { if (!sideways) document.getElementById('nameInput').focus(); return; }
+    if (k === 'cam') toggleCamera(); else toggleSetting(k === 'sound' ? 'muted' : k);
+  },
+  nav(d) { if (this.view !== 'list') return; const n = this.rows().length; this.idx = (this.idx + d + n) % n; this.refresh(); },
+  activate(sideways) { if (this.view !== 'list') { if (!sideways) this.back(); return; } const r = this.rows()[this.idx]; if (r) this.toggle(r.dataset.set, sideways); },
+  refresh() {
+    const s = Store.data.settings;
+    const on = { manual: !!s.manual, abs: s.abs !== false, cam: Cam.mode === 'bumper', ghost: !!s.ghost, sound: !s.muted, voice: !!s.voice };
+    this.rows().forEach((r, i) => { r.classList.toggle('on', !!on[r.dataset.set]); r.classList.toggle('sel', i === this.idx); });
+    document.getElementById('setList').classList.toggle('hidden', this.view !== 'list');
+    document.getElementById('setControls').classList.toggle('hidden', this.view !== 'controls');
+    document.getElementById('setTitle').textContent = this.view === 'controls' ? 'CONTROLS' : 'SETTINGS';
+    const nameIn = document.getElementById('nameInput');
+    if (document.activeElement !== nameIn) nameIn.value = s.name || 'DRIVER';
+  },
+  init() {
+    const list = document.getElementById('setList');
+    list.addEventListener('click', (e) => {
+      const r = e.target.closest('.opt'); if (!r || e.target.closest('input')) return;
+      e.preventDefault(); AudioSys.unlock();
+      this.idx = this.rows().indexOf(r); this.toggle(r.dataset.set);
+    });
+    list.addEventListener('pointerover', (e) => { const i = this.rows().indexOf(e.target.closest('.opt')); if (i >= 0 && i !== this.idx) { this.idx = i; this.refresh(); } });
+    document.getElementById('setBack').addEventListener('click', (e) => { e.preventDefault(); this.back(); });
+    const nameIn = document.getElementById('nameInput');
+    nameIn.addEventListener('change', () => { Store.data.settings.name = cleanName(nameIn.value) || 'DRIVER'; nameIn.value = Store.data.settings.name; Store.save(); });
+    nameIn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); nameIn.blur(); } });
+  },
+};
+
 /* ---- menus ---- */
 const Menu = {
-  screen: 'home', homeIdx: 0,
+  screen: 'home', homeIdx: 0, pauseIdx: 0, sdTab: 'board',
   homeGo(i) {
-    const go = ['play', 'rally', 'garage', 'code'][i];
+    const go = ['play', 'rally', 'garage', 'settings'][i];
     if (Game.state !== 'menu') return;
     this.homeIdx = i;
     if (go === 'play') enterMenu('stages');
     else if (go === 'rally') startRally();
     else if (go === 'garage') Garage.open('home');
-    else { enterMenu('stages'); const si = document.getElementById('seedInput'); si.focus(); si.placeholder = 'PASTE A STAGE CODE'; }
+    else Settings.open('home');
   },
+  pauseItems() { return ['resumeBtn', 'restartBtn', 'pauseSettings', 'menuBtn'].map((id) => document.getElementById(id)).filter((b) => !b.classList.contains('hidden')); },
+  pauseGo() { const b = this.pauseItems()[this.pauseIdx]; if (b) b.click(); },
   init() {
     Garage.init();
     document.getElementById('homeNav').addEventListener('click', (e) => {
@@ -5628,25 +5882,29 @@ const Menu = {
       if (i !== this.homeIdx) { this.homeIdx = i; this.refresh(); }
     });
     document.getElementById('homeRide').addEventListener('click', (e) => { if (e.target.closest('button') && Game.state === 'menu') Garage.open('home'); });
-    const cards = document.getElementById('cards');
+    // stage select: one row per stage, the chosen stage's details alongside
+    const list = document.getElementById('stageList');
     STAGES.forEach((def, i) => {
-      const c = document.createElement('div');
-      c.className = 'card'; c.dataset.idx = i;
-      c.innerHTML = `<div class="swatch" style="background:${def.swatch}"></div><h3>${def.name}</h3><div class="region">${def.region}</div><p>${def.blurb}</p>` +
-        `<div class="stats"><span>GRAVITY <b>${(def.gravity / 9.81).toFixed(2)} G</b></span><span>LENGTH <b>~${(def.length / 1000).toFixed(1)} KM</b></span>` +
-        `<span>SURFACE <b>${SURF_INFO[def.surf.base].name}</b></span><span>GATES <b>${def.checkpoints}</b></span>` +
-        `<span>BEST <b class="bestT">--:--.--</b></span><span>TARGET <b class="tgtT">—</b></span></div>`;
-      c.addEventListener('click', () => { AudioSys.unlock(); if (Game.state === 'menu' && (i !== Game.stageIdx || Game.def.custom)) loadStage(i, enterMenu); });
-      cards.appendChild(c);
+      const r = document.createElement('button');
+      r.className = 'srow'; r.dataset.idx = i;
+      r.innerHTML = `<i class="th" style="background-image:url(${stageArt(def, 104, 72)})"></i><span class="sn"><b></b><small>STAGE ${i + 1} · ${(def.gravity / 9.81).toFixed(2)} G · ${SURF_INFO[def.surf.base].name}</small></span><span class="sb"></span>`;
+      r.addEventListener('click', () => { AudioSys.unlock(); r.blur(); if (Game.state === 'menu' && (i !== Game.stageIdx || Game.def.custom)) loadStage(i, enterMenu); });
+      list.appendChild(r);
     });
+    document.getElementById('sdTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { this.sdTab = b.dataset.tab; this.refresh(); } });
     const on = (id, fn) => document.getElementById(id).addEventListener('click', (e) => { e.preventDefault(); AudioSys.unlock(); fn(); });
     on('startBtn', () => { if (Game.state === 'menu') openService(); });
-    on('rallyBtn', () => { if (Game.state === 'menu') startRally(); });
     on('resumeBtn', resumeGame);
     on('restartBtn', () => { document.getElementById('pause').classList.add('hidden'); startRace(); });
+    on('pauseSettings', () => { if (Game.state === 'paused') Settings.open('pause'); });
     on('menuBtn', () => enterMenu('stages'));
+    document.getElementById('pauseList').addEventListener('pointerover', (e) => {
+      const i = this.pauseItems().indexOf(e.target.closest('button'));
+      if (i >= 0 && i !== this.pauseIdx) { this.pauseIdx = i; this.refresh(); }
+    });
     on('homeBtn', () => { if (Game.state === 'menu') enterMenu('home'); });
     on('selGarage', () => { if (Game.state === 'menu') Garage.open('stages'); });
+    on('selSettings', () => { if (Game.state === 'menu') Settings.open('stages'); });
     on('retryBtn', startRace);
     on('nextBtn', goNext);
     on('finMenuBtn', () => enterMenu('stages'));
@@ -5662,10 +5920,7 @@ const Menu = {
     seedIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadCode(); } });
     on('randSeed', () => { if (Game.state === 'menu') loadStage(stageDef(Game.stageIdx, 1 + Math.floor(Math.random() * 999999)), enterMenu); });
     on('copyCode', () => copyText(stageCode(Game.def), 'STAGE CODE', document.getElementById('copyCode')));
-    // driver name, ghost import / export, leaderboard rival toggles
-    const nameIn = document.getElementById('nameInput');
-    nameIn.addEventListener('change', () => { Store.data.settings.name = cleanName(nameIn.value) || 'DRIVER'; nameIn.value = Store.data.settings.name; Store.save(); });
-    nameIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') nameIn.blur(); });
+    // ghost import / export, leaderboard rival toggles
     on('importBtn', () => Modal.open('IMPORT GHOST CODE', '', 'LOAD & RACE IT', (txt) => {
       try { const g = importGhost(txt); Modal.close(); flashButton(document.getElementById('importBtn'), 'LOADED ' + (cleanName(g.meta.n) || 'RIVAL')); }
       catch (err) { Modal.msg(err.message); }
@@ -5699,9 +5954,7 @@ const Menu = {
     // modal
     on('modalOk', () => { if (Modal.onOk) Modal.onOk(document.getElementById('modalText').value); });
     on('modalClose', () => Modal.close());
-    for (const [ids, fn] of [[['togSound', 'pSound', 'hSound'], () => toggleSetting('muted')], [['togVoice', 'pVoice', 'hVoice'], () => toggleSetting('voice')],
-      [['togGhost', 'pGhost', 'hGhost'], () => toggleSetting('ghost')], [['togCam', 'pCam', 'hCam'], toggleCamera],
-      [['togGear', 'pGear', 'hGear'], () => toggleSetting('manual')], [['togAbs', 'pAbs', 'hAbs'], () => toggleSetting('abs')]]) for (const id of ids) on(id, fn);
+    Settings.init();
   },
   refresh() {
     const s = Store.data.settings;
@@ -5709,26 +5962,35 @@ const Menu = {
       document.getElementById('stageCode').textContent = stageCode(Game.def) + (Game.def.custom ? ' (CUSTOM)' : '');
       document.getElementById('menuBoard').innerHTML = boardHTML(Game.def);
     }
-    const nameIn = document.getElementById('nameInput');
-    if (document.activeElement !== nameIn) nameIn.value = s.name || 'DRIVER';
     const rb = Store.data.rallyBest;
-    document.getElementById('rallyBtn').textContent = 'RALLY · ALL ' + STAGES.length + ' STAGES' + (rb ? ' · BEST ' + fmtTime(rb.total) : '');
-    document.querySelectorAll('.card').forEach((c) => {
-      const i = +c.dataset.idx, def = i === Game.stageIdx && Game.def && Game.def.custom ? Game.def : STAGES[i], b = Store.best(def.id);
-      c.classList.toggle('sel', i === Game.stageIdx);
-      c.querySelector('h3').textContent = def.name;
-      c.querySelector('.bestT').textContent = b ? fmtTime(b.time) : '--:--.--';
-      const tgt = TR && TR.def === def ? TR.targetTime : (Store.data.targets || {})[def.id];
-      c.querySelector('.tgtT').textContent = tgt ? fmtTime(tgt) : '—';
+    const targetOf = (def) => TR && TR.def === def ? TR.targetTime : (Store.data.targets || {})[def.id];
+    document.querySelectorAll('.srow').forEach((r) => {
+      const i = +r.dataset.idx, def = i === Game.stageIdx && Game.def && Game.def.custom ? Game.def : STAGES[i], b = Store.best(def.id);
+      const m = b && targetOf(def) ? medalFor(b.time, targetOf(def)) : null, sb = r.querySelector('.sb');
+      r.classList.toggle('sel', i === Game.stageIdx);
+      r.querySelector('.sn b').textContent = def.name;
+      sb.classList.toggle('none', !b);
+      sb.innerHTML = b ? (m ? `<span class="medal" style="background:${m.color}"></span>` : '') + fmtTime(b.time) : '—';
     });
+    const def = Game.def;
+    if (def) {
+      const b = Store.best(def.id), tgt = targetOf(def), here = TR && TR.def === def;
+      document.getElementById('sdBanner').style.backgroundImage = `url(${stageArt(def, 800, 140)})`;
+      document.getElementById('sdName').textContent = def.name;
+      document.getElementById('sdRegion').textContent = def.region;
+      document.getElementById('sdBlurb').textContent = def.blurb;
+      document.getElementById('sdStats').innerHTML = [
+        ['GRAVITY', (def.gravity / 9.81).toFixed(2) + ' G'], ['LENGTH', here ? ((TR.finishS - TR.startS) / 1000).toFixed(2) + ' KM' : '~' + (def.length / 1000).toFixed(1) + ' KM'],
+        ['SURFACE', SURF_INFO[def.surf.base].name], ['CHECKPOINTS', here ? TR.gates.length - 1 : def.checkpoints],
+        ['TARGET', tgt ? fmtTime(tgt) : '—'], ['YOUR BEST', b ? fmtTime(b.time) : '—'],
+      ].map(([k, v]) => `<div>${k}<b>${v}</b></div>`).join('');
+    }
+    document.querySelectorAll('#sdTabs [data-tab]').forEach((t) => t.classList.toggle('on', t.dataset.tab === this.sdTab));
+    document.getElementById('sdBoard').classList.toggle('hidden', this.sdTab !== 'board');
+    document.getElementById('sdShare').classList.toggle('hidden', this.sdTab !== 'share');
+    this.pauseItems().forEach((b, i) => b.classList.toggle('sel', i === this.pauseIdx));
     document.body.classList.toggle('manual', !!s.manual);
-    const set = (ids, v, label) => ids.forEach((id) => { const e = document.getElementById(id); e.classList.toggle('on', v); e.textContent = label + (v ? ' ON' : ' OFF'); });
-    set(['togSound', 'pSound', 'hSound'], !s.muted, 'SOUND');
-    set(['togVoice', 'pVoice', 'hVoice'], s.voice, 'VOICE');
-    set(['togGhost', 'pGhost', 'hGhost'], s.ghost, 'GHOST');
-    set(['togCam', 'pCam', 'hCam'], Cam.mode === 'bumper', 'BUMPER CAM');
-    set(['togGear', 'pGear', 'hGear'], !!s.manual, 'MANUAL GEARS');
-    set(['togAbs', 'pAbs', 'hAbs'], s.abs !== false, 'ABS');
+    Settings.refresh();
     // home screen + garage shortcut
     const gb = Store.data.garage, gp = GARAGE.pilot.opts[gb.pilot];
     document.querySelectorAll('#homeNav .hbtn').forEach((b, i) => b.classList.toggle('sel', i === this.homeIdx));
@@ -5835,7 +6097,7 @@ function init() {
     Game, car, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; },
-    openService, leaveService, startRally, Rally, Garage, Menu, GARAGE, GEARBOX, SUSP, buildStats, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
+    openService, leaveService, startRally, Rally, Garage, Menu, Settings, GARAGE, GEARBOX, SUSP, buildStats, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
   };
