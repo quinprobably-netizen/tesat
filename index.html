@@ -497,7 +497,7 @@ body.touch #stageName{display:none}
      6. Track generation (centerline, elevation, hazards, surfaces, pace notes)
      7. Terrain queries (height / normal / surface in track space)
      8. Terrain meshes (ribbon chunks, far terrain, dynamic crater deformation)
-     9. Scenery (rocks, gates, markers, structures, moving debris)
+     9. Scenery (rocks, gates, markers, structures, chicanes)
     10. Vehicle model & physics
     11. Particles
     12. (removed: meteor showers)
@@ -657,7 +657,7 @@ const STAGES = [
     surf: { base: SURF.REGOLITH, off: SURF.REGOLITH, patches: [SURF.GRAVEL, SURF.GRAVEL, SURF.ICE], patchChance: 0.45, patchLen: [60, 140] },
     features: ['crest', 'ramp', 'crest', 'chasm', 'ramp', 'crest', 'chasm', 'ramp', 'crest'],
     ramp: { H: 0.9, L: 16, landing: 170 }, chasm: { H: 1.4, L: 16, gap: 28, landing: 170, depth: 38 }, crest: { h: 3.0, L: 60, landing: 125 },
-    craterClusters: 7, meteorZones: 1, debrisZones: 1, debrisCount: 5, dontCut: 0.35,
+    craterClusters: 7, meteorZones: 1, chicanes: 1, dontCut: 0.35,
     checkpoints: 7, rocks: 1300, targetFactor: 1.15,
     sky: {
       sunDir: [0.78, 0.30, -0.22], sunColor: 0xfff3e2, sunIntensity: 3.4, sunSize: 1.0,
@@ -682,7 +682,7 @@ const STAGES = [
     surf: { base: SURF.ICE, off: SURF.ICE, patches: [SURF.REGOLITH, SURF.GRAVEL, SURF.REGOLITH], patchChance: 0.5, patchLen: [60, 130] },
     features: ['crest', 'ramp', 'chasm', 'crest', 'ramp', 'chasm', 'crest'],
     ramp: { H: 1.1, L: 16, landing: 120 }, chasm: { H: 1.5, L: 16, gap: 22, landing: 140, depth: 60 }, crest: { h: 2.4, L: 55, landing: 110 },
-    craterClusters: 5, meteorZones: 1, debrisZones: 2, debrisCount: 6, dontCut: 0.3,
+    craterClusters: 5, meteorZones: 1, chicanes: 2, dontCut: 0.3,
     checkpoints: 8, rocks: 800, targetFactor: 1.10,
     sky: {
       sunDir: [-0.72, 0.42, 0.18], sunColor: 0xfff0d6, sunIntensity: 3.0, sunSize: 0.8,
@@ -698,7 +698,7 @@ const STAGES = [
   },
   {
     id: 'wreck', name: 'Wreckage Belt', region: 'DERELICT STATION FIELD · STAGE 3', seed: 90210,
-    blurb: 'Tight and technical. Dense-core gravity glues you to the deck plating, but corners come thick and fast and drifting wreckage sweeps the road.',
+    blurb: 'Tight and technical. Dense-core gravity glues you to the deck plating, but corners come thick and fast, broken up by barrier chicanes.',
     length: 2600, gravity: 12.0, clampG: 0, gripG: 13.0, suspG: 12.0, damping: 0.6, hardLanding: 12,
     hw: 7.5, ribbon: 44, shoulder: 10, style: 'platform', offDrag: 0.18,
     corner: { rMin: 34, rMax: 150, angMin: 30, angMax: 115, compound: 0.4 },
@@ -707,7 +707,7 @@ const STAGES = [
     surf: { base: SURF.METAL, off: SURF.GRAVEL, patches: [SURF.GRAVEL, SURF.ICE, SURF.GRAVEL], patchChance: 0.4, patchLen: [45, 100] },
     features: ['ramp', 'chasm', 'crest', 'ramp', 'chasm'],
     ramp: { H: 1.3, L: 14, landing: 80 }, chasm: { H: 1.6, L: 14, gap: 17, landing: 90, depth: 70 }, crest: { h: 1.6, L: 40, landing: 70 },
-    craterClusters: 3, meteorZones: 1, debrisZones: 4, debrisCount: 7, dontCut: 0.4,
+    craterClusters: 3, meteorZones: 1, chicanes: 4, dontCut: 0.4,
     checkpoints: 8, rocks: 500, targetFactor: 0.96,
     sky: {
       sunDir: [0.35, 0.36, 0.86], sunColor: 0xffb48a, sunIntensity: 3.0, sunSize: 2.2,
@@ -732,7 +732,7 @@ const STAGES = [
     surf: { base: SURF.GRAVEL, off: SURF.REGOLITH, patches: [SURF.REGOLITH, SURF.REGOLITH, SURF.ICE], patchChance: 0.4, patchLen: [70, 150] },
     features: ['crest', 'crest', 'ramp', 'crest', 'chasm', 'crest', 'ramp', 'crest'],
     ramp: { H: 0.8, L: 18, landing: 170 }, chasm: { H: 1.3, L: 16, gap: 24, landing: 170, depth: 45 }, crest: { h: 3.4, L: 70, landing: 130 },
-    craterClusters: 5, meteorZones: 1, debrisZones: 1, debrisCount: 4, dontCut: 0.35,
+    craterClusters: 5, meteorZones: 1, chicanes: 1, dontCut: 0.35,
     checkpoints: 8, rocks: 1500, targetFactor: 1.12,
     sky: {
       sunDir: [0.55, 0.38, -0.5], sunColor: 0xffe2c4, sunIntensity: 3.0, sunSize: 0.7,
@@ -757,7 +757,7 @@ const STAGES = [
     surf: { base: SURF.ICE, off: SURF.ICE, patches: [SURF.GRAVEL, SURF.REGOLITH, SURF.GRAVEL], patchChance: 0.55, patchLen: [50, 120] },
     features: ['ramp', 'crest', 'chasm', 'ramp', 'crest', 'chasm', 'ramp'],
     ramp: { H: 1.0, L: 16, landing: 160 }, chasm: { H: 1.4, L: 16, gap: 26, landing: 170, depth: 60 }, crest: { h: 2.6, L: 60, landing: 130 },
-    craterClusters: 4, meteorZones: 1, debrisZones: 1, debrisCount: 5, dontCut: 0.3,
+    craterClusters: 4, meteorZones: 1, chicanes: 1, dontCut: 0.3,
     checkpoints: 7, rocks: 700, targetFactor: 1.12,
     sky: {
       sunDir: [0.62, 0.3, -0.4], sunColor: 0xfff6e8, sunIntensity: 2.8, sunSize: 0.5,
@@ -782,7 +782,7 @@ const STAGES = [
     surf: { base: SURF.METAL, off: SURF.GRAVEL, patches: [SURF.GRAVEL, SURF.GRAVEL, SURF.REGOLITH], patchChance: 0.45, patchLen: [40, 90] },
     features: ['ramp', 'crest', 'chasm', 'ramp', 'crest'],
     ramp: { H: 1.2, L: 13, landing: 80 }, chasm: { H: 1.6, L: 13, gap: 15, landing: 90, depth: 70 }, crest: { h: 1.4, L: 36, landing: 70 },
-    craterClusters: 3, meteorZones: 2, debrisZones: 4, debrisCount: 7, dontCut: 0.4,
+    craterClusters: 3, meteorZones: 2, chicanes: 4, dontCut: 0.4,
     checkpoints: 8, rocks: 450, targetFactor: 0.98,
     sky: {
       sunDir: [-0.4, 0.34, 0.8], sunColor: 0xffc890, sunIntensity: 3.1, sunSize: 1.6,
@@ -1423,7 +1423,7 @@ function generateTrack(def) {
     rough: def.roadRough, terrain: makeTerrainFns(def), noiseR: makeNoise2D(def.seed + 99), noiseC: makeNoise2D(def.seed + 177),
     segs: plan.segs, feats: plan.feats, corners: plan.segs.filter((s) => s.type === 'corner'),
     craters: [], craterBuckets: [], colliderBuckets: [], clusters: [], extraRocks: [],
-    gates: [], startS: 24, finishS: total - 95, debrisZones: [], debris: [], attempts,
+    gates: [], startS: 24, finishS: total - 95, chicaneZones: [], chicanes: [], attempts,
   };
   TR = tr;
   for (let i = 0; i < N; i++) {
@@ -1490,7 +1490,7 @@ function generateTrack(def) {
   tr.gates = chosen.map((s, i) => ({ s, idx: i, finish: false, passed: false }));
   tr.gates.push({ s: tr.finishS, idx: chosen.length, finish: true, passed: false });
   const nearGate = (s, pad) => tr.gates.some((g) => Math.abs(g.s - s) < pad) || s < tr.startS + 40 || s > tr.finishS - 30;
-  // ---- Hazard zones (drifting debris) ----
+  // ---- Hazard zones (chicanes) ----
   const zones = [];
   const pickZone = (len) => {
     for (let t = 0; t < 60; t++) {
@@ -1502,7 +1502,7 @@ function generateTrack(def) {
   };
   // Meteor showers were removed, but their zones are still reserved so every stage (and saved ghost) keeps its layout.
   for (let i = 0; i < def.meteorZones; i++) pickZone(300);
-  for (let i = 0; i < def.debrisZones; i++) { const z = pickZone(def.style === 'platform' ? 150 : 190); if (z) tr.debrisZones.push(z); }
+  for (let i = 0; i < def.chicanes; i++) { const z = pickZone(def.style === 'platform' ? 150 : 190); if (z) tr.chicaneZones.push(z); }
   // ---- Road craters (static clusters) ----
   tr.craterBuckets = Array.from({ length: (N >> 2) + 2 }, () => []);
   for (let c = 0; c < def.craterClusters; c++) {
@@ -1514,7 +1514,7 @@ function generateTrack(def) {
         // clusters sit on one half of the road so there is always a clear lane
         const sC = s + rng.range(-9, 9), dC = side * rng.range(0.3, def.hw - 2.8), R = rng.range(2.6, 4.2);
         const i = Math.round(sC / DS);
-        addCrater({ x: tr.cx[i] + tr.rx[i] * dC, z: tr.cz[i] + tr.rz[i] * dC, s: sC, d: dC, R, depth: R * 0.22, rim: R * 0.08 });
+        addCrater({ x: tr.cx[i] + tr.rx[i] * dC, z: tr.cz[i] + tr.rz[i] * dC, s: sC, d: dC, R, depth: R * 0.22, rim: R * 0.08, cl });
         cl.ds.push(dC);
       }
       tr.clusters.push(cl);
@@ -1530,9 +1530,78 @@ function generateTrack(def) {
     const n = rng.int(3, 5);
     for (let q = 0; q < n; q++) tr.extraRocks.push({ s: c.apexS + rng.range(-14, 14), d: inside * (def.hw + rng.range(0.2, 3.0)), scale: rng.range(0.9, 1.6) });
   }
+  placeChicanes(tr);
   buildGrid();
   computeSpeedProfile();
   return tr;
+}
+
+/* ---- chicanes: rows of red and white water-filled barriers from alternating sides of the road ----
+   Each row blocks the road from one edge to just past the centreline (and on into the verge), so
+   the car has to weave: left of the first row, right of the next, and so on. */
+const CHICANE = {
+  over: 1.0, ext: 3.2,           // a row runs from `ext` m past its road edge to `over` m past the centreline
+  gapL: 32, lead: 48, tail: 30,  // m between rows; the AI line eases in and out over lead / tail
+  clear: 1.75,                   // AI line: car centre this far outside a row's tip
+  blockW: 1.2, blockH: 0.9, blockD: 0.6, mass: 300, penalty: 5,
+};
+/** Put a chicane in (or just around) each hazard zone, on the straightest stretch whose run-up is clear of crests, gates and craters. */
+function placeChicanes(tr) {
+  const def = tr.def, C = CHICANE, crng = new RNG((def.seed * 31 + 7) >>> 0);   // own RNG: the rest of the layout doesn't move
+  tr.chicanes = [];
+  const featEnd = (f) => f.type === 'crest' ? f.s0 + def.crest.L + 15 : (f.gapEnd || f.lip) + 60;
+  for (const z of tr.chicaneZones) {
+    const nRows = crng.next() < (def.style === 'platform' ? 0.4 : 0.25) ? 3 : 2, side0 = crng.sign();
+    const span = (nRows - 1) * C.gapL;
+    let best = null, bestCost = Infinity;
+    for (let s0 = z.s0 - 20; s0 + span <= z.s1 + 20; s0 += 3) {
+      const a = s0 - C.lead, b = s0 + span + C.tail;
+      if (a < tr.startS + 60 || b > tr.finishS - 40 || tr.chicanes.some((o) => b > o.a - 30 && a < o.b + 30)) continue;
+      let kMax = 0, kSum = 0, n = 0;
+      for (let i = Math.floor((a - 20) / DS); i <= Math.ceil(b / DS); i++) { const k = Math.abs(tr.kap[i]); kMax = Math.max(kMax, k); kSum += k; n++; }
+      let cost = kMax * 600 + kSum / n * 1500;
+      for (const f of tr.feats) if (b > f.s0 - 25 && a < featEnd(f)) cost += 100;
+      for (const g of tr.gates) if (g.s > a - 20 && g.s < b + 20) cost += 60;
+      for (const c of tr.craters) if (c.s + c.R * 1.6 > a - 40 && c.s - c.R * 1.6 < b + 8) cost += 15;
+      if (cost < bestCost) { bestCost = cost; best = s0; }
+    }
+    if (best === null) continue;
+    const rows = [];
+    for (let k = 0; k < nRows; k++) rows.push({ s: best + k * C.gapL, side: k % 2 ? -side0 : side0, blocks: [] });   // side: the road edge the row starts from
+    const knots = [[best - C.lead, 0]].concat(rows.map((r) => [r.s, -r.side * (C.over + C.clear)]), [[best + span + C.tail, 0]]);
+    tr.chicanes.push({ rows, knots, a: knots[0][0], b: knots[knots.length - 1][0], blocks: [], moving: false });
+  }
+  // craters would sit in the chicane's lanes: fill in any that landed there
+  const inChicane = (c) => tr.chicanes.some((ch) => c.s + c.R * 1.6 > ch.a - 4 && c.s - c.R * 1.6 < ch.b + 4);
+  const gone = new Set(tr.craters.filter(inChicane));
+  if (gone.size) {
+    tr.craters = tr.craters.filter((c) => !gone.has(c));
+    for (const b of tr.craterBuckets) for (let q = b.length - 1; q >= 0; q--) if (gone.has(b[q])) b.splice(q, 1);
+    for (const cl of tr.clusters) cl.ds = tr.craters.filter((c) => c.cl === cl).map((c) => c.d);
+    tr.clusters = tr.clusters.filter((cl) => cl.ds.length);
+  }
+}
+/** The AI's weave through a chicane at stage distance s: lateral offset d, slope d1 and curvature d2
+ *  (smootherstep between the rows, so the car passes each row's tip running straight), and a blend
+ *  weight w that eases in and out over the first and last 12 m. */
+const CL = { d: 0, d1: 0, d2: 0, w: 0 };
+function chicaneLine(ch, s, out = CL) {
+  out.d = 0; out.d1 = 0; out.d2 = 0; out.w = 0;
+  if (!ch || s <= ch.a || s >= ch.b) return out;
+  const k = ch.knots;
+  let j = 0;
+  while (s > k[j + 1][0]) j++;
+  const L = k[j + 1][0] - k[j][0], D = k[j + 1][1] - k[j][1], t = (s - k[j][0]) / L;
+  out.d = k[j][1] + D * t * t * t * (t * (t * 6 - 15) + 10);
+  out.d1 = D * 30 * t * t * (t - 1) * (t - 1) / L;
+  out.d2 = D * 60 * t * (t - 1) * (2 * t - 1) / (L * L);
+  out.w = clamp(Math.min(s - ch.a, ch.b - s) / 12, 0, 1);
+  return out;
+}
+/** The chicane whose AI line covers stage distance s (or starts within `pre` m of it). */
+function chicaneAt(s, pre = 0) {
+  for (const ch of TR.chicanes) if (s > ch.a - pre && s < ch.b) return ch;
+  return null;
 }
 
 function addCrater(c) {
@@ -1569,6 +1638,14 @@ function computeSpeedProfile() {
     const vc = Math.sqrt((def.gravity + def.clampG) * Rv) * 0.95;   // stays (mostly) planted
     for (let i = Math.max(0, Math.floor((f.s0 - 10) / DS)); i < Math.min(N, (f.sc + 10) / DS); i++) v[i] = Math.min(v[i], vc);
   }
+  // chicanes: the weave through the rows sets its own corner speeds
+  const chicaneCap = (arr, f) => {
+    for (const ch of TR.chicanes) for (let i = Math.max(0, Math.floor(ch.a / DS)); i <= Math.min(N - 1, Math.ceil(ch.b / DS)); i++) {
+      const kk = Math.max(Math.abs(TR.kap[i] - chicaneLine(ch, i * DS).d2), 1e-5);
+      arr[i] = Math.min(arr[i], Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * f / kk));
+    }
+  };
+  chicaneCap(v, 0.68);
   v[0] = 0;
   for (let i = 1; i < N; i++) {
     const mu = SURF_INFO[TR.surf[i]].mu;
@@ -1589,6 +1666,7 @@ function computeSpeedProfile() {
     const kv = -(TR.cy[i + 4] - 2 * TR.cy[i] + TR.cy[i - 4]) / (16 * DS * DS);
     if (kv > 1e-4 && Math.abs(TR.kap[i]) > 1 / 220) ai[i] = Math.min(ai[i], Math.max(12, Math.sqrt(gEff * 0.9 / kv)));
   }
+  chicaneCap(ai, 0.58);   // the AI threads chicanes with a margin
   for (let i = N - 2; i >= 0; i--) ai[i] = Math.min(ai[i], Math.sqrt(ai[i + 1] * ai[i + 1] + 2 * SURF_INFO[TR.surf[i]].mu * def.gripG * 0.75 * DS));
   TR.aiV = ai;
   const i0 = Math.round(TR.startS / DS), i1 = Math.round(TR.finishS / DS);
@@ -2000,7 +2078,7 @@ function buildFarTerrain(mat) {
 /* =============================================================================
    9. SCENERY — instanced for low draw-call counts
    ============================================================================= */
-const Scenery = { gateAll: [], pylons: null, beams: null, caps: null, panels: null, debrisMesh: null,
+const Scenery = { gateAll: [], pylons: null, beams: null, caps: null, panels: null, chicaneMesh: null, chicaneBoards: null,
   beacons: null, beaconPhase: [], floaters: null, floaterData: [], skyStruct: null };
 const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _e = new THREE.Euler(), _col = new THREE.Color();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -2392,63 +2470,144 @@ function buildWreckDecor(rng) {
   Scenery.skyStruct = { group: g, dir: new THREE.Vector3(-0.35, 0.3, 0.8).normalize(), dist: 3400 };
 }
 
-function hazardTexture() {
-  return makeCanvas(128, 128, (g, w, h) => {
-    g.fillStyle = '#e8a41c'; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#16181c';
-    for (let k = -4; k < 8; k++) { g.beginPath(); g.moveTo(k * 32, 0); g.lineTo(k * 32 + 16, 0); g.lineTo(k * 32 + 16 + h, h); g.lineTo(k * 32 + h, h); g.closePath(); g.fill(); }
+function chevronTexture() {
+  return makeCanvas(256, 96, (g, w, h) => {
+    g.fillStyle = '#f4f4f0'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#d42a2a';
+    for (let k = 0; k < 3; k++) {
+      const x = 34 + k * 64;
+      g.beginPath(); g.moveTo(x, 12); g.lineTo(x + 30, 12); g.lineTo(x + 62, h / 2); g.lineTo(x + 30, h - 12); g.lineTo(x, h - 12); g.lineTo(x + 32, h / 2); g.closePath(); g.fill();
+    }
+    g.strokeStyle = '#16181c'; g.lineWidth = 6; g.strokeRect(3, 3, w - 6, h - 6);
   });
 }
-
-function buildDebris(rng) {
-  const def = TR.def, list = [];
-  const big = def.style === 'platform';
-  for (const z of TR.debrisZones) for (let k = 0; k < def.debrisCount; k++) {
-    list.push({
-      s: lerp(z.s0, z.s1, (k + 0.5) / def.debrisCount) + rng.range(-4, 4),
-      A: def.hw + rng.range(1.5, 4), w: TAU / rng.range(6, 10), ph: rng.range(0, TAU), cool: 0,
-      r: big ? rng.range(1.1, 1.8) : rng.range(0.9, 1.5), hover: rng.range(0.3, 1.2),
-      axis: new THREE.Vector3(rng.range(-1, 1), rng.range(-1, 1), rng.range(-1, 1)).normalize(), spin: rng.range(0.5, 1.8),
-      pos: new THREE.Vector3(), prev: new THREE.Vector3(), vel: new THREE.Vector3(), q: new THREE.Quaternion(), init: false,
-      knock: new THREE.Vector3(), knockV: new THREE.Vector3(),   // displacement after being hit (decays back onto the path)
-    });
-  }
-  TR.debris = list;
-  Scenery.debrisMesh = null;
-  if (!list.length) return;
-  let geo, mat;
-  if (big) { geo = new THREE.BoxGeometry(2.2, 0.5, 1.6); mat = new THREE.MeshStandardMaterial({ map: hazardTexture(), metalness: 0.5, roughness: 0.5, emissive: 0x2a0c00 }); }
-  else { geo = makeRockGeometry(def.seed + 31, 0); mat = new THREE.MeshStandardMaterial({ color: def.style === 'ring' ? 0xcfeaff : 0x8a847c, roughness: 0.5, flatShading: true, emissive: def.style === 'ring' ? 0x0b2a44 : 0x201008 }); }
-  const mesh = new THREE.InstancedMesh(geo, mat, list.length);
-  mesh.castShadow = true; mesh.frustumCulled = false;
-  stageGroup.add(mesh);
-  Scenery.debrisMesh = mesh;
-  updateDebris(0, 0);
-}
-function updateDebris(t, dt) {
-  const mesh = Scenery.debrisMesh;
-  if (!mesh) return;
-  for (let k = 0; k < TR.debris.length; k++) {
-    const o = TR.debris[k];
-    const d = o.A * Math.sin(o.w * t + o.ph);
-    worldAt(o.s, d, WP);
-    const gh = WP.h <= VOID_H + 1 ? baseY(o.s) : WP.h;
-    o.prev.copy(o.pos);
-    if (dt > 0) {
-      o.knock.addScaledVector(o.knockV, dt);
-      o.knockV.multiplyScalar(Math.exp(-1.2 * dt)).addScaledVector(o.knock, -0.8 * dt);
-      o.knock.multiplyScalar(Math.exp(-0.25 * dt));
+/** Barrier rows for every chicane: one instanced block each, plus a chevron board on each row's tip. */
+function buildChicanes(rng) {
+  const C = CHICANE, hw = TR.hw;
+  let n = 0;
+  for (const ch of TR.chicanes) {
+    ch.blocks = [];
+    for (const r of ch.rows) {
+      const i = clamp(Math.round(r.s / DS), 0, TR.N - 1), yaw = trackYaw(i), pitch = C.blockW + 0.04;
+      r.blocks = [];
+      for (let j = 0, m = Math.ceil((hw + C.ext + C.over) / pitch); j < m; j++) {
+        worldAt(r.s, r.side * (-C.over + C.blockW / 2 + j * pitch), WP);
+        const b = { hx: WP.x, hz: WP.z, hy: WP.h, hyaw: yaw + rng.range(-0.03, 0.03), x: 0, y: 0, z: 0, yaw: 0, vx: 0, vz: 0, w: 0,
+          i, k: n++, ch, red: j % 2 === 0, mass: C.mass, moving: false, gone: false };
+        ch.blocks.push(b); r.blocks.push(b);
+      }
     }
-    o.pos.set(WP.x + o.knock.x, gh + o.r * 0.7 + o.hover + 0.35 * Math.sin(t * 1.4 + o.ph) + Math.max(0, o.knock.y), WP.z + o.knock.z);
-    if (dt > 0 && o.init) o.vel.subVectors(o.pos, o.prev).divideScalar(dt); else o.vel.set(0, 0, 0);
-    o.init = true;
-    o.q.setFromAxisAngle(o.axis, o.spin * t + o.ph);
-    mesh.setMatrixAt(k, _m4.compose(o.pos, o.q, _s.setScalar(o.r)));
   }
-  mesh.instanceMatrix.needsUpdate = true;
+  if (!n) return;
+  // tapered plastic barrier block, long side along local x
+  const geo = new THREE.BoxGeometry(C.blockW, C.blockH, C.blockD);
+  geo.translate(0, C.blockH / 2, 0);
+  const pos = geo.attributes.position;
+  for (let q = 0; q < pos.count; q++) if (pos.getY(q) > C.blockH / 2) { pos.setZ(q, pos.getZ(q) * 0.45); pos.setX(q, pos.getX(q) * 0.97); }
+  geo.computeVertexNormals();
+  const mesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.05 }), n);
+  mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
+  const red = srgb(0xd42a2a), white = srgb(0xf0f0ec);
+  for (const ch of TR.chicanes) for (const b of ch.blocks) mesh.setColorAt(b.k, b.red ? red : white);
+  stageGroup.add(mesh);
+  Scenery.chicaneMesh = mesh;
+  const rows = TR.chicanes.reduce((a, ch) => a + ch.rows.length, 0);
+  const boards = new THREE.InstancedMesh(new THREE.PlaneGeometry(2.0, 0.75), new THREE.MeshBasicMaterial({ map: chevronTexture(), side: THREE.DoubleSide }), rows);
+  const backs = new THREE.InstancedMesh(new THREE.BoxGeometry(2.08, 0.83, 0.05), new THREE.MeshStandardMaterial({ color: 0x1a1d22, roughness: 0.6 }), rows);
+  for (const m of [boards, backs]) { m.frustumCulled = false; stageGroup.add(m); }
+  backs.castShadow = true;
+  Scenery.chicaneBoards = { boards, backs };
+  resetChicanes();
+}
+const _bq = new THREE.Quaternion(), _bp = new THREE.Vector3();
+function poseBlock(b) {
+  _q.setFromAxisAngle(UP, b.yaw);
+  Scenery.chicaneMesh.setMatrixAt(b.k, _m4.compose(_p.set(b.x, b.y - 0.06, b.z), _q, _s.setScalar(b.gone ? 0 : 1)));
+}
+/** Chevron boards ride on each row's tip block, facing oncoming cars and pointing into the lane. */
+function poseBoards() {
+  const B = Scenery.chicaneBoards;
+  if (!B) return;
+  let k = 0;
+  for (const ch of TR.chicanes) for (const r of ch.rows) {
+    const b = r.blocks[0], sc = b.gone ? 0 : 1;
+    _q.setFromAxisAngle(UP, b.yaw);
+    _bq.setFromAxisAngle(UP, b.yaw + Math.PI);
+    _bp.set(-r.side * 0.4, CHICANE.blockH + 0.5, 0).applyQuaternion(_q).add(_p.set(b.x, b.y, b.z));   // over the barrier, not the lane
+    B.boards.setMatrixAt(k, _m4.compose(_bp, _bq, _s.set(-sc * r.side, sc, sc)));   // chevrons are drawn pointing right: mirrored for a left lane
+    _bp.add(_p.set(0, 0, 0.035).applyQuaternion(_q));
+    B.backs.setMatrixAt(k, _m4.compose(_bp, _bq, _s.setScalar(sc)));
+    k++;
+  }
+  B.boards.instanceMatrix.needsUpdate = true; B.backs.instanceMatrix.needsUpdate = true;
+}
+/** Put knocked barrier blocks back: every chicane, or only those from stage distance fromS on. */
+function resetChicanes(fromS) {
+  if (!Scenery.chicaneMesh) return;
+  for (const ch of TR.chicanes) {
+    if (fromS !== undefined && ch.rows[0].s < fromS) continue;
+    for (const b of ch.blocks) { Object.assign(b, { x: b.hx, y: b.hy, z: b.hz, yaw: b.hyaw, vx: 0, vz: 0, w: 0, moving: false, gone: false }); poseBlock(b); }
+    ch.moving = false;
+  }
+  Scenery.chicaneMesh.instanceMatrix.needsUpdate = true;
+  poseBoards();
+}
+/** A car hit shoves a block along -n (k < 0) and spins it about its centre. */
+function knockBlock(b, nx, nz, k, px, pz) {
+  b.vx += nx * k; b.vz += nz * k;
+  const sp = Math.hypot(b.vx, b.vz);
+  if (sp > 11) { b.vx *= 11 / sp; b.vz *= 11 / sp; }
+  b.w = clamp(b.w + ((pz - b.z) * nx - (px - b.x) * nz) * k * 0.9, -7, 7);
+  b.moving = true; b.ch.moving = true;
+}
+/** Knocked blocks slide to a stop, shoving the blocks they run into; any that slide off a deck edge are gone. */
+function updateChicanes(dt) {
+  if (!Scenery.chicaneMesh || !(dt > 0)) return;
+  const fr = 3 + 0.8 * TR.def.gravity, R2 = 0.9;
+  let dirty = false;
+  for (const ch of TR.chicanes) {
+    if (!ch.moving) continue;
+    for (const b of ch.blocks) {
+      if (!b.moving || b.gone) continue;
+      b.x += b.vx * dt; b.z += b.vz * dt; b.yaw += b.w * dt;
+      const sp = Math.hypot(b.vx, b.vz), ns = Math.max(0, sp - fr * dt);
+      if (sp > 0) { b.vx *= ns / sp; b.vz *= ns / sp; }
+      b.w *= Math.max(0, 1 - 2.5 * dt);
+      for (const o of ch.blocks) {
+        if (o === b || o.gone) continue;
+        const dx = o.x - b.x, dz = o.z - b.z, d2 = dx * dx + dz * dz;
+        if (d2 >= R2 * R2 || d2 < 1e-6) continue;
+        const d = Math.sqrt(d2), nx = dx / d, nz = dz / d, ov = (R2 - d) * 0.5;
+        o.x += nx * ov; o.z += nz * ov; b.x -= nx * ov; b.z -= nz * ov;
+        const vn = (b.vx - o.vx) * nx + (b.vz - o.vz) * nz;
+        if (vn > 0) { const j = vn * 0.6; b.vx -= nx * j; b.vz -= nz * j; o.vx += nx * j; o.vz += nz * j; o.w += (Math.random() - 0.5) * vn; }
+        o.moving = true;
+      }
+      locateNear(b.x, b.z, b.i, 16, LQ2); b.i = LQ2.i;
+      const h = heightSD(LQ2.s, LQ2.d, b.x, b.z);
+      if (h <= VOID_H + 1 || h < b.y - 3) b.gone = true; else b.y = h;
+      if (ns < 0.05 && Math.abs(b.w) < 0.05) { b.moving = false; b.vx = b.vz = b.w = 0; }
+      poseBlock(b); dirty = true;
+    }
+    ch.moving = ch.blocks.some((b) => b.moving && !b.gone);
+  }
+  if (dirty) { Scenery.chicaneMesh.instanceMatrix.needsUpdate = true; poseBoards(); }
+}
+/** Passing a row on its barrier side (through the blocks, or round the end) costs a time penalty. */
+function checkChicanes(s0, s1) {
+  if (!(s1 > s0) || s1 - s0 > 20) return;
+  for (const ch of TR.chicanes) for (const r of ch.rows) {
+    if (s0 >= r.s || s1 < r.s || r.side * car.d <= -CHICANE.over + 0.5) continue;
+    const p = CHICANE.penalty;
+    Game.penalty += p; Game.time += p;
+    Game.stats.chicaneMiss = (Game.stats.chicaneMiss || 0) + 1;
+    HUD.message('CHICANE MISSED', '+' + p + 's PENALTY', '#ff4d5e', 2.0);
+    AudioSys.tone('sawtooth', 240, 120, 0.45, 0.12);
+    return;
+  }
 }
 function updateScenery(dt, t) {
-  updateDebris(t, dt);
+  updateChicanes(dt);
   if (Scenery.beacons) {
     const b = Scenery.beacons, ph = Scenery.beaconPhase;
     for (let k = 0; k < b.count; k++) b.setColorAt(k, Math.sin(t * 3 + ph[k]) > 0.3 ? GATE_COL.missed : BLACK);
@@ -2863,33 +3022,40 @@ function collideObstacles() {
         const d2 = dx * dx + dy * dy + dz * dz, rr = R + c.r;
         if (d2 >= rr * rr || d2 < 1e-8) continue;
         const d = Math.sqrt(d2);
-        resolveContact(dx / d, dy / d, dz / d, rr - d, null, c.kind, _sc.x - dx / d * R, _sc.y - dy / d * R, _sc.z - dz / d * R);
+        resolveContact(dx / d, dy / d, dz / d, rr - d, c.kind, _sc.x - dx / d * R, _sc.y - dy / d * R, _sc.z - dz / d * R);
         _sc.set(S[0], S[1], S[2]).applyQuaternion(car.q).add(car.pos);
       }
     }
-    for (let q = 0; q < TR.debris.length; q++) {
-      const o = TR.debris[q];
-      if (o.cool > Game.clock) continue;                  // just hit: let the knock separate them
-      const dx = _sc.x - o.pos.x, dy = _sc.y - o.pos.y, dz = _sc.z - o.pos.z;
-      const d2 = dx * dx + dy * dy + dz * dz, rr = R + o.r * 1.05;
-      if (d2 >= rr * rr || d2 < 1e-8) continue;
-      const d = Math.sqrt(d2);
-      const hl = Math.hypot(dx, dz) || 1;                 // debris shoves sideways, never launches
-      resolveContact(dx / hl, 0, dz / hl, rr - d, o.vel, 'debris', o.pos.x + dx / d * o.r, o.pos.y + dy / d * o.r, o.pos.z + dz / d * o.r, o);
-      _sc.set(S[0], S[1], S[2]).applyQuaternion(car.q).add(car.pos);
+    // chicane barrier blocks: a capsule along each block's long side, from its base to its top
+    for (const ch of TR.chicanes) {
+      if (car.s < ch.rows[0].s - 30 || car.s > ch.rows[ch.rows.length - 1].s + 30) continue;
+      for (const o of ch.blocks) {
+        if (o.gone) continue;
+        const ex = Math.cos(o.yaw), ez = -Math.sin(o.yaw);
+        const t = clamp((_sc.x - o.x) * ex + (_sc.z - o.z) * ez, -BLOCK_HL, BLOCK_HL);
+        const qx = o.x + ex * t, qz = o.z + ez * t, cy = clamp(_sc.y, o.y, o.y + CHICANE.blockH);
+        const dx = _sc.x - qx, dy = _sc.y - cy, dz = _sc.z - qz;
+        const d2 = dx * dx + dy * dy + dz * dz, rr = R + CHICANE.blockD / 2;
+        if (d2 >= rr * rr || d2 < 1e-8) continue;
+        const d = Math.sqrt(d2), hl = Math.hypot(dx, dz) || 1;   // blocks shove sideways, never launch
+        resolveContact(dx / hl, 0, dz / hl, rr - d, 'barrier', qx + dx / hl * 0.3, cy, qz + dz / hl * 0.3, o);
+        _sc.set(S[0], S[1], S[2]).applyQuaternion(car.q).add(car.pos);
+      }
     }
   }
 }
-function resolveContact(nx, ny, nz, pen, obsVel, kind, px, py, pz, obj) {
-  car.pos.x += nx * pen; car.pos.y += ny * pen; car.pos.z += nz * pen;
-  const ox = obsVel ? obsVel.x : 0, oy = obsVel ? obsVel.y : 0, oz = obsVel ? obsVel.z : 0;
-  const rvx = car.vel.x - ox, rvy = car.vel.y - oy, rvz = car.vel.z - oz;
+const BLOCK_HL = CHICANE.blockW / 2 - CHICANE.blockD / 2;
+function resolveContact(nx, ny, nz, pen, kind, px, py, pz, obj) {
+  // Static scenery is immovable. A loose barrier block (obj) is light: the car shoves it aside and
+  // only loses part of its speed, and the overlap is shared between the two.
+  const share = obj ? obj.mass / (obj.mass + CAR.mass) : 1;
+  car.pos.x += nx * pen * share; car.pos.y += ny * pen * share; car.pos.z += nz * pen * share;
+  if (obj) { obj.x -= nx * pen * (1 - share); obj.z -= nz * pen * (1 - share); obj.moving = true; obj.ch.moving = true; }
+  const rvx = car.vel.x - (obj ? obj.vx : 0), rvy = car.vel.y, rvz = car.vel.z - (obj ? obj.vz : 0);
   const vn = rvx * nx + rvy * ny + rvz * nz;
   if (vn >= 0) return;
-  // Static scenery is immovable; drifting debris is ~400 kg, so it shoves the car rather than launching it.
-  const share = obsVel ? 400 / (400 + CAR.mass) : 1;
   const e = 0.25, j = -(1 + e) * vn * share;
-  if (obj) { obj.knockV.addScaledVector(_tmp.set(nx, 0.25, nz), (1 + e) * vn * (1 - share)); obj.cool = Game.clock + 0.45; }   // debris is batted away
+  if (obj) knockBlock(obj, nx, nz, (1 + e) * vn * (1 - share), px, pz);
   car.vel.x += nx * j; car.vel.y += ny * j; car.vel.z += nz * j;
   // scrub some tangential speed
   const tvx = rvx - vn * nx, tvy = rvy - vn * ny, tvz = rvz - vn * nz;
@@ -4267,7 +4433,10 @@ function buildPaceNotes() {
   for (let i = Math.round(TR.startS / DS) + 1; i < Math.round(TR.finishS / DS); i++) {
     if (TR.surf[i] !== TR.surf[i - 1]) raw.push({ s: i * DS - 18, end: i * DS, kind: 'icon', icon: surfIcons[TR.surf[i]], text: 'ONTO ' + SURF_INFO[TR.surf[i]].name });
   }
-  for (const z of TR.debrisZones) raw.push({ s: z.s0 - 28, end: z.s0, kind: 'icon', icon: '✱', text: 'DEBRIS · CAUTION', speak: 'caution, debris' });
+  for (const ch of TR.chicanes) {
+    const dirs = ch.rows.map((r) => (r.side > 0 ? 'LEFT' : 'RIGHT'));   // barrier from the right edge: go left of it
+    raw.push({ s: ch.rows[0].s - 30, end: ch.rows[ch.rows.length - 1].s, kind: 'icon', icon: '∿', text: 'CHICANE ' + dirs.join('-'), speak: 'chicane, ' + dirs.join(', ').toLowerCase() });
+  }
   raw.push({ s: TR.finishS - 70, end: TR.finishS, kind: 'icon', icon: '▶', text: 'FLAT TO FINISH' });
   raw.sort((a, b) => a.s - b.s);
   // group near-simultaneous notes into one call ("left 3 into right 4", "jump, crater left")
@@ -4681,28 +4850,32 @@ function aiControl(skill, stopping) {
   }
   // ease onto a new line (only with wheels on the ground, and gently just after a landing)
   if (car.nGround > 0) AI.line = approach(AI.line, aiLine(LQ2.s + 12 + sp * 0.6, reach, car.s), 2.5 * AI.dt * settled);
+  // through a chicane, follow its weave closely: its heading and curvature feed the controller too
+  const cl = chicaneLine(chicaneAt(LQ2.s), LQ2.s + sp * 0.12);
+  const line = lerp(AI.line, cl.d, cl.w), angP = ang - Math.atan(cl.d1) * cl.w, kP = TR.kap[fi] - cl.d2 * cl.w;
   const mu = SURF_INFO[TR.surf[fi]].mu;
-  const cross = Math.atan(2.2 * clamp(mu / 0.8, 0.45, 1) * (LQ2.d - AI.line) / (sp + 3)) * (0.2 + 0.8 * settled);
-  const ff = Math.atan(2.68 * TR.kap[fi]);
-  const damping = -0.06 * (car.w.y - TR.kap[fi] * sp);
-  const delta = ang + cross + ff + damping;
+  const cross = Math.atan(2.2 * (1 + 0.6 * cl.w) * clamp(mu / 0.8, 0.45, 1) * (LQ2.d - line) / (sp + 3)) * (0.2 + 0.8 * settled);
+  const ff = Math.atan(2.68 * kP);
+  const damping = -0.06 * (car.w.y - kP * sp);
+  const delta = angP + cross + ff + damping;
   const vlA = car.vel.dot(AZ), betaA = Math.atan2(car.vel.dot(AX), Math.abs(vlA) + 2);
   c.steer = clamp(-delta / steerLimit(vlA, betaA, delta), -1, 1);
   c.handbrake = false; c.boost = false;
   if (stopping) { c.throttle = 0; c.brake = sp > 1 ? 0.7 : 0; return c; }
   let vt = TR.aiV[clamp(Math.round((car.s + 6 + sp * 0.35) / DS), 0, TR.N - 1)] * skill;
   // pointing the wrong way or far off the road: slow down so the tyres can turn us back
-  const herr = Math.abs(ang);
+  const herr = Math.abs(angP);
   if (herr > 0.25) vt = Math.min(vt, lerp(26, 7, clamp((herr - 0.25) / 0.9, 0, 1)));
   if (Math.abs(car.d) > TR.hw + 4) vt = Math.min(vt, 18);
   c.throttle = clamp((vt - sp) * 0.6 + 0.15, 0, 1);
-  c.brake = sp > vt + 2.5 ? clamp((sp - vt - 2.5) * 0.5, 0.3, 1) : 0;
+  const slack = chicaneAt(car.s, 40) ? 0.8 : 2.5;   // chicanes want their entry speed
+  c.brake = sp > vt + slack ? clamp((sp - vt - slack) * 0.5, 0.3, 1) : 0;
   if (c.brake > 0) c.throttle = 0;
   if (car.nGround === 0) { c.throttle = 0; c.brake = 0; if (Math.abs(ang) < 0.35) c.steer = 0; }
   if (car.vel.dot(AZ) < -1 && sp > 1.5) { c.throttle = 1; c.brake = 0; }
   return c;
 }
-/** Lateral line for the AI at stage distance s: centre, nudged around road craters. */
+/** Lateral line for the AI at stage distance s: centre, nudged around road craters (chicanes have their own line). */
 function aiLine(s, reach = 0, sCar = s) {
   // craters count from the lookahead point until the car itself is past them (at speed the
   // lookahead runs well ahead, and dropping a crater early swings the line back onto its rim)
@@ -4714,14 +4887,6 @@ function aiLine(s, reach = 0, sCar = s) {
     for (let b = b0; b <= b1; b++) for (const c of TR.craterBuckets[b]) {
       if (c.d === undefined || c.s > hi || (c.s < s - 22 && c.s + c.R * 1.6 + 2 < sCar)) continue;
       cost += Math.max(0, c.R * 1.3 + 1.4 - Math.abs(d - c.d)) * 10;   // keep the wheels (±1 m) off the rim too
-    }
-    for (const o of TR.debris) {                        // drifting debris: where it will be as we pass it
-      const ahead = o.s - sCar;
-      if (ahead < -2 || o.s - s > 25) continue;
-      const tA = Game.clock + Math.max(0, ahead) / Math.max(car.speed, 5);
-      let near = Infinity;
-      for (let q = -1; q <= 1; q++) near = Math.min(near, Math.abs(d - o.A * Math.sin(o.w * (tA + q * 0.2) + o.ph)));
-      cost += Math.max(0, o.r + 2.4 - near) * 8;
     }
     if (cost < bestCost) { bestCost = cost; best = d; }
   }
@@ -4778,7 +4943,7 @@ function processCarEvents() {
     AudioSys.crash(hit.speed / 14);
     FX.sparks(hit.x, hit.y, hit.z, Math.min(40, 6 + hit.speed * 2), car.vel.x * 0.3, 2, car.vel.z * 0.3, 6);
     Cam.shake = Math.max(Cam.shake, Math.min(1, hit.speed * 0.06));
-    if (hit.speed > 5) { addDamage((hit.speed - 5) * (hit.kind === 'debris' ? 0.012 : 0.022), 'hit_' + hit.kind); if (racing && hit.speed > 9) HUD.toast('HEAVY IMPACT', '#ff4d5e'); }
+    if (hit.speed > 5) { addDamage((hit.speed - 5) * (hit.kind === 'barrier' ? 0.008 : 0.022), 'hit_' + hit.kind); if (racing && hit.speed > 9) HUD.toast('HEAVY IMPACT', '#ff4d5e'); }
   }
   if (scrape) {
     FX.sparks(scrape.x, scrape.y, scrape.z, 12, car.vel.x * 0.5, 1, car.vel.z * 0.5, 4);
@@ -4920,6 +5085,7 @@ function missGate(g) {
 function resetToCheckpoint(penalty) {
   const s = Game.lastCP >= 0 ? TR.gates[Game.lastCP].s + 4 : TR.startS + 2;
   placeCar(s, 0, 8);
+  resetChicanes(s);   // chicanes still ahead are rebuilt
   if (penalty) { Game.penalty += penalty; Game.time += penalty; HUD.toast('+' + penalty + 's PENALTY', '#ff4d5e'); }
   Game.prevS = car.s;
   setGateColors(Game.nextGate);
@@ -4962,6 +5128,7 @@ function raceLogic(dt) {
   if (g && !Game.pendingReset && Game.prevS < g.s && car.s >= g.s) {
     if (Math.abs(car.d) <= g.halfW + 0.3) passGate(g); else missGate(g);
   }
+  if (!Game.pendingReset && Game.state === 'racing') checkChicanes(Game.prevS, car.s);
   Game.prevS = car.s;
   if (Game.state !== 'racing') return;
   if (!Game.pendingReset) {
@@ -5066,7 +5233,7 @@ function buildStage(def) {
   Game.def = def; Game.stageIdx = def.tpl;
   scene.remove(stageGroup); disposeObject(stageGroup);
   stageGroup = new THREE.Group(); scene.add(stageGroup);
-  Object.assign(Scenery, { gateAll: [], debrisMesh: null, beacons: null, beaconPhase: [], floaters: null, floaterData: [], skyStruct: null });
+  Object.assign(Scenery, { gateAll: [], chicaneMesh: null, chicaneBoards: null, beacons: null, beaconPhase: [], floaters: null, floaterData: [], skyStruct: null });
   generateTrack(def);
   buildPalette(def);
   Sky.configure(def);
@@ -5077,7 +5244,7 @@ function buildStage(def) {
   const rng = new RNG(def.seed + 404);
   buildGates(); buildMarkers(); buildChevrons(); buildRocks(rng);
   if (def.style === 'hills') buildLunarDecor(rng); else if (def.style === 'ring') buildIceDecor(rng); else buildWreckDecor(rng);
-  buildDebris(rng);
+  buildChicanes(rng);
   buildPaceNotes();
   linearizeMaterials(stageGroup);
   let minY = Infinity; for (let i = 0; i < TR.N; i++) minY = Math.min(minY, TR.cy[i]);
@@ -5106,6 +5273,7 @@ function resetRunState() {
   FX.clear();
   for (const g of TR.gates) g.passed = false;
   setGateColors(0);
+  resetChicanes();
   if (HUD.ticks) HUD.ticks.forEach((t) => t.classList.remove('done'));
   Object.assign(Game, { time: 0, penalty: 0, nextGate: 0, lastCP: -1, splits: [], pendingReset: null, noteIdx: 0, noteQueue: [], clock: 0, prevS: 0,
     finishShown: false, acc: 0, goT: 0, result: null, stats: { resets: [] } });
@@ -5667,7 +5835,7 @@ function init() {
     Game, car, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; },
-    openService, leaveService, startRally, Rally, Garage, Menu, GARAGE, GEARBOX, SUSP, buildStats, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
+    openService, leaveService, startRally, Rally, Garage, Menu, GARAGE, GEARBOX, SUSP, buildStats, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
   };

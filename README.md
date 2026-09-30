@@ -12,7 +12,7 @@ Each stage is generated from a fixed seed, so the layout is the same every time.
 |---|---|---|
 | Lunar Dust Run | 0.33 g | Wide and forgiving regolith roads, long floaty jumps, one chasm |
 | Ice Ring Traverse | 0.51 g | Slippery ice causeway on a planetary ring under a gas giant, with drop-offs at the edges |
-| Wreckage Belt | 1.22 g | Tight metal-plated corners through station wreckage, with drifting debris |
+| Wreckage Belt | 1.22 g | Tight metal-plated corners through station wreckage, broken up by chicanes |
 | Red Canyon Sprint | 0.38 g | Fast gravel roads between rust-red Martian mesas, big crests |
 | Europa Fracture Line | 0.24 g | Low-grip ice shelf with cliffs on both sides, under a huge Jupiter |
 | Foundry Gauntlet | 1.53 g | Hairpins on the metal decks of an orbital smelter over Io; the hardest stage |
@@ -21,11 +21,12 @@ Hazards:
 - **Craters.**
 - **Kicker ramps and crests.**
 - **Chasm jumps.**
-- **Drifting debris.**
+- **Chicanes.** Rows of red and white water-filled barriers reach in from alternating sides of the road, so you have to weave left and right between them. The co-driver calls each one ("chicane left-right") and a chevron board on the end of each row points to the gap. The blocks are loose: hit them and they scatter, costing you speed and some damage.
 - **Grip changes.** Surfaces are regolith, ice, metal or gravel.
 
 Rules and scoring:
 - Checkpoint gates must be passed in order. Missing one sends you back to the last gate with +5 s.
+- Passing a chicane row on its barrier side, through the blocks or round the end, costs +5 s.
 - Damage builds up from hard landings and impacts and lowers your top speed until the stage ends.
 - Boost refills when you drift or land a jump cleanly.
 - Best times, splits and a ghost replay of your best run are stored in `localStorage`.
