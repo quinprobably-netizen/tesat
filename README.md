@@ -57,15 +57,15 @@ In the **garage** you build your ride Mario Kart style, with a live 3D preview t
 | Part | Options |
 |---|---|
 | Pilot | NOVA (astronaut, medium), ZIX (alien, light), BOLT-9 (robot, heavy), MISO (cat, light), GRAVL (rock golem, heavy), PIP (drone, feather), KOI (goldfish, light), VEGA (rally ace, medium) |
-| Body | ROVER, DART, BRUISER, SKIFF, BEETLE |
+| Car | Group B inspired: TWINCHARGER (Lancia Delta S4), FIVE-POT (Audi Sport quattro S1 E2), T16 (Peugeot 205 T16), STRADALE (Lancia 037), RS WEDGE (Ford RS200), SIX-R (MG Metro 6R4) |
 | Engine | TWIN ION, PULSE ROCKET, ARC COIL, NOVA BURNER, RAMJET |
 | Wheels | STANDARD, CRAWLER, SLICK ROLLER, HOVER PADS, SPIKE RIMS |
-| Wing | STOCK, SLIPSTREAM (none), HIGH WING, SOLAR FINS |
+| Wing | STOCK (the car's own rally aero), SLIPSTREAM (none), HIGH WING, SOLAR FINS |
 | Paint | 12 colours, including metallic chrome and copper |
 | Decal | CLEAN, STRIPES, FLAMES, CHECKER, BOLT, STARS |
 | Glow | Underglow in 5 colours, or off |
 
-Each pilot, body, engine, wheel and wing shifts six stats (speed, acceleration, handling, grip, weight, boost) up or down from a neutral 5. Hover an option to preview the change. The default build is all neutral and drives exactly like the original buggy. In the race, the stats scale top speed (±11%), acceleration, steering lock, tyre grip, boost thrust and refill, and damage taken (heavier builds shrug off more). The build is saved in `localStorage` and applies to every stage; the service park setup still stacks on top.
+Each pilot, car, engine, wheel and wing shifts six stats (speed, acceleration, handling, grip, weight, boost) up or down from a neutral 5. Hover an option to preview the change. The default build (NOVA in the TWINCHARGER) is all neutral. In the race, the stats scale top speed (±11%), acceleration, steering lock, tyre grip, boost thrust and refill, and damage taken (heavier builds shrug off more). The build is saved in `localStorage` and applies to every stage; the service park setup still stacks on top.
 
 ## Modes and sharing
 

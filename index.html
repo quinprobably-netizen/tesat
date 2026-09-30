@@ -345,7 +345,7 @@ body.touch #stageName{display:none}
         <div class="home-nav" id="homeNav">
           <button class="hbtn" data-go="play"><b>PLAY</b><small>Pick a stage and race the clock</small></button>
           <button class="hbtn" data-go="rally"><b>RALLY</b><small id="homeRally">Every stage back to back</small></button>
-          <button class="hbtn" data-go="garage"><b>GARAGE</b><small>Pilot, body, engine, wheels, wing, paint and more</small></button>
+          <button class="hbtn" data-go="garage"><b>GARAGE</b><small>Pilot, Group B car, engine, wheels, wing, paint and more</small></button>
           <button class="hbtn" data-go="code"><b>STAGE CODE</b><small>Load a friend's stage or ghost</small></button>
         </div>
         <div class="toggles">
@@ -848,12 +848,13 @@ const GARAGE = {
     { name: 'KOI', cls: 'LIGHT', kind: 'fish', suit: '#dfe9f2', trim: '#ff6a2e', visor: '#7fd8ff', bg: '#123a52', blurb: 'Goldfish in a water-filled helmet. Smooth hands, sticks to the road.', s: st6(-1, 0, 1, 1, -1, 0) },
     { name: 'VEGA', cls: 'MEDIUM', kind: 'racer', suit: '#20242c', trim: '#e8322e', visor: '#ffd21f', bg: '#4a1620', blurb: 'Veteran rally ace. Flat out everywhere, lighter on the boost.', s: st6(1, 0, 0, 0, 1, -1) },
   ] },
-  body: { label: 'BODY', opts: [
-    { name: 'ROVER', blurb: 'The classic rally buggy.', s: st6(0, 0, 0, 0, 0, 0) },
-    { name: 'DART', blurb: 'Low wedge. Slippery and sharp, but light on grip.', s: st6(1, 0, 1, -1, -1, 0) },
-    { name: 'BRUISER', blurb: 'Armoured hauler. Planted and tough, a bit lazy.', s: st6(0, -1, -1, 1, 2, 0) },
-    { name: 'SKIFF', blurb: 'Open tube frame. Weighs nothing, jumps off the line.', s: st6(-1, 2, 1, 0, -2, 0) },
-    { name: 'BEETLE', blurb: 'Bubble shell. Punchy and planted, but heavy and slow to refill boost.', s: st6(0, 1, -1, 1, 1, -2) },
+  body: { label: 'CAR', opts: [
+    { name: 'TWINCHARGER', blurb: 'Lancia Delta S4 inspired. Supercharger plus turbo: the all-rounder.', s: st6(0, 0, 0, 0, 0, 0) },
+    { name: 'FIVE-POT', blurb: 'Audi Sport quattro S1 E2 inspired. Brutal five-cylinder and giant wings, nose-heavy.', s: st6(2, 1, -2, 1, 1, -3) },
+    { name: 'T16', blurb: 'Peugeot 205 T16 inspired. Tiny, light and agile, short on boost.', s: st6(0, 1, 2, 0, -2, -1) },
+    { name: 'STRADALE', blurb: 'Lancia 037 inspired. Low, light, rear-drive: flies on tarmac, twitchy on loose ground.', s: st6(1, 0, 1, -2, -1, 1) },
+    { name: 'RS WEDGE', blurb: 'Ford RS200 inspired. Mid-engined and planted, a little lazy off the line.', s: st6(0, -1, 1, 1, 1, -2) },
+    { name: 'SIX-R', blurb: 'MG Metro 6R4 inspired. Screaming V6 in a tiny box: huge punch, low top speed.', s: st6(-2, 2, 1, 0, -1, 0) },
   ] },
   engine: { label: 'ENGINE', opts: [
     { name: 'TWIN ION', flame: 0x6fdcff, blurb: 'Two reliable ion thrusters.', s: st6(0, 0, 0, 0, 0, 0) },
@@ -870,7 +871,7 @@ const GARAGE = {
     { name: 'SPIKE RIMS', blurb: 'Studded tyres. Bite on ice and metal, a bit of drag.', s: st6(-1, 1, 0, 2, 0, -1) },
   ] },
   wing: { label: 'WING', opts: [
-    { name: 'STOCK', blurb: 'The wing each body was designed with.', s: st6(0, 0, 0, 0, 0, 0) },
+    { name: 'STOCK', blurb: 'Each car\'s own signature aero, as it ran in the rallies.', s: st6(0, 0, 0, 0, 0, 0) },
     { name: 'SLIPSTREAM', blurb: 'No wing at all. Less drag, less bite in the corners.', s: st6(1, 0, 0, -1, 0, 0) },
     { name: 'HIGH WING', blurb: 'Tall downforce wing. Grippy and sharp, costs top speed.', s: st6(-1, 0, 1, 1, 0, 0) },
     { name: 'SOLAR FINS', blurb: 'Twin fins lined with solar cells. Feeds the boost tank.', s: st6(0, 0, -1, 0, 0, 1) },
@@ -2904,6 +2905,53 @@ function placeCar(s, d, speed) {
 }
 
 /* ---- vehicle model ---- */
+/* ---- body kit: helpers each Group B body builder draws with ----
+   Car space: +z forward, +y up, +x the car's LEFT. The wheels sit at x ±1.02 (tyres 0.36 wide, radius 0.43),
+   z +1.38 (front) and -1.30 (rear); at ride height the wheel centres are at y ≈ -0.44 and the ground is at
+   y ≈ -0.87. A builder returns where the pilot sits, where the thrusters and extra wings mount, and so on. */
+function makeBodyKit(g, M, add, tube, build) {
+  const K = Object.assign({ g, add, tube, build, wing: build.wing, CAR, TAU }, M);
+  K.box = (w, h, d, mat, x, y, z, rx, ry, rz) => add(new THREE.BoxGeometry(w, h, d), mat, x, y, z, rx, ry, rz);
+  /** Extrude a side silhouette across the car. pts: [[z, y], ...] (a closed outline, no repeated end point);
+   *  (or a THREE.Shape in the same z/y plane, which may have holes); w: full width; mat: a material or
+   *  [sideFaces, surfaceFaces]; o.x centre, o.bevel rounds the edges.
+   *  The flat side faces get UVs for the livery texture, reading correctly on both sides. */
+  K.profile = (pts, w, mat, o = {}) => {
+    const bev = o.bevel === undefined ? 0.04 : o.bevel, depth = Math.max(0.01, w - 2 * bev);
+    const sh = pts instanceof THREE.Shape ? pts : new THREE.Shape(pts.map(([z, y]) => new THREE.Vector2(z, y)));
+    const geo = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: bev > 0, bevelThickness: bev, bevelSize: bev, bevelSegments: o.seg || 2, curveSegments: o.curve || 6 });
+    geo.rotateY(-Math.PI / 2); geo.translate(depth / 2, 0, 0);
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox, uv = geo.attributes.uv, pos = geo.attributes.position;
+    const zl = bb.max.z - bb.min.z || 1, yl = bb.max.y - bb.min.y || 1;
+    for (let i = 0; i < uv.count; i++) {
+      const u = (pos.getZ(i) - bb.min.z) / zl;
+      uv.setXY(i, pos.getX(i) > 0 ? 1 - u : u, (pos.getY(i) - bb.min.y) / yl);
+    }
+    return add(geo, mat, o.x || 0, 0, 0);
+  };
+  /** Round lamp facing forward (+z) or back (dir -1). */
+  K.lamp = (x, y, z, r, mat, dir = 1) => {
+    add(new THREE.CylinderGeometry(r * 1.15, r * 1.15, 0.06, 14), K.dark, x, y, z - dir * 0.03, Math.PI / 2, 0, 0);
+    return add(new THREE.CircleGeometry(r, 14), mat || K.headMat, x, y, z + dir * 0.005, 0, dir > 0 ? 0 : Math.PI, 0);
+  };
+  /** Points on an arc in the side view (centre cz, cy; radius r; angles in radians, 0 = forward, π/2 = up). */
+  K.arc = (cz, cy, r, a0, a1, n = 8) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cz + Math.cos(a) * r, cy + Math.sin(a) * r]; });
+  /** Mirror helper: calls f(sx) for sx = -1 and +1. */
+  K.both = (f) => { f(-1); f(1); };
+  return K;
+}
+/* ---- Group B body builders: one per GARAGE.body option, same order. Each draws the shell with the kit
+   and returns its layout: seatX/seatY/seatZ + pilotScale, rearZ/thrY (thruster mount), wing ([base y, top y,
+   z, span] for the add-on wings), shockTop (y of the shock top mounts) and antenna ([x, y, z] on the roof).
+   The builder draws its own STOCK aero when K.wing === 0, and its lamps with K.headMat / K.tailMat. */
+function placeholderBody(K) {
+  K.profile([[2.15, -0.55], [2.2, -0.2], [1.3, 0.05], [0.5, 0.2], [-0.3, 0.5], [-1.6, 0.48], [-2.1, 0.1], [-2.1, -0.55]], 1.9, [K.side, K.paint]);
+  K.both((sx) => { K.lamp(sx * 0.62, -0.12, 2.19, 0.1); K.box(0.3, 0.1, 0.05, K.tailMat, sx * 0.7, -0.05, -2.12); });
+  if (K.wing === 0) K.box(1.7, 0.06, 0.35, K.paint, 0, 0.55, -1.75);
+  return { seatY: -0.12, seatZ: -0.25, rearZ: -2.1, thrY: -0.25, wing: [0.3, 0.55, -1.75, 1.8], shockTop: 0.1, antenna: [0.5, 0.5, -1.1] };
+}
+const BODY_BUILDERS = [placeholderBody, placeholderBody, placeholderBody, placeholderBody, placeholderBody, placeholderBody];
 function buildCarModel(build) {
   build = cleanBuild(build);
   const accentHex = GARAGE.color.opts[build.color].hex, pilot = GARAGE.pilot.opts[build.pilot], engine = GARAGE.engine.opts[build.engine];
@@ -2941,85 +2989,17 @@ function buildCarModel(build) {
     mm.quaternion.setFromUnitVectors(UP, b.sub(a).normalize());
     return mm;
   };
-  // ---- body shell (physics hull is shared; only the look changes) ----
-  let seatY = 0.5, seatZ = 0.05, rearZ = -2.02, thrY = 0.34, lightZ = 2.08, lightY = 0.08;
-  // wing mount per body: [base y, stock wing height, z, span]
-  const WM = [[0.38, 0.72, -1.85, 2.1], [0.05, 0.55, -1.8, 2.3], [0.9, 1.05, -1.5, 1.9], [0.0, 0.62, -1.75, 1.8], [0.45, 0.85, -1.7, 2.0]][body];
-  if (body === 0) {            // ROVER: the original buggy
-    add(new THREE.BoxGeometry(1.9, 0.46, 3.6), [side, side, top, dark, paint, paint], 0, -0.02, 0);
-    add(new THREE.BoxGeometry(1.7, 0.12, 3.9), dark, 0, -0.3, 0.05);
-    add(new THREE.BoxGeometry(1.8, 0.28, 1.0), paint, 0, 0.12, 1.72, 0.32, 0, 0);
-    add(new THREE.BoxGeometry(1.5, 0.34, 1.7), dark, 0, 0.36, -0.28);
-    const canopy = add(new THREE.SphereGeometry(0.82, 20, 12, 0, TAU, 0, Math.PI / 2), glass, 0, 0.5, 0.05);
-    canopy.scale.set(0.9, 0.62, 1.25); canopy.userData.keep = true; canopy.castShadow = false;
-    for (const z of [-0.62, 0.72]) { const hoop = add(new THREE.TorusGeometry(0.76, 0.045, 6, 16, Math.PI), trim, 0, 0.5, z); hoop.scale.y = 0.78; }
-    add(new THREE.BoxGeometry(0.06, 0.06, 1.4), trim, 0, 1.08, 0.05);
-    add(new THREE.BoxGeometry(1.35, 0.5, 0.8), dark, 0, 0.3, -1.55);
-    for (const cw of CAR.wheels) add(new THREE.BoxGeometry(0.52, 0.1, 1.08), paint, cw.x * 0.98, 0.26, cw.z);
-    add(new THREE.BoxGeometry(1.1, 0.1, 0.16), headMat, 0, 0.86, 0.72);             // roof light bar
-  } else if (body === 1) {     // DART: low wedge with a tall tail fin
-    add(new THREE.BoxGeometry(1.8, 0.34, 3.4), [side, side, top, dark, paint, paint], 0, -0.1, -0.15);
-    add(new THREE.BoxGeometry(1.66, 0.1, 4.1), dark, 0, -0.32, 0.05);
-    const nose = add(new THREE.CylinderGeometry(0.02, 0.9, 1.3, 4, 1), paint, 0, -0.06, 2.0, Math.PI / 2, Math.PI / 4, 0);
-    nose.scale.set(1, 1, 0.3);
-    const canopy = add(new THREE.SphereGeometry(0.7, 20, 12, 0, TAU, 0, Math.PI / 2), glass, 0, 0.08, 0.2);
-    canopy.scale.set(0.95, 0.7, 1.6); canopy.userData.keep = true; canopy.castShadow = false;
-    seatY = -0.02; seatZ = 0.15;
-    add(new THREE.BoxGeometry(0.08, 0.7, 0.9), paint, 0, 0.42, -1.5, -0.35, 0, 0);    // tail fin
-    for (const cw of CAR.wheels) add(new THREE.BoxGeometry(0.48, 0.07, 1.0), dark, cw.x * 0.98, 0.18, cw.z);
-    for (const sx of [-0.75, 0.75]) add(new THREE.BoxGeometry(0.18, 0.05, 2.2), headMat, sx, 0.08, 0.2);   // side light strips
-    thrY = 0.1; rearZ = -1.95; lightY = -0.04; lightZ = 2.02;
-  } else if (body === 2) {     // BRUISER: armoured box with a roll cage and bull bar
-    add(new THREE.BoxGeometry(2.02, 0.62, 3.7), [side, side, top, dark, paint, paint], 0, 0.05, 0);
-    add(new THREE.BoxGeometry(1.8, 0.14, 4.0), dark, 0, -0.3, 0.05);
-    add(new THREE.BoxGeometry(1.66, 0.5, 1.5), glass, 0, 0.6, -0.05).userData.keep = true;
-    add(new THREE.BoxGeometry(1.74, 0.08, 1.62), paint, 0, 0.88, -0.05);
-    seatY = 0.46;
-    for (const sx of [-0.86, 0.86]) for (const z of [-0.8, 0.7]) tube(sx, 0.35, z, sx, 0.9, z, 0.05, trim);
-    for (const z of [-0.8, 0.7]) tube(-0.86, 0.92, z, 0.86, 0.92, z, 0.05, trim);
-    tube(-0.9, -0.1, 2.12, 0.9, -0.1, 2.12, 0.07, trim);                            // bull bar
-    for (const sx of [-0.6, 0.6]) tube(sx, -0.25, 1.9, sx, 0.2, 2.12, 0.06, trim);
-    add(new THREE.BoxGeometry(1.3, 0.1, 0.12), headMat, 0, 0.98, 0.55);
-    for (const sx of [-0.45, -0.15, 0.15, 0.45]) add(new THREE.CylinderGeometry(0.08, 0.08, 0.06, 10), headMat, sx, 1.02, 0.66, Math.PI / 2, 0, 0);
-    for (const cw of CAR.wheels) add(new THREE.BoxGeometry(0.58, 0.12, 1.14), dark, cw.x * 1.0, 0.3, cw.z);
-    add(new THREE.BoxGeometry(1.5, 0.55, 0.7), dark, 0, 0.35, -1.6);
-    thrY = 0.38; rearZ = -2.08; lightY = 0.12; lightZ = 1.9;
-  } else if (body === 4) {     // BEETLE: bubble shell over a low chassis
-    add(new THREE.BoxGeometry(1.7, 0.16, 3.9), dark, 0, -0.28, 0.05);
-    const shell = add(new THREE.SphereGeometry(1, 28, 14, 0, TAU, 0, Math.PI / 2), side, 0, -0.2, -0.1);
-    shell.scale.set(1.0, 0.72, 2.0);
-    const dome = add(new THREE.SphereGeometry(0.62, 20, 12, 0, TAU, 0, Math.PI / 2), glass, 0, 0.42, 0.25);
-    dome.scale.set(1, 0.8, 1.2); dome.userData.keep = true; dome.castShadow = false;
-    seatY = 0.36; seatZ = 0.2;
-    add(new THREE.TorusGeometry(1.0, 0.05, 6, 28), trim, 0, -0.18, -0.1, Math.PI / 2, 0, 0).scale.set(1, 2, 1);
-    for (const cw of CAR.wheels) add(new THREE.BoxGeometry(0.5, 0.1, 1.0), paint, cw.x * 0.98, 0.1, cw.z);
-    thrY = 0.2; rearZ = -2.08; lightY = 0.05; lightZ = 1.95;
-  } else {                     // SKIFF: open tube frame, pilot out in the vacuum
-    add(new THREE.BoxGeometry(1.5, 0.12, 3.8), dark, 0, -0.26, 0.05);
-    add(new THREE.BoxGeometry(1.2, 0.2, 1.1), [side, side, top, dark, paint, paint], 0, -0.12, 1.5);
-    add(new THREE.BoxGeometry(0.9, 0.36, 0.7), dark, 0, 0.05, -0.2);                  // seat
-    add(new THREE.BoxGeometry(0.9, 0.7, 0.14), paint, 0, 0.35, -0.55);                // seat back
-    seatY = 0.42; seatZ = -0.2;
-    for (const sx of [-0.7, 0.7]) {
-      tube(sx, -0.2, 1.95, sx, 0.25, 0.9, 0.05, paint); tube(sx, 0.25, 0.9, sx, 0.95, -0.35, 0.05, paint);
-      tube(sx, 0.95, -0.35, sx, -0.2, -1.7, 0.05, paint); tube(sx, -0.2, 1.95, sx, -0.2, -1.7, 0.05, trim);
-    }
-    tube(-0.7, 0.95, -0.35, 0.7, 0.95, -0.35, 0.05, paint);
-    tube(-0.7, 0.25, 0.9, 0.7, 0.25, 0.9, 0.05, trim);
-    for (const cw of CAR.wheels) { tube(cw.x * 0.35, -0.2, cw.z, cw.x * 0.85, -0.3, cw.z, 0.06, trim); add(new THREE.BoxGeometry(0.44, 0.05, 0.8), paint, cw.x, 0.2, cw.z); }
-    thrY = 0.1; rearZ = -1.9; lightY = -0.05; lightZ = 2.0;
-  }
-  for (const sx of [-0.6, 0.6]) add(new THREE.BoxGeometry(0.42, 0.13, 0.06), headMat, sx, lightY, lightZ);
-  for (const sx of [-0.72, 0.72]) add(new THREE.BoxGeometry(0.34, 0.12, 0.06), tailMat, sx, thrY - 0.2, rearZ + 0.2);
-  add(new THREE.CylinderGeometry(0.015, 0.015, 1.1, 4), trim, 0.62, 1.05, -1.45);
-  const tip = add(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff3030, toneMapped: false }), 0.62, 1.62, -1.45);
+  // ---- body shell: Group B rally cars (physics hull is shared; only the look changes) ----
+  const K = makeBodyKit(g, { paint, dark, trim, glass, side, top, headMat, tailMat, rubber }, add, tube, build);
+  const spec = Object.assign({ seatY: -0.1, seatZ: -0.1, seatX: 0.36, pilotScale: 0.85, rearZ: -2.1, thrY: -0.2, wing: [0.3, 0.55, -1.8, 1.8], shockTop: 0.2, antenna: [0.55, 0.5, -1.2] },
+    BODY_BUILDERS[body](K));
+  const { seatY, seatZ, rearZ, thrY } = spec;
+  add(new THREE.CylinderGeometry(0.015, 0.015, 1.1, 4), trim, spec.antenna[0], spec.antenna[1] + 0.55, spec.antenna[2]);
+  const tip = add(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff3030, toneMapped: false }), spec.antenna[0], spec.antenna[1] + 1.12, spec.antenna[2]);
   tip.userData.keep = true;
   // ---- wing ----
-  const [wBase, wTop, wZ, wSpan] = WM;
-  if (build.wing === 0) {
-    add(new THREE.BoxGeometry(wSpan, 0.07, 0.42), paint, 0, wTop, wZ);
-    for (const sx of [-0.38, 0.38]) add(new THREE.BoxGeometry(0.06, wTop - wBase, 0.3), dark, sx * wSpan, (wTop + wBase) / 2, wZ);
-  } else if (build.wing === 2) {
+  const [wBase, wTop, wZ, wSpan] = spec.wing;          // STOCK (wing 0) is each car's own signature aero, drawn by its builder
+  if (build.wing === 2) {
     const hy = wTop + 0.45;
     add(new THREE.BoxGeometry(wSpan + 0.2, 0.06, 0.55), dark, 0, hy, wZ - 0.05, -0.12, 0, 0);
     add(new THREE.BoxGeometry(wSpan + 0.2, 0.05, 0.25), paint, 0, hy + 0.14, wZ - 0.2, -0.3, 0, 0);
@@ -3061,10 +3041,10 @@ function buildCarModel(build) {
       add(new THREE.CircleGeometry(0.13, 10), dark, sx, thrY + 0.1, rearZ + 1.61);
     }
   }
-  // ---- pilot, sitting under (or, in the SKIFF, above) the canopy ----
+  // ---- pilot, in the driver's seat (left-hand drive) ----
   const P = buildPilotHead(pilot);
-  P.position.set(0, seatY, seatZ);
-  if (body === 1) P.scale.setScalar(0.85);
+  P.position.set(spec.seatX, seatY, seatZ);
+  P.scale.setScalar(spec.pilotScale);
   g.add(P);
   // hover-tech underglow
   const glowOpt = GARAGE.glow.opts[build.glow], glowCss = glowOpt.css || '0,0,0';
@@ -3108,7 +3088,7 @@ function buildCarModel(build) {
       const glow = padGlow.clone(); glow.rotation.x = Math.PI / 2; glow.position.y = pad.position.y - 0.09; pivot.add(glow);
       const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 6), trim); strut.position.y = pad.position.y + 0.25; pivot.add(strut);
     }
-    wheels.push({ pivot, spin, shock: makeShock(g, cw, trim, dark, wheelKind === 3 ? -CAR.radius + 0.45 : R - CAR.radius) });
+    wheels.push({ pivot, spin, shock: makeShock(g, cw, trim, dark, wheelKind === 3 ? -CAR.radius + 0.45 : R - CAR.radius, spec.shockTop) });
     poseShock(wheels[wheels.length - 1].shock, pivot.position.y);
   }
   // headlight
@@ -3121,7 +3101,7 @@ function buildCarModel(build) {
 /* ---- coil-over shocks: damper body at the chassis, shaft and coil spring stretched to the hub each frame ---- */
 let _springGeo = null;
 const _shockDir = new THREE.Vector3(), _shockDown = new THREE.Vector3(0, -1, 0);
-function makeShock(g, cw, trim, dark, hubOff) {
+function makeShock(g, cw, trim, dark, hubOff, topY) {
   if (!_springGeo) {
     class Helix extends THREE.Curve {
       getPoint(t, out) { const a = t * 7 * TAU; return (out || new THREE.Vector3()).set(Math.cos(a) * 0.085, -t, Math.sin(a) * 0.085); }
@@ -3129,7 +3109,7 @@ function makeShock(g, cw, trim, dark, hubOff) {
     _springGeo = new THREE.TubeGeometry(new Helix(), 120, 0.017, 5, false);
   }
   const springMat = new THREE.MeshStandardMaterial({ color: 0xffb52e, metalness: 0.4, roughness: 0.4 });
-  const top = new THREE.Vector3(cw.x * 0.72, CAR.mountY + 0.86, cw.z + (cw.front ? -0.3 : 0.3));   // shock tower pokes up through the fender
+  const top = new THREE.Vector3(cw.x * 0.72, topY, cw.z + (cw.front ? -0.3 : 0.3));   // top mount on the strut tower under the bodywork
   const root = new THREE.Group(); root.position.copy(top); g.add(root);
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.34, 10), dark); body.position.y = -0.17; root.add(body);
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.03, 12), trim); cap.position.y = -0.02; root.add(cap);
