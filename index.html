@@ -372,7 +372,7 @@ body.touch #stageName{display:none}
     <div id="surfBox">
       <div>SURFACE <b id="surfName">-</b></div>
       <div class="bar"><div id="gripFill"></div></div>
-      <div>GRAVITY <b id="gravVal">-</b></div>
+      <div id="altRow" class="hidden">ALTITUDE <b id="altVal">-</b></div>
       <div>CAM <b id="camVal">CHASE</b></div>
       <div id="suspRow">SUSPENSION<div id="suspBars"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div></div>
       <div id="driftTag">DRIFT &#9650; BOOST</div>
@@ -691,8 +691,9 @@ function fmtDelta(d) { return (d < 0 ? '-' : '+') + Math.abs(d).toFixed(2); }
    ============================================================================= */
 const Store = {
   key: 'regolithRally.v1',
+  era: 2,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere
   data: { best: {}, settings: { muted: false, voice: true, ghost: true, cam: 'chase', name: 'DRIVER' },
-    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null },
+    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 2 },
   load() {
     try {
       const raw = window.localStorage.getItem(this.key);
@@ -705,15 +706,30 @@ const Store = {
         if (d.rallyBest && typeof d.rallyBest === 'object') this.data.rallyBest = d.rallyBest;
         if (d.rallyBestClassic && typeof d.rallyBestClassic === 'object') this.data.rallyBestClassic = d.rallyBestClassic;
         this.data.garage = d.garage;
+        if (d.archive && typeof d.archive === 'object') this.data.archive = d.archive;
+        if ((d.era || 1) < this.era) this.archiveEra(d.era || 1);
       }
     } catch (e) { /* storage unavailable or corrupt: play without persistence */ }
+  },
+  /** Times, boards and ghosts from an older physics era can't be compared with new runs: keep the
+   *  times (not the replays) under `archive` and start the boards fresh. Setups and the garage stay. */
+  archiveEra(era) {
+    const D = this.data, times = {}, boards = {};
+    for (const k in D.best) times[k] = { time: D.best[k].time, splits: D.best[k].splits };
+    for (const k in D.boards) boards[k] = D.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own, d: e.d }));
+    if (!D.archive && (Object.keys(times).length || Object.keys(boards).length || D.rallyBest)) {
+      D.archive = { era, best: times, boards, rallyBest: D.rallyBest, rallyBestClassic: D.rallyBestClassic || null };
+    }
+    Object.assign(D, { best: {}, boards: {}, rival: {}, targets: {}, rallyBest: null, era: this.era });
+    delete D.rallyBestClassic;
+    this.save();
   },
   save() {
     try { window.localStorage.setItem(this.key, JSON.stringify(this.data)); }
     catch (e) {
       // Probably quota: retry without ghost replays, which are the bulk of the data.
       try {
-        const slim = { best: {}, settings: this.data.settings, targets: this.data.targets, setups: this.data.setups, rallyBest: this.data.rallyBest, garage: this.data.garage, boards: {}, rival: {} };
+        const slim = { best: {}, settings: this.data.settings, targets: this.data.targets, setups: this.data.setups, rallyBest: this.data.rallyBest, garage: this.data.garage, boards: {}, rival: {}, era: this.data.era, archive: this.data.archive };
         for (const k in this.data.boards) slim.boards[k] = this.data.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own }));
         for (const k in this.data.best) { const b = this.data.best[k]; slim.best[k] = { time: b.time, splits: b.splits }; }
         window.localStorage.setItem(this.key, JSON.stringify(slim));
@@ -735,18 +751,22 @@ const SURF_INFO = [
   { name: 'GRAVEL',   mu: 0.74, drag: 0.035 },
 ];
 
+// Every stage runs at standard Earth gravity. Tyre load (gripG) and the suspension reference (suspG)
+// stay separate knobs, so a stage could still be tuned apart if it ever needs to be.
+const EARTH = { gravity: 9.81, clampG: 0, gripG: 9.81, suspG: 9.2, damping: 0.55, hardLanding: 11 };
+
 const STAGES = [
   {
     id: 'lunar', name: 'Lunar Dust Run', region: 'SELENE HIGHLANDS · STAGE 1', seed: 1969,
-    blurb: 'Low gravity, wide and forgiving regolith roads. Crests and kickers throw you into long floaty jumps: learn air control here.',
-    length: 3000, gravity: 3.2, clampG: 5.5, gripG: 9.5, suspG: 8.0, damping: 0.5, hardLanding: 9,
+    blurb: 'Wide and forgiving regolith roads through the lunar highlands. Crests and kickers throw you into the air: learn to land straight here.',
+    length: 3000, ...EARTH,
     hw: 9.5, ribbon: 110, shoulder: 16, style: 'hills', offDrag: 0.22,
     corner: { rMin: 50, rMax: 230, angMin: 25, angMax: 100, compound: 0.3 },
     straight: [45, 150], maxHeading: 70,
     roadRough: 0.12, terrainAmp: 24, terrainScale: 520,
     surf: { base: SURF.REGOLITH, off: SURF.REGOLITH, patches: [SURF.GRAVEL, SURF.GRAVEL, SURF.ICE], patchChance: 0.45, patchLen: [60, 140] },
     features: ['crest', 'ramp', 'crest', 'chasm', 'ramp', 'crest', 'chasm', 'ramp', 'crest'],
-    ramp: { H: 0.9, L: 16, landing: 170 }, chasm: { H: 1.4, L: 16, gap: 28, landing: 170, depth: 38 }, crest: { h: 3.0, L: 60, landing: 125 },
+    ramp: { H: 1.3, L: 16, landing: 170 }, chasm: { H: 1.6, L: 16, gap: 20, landing: 178, depth: 38 }, crest: { h: 3.0, L: 60, landing: 125 },
     craterClusters: 7, meteorZones: 1, chicanes: 1, dontCut: 0.35,
     checkpoints: 7, rocks: 1300, targetFactor: 1.15,
     sky: {
@@ -763,14 +783,14 @@ const STAGES = [
   {
     id: 'ice', name: 'Ice Ring Traverse', region: 'KHARON RING B · STAGE 2', seed: 4471,
     blurb: 'A slick causeway of water ice riding a planetary ring. Brake early, flick it in with the handbrake and mind the edges: below is only the gas giant.',
-    length: 3100, gravity: 5.0, clampG: 3.5, gripG: 9.5, suspG: 8.0, damping: 0.55, hardLanding: 10,
+    length: 3100, ...EARTH,
     hw: 8.5, ribbon: 62, shoulder: 14, style: 'ring', offDrag: 0.10,
     corner: { rMin: 55, rMax: 250, angMin: 25, angMax: 95, compound: 0.35 },
     straight: [45, 160], maxHeading: 68,
     roadRough: 0.07, terrainAmp: 4, terrainScale: 320,
     surf: { base: SURF.ICE, off: SURF.ICE, patches: [SURF.REGOLITH, SURF.GRAVEL, SURF.REGOLITH], patchChance: 0.5, patchLen: [60, 130] },
     features: ['crest', 'ramp', 'chasm', 'crest', 'ramp', 'chasm', 'crest'],
-    ramp: { H: 1.1, L: 16, landing: 120 }, chasm: { H: 1.5, L: 16, gap: 22, landing: 140, depth: 60 }, crest: { h: 2.4, L: 55, landing: 110 },
+    ramp: { H: 1.3, L: 16, landing: 120 }, chasm: { H: 1.6, L: 16, gap: 18, landing: 144, depth: 60 }, crest: { h: 2.4, L: 55, landing: 110 },
     craterClusters: 5, meteorZones: 1, chicanes: 2, dontCut: 0.3,
     checkpoints: 8, rocks: 800, targetFactor: 1.10,
     sky: {
@@ -786,15 +806,15 @@ const STAGES = [
   },
   {
     id: 'wreck', name: 'Wreckage Belt', region: 'DERELICT STATION FIELD · STAGE 3', seed: 90210,
-    blurb: 'Tight and technical. Dense-core gravity glues you to the deck plating, but corners come thick and fast, broken up by barrier chicanes.',
-    length: 2600, gravity: 12.0, clampG: 0, gripG: 13.0, suspG: 12.0, damping: 0.6, hardLanding: 12,
+    blurb: 'Tight and technical on the deck plating of a derelict station. Corners come thick and fast, broken up by barrier chicanes.',
+    length: 2600, ...EARTH,
     hw: 7.5, ribbon: 44, shoulder: 10, style: 'platform', offDrag: 0.18,
     corner: { rMin: 34, rMax: 150, angMin: 30, angMax: 115, compound: 0.4 },
     straight: [28, 100], maxHeading: 75,
     roadRough: 0.035, terrainAmp: 5, terrainScale: 260,
     surf: { base: SURF.METAL, off: SURF.GRAVEL, patches: [SURF.GRAVEL, SURF.ICE, SURF.GRAVEL], patchChance: 0.4, patchLen: [45, 100] },
     features: ['ramp', 'chasm', 'crest', 'ramp', 'chasm'],
-    ramp: { H: 1.3, L: 14, landing: 80 }, chasm: { H: 1.6, L: 14, gap: 17, landing: 90, depth: 70 }, crest: { h: 1.6, L: 40, landing: 70 },
+    ramp: { H: 1.2, L: 14, landing: 80 }, chasm: { H: 1.4, L: 14, gap: 16, landing: 91, depth: 70 }, crest: { h: 1.6, L: 40, landing: 70 },
     craterClusters: 3, meteorZones: 1, chicanes: 4, dontCut: 0.4,
     checkpoints: 8, rocks: 500, targetFactor: 0.96,
     sky: {
@@ -810,15 +830,15 @@ const STAGES = [
   },
   {
     id: 'mars', name: 'Red Canyon Sprint', region: 'VALLES MARINERIS · STAGE 4', seed: 1976, letter: 'M',
-    blurb: 'Fast gravel roads between rust-red mesas. More grip and gravity than the Moon, so you can carry real speed, but the crests still bite.',
-    length: 3300, gravity: 3.7, clampG: 5.0, gripG: 9.8, suspG: 8.2, damping: 0.52, hardLanding: 9.5,
+    blurb: 'Fast gravel roads between rust-red mesas. You can carry real speed here, but the crests bite.',
+    length: 3300, ...EARTH,
     hw: 9.0, ribbon: 100, shoulder: 15, style: 'hills', offDrag: 0.26,
     corner: { rMin: 60, rMax: 260, angMin: 20, angMax: 90, compound: 0.25 },
     straight: [60, 180], maxHeading: 65,
     roadRough: 0.1, terrainAmp: 34, terrainScale: 600,
     surf: { base: SURF.GRAVEL, off: SURF.REGOLITH, patches: [SURF.REGOLITH, SURF.REGOLITH, SURF.ICE], patchChance: 0.4, patchLen: [70, 150] },
     features: ['crest', 'crest', 'ramp', 'crest', 'chasm', 'crest', 'ramp', 'crest'],
-    ramp: { H: 0.8, L: 18, landing: 170 }, chasm: { H: 1.3, L: 16, gap: 24, landing: 170, depth: 45 }, crest: { h: 3.4, L: 70, landing: 130 },
+    ramp: { H: 1.4, L: 18, landing: 170 }, chasm: { H: 1.6, L: 16, gap: 20, landing: 174, depth: 45 }, crest: { h: 3.4, L: 70, landing: 130 },
     craterClusters: 5, meteorZones: 1, chicanes: 1, dontCut: 0.35,
     checkpoints: 8, rocks: 1500, targetFactor: 1.12,
     sky: {
@@ -834,15 +854,15 @@ const STAGES = [
   },
   {
     id: 'europa', name: 'Europa Fracture Line', region: 'JOVIAN ICE SHELF · STAGE 5', seed: 1610, letter: 'E',
-    blurb: 'A cracked ice shelf under a sky filled with Jupiter. Very low gravity and very little grip: long jumps, long slides, cliffs on both sides.',
-    length: 3000, gravity: 2.4, clampG: 5.5, gripG: 9.2, suspG: 7.6, damping: 0.55, hardLanding: 9,
+    blurb: 'A cracked ice shelf under a sky filled with Jupiter. Very little grip: long slides, big jumps and cliffs on both sides.',
+    length: 3000, ...EARTH,
     hw: 9.0, ribbon: 60, shoulder: 14, style: 'ring', offDrag: 0.12,
     corner: { rMin: 60, rMax: 240, angMin: 25, angMax: 90, compound: 0.3 },
     straight: [55, 170], maxHeading: 66,
     roadRough: 0.08, terrainAmp: 5, terrainScale: 300,
     surf: { base: SURF.ICE, off: SURF.ICE, patches: [SURF.GRAVEL, SURF.REGOLITH, SURF.GRAVEL], patchChance: 0.55, patchLen: [50, 120] },
     features: ['ramp', 'crest', 'chasm', 'ramp', 'crest', 'chasm', 'ramp'],
-    ramp: { H: 1.0, L: 16, landing: 160 }, chasm: { H: 1.4, L: 16, gap: 26, landing: 170, depth: 60 }, crest: { h: 2.6, L: 60, landing: 130 },
+    ramp: { H: 1.3, L: 16, landing: 160 }, chasm: { H: 1.6, L: 16, gap: 20, landing: 176, depth: 60 }, crest: { h: 2.6, L: 60, landing: 130 },
     craterClusters: 4, meteorZones: 1, chicanes: 1, dontCut: 0.3,
     checkpoints: 7, rocks: 700, targetFactor: 1.12,
     sky: {
@@ -858,15 +878,15 @@ const STAGES = [
   },
   {
     id: 'foundry', name: 'Foundry Gauntlet', region: 'IO ORBITAL SMELTER · STAGE 6', seed: 2718, letter: 'F',
-    blurb: 'Heavy gravity, glowing slag and hairpins on the decks of an orbital smelter. The toughest stage: brake late, turn in hard, stay off the edges.',
-    length: 2500, gravity: 15.0, clampG: 0, gripG: 15.0, suspG: 14.0, damping: 0.62, hardLanding: 13,
+    blurb: 'Glowing slag and hairpins on the decks of an orbital smelter. The toughest stage: brake late, turn in hard, stay off the edges.',
+    length: 2500, ...EARTH,
     hw: 7.2, ribbon: 42, shoulder: 9, style: 'platform', offDrag: 0.2,
     corner: { rMin: 30, rMax: 130, angMin: 35, angMax: 125, compound: 0.45 },
     straight: [26, 90], maxHeading: 80,
     roadRough: 0.03, terrainAmp: 4, terrainScale: 240,
     surf: { base: SURF.METAL, off: SURF.GRAVEL, patches: [SURF.GRAVEL, SURF.GRAVEL, SURF.REGOLITH], patchChance: 0.45, patchLen: [40, 90] },
     features: ['ramp', 'crest', 'chasm', 'ramp', 'crest'],
-    ramp: { H: 1.2, L: 13, landing: 80 }, chasm: { H: 1.6, L: 13, gap: 15, landing: 90, depth: 70 }, crest: { h: 1.4, L: 36, landing: 70 },
+    ramp: { H: 1.1, L: 13, landing: 80 }, chasm: { H: 1.3, L: 13, gap: 15, landing: 90, depth: 70 }, crest: { h: 1.4, L: 36, landing: 70 },
     craterClusters: 3, meteorZones: 2, chicanes: 4, dontCut: 0.4,
     checkpoints: 8, rocks: 450, targetFactor: 0.98,
     sky: {
@@ -884,6 +904,8 @@ const STAGES = [
 
 STAGES.forEach((d, i) => { d.tpl = i; d.letter = d.letter || 'LIW'[i]; });
 const STAGE_LETTERS = STAGES.map((d) => d.letter).join('');
+/** Surface summary for menus: the main surface, or a stage's own description of its mix. */
+function surfLabel(def) { return def.surfLabel || SURF_INFO[def.surf.base].name; }
 /** Stage share code: template letter + seed, e.g. RR-I-4471. The built-in stages are just their own seeds. */
 function stageCode(def) { return 'RR-' + def.letter + '-' + def.seed; }
 /** A stage definition for any seed, built from one of the stage templates. */
@@ -1730,17 +1752,15 @@ function computeSpeedProfile() {
     }
   };
   chicaneCap(v, 0.68);
+  const grade = (i) => (TR.cy[Math.min(i + 1, N - 1)] - TR.cy[Math.max(i - 1, 0)]) / (2 * DS);   // rise over run
   v[0] = 0;
   for (let i = 1; i < N; i++) {
     const mu = SURF_INFO[TR.surf[i]].mu;
-    const a = Math.min(CAR.accel * Math.max(0.05, 1 - v[i - 1] / CAR.vmax), mu * def.gripG * 0.9);
+    const a = Math.max(0.4, Math.min(CAR.accel * Math.max(0.05, 1 - v[i - 1] / CAR.vmax), mu * def.gripG * 0.9) - def.gravity * grade(i));
     v[i] = Math.min(v[i], Math.sqrt(v[i - 1] * v[i - 1] + 2 * a * DS));
   }
-  for (let i = N - 2; i >= 0; i--) {
-    const mu = SURF_INFO[TR.surf[i]].mu;
-    const b = mu * def.gripG * 0.75;
-    v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * b * DS));
-  }
+  const brakeAt = (i) => Math.max(1, SURF_INFO[TR.surf[i]].mu * def.gripG * 0.75 + def.gravity * grade(i));   // uphill helps the brakes
+  for (let i = N - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * brakeAt(i) * DS));
   for (let i = 1; i < N; i++) cum[i] = cum[i - 1] + DS / Math.max(1, 0.5 * (v[i] + v[i - 1]));
   TR.vprof = v; TR.simTime = cum;
   // The AI also eases off where a crest falls inside a corner, so the car doesn't go light mid-turn
@@ -1751,7 +1771,7 @@ function computeSpeedProfile() {
     if (kv > 1e-4 && Math.abs(TR.kap[i]) > 1 / 220) ai[i] = Math.min(ai[i], Math.max(12, Math.sqrt(gEff * 0.9 / kv)));
   }
   chicaneCap(ai, 0.58);   // the AI threads chicanes with a margin
-  for (let i = N - 2; i >= 0; i--) ai[i] = Math.min(ai[i], Math.sqrt(ai[i + 1] * ai[i + 1] + 2 * SURF_INFO[TR.surf[i]].mu * def.gripG * 0.75 * DS));
+  for (let i = N - 2; i >= 0; i--) ai[i] = Math.min(ai[i], Math.sqrt(ai[i + 1] * ai[i + 1] + 2 * brakeAt(i) * DS));
   TR.aiV = ai;
   const i0 = Math.round(TR.startS / DS), i1 = Math.round(TR.finishS / DS);
   TR.targetTime = Math.round((cum[i1] - cum[i0]) * def.targetFactor * 10) / 10;
@@ -2721,9 +2741,10 @@ function updateScenery(dt, t) {
    force (drive / brake / handbrake / rolling drag) and a lateral force that
    cancels sideslip, both clipped by a friction ellipse whose size is
    surface μ × load. Handbrake cuts rear lateral grip (drifts); sliding lowers
-   grip further (kinetic friction). Gravity is per stage; tyre "clamp gravity"
-   (gripG) is separate so low-g stages stay drivable. In the air the player can
-   pitch/yaw, and a PD controller gently levels the car to the ground below.
+   grip further (kinetic friction). Every stage runs at Earth gravity (EARTH);
+   tyre load (gripG) and the optional grav-clamps (clampG) are separate knobs.
+   In the air the player can pitch/yaw, and a PD controller gently levels the
+   car to the ground below.
    ============================================================================= */
 const CAR = {
   mass: 950,
@@ -2934,8 +2955,8 @@ function stepVehicle(dt, ctl) {
     Fs = clamp(Fs, 0, m * 60);
     w.load = Fs;
     addForceAt(_ft.copy(AY).multiplyScalar(Fs), w.mount);
-    // grav-clamps: extra downforce only while in contact, so low-g stages hug gentle terrain
-    // but still fly off crests and kickers (airborne flight uses the stage's real gravity).
+    // grav-clamps (clampG, 0 at Earth gravity): extra downforce only while in contact, so a
+    // low-gravity stage would hug gentle terrain but still fly off crests and kickers.
     if (def.clampG > 0) addForceAt(_ft.copy(w.n).multiplyScalar(-m * def.clampG / 4), w.mount);
     // tyre frame on the ground plane
     _fw.copy(AZ);
@@ -4505,7 +4526,11 @@ function buildPaceNotes() {
   for (const f of TR.feats) {
     if (f.type === 'ramp') raw.push({ s: f.s0 - 6, end: f.lip, kind: 'icon', icon: '⤴', text: 'JUMP' });
     else if (f.type === 'chasm') raw.push({ s: f.s0 - 12, end: f.gapEnd, kind: 'icon', icon: '⤴', text: 'BIG JUMP · FLAT OUT', speak: 'over chasm, big jump, flat out' });
-    else raw.push({ s: f.s0 - 4, end: f.sc, kind: 'icon', icon: '⌢', text: def.gravity < 4 ? 'CREST · JUMPS' : 'OVER CREST', speak: def.gravity < 4 ? 'crest, jumps' : 'over crest' });
+    else {
+      const lift = Math.sqrt(def.gravity * def.crest.L * def.crest.L / (2 * Math.PI * Math.PI * def.crest.h));   // speed at which the car leaves the ground
+      const jumps = lift < 25;
+      raw.push({ s: f.s0 - 4, end: f.sc, kind: 'icon', icon: '⌢', text: jumps ? 'CREST · JUMPS' : 'OVER CREST', speak: jumps ? 'crest, jumps' : 'over crest' });
+    }
   }
   for (const cl of TR.clusters) {
     const mean = cl.ds.reduce((a, b) => a + b, 0) / cl.ds.length;
@@ -4579,7 +4604,7 @@ const HUD = {
   el: {}, last: {}, toastT: 0, msgT: 0,
   init() {
     for (const id of ['hud', 'stageName', 'progress', 'progFill', 'progCar', 'progGhost', 'progRival', 'cpLabel', 'infoBox', 'timer', 'delta', 'penalty', 'bestBox',
-      'coDriver', 'pn1', 'pn2', 'countdown', 'bigMsg', 'subMsg', 'toast', 'surfName', 'gripFill', 'gravVal', 'camVal', 'driftTag',
+      'coDriver', 'pn1', 'pn2', 'countdown', 'bigMsg', 'subMsg', 'toast', 'surfName', 'gripFill', 'altRow', 'altVal', 'camVal', 'driftTag',
       'spdArc', 'boostArc', 'spdNum', 'boostLbl', 'dmgFill', 'dmgPct', 'dmgIcon', 'touch', 'gearNum', 'rpmBar', 'rpmFill', 'rpmNum', 'gearMode', 'brkBar', 'brkFill']) this.el[id] = document.getElementById(id);
     this.suspBars = [...document.querySelectorAll('#suspBars i')];
   },
@@ -4594,7 +4619,7 @@ const HUD = {
     const def = TR.def;
     this.last = {};
     this.set('stageName', def.name.toUpperCase());
-    this.el.gravVal.textContent = (def.gravity / 9.81).toFixed(2) + ' G';
+    this.el.altRow.classList.toggle('hidden', !def.altitude);
     this.el.progress.querySelectorAll('.tick').forEach((t) => t.remove());
     const span = TR.finishS - TR.startS;
     this.ticks = TR.gates.map((g) => {
@@ -4771,6 +4796,7 @@ function decodeGhost(code) {
   if (hashStr(parts[1] + parts[2]) !== parts[3]) throw new Error('The code is incomplete or damaged — copy it again.');
   const meta = JSON.parse(decodeURIComponent(escape(unb64u(parts[1]))));
   if (!meta || typeof meta.s !== 'string' || !(meta.t > 0)) throw new Error('The code is missing its stage or time.');
+  if ((meta.v || 1) < 2) throw new Error('That ghost was recorded before every stage moved to Earth gravity, so it can\'t be raced any more.');
   const bin = unb64u(parts[2]), data = [], prev = new Array(9).fill(0);
   let c = 0, z = 0, mul = 1;
   for (let i = 0; i < bin.length; i++) {
@@ -4820,7 +4846,7 @@ function importGhost(code) {
   if (!Game.def || def.id !== Game.def.id) loadStage(def, enterMenu); else Menu.refresh();
   return g;
 }
-function ghostMeta(t) { return { v: 1, s: stageCode(TR.def), n: cleanName(Store.data.settings.name) || 'DRIVER', t: +t.toFixed(3), d: new Date().toISOString().slice(0, 10) }; }
+function ghostMeta(t) { return { v: 2, s: stageCode(TR.def), n: cleanName(Store.data.settings.name) || 'DRIVER', t: +t.toFixed(3), d: new Date().toISOString().slice(0, 10) }; }
 
 /* ---- clipboard with a manual-copy fallback (file:// pages often lack clipboard access) ---- */
 const Modal = {
@@ -4865,7 +4891,7 @@ function currentSetup() {
 const Service = {
   render() {
     const def = TR.def, su = currentSetup(), rec = RECOMMENDED[def.tpl];
-    document.getElementById('svcStage').textContent = def.name.toUpperCase() + ' · ' + stageCode(def) + ' · ' + (def.gravity / 9.81).toFixed(2) + ' G · MOSTLY ' + SURF_INFO[def.surf.base].name;
+    document.getElementById('svcStage').textContent = def.name.toUpperCase() + ' · ' + stageCode(def) + ' · ' + surfLabel(def);
     let html = '';
     for (const k of SETUP_KEYS) {
       const o = SETUP_OPTS[k];
@@ -5393,7 +5419,7 @@ function startRace() {
   Game.state = 'countdown'; Game.countdown = 3.2; Game.lastCount = 4;
   HUD.show(true);
   HUD.el.countdown.textContent = '';
-  HUD.message(TR.def.name.toUpperCase(), 'GRAVITY ' + (TR.def.gravity / 9.81).toFixed(2) + ' G  ·  ' + (TR.gates.length - 1) + ' CHECKPOINTS  ·  ' + (TR.finishS - TR.startS > 0 ? ((TR.finishS - TR.startS) / 1000).toFixed(2) : '0') + ' KM', '#ffffff', 2.8);
+  HUD.message(TR.def.name.toUpperCase(), (TR.gates.length - 1) + ' CHECKPOINTS  ·  ' + (TR.finishS - TR.startS > 0 ? ((TR.finishS - TR.startS) / 1000).toFixed(2) : '0') + ' KM', '#ffffff', 2.8);
   Cam.snap();
   AudioSys.unlock();
 }
@@ -5887,7 +5913,7 @@ const Menu = {
     STAGES.forEach((def, i) => {
       const r = document.createElement('button');
       r.className = 'srow'; r.dataset.idx = i;
-      r.innerHTML = `<i class="th" style="background-image:url(${stageArt(def, 104, 72)})"></i><span class="sn"><b></b><small>STAGE ${i + 1} · ${(def.gravity / 9.81).toFixed(2)} G · ${SURF_INFO[def.surf.base].name}</small></span><span class="sb"></span>`;
+      r.innerHTML = `<i class="th" style="background-image:url(${stageArt(def, 104, 72)})"></i><span class="sn"><b></b><small>STAGE ${i + 1} · ${(def.length / 1000).toFixed(1)} KM · ${surfLabel(def)}</small></span><span class="sb"></span>`;
       r.addEventListener('click', () => { AudioSys.unlock(); r.blur(); if (Game.state === 'menu' && (i !== Game.stageIdx || Game.def.custom)) loadStage(i, enterMenu); });
       list.appendChild(r);
     });
@@ -5928,7 +5954,7 @@ const Menu = {
     on('exportBtn', () => {
       const b = Store.best(Game.def.id), btn = document.getElementById('exportBtn');
       if (!b || !b.ghost || !b.ghost.data) { flashButton(btn, 'NO BEST RUN YET'); return; }
-      const meta = { v: 1, s: stageCode(Game.def), n: cleanName(Store.data.settings.name) || 'DRIVER', t: b.time, d: new Date().toISOString().slice(0, 10) };
+      const meta = { v: 2, s: stageCode(Game.def), n: cleanName(Store.data.settings.name) || 'DRIVER', t: b.time, d: new Date().toISOString().slice(0, 10) };
       copyText(encodeGhost(b.ghost.data, meta), 'GHOST CODE', btn);
     });
     on('finGhostBtn', () => { const r = Game.result; if (r && r.ghost.length) copyText(encodeGhost(r.ghost, ghostMeta(r.time)), 'GHOST CODE', document.getElementById('finGhostBtn')); });
@@ -5980,8 +6006,8 @@ const Menu = {
       document.getElementById('sdRegion').textContent = def.region;
       document.getElementById('sdBlurb').textContent = def.blurb;
       document.getElementById('sdStats').innerHTML = [
-        ['GRAVITY', (def.gravity / 9.81).toFixed(2) + ' G'], ['LENGTH', here ? ((TR.finishS - TR.startS) / 1000).toFixed(2) + ' KM' : '~' + (def.length / 1000).toFixed(1) + ' KM'],
-        ['SURFACE', SURF_INFO[def.surf.base].name], ['CHECKPOINTS', here ? TR.gates.length - 1 : def.checkpoints],
+        ['CORNERS', here ? TR.corners.length : '—'], ['LENGTH', here ? ((TR.finishS - TR.startS) / 1000).toFixed(2) + ' KM' : '~' + (def.length / 1000).toFixed(1) + ' KM'],
+        ['SURFACE', surfLabel(def)], ['CHECKPOINTS', here ? TR.gates.length - 1 : def.checkpoints],
         ['TARGET', tgt ? fmtTime(tgt) : '—'], ['YOUR BEST', b ? fmtTime(b.time) : '—'],
       ].map(([k, v]) => `<div>${k}<b>${v}</b></div>`).join('');
     }
