@@ -18,10 +18,9 @@ Each stage is generated from a fixed seed, so the layout is the same every time.
 | Foundry Gauntlet | 1.53 g | Hairpins on the metal decks of an orbital smelter over Io; the hardest stage |
 
 Hazards:
-- **Craters.** Some are built into the stage; meteor showers add new ones during a run.
+- **Craters.**
 - **Kicker ramps and crests.**
 - **Chasm jumps.**
-- **Meteor showers.** A red ring marks each impact point.
 - **Drifting debris.**
 - **Grip changes.** Surfaces are regolith, ice, metal or gravel.
 
@@ -37,6 +36,17 @@ Handling:
 - Countersteer assist gives up to 70% more steering lock when you steer into a slide, so drifts are easy to catch.
 - At speed, yaw stability bleeds off rotation beyond what your steering asks for. It never adds rotation, and it switches off while you're deliberately drifting or on the handbrake.
 - Keyboard steering ramps in more gently at high speed.
+
+Suspension:
+- Each corner is a coil-over: a linear coil spring and a two-stage damper. Bump and rebound are valved separately, with rebound the firmer side as on a real damper. Each side has a low-speed slope and a softer high-speed blow-off above its knee, so sharp ripples don't launch the body.
+- A progressive urethane bump stop takes over in the last 6 cm of travel before the hard stop.
+- Anti-roll bars are stiffer at the front than the rear, for a stable, slightly understeering balance on the limit.
+- The HUD shows each corner's travel: amber on the bump stop, red when bottomed out. The shocks are modelled on the car and move with the wheels.
+
+Transmission:
+- Six-speed sequential gearbox with a torque curve that peaks around 5,700 rpm, a rev limiter at 8,200 rpm and a short torque cut on each shift.
+- Lifting off gives engine braking, which is stronger in low gears.
+- Manual gears are the default on keyboard and gamepad. Shift with E/Q or d-pad up/down; the rev bar flashes when it's time to shift up, and a downshift that would over-rev the engine is refused. Touch devices default to automatic, and the MANUAL GEARS toggle (home screen, stage select or pause menu) switches between the two. The AI always uses the automatic.
 
 ## Home screen and garage
 
@@ -60,7 +70,7 @@ Each pilot, body, engine, wheel and wing shifts six stats (speed, acceleration, 
 ## Modes and sharing
 
 - **Stage codes.** Every stage has a code such as `RR-I-4471` (template letter L/I/W/M/E/F + seed). Type a code or a bare seed in the menu, or press RANDOM SEED, to generate a new stage from that template. Copy the code to send a friend the exact same stage.
-- **Service park.** Before each stage, pick suspension (soft/medium/stiff), gearing (short/standard/long) and tyres (all-terrain/studded/slick). Each stage marks a recommended setup with ★, and your choice is remembered per stage type.
+- **Service park.** Before each stage, pick springs (soft/medium/stiff), dampers (soft/medium/firm), final drive (short/standard/long) and tyres (all-terrain/studded/slick). Each stage marks a recommended setup with ★, and your choice is remembered per stage type.
 - **Rally mode.** Runs every stage back to back. Damage carries over. Between stages the crew repairs 40% for free, and a full repair costs time. Your best rally total is saved.
 - **Ghost codes and leaderboards.** Each stage keeps a local leaderboard of your runs plus imported ghosts. Use COPY THIS RUN'S GHOST CODE on the finish screen (or COPY MY BEST GHOST in the menu) to get a few-KB text code. A friend pastes it into IMPORT GHOST CODE: the right stage is generated and they race your run as a magenta rival ghost. RACE/RACING on the leaderboard picks which imported ghost to race.
 
@@ -69,9 +79,10 @@ Each pilot, body, engine, wheel and wing shifts six stats (speed, acceleration, 
 | | Keyboard | Gamepad | Touch |
 |---|---|---|---|
 | Throttle / brake & reverse | W / S or ↑ / ↓ | RT / LT | GAS / BRAKE |
-| Steer (in the air: yaw; W/S pitch) | A / D or ← / → | Left stick / d-pad | Steering pad |
+| Steer (in the air: yaw; W/S pitch) | A / D or ← / → | Left stick / d-pad ← → | Steering pad |
 | Handbrake | Space | A | HAND BRAKE |
 | Boost | Shift | X or RB | BOOST |
+| Gear up / down (manual gears) | E / Q | D-pad ↑ / ↓ | ▲ / ▼ |
 | Reset to last checkpoint | R | Back | R |
 | Camera (chase / bumper) | C | Y | CAM |
 | Pause (Esc also closes dialogs) | Esc | Start | II |
@@ -89,7 +100,7 @@ Each pilot, body, engine, wheel and wing shifts six stats (speed, acceleration, 
 9. Scenery
 10. Vehicle model and physics
 11. Particles
-12. Meteors
+12. (removed: meteor showers)
 13. Input
 14. Camera
 15. Audio
