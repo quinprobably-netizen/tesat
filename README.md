@@ -32,8 +32,8 @@ Rules and scoring:
 - On Pikes Peak, cutting across the hillside from one switchback to the next puts you back on the road where you left it, with +5 s.
 - Passing a chicane row on its barrier side, through the blocks or round the end, costs +5 s.
 - Damage builds up from hard landings and impacts and lowers your top speed until the stage ends.
-- Boost refills when you drift or land a jump cleanly.
 - Best times, splits and a ghost replay of your best run are stored in `localStorage`.
+- When the physics changes enough to make old times unfair (Earth gravity, then the real engines), saved times are moved to an archive and the boards start fresh. Setups and the garage are kept.
 
 Handling:
 - The tyres use a progressive grip curve. Grip builds smoothly up to the limit, then drops slightly while sliding, so you can feel the limit before you cross it.
@@ -59,8 +59,25 @@ Brakes:
 - With ABS on (the default), the wheels stop just short of locking and you can still steer. With ABS off, anything past about 80% pressure locks the wheels: the tyres slide, the car takes longer to stop and it won't turn. Switch ABS off in SETTINGS. The AI always brakes with ABS.
 - The brake bar under the rev bar shows pressure. It turns amber while ABS is working and white when a wheel locks.
 
+Engines and drivetrains:
+- Each car has the engine of the Group B car it is modelled on: its real torque curve, peak power, redline and homologation weight (plus 120 kg for crew and fuel). Turbo engines have lag: boost builds as the revs rise and bleeds away when you lift, and anti-lag pops flames from the tailpipes on flat-out upshifts. There is no boost button.
+
+| Car | Engine | Power | Torque | Weight | Drivetrain |
+|---|---|---|---|---|---|
+| TWINCHARGER (Delta S4) | 1.8 L I4, supercharger + turbo | 480 hp @ 8,000 | 490 N·m @ 5,000 | 890 kg | 4WD 30/70, viscous centre, open front, limited-slip rear |
+| FIVE-POT (Sport quattro S1 E2) | 2.1 L I5 turbo | 470 hp @ 8,000 | 480 N·m @ 5,500 | 1,090 kg | 4WD 50/50, locking centre and rear, open front |
+| T16 (205 T16) | 1.8 L I4 turbo | 450 hp @ 8,000 | 460 N·m @ 5,000 | 910 kg | 4WD 33/67, viscous centre, open front, limited-slip rear |
+| STRADALE (037) | 2.1 L I4 supercharged | 320 hp @ 8,000 | 333 N·m @ 5,500 | 960 kg | Rear-wheel drive, limited-slip rear |
+| RS WEDGE (RS200) | 1.8 L I4 turbo (Cosworth BDT) | 450 hp @ 8,000 | 420 N·m @ 6,000 | 1,050 kg | 4WD 37/63, viscous centre, front and rear |
+| SIX-R (Metro 6R4) | 3.0 L V6, naturally aspirated | 410 hp @ 9,000 | 365 N·m @ 6,500 | 1,030 kg | 4WD 38/62, viscous centre, front and rear |
+
+- The pull at the wheels is engine torque × gear ratio × driveline efficiency, less aerodynamic drag, so each car accelerates and tops out as its engine and weight dictate.
+- The differentials split that torque between the axles and wheels. An open diff gives both wheels only what the weaker one can take; limited-slip, viscous and locking diffs pass progressively more to the wheel with grip. Torque a tyre can't take spins it up and costs it cornering grip, so the rear-drive STRADALE steps out under power and the four-wheel-drive cars slide all four.
+- TRACTION CONTROL (on by default, in SETTINGS) trims the engine to what the drivetrain can put down, so nothing spins. The TC light on the speedo turns amber while it works. The AI always drives with it.
+- Target times are set by the TWINCHARGER, so other cars can be quicker or slower on a stage: the STRADALE is slow off the line on loose ground.
+
 Transmission:
-- Six-speed sequential gearbox with a torque curve that peaks around 5,700 rpm, a rev limiter at 8,200 rpm and a short torque cut on each shift.
+- Six-speed sequential gearbox with a rev limiter at each engine's redline and a short torque cut on each shift. In first the clutch slips on a standing start.
 - Lifting off gives engine braking, which is stronger in low gears.
 - Manual gears are the default on keyboard and gamepad. Shift with E/Q or d-pad up/down; the rev bar flashes when it's time to shift up, and a downshift that would over-rev the engine is refused. Touch devices default to automatic, and the MANUAL GEARS switch in SETTINGS changes between the two. The AI always uses the automatic.
 
@@ -68,7 +85,7 @@ Transmission:
 
 - **Home.** PLAY (stage select), RALLY, GARAGE and SETTINGS, with your current pilot, car and stats beside them.
 - **Stage select.** The seven stages are listed on the left, each with its best time and medal. The chosen stage is shown on the right with a picture, its corner count, length, surface, checkpoints and target time, and two tabs: LEADERBOARD, and CODES & GHOSTS for stage codes, seeds and ghost codes.
-- **Settings.** Every switch in one place, reachable from the home screen, the stage select (⚙) and the pause menu: manual gears and ABS, bumper cam, ghost and racing line, sound and co-driver voice, your driver name, and a controls reference for keyboard, gamepad and touch.
+- **Settings.** Every switch in one place, reachable from the home screen, the stage select (⚙) and the pause menu: manual gears, ABS and traction control, bumper cam, ghost and racing line, sound and co-driver voice, your driver name, and a controls reference for keyboard, gamepad and touch.
 - **Pause.** Resume, restart, settings or quit to the stage select.
 
 All menus work with the keyboard (arrow keys, Enter, Esc) and the gamepad (d-pad, A, B) as well as by mouse or touch.
@@ -80,15 +97,14 @@ In the **garage** you build your ride Mario Kart style, with a live 3D preview t
 | Part | Options |
 |---|---|
 | Pilot | NOVA (astronaut, medium), ZIX (alien, light), BOLT-9 (robot, heavy), MISO (cat, light), GRAVL (rock golem, heavy), PIP (drone, feather), KOI (goldfish, light), VEGA (rally ace, medium) |
-| Car | Group B inspired: TWINCHARGER (Lancia Delta S4), FIVE-POT (Audi Sport quattro S1 E2), T16 (Peugeot 205 T16), STRADALE (Lancia 037), RS WEDGE (Ford RS200), SIX-R (MG Metro 6R4) |
-| Engine | TWIN ION, PULSE ROCKET, ARC COIL, NOVA BURNER, RAMJET |
+| Car | Group B inspired: TWINCHARGER (Lancia Delta S4), FIVE-POT (Audi Sport quattro S1 E2), T16 (Peugeot 205 T16), STRADALE (Lancia 037), RS WEDGE (Ford RS200), SIX-R (MG Metro 6R4). Each comes with its real engine and drivetrain, shown under the CAR tab. |
 | Wheels | STANDARD, CRAWLER, SLICK ROLLER, HOVER PADS, SPIKE RIMS |
 | Wing | STOCK (the car's own rally aero), SLIPSTREAM (none), HIGH WING, SOLAR FINS |
 | Paint | 12 colours, including metallic chrome and copper |
 | Decal | CLEAN, STRIPES, FLAMES, CHECKER, BOLT, STARS |
 | Glow | Underglow in 5 colours, or off |
 
-Each pilot, car, engine, wheel and wing shifts six stats (speed, acceleration, handling, grip, weight, boost) up or down from a neutral 5. Hover an option to preview the change. The default build (NOVA in the TWINCHARGER) is all neutral. In the race, the stats scale top speed (±11%), acceleration, steering lock, tyre grip, boost thrust and refill, and damage taken (heavier builds shrug off more). The build is saved in `localStorage` and applies to every stage; the service park setup still stacks on top.
+Each pilot, car, wheel and wing shifts five stats (speed, acceleration, handling, grip, weight) up or down from a neutral 5. Hover an option to preview the change. A car's speed and acceleration bars describe its engine, which sets the pace by itself; the pilot, wheels and wing nudge top speed (±11%) and pull (±3% a step). The other stats scale steering lock, tyre grip and damage taken (heavier builds shrug off more). The build is saved in `localStorage` and applies to every stage; the service park setup still stacks on top.
 
 ## Modes and sharing
 
@@ -104,7 +120,6 @@ Each pilot, car, engine, wheel and wing shifts six stats (speed, acceleration, h
 | Throttle / brake & reverse | W / S or ↑ / ↓ | RT / LT | GAS / BRAKE |
 | Steer (in the air: yaw; W/S pitch) | A / D or ← / → | Left stick / d-pad ← → | Steering pad |
 | Handbrake | Space | A | HAND BRAKE |
-| Boost | Shift | X or RB | BOOST |
 | Gear up / down (manual gears) | E / Q | D-pad ↑ / ↓ | ▲ / ▼ |
 | Reset to last checkpoint | R | Back | R |
 | Camera (chase / bumper) | C | Y | CAM |
