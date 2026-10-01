@@ -368,6 +368,70 @@ body.touch #stageName{display:none}
   #timer{font-size:32px} .pn{font-size:18px} .pn svg,.pn .ico{width:30px;height:30px}
   #bestBox{font-size:9px} #stageName{display:none} #pace{top:96px}
 }
+/* ---------- phones: touch HUD and menus in portrait and landscape ---------- */
+#tSteer span{bottom:auto;top:-15px}
+body.touch .home-foot,body.touch .gar-hint,body.touch .sel-foot{display:none}
+body.touch .ctl-table th:nth-child(2),body.touch .ctl-table td:nth-child(2){display:none}
+body.touch #pace{min-width:0;max-width:calc(100vw - 24px)}
+body.touch .pn{white-space:normal;line-height:1.15}
+body.touch .pn.next{display:none}
+/* phone portrait: dash top left, timer and best stacked top right, pace notes under them */
+@media (orientation:portrait) and (max-width:600px){
+  body.touch #topbar{top:calc(max(8px,env(safe-area-inset-top)) + 18px);left:12px;width:calc(100vw - 216px)}
+  body.touch #cpLabel{min-width:0;font-size:10px}
+  body.touch #dash{top:calc(max(8px,env(safe-area-inset-top)) + 46px);left:2px;transform:scale(.5)}
+  body.touch #timerBox{top:calc(max(8px,env(safe-area-inset-top)) + 52px);left:auto;right:12px;transform:none;text-align:right}
+  body.touch #timer{font-size:30px}
+  body.touch #delta{font-size:15px;height:18px}
+  body.touch #bestBox{top:calc(max(8px,env(safe-area-inset-top)) + 124px);right:12px;line-height:1.6;font-size:9px}
+  body.touch #pace{top:calc(max(8px,env(safe-area-inset-top)) + 204px)}
+  body.touch .pn{font-size:16px;padding:6px 12px 6px 8px} body.touch .pn svg,body.touch .pn .ico{width:28px;height:28px;font-size:20px}
+  body.touch #center{top:44%}
+  body.touch #countdown{font-size:96px} body.touch #bigMsg{font-size:24px}
+}
+/* phone landscape: one slim strip across the top, small dash in the corner, pace notes clear of the road */
+@media (orientation:landscape) and (max-height:500px){
+  body.touch #dash{top:max(4px,env(safe-area-inset-top));left:max(2px,env(safe-area-inset-left));transform:scale(.44)}
+  body.touch #topbar{top:calc(max(8px,env(safe-area-inset-top)) + 16px);left:calc(max(2px,env(safe-area-inset-left)) + 112px);width:calc(100vw - max(2px,env(safe-area-inset-left)) - 330px)}
+  body.touch #cpLabel{min-width:0}
+  body.touch #timerBox{top:calc(max(8px,env(safe-area-inset-top)) + 30px)}
+  body.touch #timer{font-size:30px} body.touch #delta{font-size:14px;height:16px}
+  body.touch #bestBox{top:calc(max(8px,env(safe-area-inset-top)) + 50px);right:max(12px,env(safe-area-inset-right));font-size:9px;line-height:1.6}
+  body.touch #pace{top:calc(max(8px,env(safe-area-inset-top)) + 96px);max-width:min(60vw,440px)}
+  body.touch #coDriver{display:none}
+  body.touch .pn{font-size:15px;padding:5px 12px 5px 8px} body.touch .pn svg,body.touch .pn .ico{width:24px;height:24px;font-size:18px}
+  body.touch #countdown{font-size:80px} body.touch #bigMsg{font-size:24px} body.touch #center{top:42%}
+  body.touch #tSteer{height:96px;width:min(36vw,280px)} body.touch #tKnob{width:70px;height:70px;margin:-35px 0 0 -35px}
+  body.touch #tPedals{grid-template-rows:52px 52px 52px;grid-template-columns:68px 84px}
+  body.touch #tGears{right:calc(max(12px,env(safe-area-inset-right)) + 172px)}
+  /* menus on a short screen: smaller headings, everything scrolls as one */
+  .overlay{padding:12px max(12px,env(safe-area-inset-right)) 12px max(12px,env(safe-area-inset-left))}
+  .home-wrap{flex-wrap:nowrap;gap:22px;align-items:flex-start;padding-bottom:0}
+  .home-main .logo{font-size:34px} .home-main .tagline{margin:6px 0 12px;font-size:9px;letter-spacing:.24em}
+  .home-nav{gap:6px;width:min(330px,46vw)} .hbtn{padding:7px 14px} .hbtn b{font-size:18px} .hbtn small{font-size:10px}
+  .ride{padding:12px 14px} .ride-head{margin-bottom:6px} .ride-head img{width:48px;height:48px} .ride-head b{font-size:18px} .ride .btn{margin-top:8px;padding:9px}
+  .sbars{gap:3px}
+  .gar-top{top:8px} .gar-top h2{font-size:22px}
+  .gar-panel{top:50px;bottom:8px;left:max(8px,env(safe-area-inset-left));padding:10px;overflow:auto}
+  .gar-panel .gar-opts{flex:none;overflow:visible}
+  .gar-tabs{position:sticky;top:-10px;z-index:2;margin:-10px -10px 8px;padding:10px 10px 6px;background:rgba(10,13,24,.96)}
+  .gar-stats{top:8px;right:max(8px,env(safe-area-inset-right));width:min(250px,30vw);padding:8px 10px}
+  .gar-stats .ride-head{margin-bottom:4px} .gar-stats .ride-head img{width:34px;height:34px} .gar-stats .ride-head b{font-size:16px} .gar-stats .ride-parts{display:none}
+  .gar-stats .sbar{grid-template-columns:78px 1fr 22px;font-size:8px} .gar-stats .rbar{height:6px} .gar-stats .pi-row{margin-bottom:4px}
+  #menu{padding-top:10px} .sel-head{margin-bottom:8px} .sd-banner{display:none} .sd-main{padding-top:10px}
+  .panel{padding:14px 18px} .panel h2{font-size:22px} .bigtime{font-size:40px}
+  .fin-panel{gap:16px}
+}
+/* Pikes Peak altitude stays on phones: a slim tag under the best time (the rest of the surface box is desktop only) */
+body.touch #surfBox:has(#altRow:not(.hidden)){display:block;left:auto;bottom:auto;right:max(12px,env(safe-area-inset-right));top:calc(max(8px,env(safe-area-inset-top)) + 172px);width:auto;padding:3px 10px;line-height:1.6;font-size:9px}
+body.touch #surfBox>:not(#altRow){display:none}
+@media (orientation:landscape) and (max-height:500px){body.touch #surfBox:has(#altRow:not(.hidden)){top:calc(max(8px,env(safe-area-inset-top)) + 96px)}}
+/* phone portrait garage: the panel scrolls as one, so long car specs never squeeze the choices */
+@media (max-width:760px){
+  .gar-panel{overflow:auto;padding:10px}
+  .gar-panel .gar-opts{flex:none;overflow:visible}
+  .gar-tabs{position:sticky;top:-10px;z-index:2;margin:-10px -10px 8px;padding:10px 10px 6px;background:rgba(10,13,24,.96);border-radius:14px 14px 0 0}
+}
 </style>
 </head>
 <body>
