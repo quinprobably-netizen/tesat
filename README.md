@@ -106,7 +106,7 @@ In the **garage** you build your ride Mario Kart style, with a live 3D preview t
 
 Each car is drawn on its own rally wheels: multi-spoke or five-spoke rims, with a brake disc and caliper behind the spokes. The discs glow orange after hard braking and cool off again. The coil-overs, anti-roll bars and tailpipes are modelled too, and the tailpipes spit flame on anti-lag pops.
 
-Parts change the car's real physics. The pilot adds their weight (35 to 180 kg) and quickens or slows the steering. Wheels change grip on each surface, weight and rolling drag. The wing changes drag and downforce, and downforce presses the tyres harder as speed rises. Each car also has its own downforce and turn-in.
+Parts change the car's real physics; the pilot is looks only and has no effect on performance. Wheels change grip on each surface, weight and rolling drag. The wing changes drag and downforce, and downforce presses the tyres harder as speed rises. Each car also has its own downforce and turn-in.
 
 Every build gets a **PI** (performance index, 100 to 999) and a class: D, C (501+), B (601+), A (701+), S1 (801+), S2 (901+) and X (999). Six ratings out of 10 make up the PI: speed, handling, acceleration, launch, braking and offroad. They are worked out from the build's physics: a full-throttle run on regolith with the drivetrain's traction limit for top speed, 0-100 and 0-160 km/h, tyre grip with downforce for cornering and braking, and loose-surface grip for offroad. Every tile shows the PI the build would have with that part, and hovering one previews the rating changes. The service park shows the PI with the chosen setup. As standard, the TWINCHARGER rates A 730 and the rear-drive STRADALE C 563.
 

@@ -1020,20 +1020,20 @@ const RECOMMENDED = [{ susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 1, 
 const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
 const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
 /* ---- garage: pilot + vehicle parts (chosen in the garage, kept for every stage) ----
-   Parts change the car's real physics: the pilot's weight and hands (kg, steer), the tyres' grip on each
-   surface (mu: regolith, ice, metal, gravel, tarmac), their weight and rolling drag, and the wing's drag
-   and downforce areas (cda, cla, added to the car's own). Paint, decal and glow are cosmetic. Each build
+   Parts change the car's real physics: the tyres' grip on each surface (mu: regolith, ice, metal, gravel,
+   tarmac), their weight and rolling drag, and the wing's drag and downforce areas (cda, cla, added to the
+   car's own). The pilot, paint, decal and glow are looks only: every pilot weighs the same. Each build
    is rated from what those physics give it (see perfRatings): six ratings and a PI with a class. */
 const GARAGE = {
   pilot: { label: 'PILOT', opts: [
-    { name: 'NOVA', cls: 'MEDIUM', kind: 'astro', suit: '#f2f4f8', trim: '#ff7a1a', visor: '#ffb52e', bg: '#27406e', blurb: 'Rookie astronaut. Steady hands, average build.', kg: 75, steer: 1 },
-    { name: 'ZIX', cls: 'LIGHT', kind: 'alien', suit: '#7ee05a', trim: '#2f7a2a', visor: '#101418', bg: '#3b1f5e', blurb: 'Tiny and twitchy: quick hands, gets knocked about.', kg: 50, steer: 1.035 },
-    { name: 'BOLT-9', cls: 'HEAVY', kind: 'robot', suit: '#9aa6b8', trim: '#3a4150', visor: '#58f0ff', bg: '#16324a', blurb: 'Retired loader bot. Heavy and slow to react, shrugs off knocks.', kg: 140, steer: 0.965 },
-    { name: 'MISO', cls: 'LIGHT', kind: 'cat', suit: '#ffb36b', trim: '#ffffff', visor: '#8ef0ff', bg: '#5e2a3a', blurb: 'Station cat with sharp reflexes and sure paws.', kg: 55, steer: 1.02 },
-    { name: 'GRAVL', cls: 'HEAVY', kind: 'golem', suit: '#8a7f73', trim: '#5a5047', visor: '#ff9a3c', bg: '#3e2a1c', blurb: 'Living asteroid. Weighs as much as a boulder, shrugs off hits.', kg: 180, steer: 0.965 },
-    { name: 'PIP', cls: 'FEATHER', kind: 'drone', suit: '#e8ecf2', trim: '#ff4fd8', visor: '#ff4fd8', bg: '#1d3a3a', blurb: 'Survey drone. Featherweight and twitchy.', kg: 35, steer: 1.035 },
-    { name: 'KOI', cls: 'LIGHT', kind: 'fish', suit: '#dfe9f2', trim: '#ff6a2e', visor: '#7fd8ff', bg: '#123a52', blurb: 'Goldfish in a water-filled helmet. Smooth hands, sticks to the road.', kg: 65, steer: 1.02 },
-    { name: 'VEGA', cls: 'MEDIUM', kind: 'racer', suit: '#20242c', trim: '#e8322e', visor: '#ffd21f', bg: '#4a1620', blurb: 'Veteran rally ace. Quick hands, flat out everywhere.', kg: 80, steer: 1.02 },
+    { name: 'NOVA', cls: 'MEDIUM', kind: 'astro', suit: '#f2f4f8', trim: '#ff7a1a', visor: '#ffb52e', bg: '#27406e', blurb: 'Rookie astronaut on their first rally.' },
+    { name: 'ZIX', cls: 'LIGHT', kind: 'alien', suit: '#7ee05a', trim: '#2f7a2a', visor: '#101418', bg: '#3b1f5e', blurb: 'Tiny, twitchy and very excited to be here.' },
+    { name: 'BOLT-9', cls: 'HEAVY', kind: 'robot', suit: '#9aa6b8', trim: '#3a4150', visor: '#58f0ff', bg: '#16324a', blurb: 'Retired loader bot with a new hobby.' },
+    { name: 'MISO', cls: 'LIGHT', kind: 'cat', suit: '#ffb36b', trim: '#ffffff', visor: '#8ef0ff', bg: '#5e2a3a', blurb: 'Station cat with sharp reflexes and sure paws.' },
+    { name: 'GRAVL', cls: 'HEAVY', kind: 'golem', suit: '#8a7f73', trim: '#5a5047', visor: '#ff9a3c', bg: '#3e2a1c', blurb: 'Living asteroid. Sits very still, drives very fast.' },
+    { name: 'PIP', cls: 'FEATHER', kind: 'drone', suit: '#e8ecf2', trim: '#ff4fd8', visor: '#ff4fd8', bg: '#1d3a3a', blurb: 'Survey drone that wandered into the service park.' },
+    { name: 'KOI', cls: 'LIGHT', kind: 'fish', suit: '#dfe9f2', trim: '#ff6a2e', visor: '#7fd8ff', bg: '#123a52', blurb: 'Goldfish in a water-filled helmet. Smooth hands, sticks to the road.' },
+    { name: 'VEGA', cls: 'MEDIUM', kind: 'racer', suit: '#20242c', trim: '#e8322e', visor: '#ffd21f', bg: '#4a1620', blurb: 'Veteran rally ace. Flat out everywhere.' },
   ] },
   body: { label: 'CAR', opts: [
     { name: 'TWINCHARGER', blurb: 'Lancia Delta S4 inspired. Supercharger plus turbo: pulls hard from any revs.' },
@@ -1070,7 +1070,7 @@ const GARAGE = {
   ] },
 };
 const GARAGE_KEYS = ['pilot', 'body', 'wheels', 'wing', 'color', 'decal', 'glow'];
-const BUILD_PARTS = ['pilot', 'body', 'wheels', 'wing'];
+const BUILD_PARTS = ['body', 'wheels', 'wing'];
 const DEFAULT_BUILD = { pilot: 0, body: 0, wheels: 0, wing: 0, color: 0, decal: 0, glow: 0 };
 function cleanBuild(b) {
   const out = Object.assign({}, DEFAULT_BUILD);
@@ -1124,10 +1124,10 @@ function drivetrainText(spec) {
 function tuneFor(setup, build) {
   const su = TUNE.susp[setup.susp], dp = TUNE.damp[setup.damp] || TUNE.damp[1], g = TUNE.gear[setup.gear];
   build = cleanBuild(build || DEFAULT_BUILD);
-  const sp = CAR_SPECS[build.body] || CAR_SPECS[0], P = GARAGE.pilot.opts[build.pilot], Wh = GARAGE.wheels.opts[build.wheels], Wi = GARAGE.wing.opts[build.wing];
-  const mass = sp.kg + P.kg + FUEL_KG + Wh.kg, dm = mass - (CAR_SPECS[0].kg + REF_PILOT_KG + FUEL_KG);
+  const sp = CAR_SPECS[build.body] || CAR_SPECS[0], Wh = GARAGE.wheels.opts[build.wheels], Wi = GARAGE.wing.opts[build.wing];
+  const mass = sp.kg + REF_PILOT_KG + FUEL_KG + Wh.kg, dm = mass - (CAR_SPECS[0].kg + REF_PILOT_KG + FUEL_KG);
   return { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land - dm * 0.003, v: g.v,
-    mu: TUNE.tyre[setup.tyre].map((m, i) => m * Wh.mu[i]), steer: sp.steer * P.steer * Wh.steer * Wi.steer, drag: Wh.drag,
+    mu: TUNE.tyre[setup.tyre].map((m, i) => m * Wh.mu[i]), steer: sp.steer * Wh.steer * Wi.steer, drag: Wh.drag,
     dmg: clamp(1 - dm * 0.0012, 0.7, 1.3), spec: sp, mass, cda: Math.max(0.6, sp.cda + Wi.cda), cla: Math.max(0, sp.cla + Wi.cla) };
 }
 
@@ -6633,13 +6633,14 @@ const Garage = {
       if (k === 'glow') return `<button class="gtile sw${sel}" data-v="${v}" style="--c:${o.css ? 'rgb(' + o.css + ')' : 'transparent'}"><i class="${o.css ? 'gl' : 'off'}"></i><b>${o.name}</b></button>`;
       if (k === 'decal') return `<button class="gtile dc${sel}" data-v="${v}"><img src="${decalPreview(v, b.color)}" alt=""><b>${o.name}</b></button>`;
       const Rv = BUILD_PARTS.includes(k) ? ratingsFor(Object.assign({}, b, { [k]: v })) : null;
-      if (k === 'pilot') return `<button class="gtile pt${sel}" data-v="${v}"><img src="${pilotPortrait(v)}" alt=""><b>${o.name}</b><small>${o.kg} KG</small>${piBadge(Rv, true)}</button>`;
+      if (k === 'pilot') return `<button class="gtile pt${sel}" data-v="${v}"><img src="${pilotPortrait(v)}" alt=""><b>${o.name}</b><small>${o.cls}</small></button>`;
       if (k === 'body') { const sp = CAR_SPECS[v]; return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b><small>${sp.hp} HP · ${sp.kg} KG · ${sp.front ? '4WD' : 'RWD'}</small>${piBadge(Rv, true)}</button>`; }
       return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b>${piBadge(Rv, true)}<div class="chips">${partChips(k, o)}</div></button>`;
     }).join('');
     const cur = cat.opts[b[k]];
     const cosmetic = { color: 'Paint job for the body, wings and wheel arches. Chrome and copper are extra shiny.', decal: 'Livery pattern for the sides and roof.', glow: 'Colour of the underglow and hover pad lights.' };
-    let desc = cosmetic[k] ? cosmetic[k] + ' <em>Looks only, no stat change.</em>' : `<b>${cur.name}</b> ${cur.blurb}`;
+    if (k === 'pilot') cosmetic.pilot = `<b>${cur.name}</b> ${cur.blurb}`;
+    let desc = cosmetic[k] ? cosmetic[k] + ' <em>Looks only, no effect on performance.</em>' : `<b>${cur.name}</b> ${cur.blurb}`;
     if (k === 'body') {
       const sp = CAR_SPECS[b.body];
       desc += `<div class="gar-spec"><span class="wide"><i>ENGINE</i>${sp.engine}</span><span><i>POWER</i>${sp.hp} hp · ${sp.hpAt} rpm</span><span><i>TORQUE</i>${sp.nm} N·m · ${sp.nmAt} rpm</span>` +
@@ -6653,7 +6654,7 @@ const Garage = {
     let cmp = null;
     if (this.preview) cmp = ratingsFor(Object.assign({}, b, this.preview));
     document.getElementById('garStats').innerHTML =
-      `<div class="ride-head"><img src="${pilotPortrait(b.pilot)}" alt=""><div><b>${p.name}</b><small>${p.cls} · ${p.kg} KG</small><div class="ride-parts">${rideSummary(b)}</div></div></div>` +
+      `<div class="ride-head"><img src="${pilotPortrait(b.pilot)}" alt=""><div><b>${p.name}</b><small>${p.cls}</small><div class="ride-parts">${rideSummary(b)}</div></div></div>` +
       ratingsHTML(R, cmp);
   },
   /** Orbit camera around the parked car, framed to the right of (or above) the parts panel. */
@@ -6887,7 +6888,7 @@ const Menu = {
     const gb = Store.data.garage, gp = GARAGE.pilot.opts[gb.pilot];
     document.querySelectorAll('#homeNav .hbtn').forEach((b, i) => b.classList.toggle('sel', i === this.homeIdx));
     document.getElementById('homeRally').textContent = 'All ' + STAGES.length + ' stages back to back' + (rb ? ' · best ' + fmtTime(rb.total) : '');
-    const rideHTML = `<h4>YOUR RIDE</h4><div class="ride-head"><img src="${pilotPortrait(gb.pilot)}" alt=""><div><b>${gp.name}</b><small>${gp.cls} · ${gp.kg} KG</small>` +
+    const rideHTML = `<h4>YOUR RIDE</h4><div class="ride-head"><img src="${pilotPortrait(gb.pilot)}" alt=""><div><b>${gp.name}</b><small>${gp.cls}</small>` +
       `<div class="ride-parts">${rideSummary(gb)}<br>${GARAGE.color.opts[gb.color].name} PAINT</div></div></div>${ratingsHTML(ratingsFor(gb))}<button class="btn alt">OPEN GARAGE &#9656;</button>`;
     const hr = document.getElementById('homeRide');
     if (hr.dataset.html !== rideHTML) { hr.innerHTML = rideHTML; hr.dataset.html = rideHTML; }
