@@ -2019,8 +2019,8 @@ function computeSpeedProfile() {
   computeLineProfile();
 }
 /* ---- racing line: the smoothest path through the road's usable width, clear of crater clusters and
-   weaving through the chicane rows. Each point relaxes toward the chord between its neighbours (long
-   spans first, then short ones), which converges on a minimum-curvature line clamped to the road. ---- */
+   corner boulders, and weaving through the chicane rows. Each point relaxes toward the chord between its
+   neighbours (long spans first, then short ones), which converges on a minimum-curvature line clamped to the road. ---- */
 function computeRacingLine() {
   const N = TR.N, C = CHICANE, lim = TR.hw - 1.7;
   const lo = new Float32Array(N).fill(-lim), hi = new Float32Array(N).fill(lim);
@@ -2035,6 +2035,15 @@ function computeRacingLine() {
     for (const f of TR.feats) {
       const tk = f.type === 'crest' ? f.sc : f.lip;
       if (c.s > tk && c.s < tk + 90) for (let i = Math.max(0, Math.floor((tk - 12) / DS)); i * DS < c.s; i++) keepOut(i, c, clr);
+    }
+  }
+  for (const r of TR.extraRocks) {                       // wide of the boulders on the inside of "don't cut" corners
+    // how far the boulder (plus the car's half-width and a margin) reaches in past the line's usual limit
+    const push = r.scale * 0.85 + 1.7 - (Math.abs(r.d) - lim), flat = r.scale * 0.85 + 2.5, ramp = 16;
+    if (push <= 0) continue;
+    for (let i = Math.max(0, Math.floor((r.s - flat - ramp) / DS)); i <= Math.min(N - 1, Math.ceil((r.s + flat + ramp) / DS)); i++) {
+      const t = Math.max(0, Math.abs(i * DS - r.s) - flat);   // clear along the car's length, then ease back out
+      keepOut(i, r, Math.abs(r.d) - lim + push * (t >= ramp ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * t / ramp)));
     }
   }
   for (const ch of TR.chicanes) for (const r of ch.rows) {   // pass each row on its open side, clear of the tip

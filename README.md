@@ -49,7 +49,7 @@ Suspension:
 - The HUD shows each corner's travel: amber on the bump stop, red when bottomed out. The shocks are modelled on the car and move with the wheels.
 
 Racing line:
-- Every stage has a racing line: the smoothest path through the road's usable width, clear of craters, weaving through the chicane rows, with its own speed at every point.
+- Every stage has a racing line: the smoothest path through the road's usable width, clear of craters and corner boulders, weaving through the chicane rows, with its own speed at every point.
 - Chevrons along the line show what the car needs to do from its current speed: green to keep going, amber to lift, red to brake now. A red board across the line marks each braking point, shown when you're fast enough to need it.
 - Set it to FULL, BRAKING (only the lift and brake zones) or OFF in SETTINGS, or press L. The AI drives the same line.
 
