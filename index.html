@@ -532,7 +532,7 @@ body.touch #stageName{display:none}
       <div class="set-top"><button class="mini" id="setBack">&#9666; BACK</button><h2 id="setTitle">SETTINGS</h2></div>
       <div id="setList">
         <div class="set-group">DRIVING</div>
-        <button class="opt" data-set="manual"><span><b>MANUAL GEARS</b><small>Shift yourself with E / Q or the d-pad. Off: automatic gearbox.</small></span><i class="switch"></i></button>
+        <button class="opt" data-set="manual"><span><b>MANUAL GEARS</b><small>Shift yourself with E / Q or the bumpers (RB up, LB down). Off: automatic gearbox.</small></span><i class="switch"></i></button>
         <button class="opt" data-set="abs"><span><b>ABS</b><small>Stops the wheels locking under hard braking. Off: squeeze the brakes.</small></span><i class="switch"></i></button>
         <button class="opt" data-set="tc"><span><b>TRACTION CONTROL</b><small>Trims the engine so the driven wheels never spin. Off: feed the throttle in, or spin up and slide.</small></span><i class="switch"></i></button>
         <div class="set-group">VIEW</div>
@@ -552,7 +552,7 @@ body.touch #stageName{display:none}
           <tr><td>Throttle / brake, reverse</td><td><kbd>W</kbd><kbd>S</kbd> or <kbd>&uarr;</kbd><kbd>&darr;</kbd></td><td>RT / LT</td><td>GAS / BRAKE</td></tr>
           <tr><td>Steer (in the air: yaw)</td><td><kbd>A</kbd><kbd>D</kbd> or <kbd>&larr;</kbd><kbd>&rarr;</kbd></td><td>Left stick</td><td>Steering pad</td></tr>
           <tr><td>Handbrake</td><td><kbd>Space</kbd></td><td>A</td><td>HAND BRAKE</td></tr>
-          <tr><td>Gear up / down</td><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>D-pad &uarr; / &darr;</td><td>&#9650; / &#9660;</td></tr>
+          <tr><td>Gear up / down</td><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>RB / LB</td><td>&#9650; / &#9660;</td></tr>
           <tr><td>Reset to checkpoint</td><td><kbd>R</kbd></td><td>Back</td><td>R</td></tr>
           <tr><td>Camera</td><td><kbd>C</kbd></td><td>Y</td><td>CAM</td></tr>
           <tr><td>Racing line: full, braking, off</td><td><kbd>L</kbd></td><td></td><td>Settings</td></tr>
@@ -4982,15 +4982,15 @@ const Input = {
       const dz = 0.12;
       const sx = Math.abs(ax) > dz ? Math.sign(ax) * (Math.abs(ax) - dz) / (1 - dz) : 0;
       if (Math.abs(sx) > 0.01) { steer = sx; this.usingPad = true; }
-      if (btn(14) > 0.5) steer = -1; if (btn(15) > 0.5) steer = 1;   // d-pad up/down shift gears (see edges below)
+      if (btn(14) > 0.5) steer = -1; if (btn(15) > 0.5) steer = 1;   // the bumpers shift gears (see edges below)
       const rt = btn(7), lt = btn(6);
       if (rt > 0.05) { throttle = Math.max(throttle, rt); this.usingPad = true; }
       if (lt > 0.05) brake = Math.max(brake, lt);
       if (btn(0) > 0.5) handbrake = true;
-      const edges = { 9: 'pause', 3: 'camera', 8: 'reset', 0: 'confirm', 1: 'back', 12: 'navUp', 13: 'navDown', 14: 'navLeft', 15: 'navRight' };
+      const edges = { 9: 'pause', 3: 'camera', 8: 'reset', 0: 'confirm', 1: 'back', 12: 'navUp', 13: 'navDown', 14: 'navLeft', 15: 'navRight', 5: 'gearUp', 4: 'gearDown' };
       for (const bi in edges) {
         const p = btn(+bi) > 0.5;
-        if (p && !this.padPrev[bi]) { this.actions.push(edges[bi]); if (bi === '12' || bi === '13') this.actions.push(bi === '12' ? 'gearUp' : 'gearDown'); AudioSys.unlock(); }
+        if (p && !this.padPrev[bi]) { this.actions.push(edges[bi]); AudioSys.unlock(); }
         this.padPrev[bi] = p;
       }
       const stickNav = ax < -0.6 ? 'L' : ax > 0.6 ? 'R' : '';

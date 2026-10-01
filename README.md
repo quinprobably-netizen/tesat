@@ -79,7 +79,7 @@ Engines and drivetrains:
 Transmission:
 - Six-speed sequential gearbox with a rev limiter at each engine's redline and a short torque cut on each shift. In first the clutch slips on a standing start.
 - Lifting off gives engine braking, which is stronger in low gears.
-- Manual gears are the default on keyboard and gamepad. Shift with E/Q or d-pad up/down; the rev bar flashes when it's time to shift up, and a downshift that would over-rev the engine is refused. Touch devices default to automatic, and the MANUAL GEARS switch in SETTINGS changes between the two. The AI always uses the automatic.
+- Manual gears are the default on keyboard and gamepad. Shift with E/Q or the controller bumpers (RB up, LB down); the rev bar flashes when it's time to shift up, and a downshift that would over-rev the engine is refused. Touch devices default to automatic, and the MANUAL GEARS switch in SETTINGS changes between the two. The AI always uses the automatic.
 
 ## Menus
 
@@ -120,7 +120,7 @@ Each pilot, car, wheel and wing shifts five stats (speed, acceleration, handling
 | Throttle / brake & reverse | W / S or ↑ / ↓ | RT / LT | GAS / BRAKE |
 | Steer (in the air: yaw; W/S pitch) | A / D or ← / → | Left stick / d-pad ← → | Steering pad |
 | Handbrake | Space | A | HAND BRAKE |
-| Gear up / down (manual gears) | E / Q | D-pad ↑ / ↓ | ▲ / ▼ |
+| Gear up / down (manual gears) | E / Q | RB / LB | ▲ / ▼ |
 | Reset to last checkpoint | R | Back | R |
 | Camera (chase / bumper) | C | Y | CAM |
 | Pause (Esc also closes dialogs) | Esc | Start | II |
