@@ -169,10 +169,21 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
 .ride-parts{font-size:11px;letter-spacing:.08em;color:#c9d2e6;font-weight:700;margin-top:6px;line-height:1.5}
 .sbars{display:flex;flex-direction:column;gap:6px}
 .sbar{display:grid;grid-template-columns:78px 1fr;align-items:center;gap:8px;font-size:10px;letter-spacing:.14em;font-weight:900;color:var(--dim)}
-.segs{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
-.segs i{height:9px;border-radius:2px;background:rgba(255,255,255,.1)}
-.segs i.f{background:linear-gradient(180deg,#ffd06a,var(--accent))}
-.segs i.up{background:var(--good)} .segs i.dn{background:var(--bad);opacity:.8}
+.sbar{grid-template-columns:96px 1fr 30px}
+.sbar em{font-style:normal;text-align:right;color:var(--text);letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.rbar{position:relative;height:9px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
+.rbar i{position:absolute;top:0;bottom:0;left:0}
+.rbar i.f{background:linear-gradient(180deg,#ffd06a,var(--accent))}
+.rbar i.up{background:var(--good)} .rbar i.dn{background:var(--bad);opacity:.85}
+.pi-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;margin-bottom:10px}
+.pi-badge{display:inline-flex;align-items:stretch;border:2px solid var(--c);border-radius:6px;overflow:hidden;font-style:italic;font-weight:900;line-height:1}
+.pi-badge i{background:var(--c);color:#10131a;padding:5px 7px;font-style:inherit;font-size:15px}
+.pi-badge b{padding:5px 8px;font-size:15px;color:var(--text);background:rgba(0,0,0,.35);letter-spacing:.04em}
+.pi-badge.sm{border-width:1px;border-radius:4px;margin-top:5px;vertical-align:middle}
+.pi-badge.sm i,.pi-badge.sm b{font-size:10px;padding:2px 4px}
+.pi-to{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:900}
+.pi-to .pi-badge{margin-top:0} .pi-to.up{color:var(--good)} .pi-to.dn{color:var(--bad)}
+.pi-facts{flex-basis:100%;font-size:10px;letter-spacing:.1em;font-weight:800;color:var(--dim)}
 .ride .btn{margin:14px 0 0;width:100%}
 /* garage */
 #garage{background:linear-gradient(90deg,rgba(3,5,12,.7),rgba(3,5,12,0) 45%);padding:0;pointer-events:auto;cursor:grab;overflow:hidden}
@@ -219,7 +230,7 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
   .gar-panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:48vh}
   .gar-stats{top:60px;right:8px;bottom:auto;width:min(230px,56vw);padding:8px 10px;transform-origin:top right}
   .gar-stats .ride-head{margin-bottom:6px} .gar-stats .ride-head img{width:36px;height:36px} .gar-stats .ride-parts{display:none}
-  .sbar{grid-template-columns:62px 1fr;font-size:8.5px} .segs i{height:6px}
+  .sbar{grid-template-columns:84px 1fr 22px;font-size:8px;letter-spacing:.1em} .rbar{height:6px} .pi-row{margin-bottom:6px} .pi-badge i,.pi-badge b{font-size:12px;padding:3px 5px}
   .gar-opts.pilot{grid-template-columns:repeat(3,1fr)}
 }
 /* stage select: the stages on the left, the chosen one on the right; fits one screen on desktop */
@@ -284,6 +295,7 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
 .set-top h2{margin:0}
 .set-top .mini,.sel-head .mini{white-space:nowrap}
 #service .sub,.svc-ride{text-wrap:balance}
+.svc-ride em{font-style:normal;opacity:.7} .svc-ride .pi-badge{margin:0 4px 0 0}
 .set-group{font-size:10px;letter-spacing:.24em;font-weight:900;color:var(--accent);margin:14px 0 6px}
 .opt{pointer-events:auto;display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;margin:0 0 6px;cursor:pointer}
 .opt>span{flex:1;min-width:0}
@@ -1008,43 +1020,41 @@ const RECOMMENDED = [{ susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 1, 
 const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
 const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
 /* ---- garage: pilot + vehicle parts (chosen in the garage, kept for every stage) ----
-   Each pilot and part shifts five stats from a neutral 5; paint, decal and glow are cosmetic.
-   A car's own SPEED and ACCEL only describe its real engine (see CAR_SPECS), which sets the pace
-   by itself; the pilot, wheels and wing still nudge them. */
-const STAT_KEYS = ['spd', 'acc', 'han', 'grip', 'wgt'];
-const STAT_NAMES = { spd: 'SPEED', acc: 'ACCEL', han: 'HANDLING', grip: 'GRIP', wgt: 'WEIGHT' };
-const st6 = (spd, acc, han, grip, wgt) => ({ spd, acc, han, grip, wgt });
+   Parts change the car's real physics: the pilot's weight and hands (kg, steer), the tyres' grip on each
+   surface (mu: regolith, ice, metal, gravel, tarmac), their weight and rolling drag, and the wing's drag
+   and downforce areas (cda, cla, added to the car's own). Paint, decal and glow are cosmetic. Each build
+   is rated from what those physics give it (see perfRatings): six ratings and a PI with a class. */
 const GARAGE = {
   pilot: { label: 'PILOT', opts: [
-    { name: 'NOVA', cls: 'MEDIUM', kind: 'astro', suit: '#f2f4f8', trim: '#ff7a1a', visor: '#ffb52e', bg: '#27406e', blurb: 'Rookie astronaut. Balanced at everything.', s: st6(0, 0, 0, 0, 0) },
-    { name: 'ZIX', cls: 'LIGHT', kind: 'alien', suit: '#7ee05a', trim: '#2f7a2a', visor: '#101418', bg: '#3b1f5e', blurb: 'Tiny and twitchy. Quick off the line, gets knocked about.', s: st6(-1, 1, 1, 0, -2) },
-    { name: 'BOLT-9', cls: 'HEAVY', kind: 'robot', suit: '#9aa6b8', trim: '#3a4150', visor: '#58f0ff', bg: '#16324a', blurb: 'Retired loader bot. Heavy, fast, slow to get going.', s: st6(1, -1, -1, 0, 2) },
-    { name: 'MISO', cls: 'LIGHT', kind: 'cat', suit: '#ffb36b', trim: '#ffffff', visor: '#8ef0ff', bg: '#5e2a3a', blurb: 'Station cat with sharp reflexes and sure paws.', s: st6(-1, 1, 0, 1, -1) },
-    { name: 'GRAVL', cls: 'HEAVY', kind: 'golem', suit: '#8a7f73', trim: '#5a5047', visor: '#ff9a3c', bg: '#3e2a1c', blurb: 'Living asteroid. Enormous top speed, shrugs off hits.', s: st6(2, -2, -1, 0, 3) },
-    { name: 'PIP', cls: 'FEATHER', kind: 'drone', suit: '#e8ecf2', trim: '#ff4fd8', visor: '#ff4fd8', bg: '#1d3a3a', blurb: 'Survey drone. Explosive acceleration, featherweight.', s: st6(-2, 2, 1, 0, -3) },
-    { name: 'KOI', cls: 'LIGHT', kind: 'fish', suit: '#dfe9f2', trim: '#ff6a2e', visor: '#7fd8ff', bg: '#123a52', blurb: 'Goldfish in a water-filled helmet. Smooth hands, sticks to the road.', s: st6(-1, 0, 1, 1, -1) },
-    { name: 'VEGA', cls: 'MEDIUM', kind: 'racer', suit: '#20242c', trim: '#e8322e', visor: '#ffd21f', bg: '#4a1620', blurb: 'Veteran rally ace. Flat out everywhere, heavy right foot.', s: st6(1, 0, 0, 0, 1) },
+    { name: 'NOVA', cls: 'MEDIUM', kind: 'astro', suit: '#f2f4f8', trim: '#ff7a1a', visor: '#ffb52e', bg: '#27406e', blurb: 'Rookie astronaut. Steady hands, average build.', kg: 75, steer: 1 },
+    { name: 'ZIX', cls: 'LIGHT', kind: 'alien', suit: '#7ee05a', trim: '#2f7a2a', visor: '#101418', bg: '#3b1f5e', blurb: 'Tiny and twitchy: quick hands, gets knocked about.', kg: 50, steer: 1.035 },
+    { name: 'BOLT-9', cls: 'HEAVY', kind: 'robot', suit: '#9aa6b8', trim: '#3a4150', visor: '#58f0ff', bg: '#16324a', blurb: 'Retired loader bot. Heavy and slow to react, shrugs off knocks.', kg: 140, steer: 0.965 },
+    { name: 'MISO', cls: 'LIGHT', kind: 'cat', suit: '#ffb36b', trim: '#ffffff', visor: '#8ef0ff', bg: '#5e2a3a', blurb: 'Station cat with sharp reflexes and sure paws.', kg: 55, steer: 1.02 },
+    { name: 'GRAVL', cls: 'HEAVY', kind: 'golem', suit: '#8a7f73', trim: '#5a5047', visor: '#ff9a3c', bg: '#3e2a1c', blurb: 'Living asteroid. Weighs as much as a boulder, shrugs off hits.', kg: 180, steer: 0.965 },
+    { name: 'PIP', cls: 'FEATHER', kind: 'drone', suit: '#e8ecf2', trim: '#ff4fd8', visor: '#ff4fd8', bg: '#1d3a3a', blurb: 'Survey drone. Featherweight and twitchy.', kg: 35, steer: 1.035 },
+    { name: 'KOI', cls: 'LIGHT', kind: 'fish', suit: '#dfe9f2', trim: '#ff6a2e', visor: '#7fd8ff', bg: '#123a52', blurb: 'Goldfish in a water-filled helmet. Smooth hands, sticks to the road.', kg: 65, steer: 1.02 },
+    { name: 'VEGA', cls: 'MEDIUM', kind: 'racer', suit: '#20242c', trim: '#e8322e', visor: '#ffd21f', bg: '#4a1620', blurb: 'Veteran rally ace. Quick hands, flat out everywhere.', kg: 80, steer: 1.02 },
   ] },
   body: { label: 'CAR', opts: [
-    { name: 'TWINCHARGER', blurb: 'Lancia Delta S4 inspired. Supercharger plus turbo: pulls hard from any revs.', s: st6(0, 2, 0, 0, 0) },
-    { name: 'FIVE-POT', blurb: 'Audi Sport quattro S1 E2 inspired. Brutal turbo five, giant wings, nose-heavy.', s: st6(1, 0, -2, 1, 1) },
-    { name: 'T16', blurb: 'Peugeot 205 T16 inspired. Tiny, light and agile.', s: st6(-1, 1, 2, 0, -2) },
-    { name: 'STRADALE', blurb: 'Lancia 037 inspired. Low, light, rear-drive: flies on tarmac, twitchy on loose ground.', s: st6(1, -2, 1, -2, -1) },
-    { name: 'RS WEDGE', blurb: 'Ford RS200 inspired. Mid-engined and planted, a little lazy off the line.', s: st6(0, 0, 1, 1, 1) },
-    { name: 'SIX-R', blurb: 'MG Metro 6R4 inspired. Screaming V6 in a tiny box: instant punch, low top speed.', s: st6(-2, -1, 1, 0, -1) },
+    { name: 'TWINCHARGER', blurb: 'Lancia Delta S4 inspired. Supercharger plus turbo: pulls hard from any revs.' },
+    { name: 'FIVE-POT', blurb: 'Audi Sport quattro S1 E2 inspired. Brutal turbo five, giant wings, nose-heavy.' },
+    { name: 'T16', blurb: 'Peugeot 205 T16 inspired. Tiny, light and agile.' },
+    { name: 'STRADALE', blurb: 'Lancia 037 inspired. Low, light, rear-drive: flies on tarmac, a handful on loose ground.' },
+    { name: 'RS WEDGE', blurb: 'Ford RS200 inspired. Mid-engined, balanced and planted.' },
+    { name: 'SIX-R', blurb: 'MG Metro 6R4 inspired. Screaming V6 in a tiny box: instant punch, low top speed.' },
   ] },
   wheels: { label: 'WHEELS', opts: [
-    { name: 'STANDARD', blurb: 'All-round rally tyres.', s: st6(0, 0, 0, 0, 0) },
-    { name: 'CRAWLER', blurb: 'Big knobbly tyres. Huge grip, a little slow to turn.', s: st6(-1, 0, -1, 2, 1) },
-    { name: 'SLICK ROLLER', blurb: 'Low-profile slicks. Fast and precise, slides easily.', s: st6(1, 0, 1, -2, 0) },
-    { name: 'HOVER PADS', blurb: 'Grav pads instead of wheels. Nimble, a little floaty.', s: st6(0, 1, 2, -1, -1) },
-    { name: 'SPIKE RIMS', blurb: 'Studded tyres. Bite on ice and metal, a bit of drag.', s: st6(-1, 1, 0, 2, 0) },
+    { name: 'STANDARD', blurb: 'All-round rally tyres.', mu: [1, 1, 1, 1, 1], kg: 0, steer: 1, drag: 0 },
+    { name: 'CRAWLER', blurb: 'Big knobbly tyres. Dig into loose ground, heavy and slow to turn.', mu: [1.08, 1.04, 1.02, 1.1, 0.96], kg: 24, steer: 0.965, drag: 0.008 },
+    { name: 'SLICK ROLLER', blurb: 'Low-profile slicks. Sharp on tarmac and metal, slide on anything loose.', mu: [0.94, 0.86, 1.06, 0.9, 1.08], kg: -12, steer: 1.035, drag: -0.002 },
+    { name: 'HOVER PADS', blurb: 'Grav pads instead of wheels. Light and nimble, a touch less grip.', mu: [0.97, 0.97, 0.97, 0.97, 0.97], kg: -20, steer: 1.07, drag: 0 },
+    { name: 'SPIKE RIMS', blurb: 'Studded tyres. Bite on ice and metal, a bit of drag, worse on tarmac.', mu: [1.02, 1.25, 1.08, 1.02, 0.94], kg: 8, steer: 1, drag: 0.006 },
   ] },
   wing: { label: 'WING', opts: [
-    { name: 'STOCK', blurb: 'Each car\'s own signature aero, as it ran in the rallies.', s: st6(0, 0, 0, 0, 0) },
-    { name: 'SLIPSTREAM', blurb: 'No wing at all. Less drag, less bite in the corners.', s: st6(1, 0, 0, -1, 0) },
-    { name: 'HIGH WING', blurb: 'Tall downforce wing. Grippy and sharp, costs top speed.', s: st6(-1, 0, 1, 1, 0) },
-    { name: 'SOLAR FINS', blurb: 'Twin fins lined with solar cells. Steady and grippy at speed, slower to turn in.', s: st6(0, 0, -1, 1, 0) },
+    { name: 'STOCK', blurb: 'Each car\'s own signature aero, as it ran in the rallies.', cda: 0, cla: 0, steer: 1 },
+    { name: 'SLIPSTREAM', blurb: 'No wing at all. Less drag, no downforce.', cda: -0.1, cla: -9, steer: 1 },
+    { name: 'HIGH WING', blurb: 'Tall downforce wing. Grippy at speed, costs top speed.', cda: 0.12, cla: 0.55, steer: 1 },
+    { name: 'SOLAR FINS', blurb: 'Twin fins lined with solar cells. Steady and grippy at speed, slower to turn in.', cda: 0.05, cla: 0.25, steer: 0.98 },
   ] },
   color: { label: 'PAINT', opts: [
     { name: 'BLAZE', hex: 0xff7a1a }, { name: 'NEBULA', hex: 0x8b5cff }, { name: 'COMET', hex: 0x19c8e6 }, { name: 'SOLAR', hex: 0xffd21f },
@@ -1060,56 +1070,45 @@ const GARAGE = {
   ] },
 };
 const GARAGE_KEYS = ['pilot', 'body', 'wheels', 'wing', 'color', 'decal', 'glow'];
-const STAT_PARTS = ['pilot', 'body', 'wheels', 'wing'];
+const BUILD_PARTS = ['pilot', 'body', 'wheels', 'wing'];
 const DEFAULT_BUILD = { pilot: 0, body: 0, wheels: 0, wing: 0, color: 0, decal: 0, glow: 0 };
 function cleanBuild(b) {
   const out = Object.assign({}, DEFAULT_BUILD);
   if (b && typeof b === 'object') for (const k of GARAGE_KEYS) { const v = b[k]; if (Number.isInteger(v) && v >= 0 && v < GARAGE[k].opts.length) out[k] = v; }
   return out;
 }
-/** Stats on a 1..10 scale (5 = neutral). With `physics`, the car's own SPEED and ACCEL are left
- *  out: those only describe its engine, which the drivetrain model already uses directly. */
-function buildStats(build, physics) {
-  const s = {};
-  for (const k of STAT_KEYS) {
-    let v = 5;
-    for (const part of STAT_PARTS) if (!(physics && part === 'body' && (k === 'spd' || k === 'acc'))) v += GARAGE[part].opts[build[part]].s[k];
-    s[k] = clamp(v, 1, 10);
-  }
-  return s;
-}
-
 /* ---- real engines and drivetrains, one per car (indexed like GARAGE.body) ----
    Figures follow the Group B works cars each body is modelled on (period figures varied with boost
    and event, so these are representative). `curve` is torque in N·m against rpm at full boost; turbo
    engines also have lag: torque off boost is `offBoost` of the curve and the turbo spools up over
-   about `lag` seconds (quicker at high revs). `kg` is the homologation weight; crew and fuel add
-   CREW_FUEL_KG on the road. `vtop` is the top speed at the redline in sixth with the standard final
-   drive, `cda` the drag area (m²). Drivetrain: `front` is the centre differential's nominal share
+   about `lag` seconds (quicker at high revs). `kg` is the homologation weight; the pilot and FUEL_KG
+   of fuel ride on top. `vtop` is the top speed at the redline in sixth with the standard final drive,
+   `cda` and `cla` the drag and downforce areas (m²) with the stock aero, `steer` the chassis's
+   turn-in (wheelbase and balance), `pitch` the engine note. Drivetrain: `front` is the centre differential's nominal share
    of torque to the front axle (0 = rear drive); each differential is open, a limited-slip (lsd),
    viscous or locking type, and passes at most `bias` times the slipping side's torque to the side
    with grip (an open diff: 1, so both sides get only what the weaker one can take). */
-const CREW_FUEL_KG = 120;
+const FUEL_KG = 45, REF_PILOT_KG = 75;
 const DIFF_TYPES = { open: { bias: 1, name: 'open' }, lsd: { bias: 2.6, name: 'limited-slip' }, viscous: { bias: 3, name: 'viscous' }, locking: { bias: 6, name: 'locking' } };
 const CAR_SPECS = [
   { engine: '1.8 L inline-4, supercharger + turbo', pitch: 1, hp: 480, hpAt: 8000, nm: 490, nmAt: 5000, redline: 8500, idle: 1000, lag: 0.25, offBoost: 0.8,
     curve: [[1000, 210], [2000, 310], [3000, 400], [4000, 455], [5000, 490], [6000, 480], [7000, 455], [8000, 427], [8500, 385]],
-    kg: 890, vtop: 54, cda: 0.85, front: 0.3, centre: 'viscous', fdiff: 'open', rdiff: 'lsd' },
+    kg: 890, vtop: 54, cda: 0.85, cla: 0.45, steer: 1, front: 0.3, centre: 'viscous', fdiff: 'open', rdiff: 'lsd' },
   { engine: '2.1 L inline-5, turbo', pitch: 1.09, hp: 470, hpAt: 8000, nm: 480, nmAt: 5500, redline: 8300, idle: 1000, lag: 0.7, offBoost: 0.5,
     curve: [[1000, 170], [2000, 200], [3000, 250], [4000, 370], [5000, 462], [5500, 480], [6500, 470], [7500, 445], [8000, 418], [8300, 385]],
-    kg: 1090, vtop: 56, cda: 1.0, front: 0.5, centre: 'locking', fdiff: 'open', rdiff: 'locking' },
+    kg: 1090, vtop: 56, cda: 1.0, cla: 0.8, steer: 0.94, front: 0.5, centre: 'locking', fdiff: 'open', rdiff: 'locking' },
   { engine: '1.8 L inline-4, turbo', pitch: 1, hp: 450, hpAt: 8000, nm: 460, nmAt: 5000, redline: 8300, idle: 1000, lag: 0.55, offBoost: 0.55,
     curve: [[1000, 150], [2000, 190], [3000, 280], [4000, 405], [5000, 460], [6000, 450], [7000, 425], [8000, 400], [8300, 370]],
-    kg: 910, vtop: 53, cda: 0.8, front: 0.33, centre: 'viscous', fdiff: 'open', rdiff: 'lsd' },
+    kg: 910, vtop: 53, cda: 0.8, cla: 0.4, steer: 1.06, front: 0.33, centre: 'viscous', fdiff: 'open', rdiff: 'lsd' },
   { engine: '2.1 L inline-4, supercharged', pitch: 0.97, hp: 320, hpAt: 8000, nm: 333, nmAt: 5500, redline: 8500, idle: 1000, lag: 0, offBoost: 1,
     curve: [[1000, 190], [2000, 240], [3000, 280], [4000, 310], [5000, 328], [5500, 333], [6500, 322], [7500, 300], [8000, 285], [8500, 262]],
-    kg: 960, vtop: 56, cda: 0.75, front: 0, centre: null, fdiff: null, rdiff: 'lsd' },
+    kg: 960, vtop: 56, cda: 0.75, cla: 0.45, steer: 1.03, front: 0, centre: null, fdiff: null, rdiff: 'lsd' },
   { engine: '1.8 L inline-4, turbo (Cosworth BDT)', pitch: 1, hp: 450, hpAt: 8000, nm: 420, nmAt: 6000, redline: 8500, idle: 1000, lag: 0.6, offBoost: 0.55,
     curve: [[1000, 140], [2000, 180], [3000, 250], [4000, 350], [5000, 410], [6000, 420], [7000, 412], [8000, 400], [8500, 370]],
-    kg: 1050, vtop: 54, cda: 0.85, front: 0.37, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous' },
+    kg: 1050, vtop: 54, cda: 0.85, cla: 0.6, steer: 1, front: 0.37, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous' },
   { engine: '3.0 L V6, naturally aspirated', pitch: 1.3, hp: 410, hpAt: 9000, nm: 365, nmAt: 6500, redline: 9500, idle: 1100, lag: 0, offBoost: 1,
     curve: [[1000, 200], [2000, 245], [3000, 280], [4000, 305], [5000, 330], [6500, 365], [7500, 355], [8500, 335], [9000, 325], [9500, 300]],
-    kg: 1030, vtop: 51, cda: 0.95, front: 0.38, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous' },
+    kg: 1030, vtop: 51, cda: 0.95, cla: 0.5, steer: 1.03, front: 0.38, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous' },
 ];
 function engineTorque(spec, rpm) {
   const c = spec.curve;
@@ -1124,10 +1123,52 @@ function drivetrainText(spec) {
 }
 function tuneFor(setup, build) {
   const su = TUNE.susp[setup.susp], dp = TUNE.damp[setup.damp] || TUNE.damp[1], g = TUNE.gear[setup.gear];
-  build = build || DEFAULT_BUILD;
-  const s = buildStats(build, true), gripF = 1 + (s.grip - 5) * 0.025;
-  return { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land + (s.wgt - 5) * 0.12, a: 1 + (s.acc - 5) * 0.03, v: g.v * (1 + (s.spd - 5) * 0.022),
-    mu: TUNE.tyre[setup.tyre].map((m) => m * gripF), steer: 1 + (s.han - 5) * 0.035, dmg: 1 - (s.wgt - 5) * 0.06, spec: CAR_SPECS[build.body] || CAR_SPECS[0] };
+  build = cleanBuild(build || DEFAULT_BUILD);
+  const sp = CAR_SPECS[build.body] || CAR_SPECS[0], P = GARAGE.pilot.opts[build.pilot], Wh = GARAGE.wheels.opts[build.wheels], Wi = GARAGE.wing.opts[build.wing];
+  const mass = sp.kg + P.kg + FUEL_KG + Wh.kg, dm = mass - (CAR_SPECS[0].kg + REF_PILOT_KG + FUEL_KG);
+  return { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land - dm * 0.003, v: g.v,
+    mu: TUNE.tyre[setup.tyre].map((m, i) => m * Wh.mu[i]), steer: sp.steer * P.steer * Wh.steer * Wi.steer, drag: Wh.drag,
+    dmg: clamp(1 - dm * 0.0012, 0.7, 1.3), spec: sp, mass, cda: Math.max(0.6, sp.cda + Wi.cda), cla: Math.max(0, sp.cla + Wi.cla) };
+}
+
+/* ---- performance index: six ratings (0-10) from what the build's physics give it, and a PI (100-999)
+   with a class letter, like a racing game's car classes. Straight-line figures come from a full-throttle
+   run on regolith with the drivetrain's traction limit (all four wheels, or the rear pair's share on a
+   rear-drive car); cornering and braking from the tyres' grip with the downforce at speed. ---- */
+const PI_CLASSES = [[998, 'X', '#5ef08c'], [900, 'S2', '#3d8bff'], [800, 'S1', '#b06bff'], [700, 'A', '#ff4d5e'], [600, 'B', '#ff8a3a'], [500, 'C', '#ffd23d'], [0, 'D', '#58f0ff']];
+function piClass(pi) { for (const c of PI_CLASSES) if (pi > c[0] || c[0] === 0) return { cls: c[1], color: c[2] }; return { cls: 'D', color: '#58f0ff' }; }
+function perfRatings(build, setup) {
+  const tn = tuneFor(setup || DEFAULT_SETUP, build), sp = tn.spec, m = tn.mass, gG = 9.81;
+  const df = (v) => 0.5 * AIR_RHO * tn.cla * v * v;
+  const surfMu = (i) => SURF_INFO[i].mu * tn.mu[i];
+  const muR = surfMu(0), driven = sp.front ? 0.95 : 0.6;     // share of the car's weight on driven wheels under power (with transfer)
+  let v = 0, t = 0, t100 = 60, t160 = 60, vTopReach = 0;
+  const dt = 0.01, vGear = sp.vtop * tn.v;
+  while (t < 60) {
+    let f = 0;
+    for (let g = 1; g <= GEARBOX.frac.length; g++) f = Math.max(f, wheelForce(sp, tn.v, g, v));
+    f = Math.min(f, muR * driven * (m * gG + df(v)));
+    const a = (f - 0.5 * AIR_RHO * tn.cda * v * v - m * (SURF_INFO[0].drag + tn.drag) * v) / m;
+    if (a < 0.02 || v >= vGear - 0.05) break;
+    v += a * dt; t += dt;
+    if (t100 === 60 && v >= 100 / 3.6) t100 = t;
+    if (t160 === 60 && v >= 160 / 3.6) t160 = t;
+  }
+  vTopReach = Math.min(v, vGear) * 3.6;
+  const latG = (vv, i) => surfMu(i) * (1 + df(vv) / (m * gG));
+  const handling = (latG(15, 0) * 0.5 + latG(30, 0) * 0.5) * Math.sqrt(tn.steer);
+  const brakeDist = (100 / 3.6) ** 2 / (2 * gG * 0.92 * surfMu(0) * (1 + df(18) / (m * gG)));
+  const offroad = ((surfMu(3) + surfMu(0) + surfMu(1)) / 3) * (sp.front ? 1 : 0.86);
+  const r = (x, a, b) => clamp((x - a) / (b - a) * 10, 0, 10);
+  const R = {
+    speed: r(vTopReach, 150, 230), accel: r(t160, 13, 5), launch: r(t100, 7.5, 3),
+    handling: r(handling, 0.7, 1.05), braking: r(brakeDist, 56, 44), offroad: r(offroad, 0.55, 0.9),
+    t100, t160, vmax: vTopReach, brakeDist, mass: m,
+  };
+  const score = R.speed * 0.16 + R.accel * 0.22 + R.launch * 0.14 + R.handling * 0.24 + R.braking * 0.12 + R.offroad * 0.12;
+  R.pi = Math.round(clamp(200 + score * 84, 100, 999));
+  Object.assign(R, piClass(R.pi));
+  return R;
 }
 
 /* =============================================================================
@@ -2013,7 +2054,7 @@ function gridKey(ix, iz) { return (ix + 4096) * 8192 + (iz + 4096); }
 let _refAcc = null;
 function refAccel(v) {
   if (!_refAcc) {
-    const sp = CAR_SPECS[0], m = sp.kg + CREW_FUEL_KG;
+    const sp = CAR_SPECS[0], m = sp.kg + REF_PILOT_KG + FUEL_KG;
     _refAcc = new Float32Array(141);
     for (let k = 0; k <= 140; k++) {
       const u = k * 0.5;
@@ -3437,7 +3478,7 @@ function wheelForce(spec, vScale, g, v) {
 /** Point the shared car constants at the chosen car's real figures (mass, inertia, revs, top speed). */
 function setCarTune(tune) {
   car.tune = tune;
-  const sp = tune.spec, m = sp.kg + CREW_FUEL_KG;
+  const sp = tune.spec, m = tune.mass;
   CAR.mass = m;
   CAR.inertia.copy(BASE_INERTIA).multiplyScalar(m / BASE_MASS);
   CAR.vmax = sp.vtop * tune.v;
@@ -3536,7 +3577,7 @@ function gearboxStep(dt, ctl, vFwd, nG) {
     if (car.limiter || x >= 1) return 0;                                                   // rev limiter: fuel cut
     const xr = Math.max(x, car.gear === 1 ? LAUNCH_X : G.idle);
     const torque = engineTorque(sp, xr * sp.redline) * (sp.offBoost + (1 - sp.offBoost) * car.spool);
-    return ctl.throttle * torque * driveEff(sp) * (sp.redline * TAU / 60) / vTop(car.gear) * tn.a * (1 - 0.25 * car.damage);
+    return ctl.throttle * torque * driveEff(sp) * (sp.redline * TAU / 60) / vTop(car.gear) * (1 - 0.25 * car.damage);
   }
   if (ctl.brake === 0 && nG > 0 && vFwd > 3) return -m * G.engineBrake * Math.min(1, x) * Math.sqrt(G.frac[0] / G.frac[g]);
   return 0;
@@ -3701,7 +3742,7 @@ function stepVehicle(dt, ctl) {
       } else if (vLong > -CAR.reverseVmax) Fl -= ctl.brake * (m / 4) * CAR.reverseAccel;
     }
     if (ctl.handbrake && !cw.front) Fl -= clamp(vLong * (m / 4) * 25, -(m / 4) * 14, (m / 4) * 14);
-    Fl -= vLong * (m / 4) * gs.drag;
+    Fl -= vLong * (m / 4) * (gs.drag + tn.drag);
     if (ctl.throttle === 0 && ctl.brake === 0 && Math.abs(vLong) < 1.5) Fl -= vLong * (m / 4) * 6;
     const ex = Fl / gripMax, ey = Ft / gripLat, e = Math.sqrt(ex * ex + ey * ey);
     w.sliding = false;
@@ -3732,9 +3773,12 @@ function stepVehicle(dt, ctl) {
       T.addScaledVector(AY, -excess * yd);
     }
   }
-  // aerodynamic drag on the body
+  // aerodynamics: drag along the airflow, downforce from the wings and body pressing the car onto its tyres
   const vv = car.vel.length();
-  if (vv > 1) F.addScaledVector(car.vel, -0.5 * AIR_RHO * tn.spec.cda * vv);
+  if (vv > 1) {
+    F.addScaledVector(car.vel, -0.5 * AIR_RHO * tn.cda * vv);
+    if (nG > 0) F.addScaledVector(AY, -0.5 * AIR_RHO * tn.cla * vv * vv);
+  }
   // 5) air control + landing detection
   if (nG === 0) {
     car.airTime += dt;
@@ -4519,6 +4563,15 @@ function gbBody_sixr(K) {
   };
 }
 const BODY_BUILDERS = [gbBody_twincharger, gbBody_fivepot, gbBody_t16, gbBody_stradale, gbBody_rswedge, gbBody_sixr];
+/* Rally wheels per car: spoke count and width, rim and caliper colours (in GARAGE.body order). */
+const RIM_STYLES = [
+  { spokes: 8, spokeW: 0.05, color: 0xf2f2ee, caliper: 0xd8262e },   // TWINCHARGER: white multi-spoke
+  { spokes: 6, spokeW: 0.09, color: 0xe2e4e8, caliper: 0xd8262e },   // FIVE-POT: silver six-spoke
+  { spokes: 5, spokeW: 0.1, color: 0xf4f4f4, caliper: 0x2c6be0 },    // T16: white five-spoke
+  { spokes: 8, spokeW: 0.05, color: 0xd9b25a, caliper: 0xd8262e },   // STRADALE: gold multi-spoke
+  { spokes: 8, spokeW: 0.06, color: 0xf2f2ee, caliper: 0xe6a21a },   // RS WEDGE: white eight-spoke
+  { spokes: 8, spokeW: 0.045, color: 0xc9ccd2, caliper: 0xd8262e },  // SIX-R: silver multi-spoke
+];
 function buildCarModel(build) {
   build = cleanBuild(build);
   const accentHex = GARAGE.color.opts[build.color].hex, pilot = GARAGE.pilot.opts[build.pilot];
@@ -4563,7 +4616,7 @@ function buildCarModel(build) {
   const { seatY, seatZ, rearZ, thrY } = spec;
   add(new THREE.CylinderGeometry(0.015, 0.015, 1.1, 4), trim, spec.antenna[0], spec.antenna[1] + 0.55, spec.antenna[2]);
   const tip = add(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff3030, toneMapped: false }), spec.antenna[0], spec.antenna[1] + 1.12, spec.antenna[2]);
-  tip.userData.keep = true;
+  tip.userData.keep = true; tip.visible = false;
   // ---- wing ----
   const [wBase, wTop, wZ, wSpan] = spec.wing;          // STOCK (wing 0) is each car's own signature aero, drawn by its builder
   if (build.wing === 2) {
@@ -4607,17 +4660,27 @@ function buildCarModel(build) {
   under.rotation.x = -Math.PI / 2; under.position.y = -0.37; g.add(under);
   under.userData.keep = true; under.visible = !!glowOpt.css;
   mergeStatic(g);                                           // ~40 static parts → one mesh per material
-  // ---- wheels: pivot (steer + suspension) → spin group (tyre, hub, spoke). Hover pads sit in the pivot. ----
+  // ---- wheels: pivot (steer + suspension) → spin group (tyre, rim, brake disc). The caliper rides on the
+  // pivot, so it steers and moves with the hub but doesn't spin. Hover pads sit in the pivot. ----
   const wheels = [];
   const R = [CAR.radius, 0.5, 0.41, CAR.radius, 0.42][wheelKind], W = [0.36, 0.46, 0.3, 0, 0.36][wheelKind];
-  let tireGeo = null, hubGeo = null, spokeGeo = null, treadGeo = null, padGeo = null, padGlow = null, rimMat = trim;
+  const rimSpec = RIM_STYLES[body];
+  const rimMat = wheelKind === 2 ? paint : new THREE.MeshStandardMaterial({ color: rimSpec.color, metalness: 0.75, roughness: 0.3 });
+  const discMats = [], rubberDS = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.92, side: THREE.DoubleSide });
+  const caliperMat = new THREE.MeshStandardMaterial({ color: rimSpec.caliper, metalness: 0.3, roughness: 0.45 });
+  let tireGeo = null, wallGeo = null, dishGeo = null, spokeGeo = null, nutGeo = null, discGeo = null, hatGeo = null, calGeo = null, treadGeo = null, padGeo = null, padGlow = null;
+  const rimR = Math.min(0.31, R - 0.11);
   if (wheelKind !== 3) {
-    tireGeo = new THREE.CylinderGeometry(R, R, W, wheelKind === 1 ? 10 : 14); tireGeo.rotateZ(Math.PI / 2);
-    hubGeo = new THREE.CylinderGeometry(wheelKind === 2 ? 0.3 : 0.2, wheelKind === 2 ? 0.3 : 0.2, W + 0.02, wheelKind === 2 ? 14 : 6); hubGeo.rotateZ(Math.PI / 2);
-    spokeGeo = new THREE.BoxGeometry(W + 0.03, 0.08, R * 1.5);
+    tireGeo = new THREE.CylinderGeometry(R, R, W, wheelKind === 1 ? 10 : 20, 1, true); tireGeo.rotateZ(Math.PI / 2);   // tread band
+    wallGeo = new THREE.RingGeometry(rimR, R, 20, 1); wallGeo.rotateY(Math.PI / 2);                  // sidewalls, open to the rim
+    dishGeo = new THREE.CylinderGeometry(rimR, rimR, W * 0.92, 20, 1, true); dishGeo.rotateZ(Math.PI / 2);
+    spokeGeo = new THREE.BoxGeometry(0.03, rimSpec.spokeW, rimR - 0.04); spokeGeo.translate(0, 0, (rimR - 0.04) / 2 + 0.03);
+    nutGeo = new THREE.CylinderGeometry(0.06, 0.07, 0.05, rimSpec.spokes > 5 ? 8 : 5); nutGeo.rotateZ(Math.PI / 2);
+    discGeo = new THREE.CylinderGeometry(rimR - 0.04, rimR - 0.04, 0.03, 22); discGeo.rotateZ(Math.PI / 2);
+    hatGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.06, 10); hatGeo.rotateZ(Math.PI / 2);
+    calGeo = new THREE.BoxGeometry(0.09, 0.13, 0.2);
     if (wheelKind === 1) treadGeo = new THREE.BoxGeometry(W + 0.04, 0.1, 0.14);
     if (wheelKind === 4) treadGeo = new THREE.ConeGeometry(0.035, 0.1, 5);
-    if (wheelKind === 2) rimMat = paint;
   } else {
     padGeo = new THREE.CylinderGeometry(0.46, 0.36, 0.16, 20);
     padGlow = new THREE.Mesh(new THREE.RingGeometry(0.12, 0.34, 24), new THREE.MeshBasicMaterial({ color: glowOpt.css ? glowOpt.hex : 0x78f0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
@@ -4625,11 +4688,26 @@ function buildCarModel(build) {
   for (const cw of CAR.wheels) {
     const pivot = new THREE.Group(); pivot.position.set(cw.x, CAR.mountY - CAR.rest, cw.z); g.add(pivot);
     const spin = new THREE.Group(); pivot.add(spin);
+    let disc = null;
     if (tireGeo) {
+      const out = cw.x > 0 ? 1 : -1;                         // +x is the car's left: the outer face points away from the centre
       spin.position.y = R - CAR.radius;                     // keep the contact patch where the physics has it
       const tire = new THREE.Mesh(tireGeo, rubber); tire.castShadow = true; spin.add(tire);
-      spin.add(new THREE.Mesh(hubGeo, rimMat));
-      spin.add(new THREE.Mesh(spokeGeo, wheelKind === 2 ? dark : paint));
+      for (const f of [-1, 1]) { const wl = new THREE.Mesh(wallGeo, rubberDS); wl.position.x = f * W / 2; spin.add(wl); }
+      spin.add(new THREE.Mesh(dishGeo, rimMat));
+      const face = out * (W / 2 - 0.07);
+      for (let k = 0; k < rimSpec.spokes; k++) {
+        const sk = new THREE.Mesh(spokeGeo, rimMat); sk.position.x = face; sk.rotation.x = k / rimSpec.spokes * TAU; spin.add(sk);
+      }
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(rimR - 0.015, 0.018, 4, 22), rimMat); ring.rotation.y = Math.PI / 2; ring.position.x = face; spin.add(ring);
+      const nut = new THREE.Mesh(nutGeo, trim); nut.position.x = face + out * 0.01; spin.add(nut);
+      // brake: vented disc behind the spokes (glows as it heats up under braking), caliper on the hub carrier
+      const dm = new THREE.MeshStandardMaterial({ color: 0x6c7078, metalness: 0.85, roughness: 0.35, emissive: 0xff5a10, emissiveIntensity: 0 });
+      discMats.push(dm);
+      disc = new THREE.Mesh(discGeo, dm); disc.position.x = -out * 0.04; spin.add(disc);
+      const hat = new THREE.Mesh(hatGeo, dark); hat.position.x = -out * 0.01; spin.add(hat);
+      const cal = new THREE.Mesh(calGeo, caliperMat); cal.position.set(-out * 0.04, spin.position.y + rimR * 0.55, cw.front ? -rimR * 0.45 : rimR * 0.45);
+      cal.rotation.x = cw.front ? 0.6 : -0.6; pivot.add(cal);
       if (wheelKind === 1) for (let k = 0; k < 10; k++) { const t = new THREE.Mesh(treadGeo, rubber); const a = k / 10 * TAU; t.position.set(0, Math.cos(a) * R, Math.sin(a) * R); t.rotation.x = -a; spin.add(t); }
       if (wheelKind === 4) for (let k = 0; k < 24; k++) { const t = new THREE.Mesh(treadGeo, trim); const a = k / 12 * TAU; t.position.set(k % 2 ? 0.1 : -0.1, Math.cos(a) * R, Math.sin(a) * R); t.rotation.x = a; spin.add(t); }
     } else {
@@ -4638,7 +4716,7 @@ function buildCarModel(build) {
       const glow = padGlow.clone(); glow.rotation.x = Math.PI / 2; glow.position.y = pad.position.y - 0.09; pivot.add(glow);
       const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 6), trim); strut.position.y = pad.position.y + 0.25; pivot.add(strut);
     }
-    wheels.push({ pivot, spin, shock: makeShock(g, cw, trim, dark, wheelKind === 3 ? -CAR.radius + 0.45 : R - CAR.radius, spec.shockTop) });
+    wheels.push({ pivot, spin, discMat: discMats[discMats.length - 1] || null, heat: 0, shock: makeShock(g, cw, trim, dark, wheelKind === 3 ? -CAR.radius + 0.45 : R - CAR.radius, spec.shockTop) });
     poseShock(wheels[wheels.length - 1].shock, pivot.position.y);
   }
   const arbVis = wheelKind === 3 ? null : makeArb(g, trim);
@@ -5604,7 +5682,7 @@ const Service = {
     }
     document.getElementById('svcBack').textContent = Rally.active ? '\u25C2 ABANDON RALLY' : '\u25C2 STAGES';
     const gb = Store.data.garage;
-    document.getElementById('svcRide').textContent = GARAGE.pilot.opts[gb.pilot].name + ' · ' + rideSummary(gb);
+    document.getElementById('svcRide').innerHTML = piBadge(ratingsFor(gb, su), true) + ' ' + GARAGE.pilot.opts[gb.pilot].name + ' · ' + rideSummary(gb) + ' <em>(PI with this setup)</em>';
   },
 };
 function openService() {
@@ -5807,11 +5885,16 @@ function updateCarVisual(dt, ctl) {
     if ((ctl.handbrake && !cw.front) || (w.grounded && w.locked)) spin = 0; else if (w.spinning) spin += 14;
     w.spinV = spin; w.spinAngle = (w.spinAngle + spin * dt) % TAU;
     wm.spin.rotation.x = w.spinAngle;
+    if (wm.discMat) {                                        // brake discs heat with braking power and cool off slowly
+      const pwr = w.grounded && ctl.brake > 0 ? ctl.brake * Math.abs(w.vLong) * (cw.front ? 1.25 : 0.8) : 0;
+      wm.heat = clamp(wm.heat + (pwr * 0.012 - wm.heat * 0.35) * dt, 0, 1);
+      wm.discMat.emissiveIntensity = Math.max(0, wm.heat - 0.25) * 2.2;
+    }
   }
   for (const f of M.flames) { f.visible = car.backfire > 0; if (f.visible) f.scale.set(1, 1, 0.6 + Math.random() * 0.8); }
   M.tailMat.color.setRGB(ctl.brake > 0 ? 0.35 + 0.65 * ctl.brake : 0.12, 0.004, 0.006);
   if (M.arb) poseArb(M.arb, M.wheels);
-  M.tip.visible = (Game.clock % 1) < 0.5;
+  M.tip.visible = false;                                    // rally cars carry a plain roof aerial
   M.under.material.opacity = 0.35 + 0.15 * Math.sin(Game.clock * 3);
 }
 
@@ -6451,16 +6534,42 @@ function pilotPortrait(i) {
   _portraits.set(i, url);
   return url;
 }
-function statBarsHTML(stats, cmp) {
-  return '<div class="sbars">' + STAT_KEYS.map((k) => {
-    const v = stats[k], c = cmp ? cmp[k] : v, lo = Math.min(v, c), hi = Math.max(v, c);
-    return `<div class="sbar"><span>${STAT_NAMES[k]}</span><div class="segs">` +
-      Array.from({ length: 10 }, (_, i) => `<i class="${i < lo ? 'f' : i < hi ? (c > v ? 'up' : 'dn') : ''}"></i>`).join('') + '</div></div>';
-  }).join('') + '</div>';
+const RATING_KEYS = ['speed', 'handling', 'accel', 'launch', 'braking', 'offroad'];
+const RATING_NAMES = { speed: 'SPEED', handling: 'HANDLING', accel: 'ACCELERATION', launch: 'LAUNCH', braking: 'BRAKING', offroad: 'OFFROAD' };
+const _perfCache = new Map();
+/** perfRatings, memoised per build (and service park setup). */
+function ratingsFor(build, setup) {
+  const key = BUILD_PARTS.map((k) => build[k]).join(',') + '|' + (setup ? SETUP_KEYS.map((k) => setup[k]).join(',') : '');
+  if (!_perfCache.has(key)) _perfCache.set(key, perfRatings(build, setup));
+  return _perfCache.get(key);
 }
-function deltaChips(s) {
-  const out = STAT_KEYS.filter((k) => s[k]).map((k) => `<em class="${s[k] > 0 ? 'up' : 'dn'}">${s[k] > 0 ? '+' : '−'}${Math.abs(s[k])} ${STAT_NAMES[k]}</em>`);
-  return out.length ? out.join('') : '<em>BALANCED</em>';
+function piBadge(R, small) {
+  return `<span class="pi-badge${small ? ' sm' : ''}" style="--c:${R.color}"><i>${R.cls}</i><b>${R.pi}</b></span>`;
+}
+/** PI badge and the six rating bars; with `cmp`, the change to that build in green or red. */
+function ratingsHTML(R, cmp) {
+  const d = cmp ? cmp.pi - R.pi : 0;
+  let html = `<div class="pi-row">${piBadge(R)}${cmp && d ? `<span class="pi-to ${d > 0 ? 'up' : 'dn'}">&#9656; ${piBadge(cmp, true)} ${d > 0 ? '+' : '−'}${Math.abs(d)}</span>` : ''}` +
+    `<span class="pi-facts">${Math.round(R.vmax)} km/h · 0-100 ${R.t100.toFixed(1)} s · ${Math.round(R.mass)} kg</span></div>`;
+  html += '<div class="sbars">' + RATING_KEYS.map((k) => {
+    const v = R[k], c = cmp ? cmp[k] : v, lo = Math.min(v, c), hi = Math.max(v, c);
+    return `<div class="sbar"><span>${RATING_NAMES[k]}</span><div class="rbar"><i class="f" style="width:${lo * 10}%"></i>` +
+      (hi > lo + 0.05 ? `<i class="${c > v ? 'up' : 'dn'}" style="left:${lo * 10}%;width:${(hi - lo) * 10}%"></i>` : '') + `</div><em>${(cmp ? c : v).toFixed(1)}</em></div>`;
+  }).join('') + '</div>';
+  return html;
+}
+/** What a part does, as short chips. */
+function partChips(k, o) {
+  const out = [];
+  if (k === 'wheels') {
+    ['REGOLITH', 'ICE', 'METAL', 'GRAVEL', 'TARMAC'].forEach((n, i) => { const d = Math.round((o.mu[i] - 1) * 100); if (Math.abs(d) >= 3) out.push([d > 0, `${n} ${d > 0 ? '+' : '−'}${Math.abs(d)}%`]); });
+    if (o.kg) out.push([o.kg < 0, `${o.kg > 0 ? '+' : '−'}${Math.abs(o.kg)} KG`]);
+  } else if (k === 'wing') {
+    if (o.cla) out.push([o.cla > 0, o.cla > 0 ? `DOWNFORCE +${o.cla.toFixed(2)} M²` : 'NO DOWNFORCE']);
+    if (o.cda) out.push([o.cda < 0, `DRAG ${o.cda > 0 ? '+' : '−'}${Math.abs(o.cda).toFixed(2)} M²`]);
+  }
+  if (o.steer && o.steer !== 1) out.push([o.steer > 1, `TURN-IN ${o.steer > 1 ? '+' : '−'}${Math.round(Math.abs(o.steer - 1) * 100)}%`]);
+  return out.length ? out.map(([up, t]) => `<em class="${up ? 'up' : 'dn'}">${t}</em>`).join('') : '<em>BASELINE</em>';
 }
 function rideSummary(b) {
   return [GARAGE.body.opts[b.body].name, GARAGE.wheels.opts[b.wheels].name].concat(b.wing ? [GARAGE.wing.opts[b.wing].name] : []).join(' · ');
@@ -6514,7 +6623,7 @@ const Garage = {
   setTab(t) { this.tab = (t + GARAGE_KEYS.length) % GARAGE_KEYS.length; this.preview = null; this.render(); },
   render() {
     const b = Store.data.garage, k = GARAGE_KEYS[this.tab], cat = GARAGE[k];
-    document.getElementById('garTabs').innerHTML = [['BUILD', STAT_PARTS], ['LOOKS', GARAGE_KEYS.filter((key) => !STAT_PARTS.includes(key))]].map(([label, keys]) =>
+    document.getElementById('garTabs').innerHTML = [['BUILD', BUILD_PARTS], ['LOOKS', GARAGE_KEYS.filter((key) => !BUILD_PARTS.includes(key))]].map(([label, keys]) =>
       `<div class="gar-tg"><span>${label}</span><div style="grid-template-columns:repeat(${keys.length},1fr)">` +
       keys.map((key) => { const i = GARAGE_KEYS.indexOf(key); return `<button data-tab="${i}" class="${i === this.tab ? 'on' : ''}">${GARAGE[key].label}</button>`; }).join('') + '</div></div>').join('');
     document.getElementById('garOpts').className = 'gar-opts ' + k;
@@ -6523,9 +6632,10 @@ const Garage = {
       if (k === 'color') return `<button class="gtile sw${sel}" data-v="${v}" style="--c:#${new THREE.Color(o.hex).getHexString()}"><i></i><b>${o.name}</b></button>`;
       if (k === 'glow') return `<button class="gtile sw${sel}" data-v="${v}" style="--c:${o.css ? 'rgb(' + o.css + ')' : 'transparent'}"><i class="${o.css ? 'gl' : 'off'}"></i><b>${o.name}</b></button>`;
       if (k === 'decal') return `<button class="gtile dc${sel}" data-v="${v}"><img src="${decalPreview(v, b.color)}" alt=""><b>${o.name}</b></button>`;
-      if (k === 'pilot') return `<button class="gtile pt${sel}" data-v="${v}"><img src="${pilotPortrait(v)}" alt=""><b>${o.name}</b><small>${o.cls}</small></button>`;
-      if (k === 'body') { const sp = CAR_SPECS[v]; return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b><small>${sp.hp} HP · ${sp.kg} KG · ${sp.front ? '4WD' : 'RWD'}</small></button>`; }
-      return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b><div class="chips">${deltaChips(o.s)}</div></button>`;
+      const Rv = BUILD_PARTS.includes(k) ? ratingsFor(Object.assign({}, b, { [k]: v })) : null;
+      if (k === 'pilot') return `<button class="gtile pt${sel}" data-v="${v}"><img src="${pilotPortrait(v)}" alt=""><b>${o.name}</b><small>${o.kg} KG</small>${piBadge(Rv, true)}</button>`;
+      if (k === 'body') { const sp = CAR_SPECS[v]; return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b><small>${sp.hp} HP · ${sp.kg} KG · ${sp.front ? '4WD' : 'RWD'}</small>${piBadge(Rv, true)}</button>`; }
+      return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b>${piBadge(Rv, true)}<div class="chips">${partChips(k, o)}</div></button>`;
     }).join('');
     const cur = cat.opts[b[k]];
     const cosmetic = { color: 'Paint job for the body, wings and wheel arches. Chrome and copper are extra shiny.', decal: 'Livery pattern for the sides and roof.', glow: 'Colour of the underglow and hover pad lights.' };
@@ -6539,12 +6649,12 @@ const Garage = {
     this.renderStats();
   },
   renderStats() {
-    const b = Store.data.garage, p = GARAGE.pilot.opts[b.pilot], stats = buildStats(b);
+    const b = Store.data.garage, p = GARAGE.pilot.opts[b.pilot], R = ratingsFor(b);
     let cmp = null;
-    if (this.preview) { const pb = Object.assign({}, b, this.preview); cmp = buildStats(pb); }
+    if (this.preview) cmp = ratingsFor(Object.assign({}, b, this.preview));
     document.getElementById('garStats').innerHTML =
-      `<div class="ride-head"><img src="${pilotPortrait(b.pilot)}" alt=""><div><b>${p.name}</b><small>${p.cls} CLASS</small><div class="ride-parts">${rideSummary(b)}</div></div></div>` +
-      statBarsHTML(stats, cmp);
+      `<div class="ride-head"><img src="${pilotPortrait(b.pilot)}" alt=""><div><b>${p.name}</b><small>${p.cls} · ${p.kg} KG</small><div class="ride-parts">${rideSummary(b)}</div></div></div>` +
+      ratingsHTML(R, cmp);
   },
   /** Orbit camera around the parked car, framed to the right of (or above) the parts panel. */
   updateCamera(dt) {
@@ -6566,7 +6676,7 @@ const Garage = {
     opts.addEventListener('click', (e) => { const t = e.target.closest('[data-v]'); if (t) this.pick(GARAGE_KEYS[this.tab], +t.dataset.v); });
     opts.addEventListener('pointerover', (e) => {
       const t = e.target.closest('[data-v]'), k = GARAGE_KEYS[this.tab];
-      const pv = t && STAT_PARTS.includes(k) ? { [k]: +t.dataset.v } : null;
+      const pv = t && BUILD_PARTS.includes(k) ? { [k]: +t.dataset.v } : null;
       if (JSON.stringify(pv) !== JSON.stringify(this.preview)) { this.preview = pv; this.renderStats(); }
     });
     opts.addEventListener('pointerleave', () => { if (this.preview) { this.preview = null; this.renderStats(); } });
@@ -6777,8 +6887,8 @@ const Menu = {
     const gb = Store.data.garage, gp = GARAGE.pilot.opts[gb.pilot];
     document.querySelectorAll('#homeNav .hbtn').forEach((b, i) => b.classList.toggle('sel', i === this.homeIdx));
     document.getElementById('homeRally').textContent = 'All ' + STAGES.length + ' stages back to back' + (rb ? ' · best ' + fmtTime(rb.total) : '');
-    const rideHTML = `<h4>YOUR RIDE</h4><div class="ride-head"><img src="${pilotPortrait(gb.pilot)}" alt=""><div><b>${gp.name}</b><small>${gp.cls} CLASS</small>` +
-      `<div class="ride-parts">${rideSummary(gb)}<br>${GARAGE.color.opts[gb.color].name} PAINT</div></div></div>${statBarsHTML(buildStats(gb))}<button class="btn alt">OPEN GARAGE &#9656;</button>`;
+    const rideHTML = `<h4>YOUR RIDE</h4><div class="ride-head"><img src="${pilotPortrait(gb.pilot)}" alt=""><div><b>${gp.name}</b><small>${gp.cls} · ${gp.kg} KG</small>` +
+      `<div class="ride-parts">${rideSummary(gb)}<br>${GARAGE.color.opts[gb.color].name} PAINT</div></div></div>${ratingsHTML(ratingsFor(gb))}<button class="btn alt">OPEN GARAGE &#9656;</button>`;
     const hr = document.getElementById('homeRide');
     if (hr.dataset.html !== rideHTML) { hr.innerHTML = rideHTML; hr.dataset.html = rideHTML; }
     document.getElementById('selGarage').textContent = gp.name + ' · ' + GARAGE.body.opts[gb.body].name + ' \u25B8 GARAGE';
@@ -6875,7 +6985,7 @@ function init() {
     Game, car, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; },
-    openService, leaveService, startRally, Rally, Garage, Menu, Settings, GARAGE, GEARBOX, SUSP, CAR, CAR_SPECS, buildStats, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
+    openService, leaveService, startRally, Rally, Garage, Menu, Settings, GARAGE, GEARBOX, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
   };

@@ -83,7 +83,7 @@ Transmission:
 
 ## Menus
 
-- **Home.** PLAY (stage select), RALLY, GARAGE and SETTINGS, with your current pilot, car and stats beside them.
+- **Home.** PLAY (stage select), RALLY, GARAGE and SETTINGS, with your current pilot, car, PI and ratings beside them.
 - **Stage select.** The seven stages are listed on the left, each with its best time and medal. The chosen stage is shown on the right with a picture, its corner count, length, surface, checkpoints and target time, and two tabs: LEADERBOARD, and CODES & GHOSTS for stage codes, seeds and ghost codes.
 - **Settings.** Every switch in one place, reachable from the home screen, the stage select (⚙) and the pause menu: manual gears, ABS and traction control, bumper cam, ghost and racing line, sound and co-driver voice, your driver name, and a controls reference for keyboard, gamepad and touch.
 - **Pause.** Resume, restart, settings or quit to the stage select.
@@ -104,7 +104,11 @@ In the **garage** you build your ride Mario Kart style, with a live 3D preview t
 | Decal | CLEAN, STRIPES, FLAMES, CHECKER, BOLT, STARS |
 | Glow | Underglow in 5 colours, or off |
 
-Each pilot, car, wheel and wing shifts five stats (speed, acceleration, handling, grip, weight) up or down from a neutral 5. Hover an option to preview the change. A car's speed and acceleration bars describe its engine, which sets the pace by itself; the pilot, wheels and wing nudge top speed (±11%) and pull (±3% a step). The other stats scale steering lock, tyre grip and damage taken (heavier builds shrug off more). The build is saved in `localStorage` and applies to every stage; the service park setup still stacks on top.
+Each car is drawn on its own rally wheels: multi-spoke or five-spoke rims, with a brake disc and caliper behind the spokes. The discs glow orange after hard braking and cool off again. The coil-overs, anti-roll bars and tailpipes are modelled too, and the tailpipes spit flame on anti-lag pops.
+
+Parts change the car's real physics. The pilot adds their weight (35 to 180 kg) and quickens or slows the steering. Wheels change grip on each surface, weight and rolling drag. The wing changes drag and downforce, and downforce presses the tyres harder as speed rises. Each car also has its own downforce and turn-in.
+
+Every build gets a **PI** (performance index, 100 to 999) and a class: D, C (501+), B (601+), A (701+), S1 (801+), S2 (901+) and X (999). Six ratings out of 10 make up the PI: speed, handling, acceleration, launch, braking and offroad. They are worked out from the build's physics: a full-throttle run on regolith with the drivetrain's traction limit for top speed, 0-100 and 0-160 km/h, tyre grip with downforce for cornering and braking, and loose-surface grip for offroad. Every tile shows the PI the build would have with that part, and hovering one previews the rating changes. The service park shows the PI with the chosen setup. As standard, the TWINCHARGER rates A 730 and the rear-drive STRADALE C 563.
 
 ## Modes and sharing
 
