@@ -1014,6 +1014,48 @@ td.good{color:var(--neon-grn)!important} td.bad{color:var(--neon-red)!important}
 }
 /* touch: the timer plate shrinks to the clock when there is no split or penalty to show */
 body.touch #delta:empty,body.touch #penalty:empty{display:none}
+
+/* =========================================================================
+   MINIMAL HUD (default; Settings > HUD or key H switches to FULL)
+   Keeps the road clear: a slim progress line, a small clock, one pace note
+   and a compact dash. Everything else waits for the FULL HUD.
+   ========================================================================= */
+body.hud-min #stageName,body.hud-min #bestBox,body.hud-min #coDriver,body.hud-min .pn.next,body.hud-min #rpmTxt{display:none}
+body.hud-min #hud #surfBox{display:none!important}
+body.hud-min #dmgRow:not(.hit){display:none}
+body.hud-min #topbar{font-size:13px;opacity:.75}
+body.hud-min #progress{height:4px;box-shadow:none;background:rgba(0,0,0,.35)}
+body.hud-min #progress .tick{top:-2px;height:8px;opacity:.7}
+body.hud-min #timerBox{padding:2px 12px 1px;background:rgba(0,0,0,.38);box-shadow:none}
+body.hud-min #timerBox::before{display:none}
+body.hud-min #timer{font-size:22px;text-shadow:2px 2px 0 rgba(160,0,90,.55)}
+body.hud-min #delta,body.hud-min #penalty{font-size:13px}
+body.hud-min #delta:empty,body.hud-min #penalty:empty{display:none}
+body.hud-min .pn{clip-path:none;background:rgba(0,0,0,.5);color:var(--neon-yel);box-shadow:inset 3px 0 0 var(--neon-yel);font-size:13px;padding:4px 12px 4px 6px}
+body.hud-min .pn svg *{stroke:var(--neon-yel)!important}
+body.hud-min .pn svg,body.hud-min .pn .ico{width:22px;height:22px;font-size:16px}
+body.hud-min #dash{background:none}
+body.hud-min #speedo text:not(#spdNum):not(#tcLbl){opacity:.7}
+body.hud-min:not(.touch) #topbar{top:8px;width:min(460px,56vw)}
+body.hud-min:not(.touch) #timerBox{top:22px}
+body.hud-min:not(.touch) #pace{top:60px;min-width:0}
+body.hud-min:not(.touch) #infoBox{top:22px;font-size:13px;opacity:.8}
+body.hud-min:not(.touch) #dash{transform:scale(.68);transform-origin:bottom right;right:6px;bottom:6px}
+/* touch: same trims, and the on-screen controls fade back so the road shows through */
+body.hud-min #tSteer,body.hud-min .tb,body.hud-min .ts{opacity:.45}
+body.hud-min .tb.on{opacity:.85}
+body.hud-min #tSteer span,body.hud-min #tSteer::before{display:none}
+@media (orientation:portrait) and (max-width:600px){
+  body.touch.hud-min #timerBox{top:calc(max(8px,env(safe-area-inset-top)) + 52px)}
+  body.touch.hud-min #timer{font-size:18px}
+  body.touch.hud-min .pn{white-space:nowrap;font-size:12px}
+  body.touch.hud-min #pace{top:calc(max(8px,env(safe-area-inset-top)) + 150px)}
+}
+@media (orientation:landscape) and (max-height:500px){
+  body.touch.hud-min #timer{font-size:17px}
+  body.touch.hud-min #pace{top:calc(max(8px,env(safe-area-inset-top)) + 58px)}
+  body.touch.hud-min .pn{font-size:11px}
+}
 </style>
 </head>
 <body>
@@ -1197,6 +1239,7 @@ body.touch #delta:empty,body.touch #penalty:empty{display:none}
         <button class="opt" data-set="cam"><span><b>BUMPER CAM</b><small>Drive from the front bumper instead of behind the car. Key: C</small></span><i class="switch"></i></button>
         <button class="opt" data-set="ghost"><span><b>GHOST</b><small>Race against a replay of your best run. Key: G</small></span><i class="switch"></i></button>
         <button class="opt" data-set="line"><span><b>RACING LINE</b><small>The fastest line, green to go, amber to lift, red to brake, with a board at each braking point. BRAKING shows only the lift and brake zones. Key: L</small></span><i class="mode" id="lineMode">FULL</i></button>
+        <button class="opt" data-set="hud"><span><b>HUD</b><small>MINIMAL keeps the road clear: time, pace note, speed, gear and revs. FULL adds best and target times, surface, altitude, camera, suspension and damage. Key: H</small></span><i class="mode" id="hudMode">MINIMAL</i></button>
         <div class="set-group">SOUND</div>
         <button class="opt" data-set="sound"><span><b>SOUND</b><small>Engine, effects and co-driver. Key: M</small></span><i class="switch"></i></button>
         <button class="opt" data-set="vol"><span><b>VOLUME</b><small>Master volume for the engine, exhaust and effects.</small></span><i class="mode" id="volMode">100%</i></button>
@@ -1215,6 +1258,7 @@ body.touch #delta:empty,body.touch #penalty:empty{display:none}
           <tr><td>Reset to checkpoint</td><td><kbd>R</kbd></td><td>Back</td><td>R</td></tr>
           <tr><td>Camera</td><td><kbd>C</kbd></td><td>Y</td><td>CAM</td></tr>
           <tr><td>Racing line: full, braking, off</td><td><kbd>L</kbd></td><td></td><td>Settings</td></tr>
+          <tr><td>HUD: minimal, full</td><td><kbd>H</kbd></td><td></td><td>Settings</td></tr>
           <tr><td>Pause</td><td><kbd>Esc</kbd></td><td>Start</td><td>II</td></tr>
           <tr><td>Mute / voice / ghost</td><td><kbd>M</kbd> <kbd>V</kbd> <kbd>G</kbd></td><td></td><td>&#9835;</td></tr>
         </table>
@@ -5094,6 +5138,14 @@ function cycleLine() {
   HUD.toast('RACING LINE ' + LINE_NAMES[s.line]);
   Store.save(); Menu.refresh();
 }
+/** HUD density: MINIMAL (default) keeps only what a driver reads at a glance; FULL shows every readout. */
+function applyHud() { document.body.classList.toggle('hud-min', Store.data.settings.hud !== 'full'); }
+function toggleHud() {
+  const s = Store.data.settings;
+  s.hud = s.hud === 'full' ? 'min' : 'full';
+  applyHud(); HUD.toast('HUD ' + (s.hud === 'full' ? 'FULL' : 'MINIMAL'));
+  Store.save(); Menu.refresh();
+}
 const VOLUMES = [1, 0.75, 0.5, 0.25];
 function cycleVolume() {
   const s = Store.data.settings, cur = s.vol == null ? 1 : s.vol;
@@ -8796,7 +8848,7 @@ const Input = {
       AudioSys.unlock();
       this.keys.add(e.code);
       if (e.repeat) return;
-      const map = { KeyR: 'reset', KeyC: 'camera', KeyE: 'gearUp', KeyQ: 'gearDown', Escape: 'pause', KeyP: 'pause', KeyM: 'mute', KeyV: 'voice', KeyG: 'ghost', KeyL: 'line',
+      const map = { KeyR: 'reset', KeyC: 'camera', KeyE: 'gearUp', KeyQ: 'gearDown', Escape: 'pause', KeyP: 'pause', KeyM: 'mute', KeyV: 'voice', KeyG: 'ghost', KeyL: 'line', KeyH: 'hud',
         Enter: 'confirm', NumpadEnter: 'confirm', ArrowLeft: 'navLeft', ArrowRight: 'navRight', KeyA: 'navLeft', KeyD: 'navRight',
         ArrowUp: 'navUp', ArrowDown: 'navDown', KeyW: 'navUp', KeyS: 'navDown' };
       if ((e.code === 'Enter' || e.code === 'NumpadEnter') && e.target && e.target.matches && e.target.matches('button')) return;   // the button's own click handles it
@@ -9378,7 +9430,7 @@ const HUD = {
   init() {
     for (const id of ['hud', 'stageName', 'progress', 'progFill', 'progCar', 'progGhost', 'progRival', 'cpLabel', 'infoBox', 'timer', 'delta', 'penalty', 'bestBox',
       'coDriver', 'pn1', 'pn2', 'countdown', 'bigMsg', 'subMsg', 'toast', 'surfName', 'gripFill', 'altRow', 'altVal', 'camVal', 'driftTag',
-      'spdArc', 'spdNum', 'tcLbl', 'dmgFill', 'dmgPct', 'dmgIcon', 'touch', 'gearNum', 'rpmBar', 'rpmFill', 'rpmNum', 'gearMode', 'brkBar', 'brkFill']) this.el[id] = document.getElementById(id);
+      'spdArc', 'spdNum', 'tcLbl', 'dmgRow', 'dmgFill', 'dmgPct', 'dmgIcon', 'touch', 'gearNum', 'rpmBar', 'rpmFill', 'rpmNum', 'gearMode', 'brkBar', 'brkFill']) this.el[id] = document.getElementById(id);
     this.suspBars = [...document.querySelectorAll('#suspBars i')];
   },
   set(key, text) { if (this.last[key] !== text) { this.last[key] = text; this.el[key].textContent = text; } },
@@ -9431,6 +9483,7 @@ const HUD = {
     // traction control light: dim when off, lit when on, amber while it is trimming the engine
     this.el.tcLbl.setAttribute('fill', !car.tc ? '#44506a' : car.tcCut ? '#ffb52e' : '#58f0ff');
     this.el.dmgFill.style.width = (car.damage * 100).toFixed(1) + '%';
+    this.el.dmgRow.classList.toggle('hit', car.damage > 0.1);   // the minimal HUD only shows damage once it matters
     // gearbox: gear, rev counter with redline, shift light (manual only) and limiter flash
     this.set('gearNum', car.gear < 0 ? 'R' : car.shiftT > 0 ? '-' : String(car.gear));
     const rpm = clamp(car.rpm, 0, 1.03) * GEARBOX.redline;
@@ -10261,6 +10314,7 @@ function handleActions() {
       case 'voice': toggleSetting('voice'); break;
       case 'ghost': toggleSetting('ghost'); break;
       case 'line': cycleLine(); break;
+      case 'hud': toggleHud(); break;
       case 'camera': if (st !== 'loading') toggleCamera(); break;
       case 'pause':
         if (!document.getElementById('modal').classList.contains('hidden')) Modal.close();
@@ -10763,6 +10817,7 @@ const Settings = {
     if (k === 'controls') { if (!sideways) { this.view = 'controls'; this.refresh(); } return; }
     if (k === 'name') { if (!sideways) document.getElementById('nameInput').focus(); return; }
     if (k === 'line') { cycleLine(); return; }
+    if (k === 'hud') { toggleHud(); return; }
     if (k === 'vol') { cycleVolume(); return; }
     if (k === 'cam') toggleCamera(); else toggleSetting(k === 'sound' ? 'muted' : k);
   },
@@ -10778,6 +10833,7 @@ const Settings = {
     const nameIn = document.getElementById('nameInput');
     if (document.activeElement !== nameIn) nameIn.value = s.name || 'DRIVER';
     document.getElementById('lineMode').textContent = LINE_NAMES[s.line || 'full'];
+    document.getElementById('hudMode').textContent = s.hud === 'full' ? 'FULL' : 'MINIMAL';
     document.getElementById('volMode').textContent = Math.round((s.vol == null ? 1 : s.vol) * 100) + '%';
   },
   init() {
@@ -11028,6 +11084,7 @@ function init() {
   if (typeof s.abs !== 'boolean') s.abs = true;      // manual gears by default on keyboard/gamepad, automatic on touch
   Cam.mode = s.cam === 'bumper' ? 'bumper' : 'chase';
   if (IS_TOUCH) document.body.classList.add('touch');
+  applyHud();
   HUD.init(); Input.init(); Sky.init(); FX.init(); Ghost.init(); Rival.init(); Menu.init();
   rebuildCarModel();
   linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
