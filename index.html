@@ -6117,7 +6117,7 @@ const EngineSound = {
   /** Read cylinders, firing order and induction out of a car's spec, with fallbacks for anything unrecognised. */
   layoutOf(sp) {
     const o = sp.sound || {}, name = sp.engine || '';
-    let cyl = o.cyl, cfg = 'I';
+    let cyl = o.cyl || sp.cyl, cfg = /^v/i.test(sp.layout || '') ? 'V' : /flat|boxer/i.test(sp.layout || '') ? 'F' : 'I';
     let m;
     if (!cyl && (m = /inline-?(\d+)/i.exec(name))) cyl = +m[1];
     if (!cyl && (m = /flat-?(\d+)/i.exec(name))) { cyl = +m[1]; cfg = 'F'; }
