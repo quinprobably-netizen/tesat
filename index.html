@@ -1413,7 +1413,7 @@ const GARAGE = {
 };
 const GARAGE_KEYS = ['pilot', 'body', 'wheels', 'color', 'decal', 'glow'];
 const BUILD_PARTS = ['body', 'wheels'];
-const DEFAULT_BUILD = { pilot: 0, body: 0, wheels: 0, color: 12, decal: 0, glow: 0 };
+const DEFAULT_BUILD = { pilot: 0, body: 0, wheels: 0, color: GARAGE.color.opts.findIndex((o) => o.works), decal: 0, glow: 0 };
 function cleanBuild(b) {
   const out = Object.assign({}, DEFAULT_BUILD);
   if (b && typeof b === 'object') for (const k of GARAGE_KEYS) { const v = b[k]; if (Number.isInteger(v) && v >= 0 && v < GARAGE[k].opts.length) out[k] = v; }
@@ -1766,7 +1766,7 @@ function corneringG(tn, surf, v) {
 const PI_CLASSES = [[998, 'X', '#5ef08c'], [900, 'S2', '#3d8bff'], [800, 'S1', '#b06bff'], [700, 'A', '#ff4d5e'], [600, 'B', '#ff8a3a'], [500, 'C', '#ffd23d'], [0, 'D', '#58f0ff']];
 function piClass(pi) { for (const c of PI_CLASSES) if (pi > c[0] || c[0] === 0) return { cls: c[1], color: c[2] }; return { cls: 'D', color: '#58f0ff' }; }
 const PI_SCALE = { speed: [150, 260], t160: [12, 5], t100: [6, 2.5], corner: [0.5, 0.85], brake: [80, 45], offroad: [0.4, 0.8] };
-const PI_BASE = 240;                              // the standard cars, with their real figures, all land in A class
+const PI_BASE = 240;                              // the Group B cars and the PRERUNNER, with their real figures, land in A class; the restricted Rally1 cars in B
 function perfRatings(build, setup) {
   const tn = tuneFor(setup || DEFAULT_SETUP, build), sp = tn.spec, m = tn.mass, gG = 9.81;
   const run = straightRun(tn, SURF.TARMAC, 40);
@@ -4494,7 +4494,7 @@ function stepVehicle(dt, ctl) {
   car.nGround = nG;
   // 4) gearbox, brakes and driver aids, then the coupled powertrain solve
   gearboxStep(dt, ctl, vLongBody, nG);
-  const rev = car.gear < 0, front = sp.front > 0;
+  const rev = car.gear < 0, drv0 = sp.front ? 0 : 2, drv1 = sp.front >= 1 ? 2 : 4;   // driven wheels: drv0 up to drv1
   const pedal = rev ? ctl.throttle : ctl.brake;                    // in reverse the throttle pedal brakes
   for (let k = 0; k < 4; k++) {
     const w = car.wheels[k], fw = k < 2;
@@ -4510,7 +4510,7 @@ function stepVehicle(dt, ctl) {
   // traction control: cuts the engine while a driven wheel spins past the tyre's peak slip
   if (car.tc && th0 > 0) {
     let over = 0;
-    for (let k = front ? 0 : 2; k < 4; k++) { const w = car.wheels[k]; if (w.grounded) over = Math.max(over, w.kap * Math.sign(rev ? -1 : 1) / w.ts.kp); }
+    for (let k = drv0; k < drv1; k++) { const w = car.wheels[k]; if (w.grounded) over = Math.max(over, w.kap * Math.sign(rev ? -1 : 1) / w.ts.kp); }
     car.tcF = over > 1.35 ? Math.max(0.05, car.tcF - dt * 6 * (over - 0.9)) : Math.min(1, car.tcF + dt * 2.5);
   } else car.tcF = Math.min(1, car.tcF + dt * 4);
   car.tcCut = car.tc && th0 > 0.05 && car.tcF < 0.95;
@@ -4523,7 +4523,7 @@ function stepVehicle(dt, ctl) {
     if (!w.grounded) continue;
     w.sliding = w.slip > 1.15;
     w.locked = pedal > 0.02 && Math.abs(w.vLong) > 2 && Math.abs(w.om * CAR.radius) < 0.15 * Math.abs(w.vLong);
-    w.spinning = (front || k >= 2) && w.kap > 1.6 * w.ts.kp && Math.abs(w.om * CAR.radius) > 2;
+    w.spinning = k >= drv0 && k < drv1 && w.kap > 1.6 * w.ts.kp && Math.abs(w.om * CAR.radius) > 2;
     w.slipLat = w.vLat;
     _cp.copy(w.cp).addScaledVector(AY, CAR.rcH);
     addForceAt(_ft.copy(w.fw).multiplyScalar(w.Fx).addScaledVector(w.lt, w.Fy), _cp);
@@ -5754,7 +5754,10 @@ const LIVERIES = [
     top(P) { P.rect(2.8, 0.5, 0.25, 0.37, '#d71920'); P.rect(2.8, 0.5, 0.39, 0.45, '#f26522'); P.rect(2.8, 0.5, 0.47, 0.51, '#f9c80e'); } },
 ];
 /** The atlas texture for a car's works livery. */
-function liveryAtlas(body, num) {
+const LIV_CACHE = new Map();
+function liveryAtlas(body, num, decal) {
+  const key = body + ':' + num + ':' + (decal || 0);
+  if (LIV_CACHE.has(key)) return LIV_CACHE.get(key);
   const L = LIVERIES[body], F = liveryFrame(body);
   const tex = makeCanvas(LIV.W, 2 * LIV.S + LIV.T, (c) => {
     for (const side of [0, 1, 'top']) {
@@ -5762,10 +5765,11 @@ function liveryAtlas(body, num) {
       c.save(); c.beginPath(); c.rect(0, side === 'top' ? 2 * LIV.S : side * LIV.S, LIV.W, side === 'top' ? LIV.T : LIV.S); c.clip();
       P.fill(L.base);
       if (side === 'top') { if (L.top) L.top(P, num); } else L.side(P, num);
+      if (decal && side !== 'top') { c.translate(0, side * LIV.S); drawDecal(c, LIV.W, LIV.S, decal, '#15171b', false); }   // a chosen decal goes over the works livery's sides
       c.restore();
     }
   });
-  return { tex, F };
+  const at = { tex, F }; LIV_CACHE.set(key, at); return at;
 }
 const _livP = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], _livN = new THREE.Vector3(), _livE = new THREE.Vector3(), _livM = new THREE.Matrix3();
 /** Texture coordinates for a painted mesh from where each face sits on the car (see above). */
@@ -5851,8 +5855,7 @@ LIVERIES.push(
     top(P) { P.rect(1.4, 0.4, -0.4, 0.4, '#00a04a'); P.rect(1.4, 0.4, -0.5, -0.44, '#ffe000'); P.rect(1.4, 0.4, 0.44, 0.5, '#ffe000'); } },
   { name: 'Monte Carlo winner, 1964', base: '#c1121f', rim: 0xd0d0d0, num: 37,        // Mini Cooper S: red with a white roof
     side(P, n) {
-      P.ellipse(0.1, 0.4 - 0.4, 0.11, '#f4f4f0'); P.text(String(n), 0.1, 0.0, 0.1, '#111', { weight: 800, w: 0.2 });
-      P.rect(2.2, 1.9, -0.65, -0.55, '#f4f4f0');
+      P.ellipse(0.1, 0.0, 0.11, '#f4f4f0'); P.text(String(n), 0.1, 0.0, 0.1, '#111', { weight: 800, w: 0.2 });
     },
     top(P) { P.rect(0.78, -1.5, -0.75, 0.75, '#f4f4f0'); P.ellipse(1.2, 0, 0.17, '#f4f4f0'); P.text('37', 1.2, 0, 0.14, '#111', { rot: -Math.PI / 2, w: 0.3 }); } },
 );
@@ -5872,7 +5875,7 @@ function buildCarModel(build) {
   const works = !!paintOpt.works;
   let paint = new THREE.MeshStandardMaterial({ color: accentHex, metalness: works ? 0.35 : metal, roughness: works ? 0.38 : rough });
   let liveryFrameF = null;
-  if (works) { const at = liveryAtlas(body, LIVERIES[body].num); paint.map = at.tex; paint.color.set(0xffffff); liveryFrameF = at.F; }
+  if (works) { const at = liveryAtlas(body, LIVERIES[body].num, build.decal); paint.map = at.tex; paint.color.set(0xffffff); liveryFrameF = at.F; }
   const dark = new THREE.MeshStandardMaterial({ color: 0x1b1e24, metalness: 0.5, roughness: 0.55 });
   const trim = new THREE.MeshStandardMaterial({ color: 0xcfd5de, metalness: 0.85, roughness: 0.25 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x0c2036, metalness: 0.9, roughness: 0.06, envMapIntensity: 2.2, transparent: true, opacity: 0.55, depthWrite: false });
@@ -5922,7 +5925,6 @@ function buildCarModel(build) {
     add(new THREE.BoxGeometry(0.025, 0.14, 0.42), dark, x, -0.55, rearZ + 0.2);
   }
   if (ap.gurney) add(new THREE.BoxGeometry(1.5, 0.05, 0.02), dark, 0, 0.82, -1.89);
-  if (ap.finsT16) for (const sx of [-1, 1]) add(new THREE.BoxGeometry(0.03, 0.2, 0.36), paint, sx * 0.74, 0.88, -1.5);
   // ---- exhaust: tailpipes, with a flame for the anti-lag pops on upshifts and lifts ----
   const flameMat = new THREE.MeshBasicMaterial({ color: 0xff8a3a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
   const flames = [];
@@ -5959,7 +5961,8 @@ function buildCarModel(build) {
   const wheels = [];
   const R = geo.r, W = sp.tyre.w * [1, 1.3, 0.92, 0, 1][wheelKind];   // the car's real tyre (crawlers a size up, slicks a touch lower)
   const rimSpec = RIM_STYLES[body];
-  const rimMat = wheelKind === 2 ? paint : new THREE.MeshStandardMaterial({ color: works ? LIVERIES[body].rim : rimSpec.color, metalness: 0.75, roughness: 0.3 });
+  const plainPaint = works ? new THREE.MeshStandardMaterial({ color: LIVERIES[body].rim, metalness: 0.5, roughness: 0.4 }) : paint;   // the textured livery stays off the wheels
+  const rimMat = wheelKind === 2 ? plainPaint : new THREE.MeshStandardMaterial({ color: works ? LIVERIES[body].rim : rimSpec.color, metalness: 0.75, roughness: 0.3 });
   const discMats = [], rubberDS = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.92, side: THREE.DoubleSide });
   const caliperMat = new THREE.MeshStandardMaterial({ color: rimSpec.caliper, metalness: 0.3, roughness: 0.45 });
   let tireGeo = null, wallGeo = null, dishGeo = null, spokeGeo = null, nutGeo = null, discGeo = null, hatGeo = null, calGeo = null, treadGeo = null, padGeo = null, padGlow = null;
@@ -6007,7 +6010,7 @@ function buildCarModel(build) {
       if (wheelKind === 4) for (let k = 0; k < 24; k++) { const t = new THREE.Mesh(treadGeo, trim); const a = k / 12 * TAU; t.position.set(k % 2 ? W * 0.28 : -W * 0.28, Math.cos(a) * R, Math.sin(a) * R); t.rotation.x = a; spin.add(t); }
     } else {
       const pad = new THREE.Mesh(padGeo, dark); pad.position.y = -R * 0.3; pad.castShadow = true; pivot.add(pad);
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.44 * pr, 0.04 * pr, 6, 20), paint); rim.rotation.x = Math.PI / 2; rim.position.y = pad.position.y + 0.05 * pr; pivot.add(rim);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.44 * pr, 0.04 * pr, 6, 20), plainPaint); rim.rotation.x = Math.PI / 2; rim.position.y = pad.position.y + 0.05 * pr; pivot.add(rim);
       const glow = padGlow.clone(); glow.rotation.x = Math.PI / 2; glow.position.y = pad.position.y - 0.09 * pr; pivot.add(glow);
       const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.05 * pr, 0.05 * pr, 0.4 * pr, 6), trim); strut.position.y = pad.position.y + 0.25 * pr; pivot.add(strut);
     }
@@ -6165,6 +6168,8 @@ function buildPilotHead(p) {
   }
   return g;
 }
+// the livery text is drawn on a canvas, which doesn't wait for web fonts: redraw once the livery font has loaded
+if (document.fonts && document.fonts.load) document.fonts.load('italic 800 20px "Barlow Condensed"').then(() => { LIV_CACHE.clear(); if (Game.carModel) rebuildCarModel(); }).catch(() => {});
 /** Swap the player's car model for the current garage build. */
 function rebuildCarModel() {
   setCarTune(tuneFor(DEFAULT_SETUP, Store.data.garage));   // the physics follows the car on show (the stage setup applies at the start)
@@ -7942,7 +7947,7 @@ const Garage = {
       return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b>${piBadge(Rv, true)}<div class="chips">${partChips(k, o)}</div></button>`;
     }).join('');
     const cur = cat.opts[b[k]];
-    const cosmetic = { color: 'Paint job for the body, wings and wheel arches. Chrome and copper are extra shiny. WORKS is the car\'s own rally livery.', decal: 'Livery pattern for the sides and roof.', glow: 'Colour of the underglow and hover pad lights.' };
+    const cosmetic = { color: 'Paint job for the body, wings and wheel arches. Chrome and copper are extra shiny. WORKS is the car\'s own rally livery.', decal: 'Livery pattern for the sides and roof (on WORKS paint, over the sides only).', glow: 'Colour of the underglow and hover pad lights.' };
     if (k === 'pilot') cosmetic.pilot = `<b>${cur.name}</b> ${cur.blurb}`;
     let desc = cosmetic[k] ? cosmetic[k] + ' <em>Looks only, no effect on performance.</em>' : `<b>${cur.name}</b> ${cur.blurb}`;
     if (k === 'body') {
