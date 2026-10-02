@@ -7277,7 +7277,7 @@ function buildCarModel(build) {
     c.fillStyle = pilot.trim; c.fillRect(0, h * 0.77, w, h * 0.05);
     c.fillStyle = numCss; c.beginPath(); c.arc(w * 0.5, h * 0.34, 32, 0, TAU); c.fill();
     c.fillStyle = numCss === '#f2f2f2' ? '#111' : '#f2f2f2'; c.font = 'italic 900 42px "Segoe UI", system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(String(build.pilot * 11 + 7).padStart(2, '0'), w * 0.5, h * 0.35);
+    c.fillText(String((build.pilot * 11 + 7) % 100).padStart(2, '0'), w * 0.5, h * 0.35);
   });
   const side = works ? paint : new THREE.MeshStandardMaterial({ map: livery, metalness: metal, roughness: rough });
   const topTex = makeCanvas(128, 256, (c, w, h) => { c.fillStyle = accentCss; c.fillRect(0, 0, w, h); drawDecal(c, w, h, build.decal, numCss, true); });
