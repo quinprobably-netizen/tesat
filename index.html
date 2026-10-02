@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#05060c">
 <title>Regolith Rally</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,600;1,700;1,800&family=Barlow:wght@400;500;600;700&display=swap">
 <style>
 /* =========================================================================
    STYLES — HUD, menus, overlays, touch controls
@@ -432,6 +435,273 @@ body.touch #surfBox>:not(#altRow){display:none}
   .gar-panel .gar-opts{flex:none;overflow:visible}
   .gar-tabs{position:sticky;top:-10px;z-index:2;margin:-10px -10px 8px;padding:10px 10px 6px;background:rgba(10,13,24,.96);border-radius:14px 14px 0 0}
 }
+/* =========================================================================
+   LOOK — rally livery: condensed motorsport type, dark glass plates with a cut corner and a
+   yellow-orange-red stripe, slanted action buttons, timing-board HUD. Layout rules above stay;
+   this layer restyles them, then lays out phones held in landscape.
+   ========================================================================= */
+:root{
+  --accent:#ffc21a; --accent2:#ff7a1a; --hot:#ff3b4e; --cyan:#4fe3ff; --good:#3ddc84; --bad:#ff4d5e;
+  --panel:rgba(10,12,21,.86); --plate:rgba(255,255,255,.045); --line:rgba(255,255,255,.12); --text:#f3f5fb; --dim:#8d96ac;
+  --ink:#141005;
+  --display:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --stripe:linear-gradient(90deg,var(--accent) 0 58%,var(--accent2) 58% 79%,var(--hot) 79%);
+  --cut:16px;
+}
+html,body{font-family:var(--body)}
+.logo,.tagline,.panel h2,.panel .sub,.btn,.mini,.hbtn b,.sel-title,.gar-top h2,.sd-main h3,.bigtime,.verdict,#timer,#delta,#penalty,.pn,#coDriver,
+#countdown,#bigMsg,#subMsg,#toast,.ride h4,.ride-head b,.gtile b,.srow .sn b,.srow .sb,.sd-stats b,.opt b,.seg button,.tabs button,.gar-tabs button,
+.set-group,.setrow>span,.pi-badge,#gearNum,#topbar,#bestBox,#bestBox b,.tb,.ts,#speedo text,.lb h4,.share-row b,.coderow b,.gar-hint,.home-foot,.sel-foot,.svc-ride,
+.sd-stats div,.sbar,.pi-facts,.gtile small,.srow .sn small,.ride-head small,.region,#rpmTxt,#dmgRow,#surfBox,#cpLabel,.gar-tg>span,.chips em,.ctl-table th,kbd{font-family:var(--display)}
+/* condensed type needs less tracking than the old wide sans */
+.tagline{letter-spacing:.28em;font-weight:700;font-size:12px}
+.logo{font-weight:800;letter-spacing:.01em}
+.logo span{background:var(--stripe);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* ---- plates ---- */
+.panel{background:linear-gradient(180deg,rgba(20,23,36,.9),rgba(8,10,18,.92));border:1px solid var(--line);border-radius:3px;
+  clip-path:polygon(0 0,calc(100% - var(--cut)) 0,100% var(--cut),100% 100%,0 100%);box-shadow:0 18px 50px rgba(0,0,0,.35);backdrop-filter:blur(8px)}
+.panel:not(.gar-panel):not(.gar-stats){position:relative}
+.panel::before{content:'';position:absolute;z-index:3;left:0;top:0;width:min(150px,40%);height:3px;background:var(--stripe);pointer-events:none}
+.panel h2{font-size:32px;font-weight:800;letter-spacing:.03em;text-transform:uppercase}
+.panel .sub{font-size:12px;letter-spacing:.2em;font-weight:700}
+
+/* ---- buttons ---- */
+.btn{border-radius:0;padding:12px 30px;font-size:19px;font-weight:800;letter-spacing:.08em;background:linear-gradient(180deg,#ffd451,#ffb300);color:var(--ink);
+  clip-path:polygon(11px 0,100% 0,calc(100% - 11px) 100%,0 100%);box-shadow:none;transition:filter .12s,transform .12s}
+.btn:hover{filter:brightness(1.08)}
+.btn:active{transform:translateY(1px)}
+.btn.alt{background:rgba(255,255,255,.075);color:var(--text);border:0;box-shadow:inset 0 0 0 1px var(--line)}
+.btn.alt:hover{background:rgba(255,255,255,.13)}
+.vlist .btn.sel{outline:none;filter:none}
+.vlist .btn.alt.sel{background:linear-gradient(90deg,rgba(79,227,255,.28),rgba(79,227,255,.08));box-shadow:inset 0 0 0 1px rgba(79,227,255,.55);color:#fff}
+.vlist .btn:not(.alt).sel{box-shadow:inset 0 -4px 0 rgba(20,16,5,.45)}
+.mini{border-radius:2px;font-size:13px;font-weight:700;letter-spacing:.12em;padding:7px 12px;background:rgba(255,255,255,.06)}
+.mini:hover,.mini.on{border-color:var(--accent);color:var(--accent)}
+.field{border-radius:2px}
+.field:focus{border-color:var(--accent)}
+
+/* ---- home ---- */
+#home{background:linear-gradient(90deg,rgba(4,5,10,.92),rgba(4,5,10,.55) 52%,rgba(4,5,10,.78))}
+.home-nav{gap:8px}
+.hbtn{position:relative;border:0;border-left:3px solid rgba(255,255,255,.14);border-radius:0;background:linear-gradient(90deg,rgba(255,255,255,.07),rgba(255,255,255,.02));padding:11px 18px 12px}
+.hbtn b{font-size:30px;font-weight:800;letter-spacing:.04em;line-height:1}
+.hbtn small{font-size:13px;letter-spacing:.04em;font-weight:500;color:var(--dim)}
+.hbtn:hover,.hbtn.sel{transform:translateX(6px);border-color:var(--accent);background:linear-gradient(90deg,rgba(255,194,26,.2),rgba(255,194,26,.02))}
+.hbtn.sel::after{content:'\25B8';position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--accent);font-size:20px}
+.ride h4{font-size:13px;letter-spacing:.24em;font-weight:700}
+.ride-head img{border-radius:3px}
+.ride-head b{font-size:28px;font-weight:800;letter-spacing:.02em}
+.ride-head small{font-size:12px;letter-spacing:.18em;font-weight:700}
+.ride-parts{font-family:var(--display);font-size:13px;letter-spacing:.08em;font-weight:600}
+.sbar{font-size:12px;letter-spacing:.12em;font-weight:700}
+.sbar em{font-size:13px}
+.rbar{height:8px;border-radius:0;transform:skewX(-14deg)}
+.rbar i.f{background:linear-gradient(90deg,var(--accent),#ffd451)}
+.pi-badge{border-radius:2px;font-weight:800}
+.pi-badge i,.pi-badge b{font-size:18px}
+.pi-badge.sm i,.pi-badge.sm b{font-size:12px}
+.pi-facts{font-size:12px;letter-spacing:.08em;font-weight:600}
+
+/* ---- stage select ---- */
+#menu{background:linear-gradient(90deg,rgba(4,5,10,.9),rgba(4,5,10,.55) 50%,rgba(4,5,10,.82))}
+.sel-title{font-weight:800;letter-spacing:.04em}
+.srow{border:0;border-left:3px solid rgba(255,255,255,.12);border-radius:0;background:linear-gradient(90deg,rgba(14,17,28,.88),rgba(14,17,28,.62))}
+.srow:hover{border-color:rgba(255,255,255,.4)}
+.srow.sel{border-color:var(--accent);background:linear-gradient(90deg,rgba(255,194,26,.22),rgba(14,17,28,.7))}
+.srow .th{border-radius:2px}
+.srow .sn b{font-size:19px;font-weight:700;letter-spacing:.02em}
+.srow .sn small{font-size:11.5px;letter-spacing:.12em;font-weight:600}
+.srow .sb{font-size:15px;font-weight:700}
+.sd-main h3{font-weight:800;font-size:clamp(28px,3vw,38px);letter-spacing:.01em}
+.region{font-size:12px!important;letter-spacing:.2em!important;font-weight:700!important}
+.sd-stats div{border-radius:0;border-left:2px solid var(--accent);font-size:11px;letter-spacing:.14em;font-weight:700}
+.sd-stats b{font-size:18px;font-weight:700}
+.tabs button{font-size:13px;font-weight:700;letter-spacing:.12em}
+.sd-foot .btn{font-size:21px}
+
+/* ---- garage ---- */
+#garage{background:linear-gradient(90deg,rgba(4,5,10,.78),rgba(4,5,10,0) 46%)}
+.gar-top h2{font-size:34px;font-weight:800;letter-spacing:.03em}
+.gar-tabs button{border-radius:0;font-size:13px;font-weight:700}
+.gar-tabs button.on{background:var(--accent);border-color:var(--accent)}
+.gar-tg>span{font-size:11px;font-weight:700}
+.gtile{border-radius:2px;background:rgba(255,255,255,.045)}
+.gtile.sel{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent),0 6px 24px rgba(255,194,26,.14)}
+.gtile b{font-size:17px;font-weight:700;letter-spacing:.03em}
+.gtile small{font-size:11px;letter-spacing:.12em;font-weight:600}
+.gtile.sw b{font-size:13px}
+.chips em{font-size:10.5px;border-radius:2px;font-weight:700}
+.gar-spec i{font-family:var(--display);font-size:11px;font-weight:700}
+.gar-desc{font-size:13px}
+
+/* ---- service, settings, pause, finish ---- */
+.setrow>span{font-size:13px;letter-spacing:.16em;font-weight:700}
+.seg button{border-radius:0;font-size:14px;font-weight:700;letter-spacing:.1em}
+.seg button.on{background:var(--accent);border-color:var(--accent)}
+.svc-ride{font-size:12px;letter-spacing:.16em;font-weight:600}
+.set-group{font-size:12px;letter-spacing:.24em;font-weight:700}
+.opt{border-radius:2px;border:0;border-left:3px solid rgba(255,255,255,.1);background:rgba(255,255,255,.045)}
+.opt:hover,.opt.sel{border-color:var(--accent);background:rgba(255,194,26,.09)}
+.opt b{font-size:17px;font-weight:700;letter-spacing:.06em}
+.switch{border-radius:3px;width:44px;height:24px}
+.switch::after{border-radius:2px;width:18px;height:18px}
+.opt.on .switch{background:rgba(255,194,26,.35)}
+.opt.on .switch::after{transform:translateX(20px);background:var(--accent)}
+.opt .mode{font-family:var(--display);font-size:14px;color:var(--accent)}
+.bigtime{font-size:72px;font-weight:800;letter-spacing:.01em}
+.verdict{font-size:19px;font-weight:700;letter-spacing:.12em}
+table.splits td{font-variant-numeric:tabular-nums}
+table.splits td:first-child{font-family:var(--display);font-size:13px;font-weight:700}
+.lb h4{font-size:14px;letter-spacing:.18em;font-weight:700}
+
+/* ---- race HUD: timing board ---- */
+#hud{text-shadow:0 1px 4px rgba(0,0,0,.6)}
+#topbar{font-size:13px;letter-spacing:.12em;font-weight:700}
+#progress{height:5px;border-radius:0;background:rgba(255,255,255,.16)}
+#progFill{border-radius:0;background:var(--stripe)}
+#timerBox{top:30px;padding:2px 34px 6px;background:linear-gradient(180deg,rgba(8,10,18,.72),rgba(8,10,18,.38));clip-path:polygon(0 0,100% 0,calc(100% - 18px) 100%,18px 100%)}
+#timerBox::before{content:'';position:absolute;left:18px;right:18px;top:0;height:3px;background:var(--stripe)}
+#timer{font-size:54px;font-weight:700;font-style:italic;letter-spacing:.01em;line-height:1.05}
+#delta{font-size:21px;font-weight:700}
+#penalty{font-size:14px;font-weight:700}
+#bestBox{border-radius:0;border-left:3px solid var(--accent);background:rgba(8,10,18,.55);font-size:12px;letter-spacing:.14em;font-weight:600}
+#bestBox b{font-size:16px;font-weight:700}
+#coDriver{font-size:12px;letter-spacing:.3em;font-weight:700}
+.pn{border-radius:0;background:var(--accent);box-shadow:inset 7px 0 0 var(--ink),0 6px 26px rgba(0,0,0,.4);padding:6px 20px 6px 16px;font-size:31px;font-weight:800;letter-spacing:.03em;
+  clip-path:polygon(0 0,100% 0,calc(100% - 10px) 100%,0 100%)}
+.pn.next{background:rgba(10,12,21,.9);box-shadow:inset 7px 0 0 var(--accent)}
+#countdown{font-size:150px;font-weight:800;text-shadow:0 0 50px rgba(255,194,26,.65)}
+#bigMsg{font-size:42px;font-weight:800;letter-spacing:.04em}
+#subMsg{font-size:22px;font-weight:600}
+#toast{font-size:22px;font-weight:700;color:var(--accent)}
+#dash{background:radial-gradient(ellipse at 50% 45%,rgba(6,8,15,.7),rgba(6,8,15,.4) 68%,rgba(6,8,15,0))}
+#speedo text{font-family:var(--display)}
+#spdNum{font-size:58px;font-weight:700}
+#gearNum{border-radius:2px;border-color:var(--accent);font-size:32px;font-weight:800;background:rgba(8,10,18,.6)}
+#rpmBar{border-radius:0}
+#rpmTxt,#dmgRow{font-size:12px;font-weight:700}
+#surfBox{border-radius:0;border-left:3px solid var(--cyan);background:rgba(8,10,18,.55);font-size:12px;font-weight:700}
+
+/* ---- touch controls ---- */
+.tb{border-radius:4px;background:rgba(10,12,21,.42);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(3px);font-size:16px;font-weight:800;letter-spacing:.1em}
+#tGas{background:linear-gradient(0deg,rgba(61,220,132,.34),rgba(61,220,132,.1));border-color:rgba(61,220,132,.6)}
+#tBrake{background:linear-gradient(0deg,rgba(255,77,94,.34),rgba(255,77,94,.1));border-color:rgba(255,77,94,.6)}
+#tHB{border-color:rgba(255,194,26,.55)}
+#tGas.on{background:rgba(61,220,132,.6)} #tBrake.on{background:rgba(255,77,94,.6)} #tHB.on{background:rgba(255,194,26,.55)}
+#tSteer{border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,.1),rgba(255,255,255,.03) 30% 70%,rgba(255,255,255,.1));border-color:rgba(255,255,255,.2)}
+#tSteer::before{content:'\25C2\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\00a0\25B8';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:rgba(255,255,255,.28);font-size:22px;letter-spacing:.2em}
+#tKnob{border-radius:6px;background:rgba(255,194,26,.25);border-color:rgba(255,194,26,.7)}
+#tSteer span{font-family:var(--display);font-size:11px;letter-spacing:.3em}
+.ts{border-radius:3px;background:rgba(10,12,21,.5);border-color:rgba(255,255,255,.2);font-size:15px;font-weight:700}
+
+/* =========================================================================
+   PHONES HELD SIDEWAYS (landscape, short screen): every menu fits one screen without scrolling where it can,
+   panels go side by side, text stays on one line, the HUD keeps the road clear.
+   ========================================================================= */
+@media (orientation:landscape) and (max-height:500px){
+  :root{--cut:10px}
+  .overlay{padding:max(8px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}
+  .panel h2{font-size:24px}
+  .panel .sub{font-size:11px;letter-spacing:.16em}
+  .btn{font-size:16px;padding:9px 22px}
+  .mini{font-size:12px;padding:5px 10px}
+  /* home: menu left, ride right, nothing wraps */
+  .home-wrap{gap:18px;align-items:center;margin:auto 0}
+  .home-main{flex:1 1 0;max-width:430px}
+  .home-main .logo{font-size:40px}
+  .home-main .tagline{font-size:10px;margin:4px 0 10px}
+  .home-nav{width:100%;gap:5px}
+  .hbtn{padding:6px 14px 7px;gap:0}
+  .hbtn b{font-size:22px}
+  .hbtn small{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .hbtn.sel::after{right:12px;font-size:16px}
+  .ride{width:min(300px,40vw);padding:10px 14px 12px}
+  .ride h4{margin-bottom:4px;font-size:11px}
+  .ride-head{gap:10px;margin-bottom:4px} .ride-head img{width:42px;height:42px} .ride-head b{font-size:20px} .ride-head small{font-size:10px}
+  .ride-parts{font-size:11px;margin-top:2px}
+  .ride .pi-row{margin:4px 0} .ride .pi-badge i,.ride .pi-badge b{font-size:14px;padding:3px 6px}
+  .ride .pi-facts{font-size:10.5px}
+  .ride .sbars{gap:2px} .ride .sbar{font-size:10px;grid-template-columns:86px 1fr 24px} .ride .sbar em{font-size:11px} .ride .rbar{height:6px}
+  .ride .btn{margin-top:8px;padding:7px;font-size:15px}
+  /* stage select: narrow list, the chosen stage beside it with START always on screen */
+  #menu{padding-top:max(6px,env(safe-area-inset-top))}
+  .sel-head{margin-bottom:6px;gap:8px} .sel-title{font-size:24px}
+  .sel-body{grid-template-columns:minmax(190px,32vw) minmax(0,1fr);gap:10px}
+  .stage-list{gap:5px;padding-right:6px}
+  .srow{padding:5px 8px 5px 6px;gap:8px} .srow.sel{transform:translateX(3px)}
+  .srow .th{width:40px;height:28px}
+  .srow .sn b{font-size:15px} .srow .sn small{font-size:9.5px;letter-spacing:.08em} .srow .sb{font-size:12px}
+  .sd-main{padding:8px 14px 4px;gap:6px}
+  .sd-main h3{font-size:24px}
+  .sd-main p{font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .sd-stats{grid-template-columns:repeat(3,1fr);gap:4px}
+  .sd-stats div{padding:3px 8px;font-size:9.5px} .sd-stats b{font-size:14px}
+  .tabs button{padding:5px 10px;font-size:11.5px}
+  .sd-pane{min-height:0}
+  .sd-foot{padding:6px 14px 10px}
+  .sd-foot .btn{font-size:17px;padding:9px}
+  /* garage: one row of tabs, three cars a row, the stats card small in the corner, the car between them */
+  .gar-top{top:max(6px,env(safe-area-inset-top))} .gar-top h2{font-size:24px}
+  .gar-panel{top:calc(max(6px,env(safe-area-inset-top)) + 40px);width:min(430px,47vw);padding:8px}
+  .gar-tabs{flex-direction:row;gap:4px;top:-8px;margin:-8px -8px 6px;padding:8px 8px 6px}
+  .gar-tg{gap:0} .gar-tg>span{display:none}
+  .gar-tg:first-child{flex:2} .gar-tg:last-child{flex:4}
+  .gar-tabs button{font-size:11.5px;padding:6px 1px!important;letter-spacing:.04em!important}
+  .gar-opts{grid-template-columns:repeat(3,1fr);gap:5px}
+  .gar-opts.pilot{grid-template-columns:repeat(4,1fr)} .gar-opts.color{grid-template-columns:repeat(6,1fr)} .gar-opts.glow,.gar-opts.decal{grid-template-columns:repeat(3,1fr)}
+  .gtile{padding:6px 7px}
+  .gtile b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gtile small{font-size:9.5px;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gtile .pi-badge.sm{margin-top:3px}
+  .gtile.sw i{width:26px;height:26px;margin-bottom:3px} .gtile.sw b{font-size:11px}
+  .gtile.pt img{margin-bottom:2px}
+  .chips{gap:2px;margin-top:3px} .chips em{font-size:9px;padding:1px 4px}
+  .gar-desc{font-size:11.5px;line-height:1.4;margin-top:8px}
+  .gar-spec{grid-template-columns:1fr 1fr 1fr;font-size:10.5px;gap:2px 8px}
+  .gar-stats{top:max(6px,env(safe-area-inset-top));width:min(235px,28vw);padding:8px 10px}
+  .gar-stats .ride-head b{font-size:16px} .gar-stats .ride-head small{font-size:9px}
+  .gar-stats .pi-badge i,.gar-stats .pi-badge b{font-size:13px;padding:2px 5px}
+  .gar-stats .pi-facts{font-size:9.5px}
+  .gar-stats .sbar{font-size:9px;grid-template-columns:74px 1fr 20px} .gar-stats .sbar em{font-size:10px}
+  /* service park: setup rows two by two, short notes on one line, buttons side by side */
+  #service .panel{width:min(820px,100%);padding:10px 16px 12px}
+  #service .set-top{margin-bottom:0}
+  .svc-ride{margin-top:2px;font-size:10px}
+  #svcRows{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin-top:6px}
+  .setrow{grid-template-columns:1fr;gap:3px;margin:0}
+  .setrow>span{font-size:11px}
+  .setrow em{grid-column:1;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .seg{gap:4px} .seg button{min-width:0;padding:6px 4px;font-size:12px}
+  #service .row{margin-top:8px;flex-wrap:nowrap} #service .row .btn{margin:0 6px}
+  .svc-rally{margin:6px 0;padding:6px 10px;font-size:11px;line-height:1.5}
+  /* settings: two columns of switches */
+  .set-panel{width:min(820px,100%);padding:10px 16px 12px}
+  #setList{display:grid;grid-template-columns:1fr 1fr;gap:0 10px;align-items:start}
+  .set-group{grid-column:1/-1;margin:8px 0 4px;font-size:11px}
+  .opt{padding:6px 10px;margin-bottom:5px;gap:10px}
+  .opt b{font-size:14px}
+  .opt small{font-size:10.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .ctl-table{font-size:11px} .ctl-table td{padding:4px 6px}
+  /* pause and finish */
+  .pause-panel{width:min(360px,60vw)}
+  .vlist{gap:6px;margin-top:10px}
+  .fin-panel{width:min(820px,100%);gap:16px;padding:10px 16px 12px}
+  .bigtime{font-size:46px;margin-top:2px}
+  .verdict{font-size:15px;margin-bottom:2px}
+  .fin-main .vlist .btn{padding:7px}
+  table.splits{font-size:12px} table.splits td{padding:2px 6px}
+  /* race HUD */
+  body.touch #timerBox{padding:0 22px 3px}
+  body.touch #timer{font-size:32px}
+  body.touch .pn{font-size:18px;padding:4px 14px 4px 12px}
+  body.touch #bestBox b{font-size:12px}
+  body.touch .tb{font-size:13px}
+  body.touch #tSteer::before{font-size:18px}
+}
+/* touch: the timer plate shrinks to the clock when there is no split or penalty to show */
+body.touch #delta:empty,body.touch #penalty:empty{display:none}
 </style>
 </head>
 <body>
