@@ -1041,6 +1041,14 @@ body.hud-min:not(.touch) #timerBox{top:22px}
 body.hud-min:not(.touch) #pace{top:60px;min-width:0}
 body.hud-min:not(.touch) #infoBox{top:22px;font-size:13px;opacity:.8}
 body.hud-min:not(.touch) #dash{transform:scale(.68);transform-origin:bottom right;right:6px;bottom:6px}
+/* stage, checkpoint and penalty messages and toasts sit under the pace note, never over the road ahead */
+body.hud-min #center{transform:translateX(-50%)}
+body.hud-min #bigMsg{font-size:16px}
+body.hud-min #subMsg{font-size:14px;margin-top:2px}
+body.hud-min #countdown{font-size:64px}
+body.hud-min #toast{font-size:14px}
+body.hud-min:not(.touch) #center{top:94px}
+body.hud-min:not(.touch) #toast{top:auto;bottom:18px}
 /* touch: same trims, and the on-screen controls fade back so the road shows through */
 body.hud-min #tSteer,body.hud-min .tb,body.hud-min .ts{opacity:.45}
 body.hud-min .tb.on{opacity:.85}
@@ -1049,12 +1057,19 @@ body.hud-min #tSteer span,body.hud-min #tSteer::before{display:none}
   body.touch.hud-min #timerBox{top:calc(max(8px,env(safe-area-inset-top)) + 52px)}
   body.touch.hud-min #timer{font-size:18px}
   body.touch.hud-min .pn{white-space:nowrap;font-size:12px}
+  body.touch.hud-min #center{top:calc(max(8px,env(safe-area-inset-top)) + 186px)}
+  body.touch.hud-min #toast{top:calc(max(8px,env(safe-area-inset-top)) + 292px)}
+  body.touch.hud-min #bigMsg{font-size:13px} body.touch.hud-min #subMsg{font-size:12px}
   body.touch.hud-min #pace{top:calc(max(8px,env(safe-area-inset-top)) + 150px)}
 }
 @media (orientation:landscape) and (max-height:500px){
   body.touch.hud-min #timer{font-size:17px}
   body.touch.hud-min #pace{top:calc(max(8px,env(safe-area-inset-top)) + 58px)}
   body.touch.hud-min .pn{font-size:11px}
+  body.touch.hud-min #center{top:calc(max(8px,env(safe-area-inset-top)) + 88px)}
+  body.touch.hud-min #toast{top:auto;bottom:max(16px,env(safe-area-inset-bottom))}
+  body.touch.hud-min #bigMsg{font-size:13px} body.touch.hud-min #subMsg{font-size:12px}
+  body.touch.hud-min #countdown{font-size:48px}
 }
 </style>
 </head>
