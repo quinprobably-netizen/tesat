@@ -7979,13 +7979,16 @@ const AudioSys = {
 
 /* =============================================================================
    15b. ENGINE SOUND — synthesised from each engine's real layout
-   Per engine, five looping one-cycle buffers (two crank turns) are built from its cylinder count and firing
-   intervals: every firing is a pressure pulse that rings the exhaust pipe's odd-harmonic modes. The buffers
-   are played at rate = rpm / reference rpm and cross-faded across the rev range. On top: intake roar,
-   turbo whistle and blow-off, supercharger whine, dog-box gear whine, and anti-lag / lift-off pops where
-   the real car had them. The layout is read from CAR_SPECS[].engine ("1.8 L inline-4, turbo", "3.0 L V6,
-   twin-turbo (V64V)", ...); a car may override it with a `sound: { cyl, firing: [crank deg in 720], pipe,
-   antiLag, burble, whine }` field.
+   Source and filter, like a real exhaust. The source: per engine, looping excitation buffers of several engine
+   cycles at five reference revs, one set on full load and one on the overrun, built from its cylinder count,
+   firing intervals and per-cylinder header differences, with cycle-to-cycle combustion variation so the loop
+   never settles into a clean periodic buzz. They play at rate = rpm / reference rpm and are cross-faded by revs
+   and throttle. The filter: the exhaust's own resonances and silencer, which stay put as the revs change (a
+   pitch-shifted recording slides them, which is what made the old note sound like a sped-up tape), a soft
+   saturation that grows with load, and a short room tail. On top: intake roar, turbo whistle and blow-off,
+   supercharger whine, dog-box gear whine, and anti-lag / lift-off pops where the real car had them. The layout
+   is read from CAR_SPECS[].engine ("1.8 L inline-4, turbo", "3.0 L V6, twin-turbo (V64V)", ...); a car may
+   override it with a `sound: { cyl, firing: [crank deg in 720], pipe, uneven, antiLag, burble, whine }` field.
    ============================================================================= */
 const EngineSound = {
   ctx: null, bus: null, spec: null, layout: null, L: null, cache: new Map(),
@@ -8011,38 +8014,49 @@ const EngineSound = {
     const dog = /dog|hewland|sequential|straight/i.test(sp.box || '');
     return {
       cyl, firing, amps, turbo, sc, dog,
-      pipe: o.pipe || (176 - cyl * 6) * clamp(Math.pow(2 / (sp.disp || 2), 0.25), 0.85, 1.2),   // bigger engines ring lower                                                       // exhaust fundamental, Hz
+      pipe: o.pipe || (176 - cyl * 6) * clamp(Math.pow(2 / (sp.disp || 2), 0.25), 0.85, 1.2),   // exhaust body resonance, Hz: bigger engines ring lower
+      uneven: o.uneven != null ? o.uneven : cyl === 5 ? 1.4 : cfg === 'F' ? 1.5 : cfg === 'V' ? 1.2 : 1,   // header-to-header differences
       antiLag: o.antiLag != null ? o.antiLag : turbo ? (sp.lag > 0.2 ? 1 : 0.5) : 0,         // Group B anti-lag, rally turbo cars
       burble: o.burble != null ? o.burble : sc ? 0.3 : turbo ? 0.35 : 0.15,
       whine: o.whine != null ? o.whine : sc ? 1 : 0,
     };
   },
-  /** One looping buffer of the exhaust note at `rpm`. */
-  render(ly, rpm, seed, sp) {
-    const sr = this.ctx.sampleRate, T = 120 / rpm, N = Math.max(256, Math.round(T * sr));
+  /**
+   * Excitation buffer: several engine cycles of exhaust pressure pulses at `rpm` (source only, no pipe tone).
+   * Each firing is a blow-down pulse whose length is a fixed crank angle, so it scales with playback rate the way
+   * a real engine's does; every cylinder has its own header (level, arrival delay) and every cycle its own
+   * combustion (level jitter, crack, misfires off-throttle), so the loop is never a clean periodic buzz.
+   * `on` = full load, otherwise the overrun note (weak, uneven, burbly).
+   */
+  render(ly, rpm, seed, on) {
+    const sr = this.ctx.sampleRate, T = 120 / rpm, C = clamp(Math.round(0.8 / T), 6, 64), N = Math.round(C * T * sr);
     const buf = this.ctx.createBuffer(1, N, sr), d = buf.getChannelData(0);
     let st = seed >>> 0 || 1;
     const rnd = () => { st = (Math.imul(st, 1664525) + 1013904223) >>> 0; return st / 4294967296; };
-    const modeAmp = ly.turbo ? [1, 0.6, 0.32, 0.16] : [1, 0.85, 0.65, 0.5];                  // a turbine eats the highs
-    const fireHz = rpm / 60 * ly.cyl / 2, tauP = 0.42 / fireHz, support = Math.min(N, Math.round(Math.min(0.045, 7 * tauP + 0.012) * sr));
-    for (let k = 0; k < ly.firing.length; k++) {
-      const amp = (ly.amps ? ly.amps[k % ly.amps.length] : 1) * (0.93 + rnd() * 0.14);
-      const t0 = (ly.firing[k] / 720 + (rnd() - 0.5) * 0.004) * T, i0 = Math.round(t0 * sr);
-      const tauM = 0.0055 - 0.002 * Math.min(1, rpm / 8000);
-      const nz = 0.25 + 0.5 * Math.min(1, rpm / 8000);
-      for (let j = 0; j < support; j++) {
-        const x = j / sr, att = 1 - Math.exp(-x / 0.00025);
-        let p = 1.4 * Math.exp(-x / tauP);                                                      // the blow-down thump at firing rate
-        for (let q = 0; q < 4; q++) p += modeAmp[q] * 0.55 * Math.sin(6.2832 * ly.pipe * (2 * q + 1) * x) * Math.exp(-x / (tauM / (1 + q * 0.5)));
-        p += nz * (rnd() * 2 - 1) * Math.exp(-x / 0.0007);                                      // combustion crack
-        d[(i0 + j) % N] += amp * att * p;
+    const tau = (on ? 40 : 55) / (6 * rpm);                                                        // blow-down: ~40-55 crank degrees
+    const hdr = ly.firing.map((_, k) => ({ a: (ly.amps ? ly.amps[k % ly.amps.length] : 1) * (1 + (rnd() - 0.5) * 0.3 * ly.uneven), dl: rnd() * 0.0007 * ly.uneven }));
+    const idleish = clamp(1 - (rpm - 900) / 2500, 0, 1);
+    const crack = on ? 0.8 : 0.15, rasp = on ? 0.5 : 0.1;
+    const sup = Math.round(Math.min(T, 6 * tau + 0.004) * sr);
+    for (let c = 0; c < C; c++) {
+      const cyc = 1 + (rnd() - 0.5) * 0.1;                                                         // cycle-to-cycle charge variation
+      for (let k = 0; k < ly.firing.length; k++) {
+        let amp = hdr[k].a * cyc * (1 + (rnd() - 0.5) * (on ? 0.18 : 0.6) * (1 + idleish));
+        if (!on && rnd() < 0.12) amp *= 0.08;                                                       // overrun misfire: the burble
+        const i0 = Math.round(((c + ly.firing[k] / 720) * T + hdr[k].dl + (rnd() - 0.5) * 0.0004) * sr);
+        const tk = tau * (0.9 + rnd() * 0.2);
+        for (let j = 0; j < sup; j++) {
+          const x = j / sr, env = (1 - Math.exp(-x / 0.00025)) * Math.exp(-x / tk);                // steep valve-opening front, blow-down decay
+          const v = env + (rnd() * 2 - 1) * (crack * Math.exp(-x / 0.0006) + rasp * env);
+          d[(i0 + j) % N] += amp * v;
+        }
       }
     }
     let mean = 0, pk = 1e-6;
     for (let i = 0; i < N; i++) mean += d[i];
     mean /= N;
     for (let i = 0; i < N; i++) { d[i] -= mean; pk = Math.max(pk, Math.abs(d[i])); }
-    for (let i = 0; i < N; i++) d[i] = Math.tanh(d[i] / pk * 1.6) * 0.8;                        // soft-clip: a loud, dense note
+    for (let i = 0; i < N; i++) d[i] *= 0.9 / pk;
     return buf;
   },
   setCar(sp) {
@@ -8059,17 +8073,34 @@ const EngineSound = {
     if (!bufs) {
       const refs = [0.14, 0.28, 0.45, 0.65, 0.88].map((f) => Math.max(sp.idle * 0.9, red * f));
       let h = 7; for (let i = 0; i < key.length; i++) h = (Math.imul(h, 31) + key.charCodeAt(i)) >>> 0;
-      bufs = { refs, bufs: refs.map((r, i) => this.render(ly, r, h + i * 977, sp)) };
+      bufs = { refs, on: refs.map((r, i) => this.render(ly, r, h + i * 977, true)), off: refs.map((r, i) => this.render(ly, r, h + i * 977 + 13, false)) };
       this.cache.set(key, bufs);
     }
     const nodes = [], bus = ctx.createGain(); bus.gain.value = 0; bus.connect(this.bus); nodes.push(bus);
-    const layers = bufs.bufs.map((b) => {
+    const biq = (type, f, q, g) => { const n = ctx.createBiquadFilter(); n.type = type; n.frequency.value = f; n.Q.value = q; if (g != null) n.gain.value = g; nodes.push(n); return n; };
+    // the exhaust system: fixed resonances that don't slide with revs, then the silencer, then a little space
+    const drive = ctx.createGain(), shaper = ctx.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(x * 2.2) / Math.tanh(2.2); }
+    shaper.curve = curve; nodes.push(drive, shaper);
+    const hp = biq('highpass', 28, 0.7), body = biq('lowshelf', 160, 0, 3), p1 = biq('peaking', ly.pipe, 1.6, 7), p2 = biq('peaking', ly.pipe * 3.4, 2, 5);
+    const rasp = biq('peaking', ly.turbo ? 1500 : 2200, 1.2, ly.turbo ? 1 : 4), muff = biq('lowpass', 3000, 0.6);
+    drive.connect(shaper); shaper.connect(hp); hp.connect(body); body.connect(p1); p1.connect(p2); p2.connect(rasp); rasp.connect(muff);
+    const dry = ctx.createGain(), wet = ctx.createGain(), verb = ctx.createConvolver();
+    if (!this.ir) {
+      const len = Math.round(ctx.sampleRate * 0.35), ir = ctx.createBuffer(1, len, ctx.sampleRate), x = ir.getChannelData(0);
+      for (let i = 0; i < len; i++) x[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.06)) * (i < ctx.sampleRate * 0.008 ? 0 : 1);
+      this.ir = ir;
+    }
+    verb.buffer = this.ir; dry.gain.value = 0.6; wet.gain.value = 0.1;
+    muff.connect(dry); muff.connect(verb); verb.connect(wet); dry.connect(bus); wet.connect(bus); nodes.push(dry, wet, verb);
+    const mk = (b) => {
       const src = ctx.createBufferSource(); src.buffer = b; src.loop = true;
-      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 0.8; lp.frequency.value = 2000;
       const g = ctx.createGain(); g.gain.value = 0;
-      src.connect(lp); lp.connect(g); g.connect(bus); src.start(); nodes.push(src, lp, g);
-      return { src, lp, g };
-    });
+      src.connect(g); g.connect(drive); src.start(0, Math.random() * b.duration); nodes.push(src, g);
+      return { src, g };
+    };
+    const layers = bufs.on.map(mk), offLayers = bufs.off.map(mk);
     const osc = (type, filt) => {
       const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; g.gain.value = 0;
       let f = null;
@@ -8082,7 +8113,7 @@ const EngineSound = {
     const intakeSrc = AudioSys.noiseSource(), intakeF = ctx.createBiquadFilter(), intakeG = ctx.createGain();
     intakeF.type = 'bandpass'; intakeF.Q.value = 0.9; intakeG.gain.value = 0;
     intakeSrc.connect(intakeF); intakeF.connect(intakeG); intakeG.connect(bus); nodes.push(intakeSrc, intakeF, intakeG);
-    this.L = { bus, layers, refs: bufs.refs, whistle, whine, gear, intakeF, intakeG, nodes };
+    this.L = { bus, layers, offLayers, refs: bufs.refs, drive, muff, wet, whistle, whine, gear, intakeF, intakeG, nodes };
     bus.gain.setTargetAtTime(1, ctx.currentTime, 0.05);
   },
   /** A single exhaust bang / pop, k = 0..1 loudness. */
@@ -8129,14 +8160,17 @@ const EngineSound = {
     while (lo < n - 2 && rpm > refs[lo + 1]) lo++;
     const f = clamp(Math.log(rpm / refs[lo]) / Math.log(refs[lo + 1] / refs[lo]), 0, 1);
     const lim = st.limiter ? (0.35 + 0.65 * ((t * 20) % 1 < 0.5 ? 1 : 0)) : 1;                // fuel cut at the limiter
-    const load = 0.5 + 0.5 * thr;
-    const fc = (900 + 5200 * (0.25 + 0.75 * thr) * (0.45 + 0.8 * frac)) * (cabin ? 0.4 : 1);
-    L.layers.forEach((ln, i) => {
+    const idleOn = 0.6 * clamp(1 - (frac - sp.idle / sp.redline) / 0.15, 0, 1);                // a steady idle, not an overrun burble
+    const wOn = Math.max(Math.pow(thr, 0.6), idleOn), wOff = (1 - wOn) * 0.5;                   // overrun is quieter and hollower
+    L.drive.gain.setTargetAtTime(0.7 + 0.9 * thr, t, 0.04);
+    L.muff.frequency.setTargetAtTime((1300 + 4200 * (0.2 + 0.8 * thr) * (0.35 + 0.65 * frac)) * (cabin ? 0.3 : 1), t, 0.05);
+    L.wet.gain.setTargetAtTime(cabin ? 0.03 : 0.1, t, 0.1);
+    const fade = (set, k) => set.forEach((ln, i) => {
       const w = i === lo ? Math.cos(f * Math.PI / 2) : i === lo + 1 ? Math.sin(f * Math.PI / 2) : 0;
-      ln.g.gain.setTargetAtTime(w * load * lim * act, t, 0.03);
+      ln.g.gain.setTargetAtTime(w * k * lim * act, t, 0.03);
       ln.src.playbackRate.setTargetAtTime(clamp(rpm / refs[i], 0.3, 4), t, 0.025);
-      ln.lp.frequency.setTargetAtTime(fc, t, 0.05);
     });
+    fade(L.layers, wOn); fade(L.offLayers, wOff);
     // intake roar under load
     L.intakeF.frequency.setTargetAtTime(260 + frac * 900 + thr * 400, t, 0.06);
     L.intakeG.gain.setTargetAtTime(act * thr * (0.06 + 0.14 * frac) * (cabin ? 1.8 : 1), t, 0.05);
