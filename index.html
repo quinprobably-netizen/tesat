@@ -1353,10 +1353,10 @@ function fmtDelta(d) { return (d < 0 ? '-' : '+') + Math.abs(d).toFixed(2); }
    ============================================================================= */
 const Store = {
   key: 'regolithRally.v1',
-  era: 4,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost,
-            // 4 = coupled driveline, real gearboxes, chassis and tyres per car
+  era: 5,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost,
+            // 4 = coupled driveline, real gearboxes, chassis and tyres per car, 5 = new layouts for the space stages (Pikes Peak unchanged)
   data: { best: {}, settings: { muted: false, voice: true, ghost: true, cam: 'chase', name: 'DRIVER' },
-    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 4 },
+    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 5 },
   load() {
     try {
       const raw = window.localStorage.getItem(this.key);
@@ -1378,12 +1378,14 @@ const Store = {
    *  times (not the replays) under `archive` and start the boards fresh. Setups and the garage stay. */
   archiveEra(era) {
     const D = this.data, times = {}, boards = {};
-    for (const k in D.best) times[k] = { time: D.best[k].time, splits: D.best[k].splits };
-    for (const k in D.boards) boards[k] = D.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own, d: e.d }));
+    const keep = (k) => era >= 4 && k === 'pikes';      // era 4 → 5 changed the layouts only: Pikes Peak's times and ghosts still count
+    for (const k in D.best) if (!keep(k)) times[k] = { time: D.best[k].time, splits: D.best[k].splits };
+    for (const k in D.boards) if (!keep(k)) boards[k] = D.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own, d: e.d }));
     if (Object.keys(times).length || Object.keys(boards).length || D.rallyBest) {     // the newest era's times replace an older archive
       D.archive = { era, best: times, boards, rallyBest: D.rallyBest, rallyBestClassic: D.rallyBestClassic || null };
     }
-    Object.assign(D, { best: {}, boards: {}, rival: {}, targets: {}, rallyBest: null, era: this.era });
+    const kept = (o) => { const r = {}; for (const k in o) if (keep(k)) r[k] = o[k]; return r; };
+    Object.assign(D, { best: kept(D.best), boards: kept(D.boards), rival: kept(D.rival), targets: kept(D.targets), rallyBest: null, era: this.era });
     delete D.rallyBestClassic;
     this.save();
   },
@@ -1406,17 +1408,18 @@ const Store = {
    3. STAGE DEFINITIONS
    Everything about a stage derives from its seed + these parameters.
    ============================================================================= */
-const SURF = { REGOLITH: 0, ICE: 1, METAL: 2, GRAVEL: 3, TARMAC: 4 };
+const SURF = { REGOLITH: 0, ICE: 1, METAL: 2, GRAVEL: 3, TARMAC: 4, SNOW: 5 };
 /* Surfaces: peak grip of an all-round rally tyre (mu) and the rolling resistance coefficient (rr). Packed
    regolith grips like a dirt road and loose gravel a little less, both rolling heavily; ice grips poorly
-   unless the tyres are studded; deck plating is like a smooth concrete floor. How each surface's grip builds
-   and falls away with slip is in TYRE_SURF. */
+   unless the tyres are studded; deck plating is like a smooth concrete floor; packed snow on a winter road sits
+   between ice and gravel and drags more than either. How each surface's grip builds and falls away with slip is in TYRE_SURF. */
 const SURF_INFO = [
   { name: 'REGOLITH', mu: 0.74, rr: 0.045 },
   { name: 'ICE',      mu: 0.3,  rr: 0.012 },
   { name: 'METAL',    mu: 0.72, rr: 0.012 },
   { name: 'GRAVEL',   mu: 0.66, rr: 0.035 },
   { name: 'TARMAC',   mu: 1.05, rr: 0.014 },
+  { name: 'SNOW',     mu: 0.42, rr: 0.03 },
 ];
 
 // Every stage runs at standard Earth gravity. Tyre load (gripG) stays a separate knob for the speed plans,
@@ -1456,13 +1459,116 @@ const PIKES_COURSE = [
   { name: 'FINISH LINE', grade: 0.03, path: 'S190' },
 ];
 
+/* The space stages' own seeds build designed courses with named sectors (other seeds still generate a random
+   layout from the stage's template). Grades are the designed climbs and dips; the road also follows `follow` of
+   the ground's own swell, and the ground is fitted to the road. */
+const LUNAR_COURSE = [
+  { name: 'TRANQUILITY BASE', grade: 0, path: 'S100 R180:-20 S40' },
+  { name: 'SURVEYOR SWEEPS', grade: 0.02, path: 'L120:25 S20 R110:-25 S30 L160:15 S40 R140:-10 S20' },
+  { name: 'HADLEY RILLE', grade: -0.01, path: 'J L90:30 S30 R70:-15 S20 X' },
+  { name: 'CRATER RIM', grade: 0.015, path: 'R60:-50 S20 L150:150! S40' },
+  { name: 'APENNINE CRESTS', grade: 0.03, path: 'C R65:100 S20 L80:140 S30 C' },
+  { name: 'SHACKLETON HAIRPIN', grade: -0.02, path: 'R38:-30 S50 L60:20 S30 R90:-20 S30' },
+  { name: 'MARE CRISIUM', grade: 0, path: 'J L110:30 S40 R75:-25 S30 L130:5' },
+  { name: 'EAGLE FINISH', grade: 0, path: 'S190' },
+];
+const ICE_COURSE = [
+  { name: 'RING STATION', grade: 0, path: 'S100 L200:20 S40' },
+  { name: 'BRAKE EARLY', grade: 0.01, path: 'R70:-60 S30 R120:-100 S50' },
+  { name: 'SHEPHERD MOON', grade: 0.015, path: 'C L150:-40 S30 L90:40 S40' },
+  { name: 'ENCKE GAP', grade: -0.01, path: 'X' },
+  { name: 'SPOKES', grade: 0, path: 'L60:120 S30 R55:60 K L70:150 S40' },
+  { name: 'BRAIDED STRAND', grade: -0.015, path: 'R160:110 S30 L150:170 J R120:130' },
+  { name: 'CASSINI DIVISION', grade: 0, path: 'S40 L90:200 X' },
+  { name: 'FINISH', grade: 0, path: 'R200:180 S190' },
+];
+const WRECK_COURSE = [
+  { name: 'DOCKING BAY', grade: 0, path: 'S100 R70:-40 S30 L45:50 S30' },
+  { name: 'HULL BREACH', grade: 0.02, path: 'R36:-110 S40 L40:10 S30 R60:-40 S40' },
+  { name: 'SPINE CORRIDOR', grade: 0, path: 'K J L80:20 S30' },
+  { name: 'REACTOR LOOP', grade: -0.02, path: 'L50:160 S30 R38:30 S40 L45:120 S30' },
+  { name: 'CARGO MAZE', grade: 0.01, path: 'L40:200 S40 R50:120 K L70:180 X' },
+  { name: 'AIRLOCK', grade: 0, path: 'K R45:90 S30 L60:160 S40' },
+  { name: 'EXIT', grade: 0, path: 'S190' },
+];
+const MARS_COURSE = [
+  { name: 'NOCTIS GATE', grade: 0, path: 'S100 L220:20 S60 C' },
+  { name: 'MESA RUN', grade: 0.02, path: 'R120:-30 S40 L100:30 S60 R140:-20 C' },
+  { name: 'CANYON FLOOR', grade: -0.03, walls: 34, path: 'R200:-70 S60 L180:-30 S40 R150:-80 S80 L240:-50 S40' },
+  { name: 'DUST DEVIL BEND', grade: 0.03, path: 'R70:-150 S40 L90:-100 J' },
+  { name: 'RIM ROAD', grade: 0.01, path: 'R130:-170 S50 C L160:-120 S30 K' },
+  { name: 'FINISH', grade: 0, path: 'R200:-150 S190' },
+];
+const EUROPA_COURSE = [
+  { name: 'PWYLL STATION', grade: 0, path: 'S100 R150:-30 S40' },
+  { name: 'CONAMARA CHAOS', grade: 0.01, path: 'L80:40 S20 R75:-30 S20 L90:60 J' },
+  { name: 'FRACTURE JUMPS', grade: -0.01, path: 'R180:20 X S40 L200:70 X' },
+  { name: 'LINEA SWEEPERS', grade: 0.01, path: 'L110:140 S30 R120:90 S30 L100:160 S40 C' },
+  { name: 'THERA MACULA', grade: 0, path: 'R65:80 S40 L70:150 S50 J' },
+  { name: 'FINISH', grade: 0, path: 'R180:120 S190' },
+];
+const FOUNDRY_COURSE = [
+  { name: 'CASTING HALL', grade: 0, path: 'S100 L60:40 S30' },
+  { name: 'SMELTER HAIRPINS', grade: 0.03, path: 'R30:-140 S60 L30:30 S60 R32:-130 S50' },
+  { name: 'SLAG BRIDGE', grade: 0, path: 'L60:-60 S30 X S70 R50:-150' },
+  { name: 'CRANE ALLEY', grade: -0.02, path: 'K L45:-60 S30 R40:-200 K' },
+  { name: 'TAPPING FLOOR', grade: 0.01, path: 'L35:-110 S40 R60:-170 J L30:-20 S30' },
+  { name: 'COOLING TOWERS', grade: 0, path: 'R80:-60 S30 K S30' },
+  { name: 'FINISH', grade: 0, path: 'S190' },
+];
+
+/* Real rally stages, cut to 4-5 km of their best-known stretch like Pikes Peak, each from its real landmarks in
+   order. Between the named landmarks the corners are representative of the road, not surveyed. */
+// Monte-Carlo: La Bollène-Vésubie over the Col de Turini (15.3 km at 7.2% with 18 hairpins up to 1,604 m), then
+// the north-facing descent toward Peïra-Cava where the ice lingers. Tarmac, with snow and ice higher up.
+const TURINI_COURSE = [
+  { name: 'LA BOLLÈNE-VÉSUBIE', grade: 0.05, path: 'S100 R120:-30 S40 L60:40 S50' },
+  { name: 'CHESTNUT WOODS', grade: 0.07, path: 'R200:20 S40 L90:70 S40 R45:-10 S60 L70:30 S40' },
+  { name: 'FIRST HAIRPINS', grade: 0.075, path: 'L16:200 S90 R16:20 S100 L17:200 S70' },
+  { name: 'FORÊT DE TURINI', grade: 0.07, path: 'R150:150 S50 L80:200 @S S30 @T S20 R60:140 S60 L120:170 S40' },
+  { name: 'THE LACETS', grade: 0.08, path: 'R16:-10 S80 L16:170 @S S70 R16:-10 S80 @T L16:170 S60 R16:-10 S70 @S L17:170 S50' },
+  { name: 'COL DE TURINI', grade: 0.015, path: 'R70:110 S90 L200:130 S60' },
+  { name: 'DESCENT TO PEÏRA-CAVA', grade: -0.07, path: '@I S40 R45:60 S60 L35:140 S50 @T R100:100 S40 L18:280 S60 @I R60:200 S50 @T L150:230 S60' },
+  { name: 'FINISH', grade: -0.04, path: 'S190' },
+];
+// Sweden: Vargåsen in Värmland, packed snow over gravel between snowbanks, ending over Colin's Crest (record 45 m).
+const VARGASEN_COURSE = [
+  { name: 'VARGÅSEN', grade: 0, path: 'S100 R250:-20 S60 L120:30 C' },
+  { name: 'FOREST ROAD', grade: 0.01, path: 'R90:-50 S50 L110:10 S30 R140:-40 C L70:60 S40 R100:20' },
+  { name: 'SNOWBANKS', grade: -0.01, path: 'R55:-40 S50 L60:30 S40 @I R110:-10 S40 @S L80:80 C R70:20 S50' },
+  { name: 'LAKESIDE', grade: 0, path: 'R220:-10 S120 L160:60 S60 R90:0 C L140:40 S50' },
+  { name: 'JUNCTION', grade: 0.015, path: 'R26:-90 S60 L120:-40 S40 C R90:-100 S40 L110:-50 S60' },
+  { name: "COLIN'S CREST", grade: -0.01, path: 'L200:-20 S40 J R160:-40' },
+  { name: 'FINISH', grade: 0, path: 'S190' },
+];
+// Finland: Ouninpohja near Jämsä, the fastest gravel stage in the world (record average 135 km/h, 77 take-offs
+// in 33 km): the Yellow House jump, the steps to the Kakaristo junction ("it gets faster now"), on to Hämepohja.
+const OUNINPOHJA_COURSE = [
+  { name: 'OUNINPOHJA', grade: 0, path: 'S100 L200:25 C R120:-30 S40 L110:30 C' },
+  { name: 'YELLOW HOUSE', grade: 0.02, path: 'R160:-20 S40 J L90:60 S40 C R100:-10 C L140:40' },
+  { name: 'THE STEPS', grade: -0.02, path: 'C S20 C S20 C R150:-20 S30 C L130:30' },
+  { name: 'KAKARISTO JUNCTION', grade: 0, path: 'S40 L26:120 S60 C' },
+  { name: 'IT GETS FASTER NOW', grade: 0.01, path: 'R220:60 C L300:100 S60 J R180:40 C L250:90 C R160:30' },
+  { name: 'HÄMEPOHJA', grade: 0, path: 'S40 R120:-10 S190' },
+];
+// Corsica: Ghisoni up the Col de Sorba (10.1 km at 6.3% to 1,311 m, Corsican pine forest), the Tour de Corse
+// "rally of 10,000 corners": narrow tarmac that never stops turning.
+const SORBA_COURSE = [
+  { name: 'GHISONI', grade: 0.05, path: 'S100 L60:40 S30 R45:-20 S40' },
+  { name: 'FIUM ORBU GORGE', grade: 0.06, path: 'L35:50 S20 R40:-20 S30 L50:40 S20 R30:-40 S30 L60:20 S20 R45:-30 S40' },
+  { name: 'CORSICAN PINES', grade: 0.065, path: 'L70:30 S20 R55:-20 S30 L40:60 S20 R60:10 S40 L80:50 S20 R35:-20 S30' },
+  { name: 'SWITCHBACKS', grade: 0.075, path: 'L18:160 S70 R18:-20 S80 L20:150 S60 R40:90 S30' },
+  { name: 'GRANITE BALCONY', grade: 0.06, path: 'L50:140 S20 R45:80 S30 L60:130 S20 R70:90 S40 L40:160 S30 R50:110 S30' },
+  { name: 'COL DE SORBA', grade: 0.02, path: 'L90:150 S80 R120:120 S190' },
+];
+
 // Road widths (`hw`, half the width) suit real-size cars: 12-16 m on the space stages (wide by Earth standards, so
 // there is room to slide), 9 m on Pikes Peak (the real road's two lanes and gutters).
 const STAGES = [
   {
     id: 'lunar', name: 'Lunar Dust Run', region: 'SELENE HIGHLANDS · STAGE 1', seed: 1969,
-    blurb: 'Wide and forgiving regolith roads through the lunar highlands. Crests and kickers throw you into the air: learn to land straight here.',
-    length: 3000, ...EARTH,
+    blurb: 'Wide regolith roads from Tranquility Base, along the edge of Hadley Rille and round a crater rim, then over the Apennine crests to the Shackleton hairpin. Forgiving, and the place to learn to land straight.',
+    length: 4100, ...EARTH, course: LUNAR_COURSE, follow: 0.45,
     hw: 8.0, ribbon: 110, shoulder: 16, style: 'hills', offRR: 0.22,
     corner: { rMin: 50, rMax: 230, angMin: 25, angMax: 100, compound: 0.3 },
     straight: [45, 150], maxHeading: 70,
@@ -1485,8 +1591,8 @@ const STAGES = [
   },
   {
     id: 'ice', name: 'Ice Ring Traverse', region: 'KHARON RING B · STAGE 2', seed: 4471,
-    blurb: 'A slick causeway of water ice riding a planetary ring. Brake early, flick it in with the handbrake and mind the edges: below is only the gas giant.',
-    length: 3100, ...EARTH,
+    blurb: 'A slick causeway of water ice riding a planetary ring: past a shepherd moon, across the Encke Gap and through the spokes, a chicane maze. Brake early, flick it in and mind the edges: below is only the gas giant.',
+    length: 3200, ...EARTH, course: ICE_COURSE, follow: 0.6,
     hw: 7.2, ribbon: 62, shoulder: 14, style: 'ring', offRR: 0.10,
     corner: { rMin: 55, rMax: 250, angMin: 25, angMax: 95, compound: 0.35 },
     straight: [45, 160], maxHeading: 68,
@@ -1495,7 +1601,7 @@ const STAGES = [
     features: ['crest', 'ramp', 'chasm', 'crest', 'ramp', 'chasm', 'crest'],
     ramp: { H: 1.3, L: 16, landing: 120 }, chasm: { H: 1.6, L: 16, gap: 18, landing: 144, depth: 60 }, crest: { h: 2.4, L: 55, landing: 110 },
     craterClusters: 5, meteorZones: 1, chicanes: 2, dontCut: 0.3,
-    checkpoints: 8, rocks: 800, targetFactor: 1.2,
+    checkpoints: 8, rocks: 800, targetFactor: 1.12,
     sky: {
       sunDir: [-0.72, 0.42, 0.18], sunColor: 0xfff0d6, sunIntensity: 3.0, sunSize: 0.8,
       nebA: [0.05, 0.22, 0.30], nebB: [0.10, 0.08, 0.30], nebStrength: 0.45, band: [0.7, 0.4, -0.3], stars: 0.9,
@@ -1509,8 +1615,8 @@ const STAGES = [
   },
   {
     id: 'wreck', name: 'Wreckage Belt', region: 'DERELICT STATION FIELD · STAGE 3', seed: 90210,
-    blurb: 'Tight and technical on the deck plating of a derelict station. Corners come thick and fast, broken up by barrier chicanes.',
-    length: 2600, ...EARTH,
+    blurb: 'Tight and technical on the deck plating of a derelict station: out of the docking bay, through the hull breach, down the spine corridor and round the reactor loop, then the cargo maze of barrier chicanes.',
+    length: 2700, ...EARTH, course: WRECK_COURSE, follow: 0.5,
     hw: 6.4, ribbon: 44, shoulder: 10, style: 'platform', offRR: 0.18,
     corner: { rMin: 34, rMax: 150, angMin: 30, angMax: 115, compound: 0.4 },
     straight: [28, 100], maxHeading: 75,
@@ -1533,8 +1639,8 @@ const STAGES = [
   },
   {
     id: 'mars', name: 'Red Canyon Sprint', region: 'VALLES MARINERIS · STAGE 4', seed: 1976, letter: 'M',
-    blurb: 'Fast gravel roads between rust-red mesas. You can carry real speed here, but the crests bite.',
-    length: 3300, ...EARTH,
+    blurb: 'Fast gravel from the Noctis gate along the mesas, then down onto the canyon floor between sheer red walls and back up to the rim road. You can carry real speed here, but the crests bite.',
+    length: 3800, ...EARTH, course: MARS_COURSE, follow: 0.35,
     hw: 7.6, ribbon: 100, shoulder: 15, style: 'hills', offRR: 0.26,
     corner: { rMin: 60, rMax: 260, angMin: 20, angMax: 90, compound: 0.25 },
     straight: [60, 180], maxHeading: 65,
@@ -1557,8 +1663,8 @@ const STAGES = [
   },
   {
     id: 'europa', name: 'Europa Fracture Line', region: 'JOVIAN ICE SHELF · STAGE 5', seed: 1610, letter: 'E',
-    blurb: 'A cracked ice shelf under a sky filled with Jupiter. Very little grip: long slides, big jumps and cliffs on both sides.',
-    length: 3000, ...EARTH,
+    blurb: 'A cracked ice shelf under a sky filled with Jupiter: the Conamara chaos, a run of fracture jumps, the Linea sweepers and the Thera Macula basin. Very little grip, long slides and cliffs on both sides.',
+    length: 3500, ...EARTH, course: EUROPA_COURSE, follow: 0.6,
     hw: 7.6, ribbon: 60, shoulder: 14, style: 'ring', offRR: 0.12,
     corner: { rMin: 60, rMax: 240, angMin: 25, angMax: 90, compound: 0.3 },
     straight: [55, 170], maxHeading: 66,
@@ -1581,8 +1687,8 @@ const STAGES = [
   },
   {
     id: 'foundry', name: 'Foundry Gauntlet', region: 'IO ORBITAL SMELTER · STAGE 6', seed: 2718, letter: 'F',
-    blurb: 'Glowing slag and hairpins on the decks of an orbital smelter. The toughest stage: brake late, turn in hard, stay off the edges.',
-    length: 2500, ...EARTH,
+    blurb: 'Glowing slag and hairpins on the decks of an orbital smelter: the casting hall, the smelter hairpins, the slag bridge and crane alley. The toughest stage: brake late, turn in hard, stay off the edges.',
+    length: 2500, ...EARTH, course: FOUNDRY_COURSE, follow: 0.5,
     hw: 6.2, ribbon: 42, shoulder: 9, style: 'platform', offRR: 0.2,
     corner: { rMin: 30, rMax: 130, angMin: 35, angMax: 125, compound: 0.45 },
     straight: [26, 90], maxHeading: 80,
@@ -1608,7 +1714,7 @@ const STAGES = [
     blurb: "The Race to the Clouds, cut to 5.6 km: the real hill climb's named sections and the W's switchbacks, from the forest to the 14,115 ft summit. Tarmac low down, gravel above the treeline as when Group B cars raced here, and no guard rails.",
     length: 5600, ...EARTH,
     hw: 4.6, ribbon: 150, shoulder: 8, style: 'mountain', offRR: 0.3,
-    course: PIKES_COURSE, altitude: [9390, 14115], surfLabel: 'TARMAC · GRAVEL', roadLines: true,
+    course: PIKES_COURSE, real: true, altitude: [9390, 14115], altUnit: 'FT', surfLabel: 'TARMAC · GRAVEL', roadLines: 1,
     roadRough: 0.05,
     surf: { base: SURF.TARMAC, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
     features: [], crest: { h: 1.6, L: 46, landing: 60 },
@@ -1625,10 +1731,121 @@ const STAGES = [
       surf: [0x9c978d, 0xbfe3f5, 0x9aa2ab, 0xa4846c, 0x5a5c60], rock: 0x9a8478, marker: [0xff8a1a, 0xf4f4f0], accent: 0xffb21a,
       forest: 0x3a4a2a, tundra: 0x6c6a44, granite: 0x84746e, snow: 0xeef2f6,
     },
+    earth: { fall: 1, ridges: 1, trees: ['spruce'], density: 10000, treeline: 0.46, snowLine: 0.8, ground: 'alpine',
+      signs: [{ at: 'start', lines: [['PIKES PEAK', 70], ['HIGHWAY', 58], ['ELEV 9,390 FT', 40]] }, { at: 'finish', lines: [['PIKES PEAK', 70], ['SUMMIT', 58], ['ELEV 14,115 FT', 40]] }],
+      summitHouse: true },
+  },
+  {
+    id: 'turini', name: 'Col de Turini', region: 'MONTE-CARLO · ALPES-MARITIMES · STAGE 8', seed: 1911, letter: 'C',
+    blurb: "The Monte's most famous road: up from La Bollène-Vésubie through the chestnut woods and the Turini forest, a ladder of hairpins to the 1,604 m col, then down the north side where the ice lingers. Tarmac, with snow thrown on by the fans and ice in the shade. Studs help where it's white; low stone walls wait on the outside of the hairpins.",
+    length: 4150, ...EARTH,
+    hw: 4.3, ribbon: 150, shoulder: 8, style: 'mountain', offRR: 0.32,
+    course: TURINI_COURSE, real: true, altitude: [690, 1604], altUnit: 'M', surfLabel: 'TARMAC · SNOW · ICE', roadLines: 2,
+    roadRough: 0.04,
+    surf: { base: SURF.TARMAC, off: SURF.SNOW, patches: [SURF.SNOW, SURF.SNOW, SURF.ICE], patchChance: 0.28, patchLen: [20, 55] },
+    features: [], crest: { h: 1.2, L: 40, landing: 50 },
+    craterClusters: 0, meteorZones: 0, chicanes: 0, dontCut: 0,
+    checkpoints: 8, rocks: 500, targetFactor: 1.05,
+    sky: {
+      day: true, sunDir: [-0.55, 0.3, 0.5], sunColor: 0xffe6c8, sunIntensity: 2.9, sunSize: 1.0,
+      zenith: [0.1, 0.24, 0.55], horizon: [0.66, 0.72, 0.82], fog: [380, 4600],
+    },
+    planet: null,
+    hemi: { sky: 0xbcd0ec, ground: 0x8c8e94, intensity: 0.75 },
+    colors: {
+      road: 0x505256, roadDark: 0x3e4044, off: 0x5a5a40, offB: 0x7a7468, offC: 0x8a8460,
+      surf: [0x9c978d, 0xd4e6f2, 0x9aa2ab, 0xa4846c, 0x505256, 0xeef2f6], rock: 0x8e8a84, marker: [0xe8352a, 0xf4f4f0], accent: 0xe8352a,
+      forest: 0x34402c, tundra: 0x6e6a4a, granite: 0x8e8a84, snow: 0xf2f5f8,
+    },
+    earth: { fall: 1, ridges: 1, trees: ['pine', 'pine', 'larch'], density: 9000, treeline: 9, snowLine: 0.35, snowyTrees: 0.55, ground: 'alpine',
+      walls: 0x9a948a, snowbank: 0.45,
+      signs: [{ at: 'start', lines: [['LA BOLLÈNE', 64], ['VÉSUBIE', 58], ['ALT 690 M', 40]] }, { at: 'COL DE TURINI', lines: [['COL DE', 64], ['TURINI', 70], ['ALT 1604 M', 40]] }],
+      houses: [{ at: 'start', n: 4, wall: 0xd9c8a8, roof: 0x8a4a34 }, { at: 'COL DE TURINI', n: 3, wall: 0xcfc6b4, roof: 0x5a4a44, big: 1 }] },
+  },
+  {
+    id: 'vargasen', name: 'Vargåsen', region: 'RALLY SWEDEN · VÄRMLAND · STAGE 9', seed: 1950, letter: 'S',
+    blurb: "Packed snow over gravel through the Värmland spruce, between snowbanks you can lean the car on. Fast crests, an icy stretch, and at the end Colin's Crest, where the best fly over 40 m. Studded tyres are the only way to go.",
+    length: 4700, ...EARTH,
+    hw: 4.6, ribbon: 130, shoulder: 8, style: 'mountain', offRR: 0.45,
+    course: VARGASEN_COURSE, real: true, surfLabel: 'SNOW · ICE', roadLines: 0,
+    roadRough: 0.06,
+    surf: { base: SURF.SNOW, off: SURF.SNOW, patches: [SURF.ICE], patchChance: 0.22, patchLen: [30, 70] },
+    features: [], ramp: { H: 1.5, L: 14, landing: 90 }, crest: { h: 1.6, L: 44, landing: 60 },
+    craterClusters: 0, meteorZones: 0, chicanes: 0, dontCut: 0,
+    checkpoints: 8, rocks: 260, targetFactor: 1.08,
+    sky: {
+      day: true, sunDir: [0.5, 0.16, 0.7], sunColor: 0xffdcb0, sunIntensity: 2.4, sunSize: 1.3,
+      zenith: [0.16, 0.28, 0.5], horizon: [0.78, 0.8, 0.84], fog: [300, 3600],
+    },
+    planet: null,
+    hemi: { sky: 0xc8d4e6, ground: 0xb8bcc4, intensity: 0.85 },
+    colors: {
+      road: 0xdfe4ea, roadDark: 0xc4cad2, off: 0xf0f3f6, offB: 0xd8dee6, offC: 0xffffff,
+      surf: [0x9c978d, 0xc8dceb, 0x9aa2ab, 0x8a7a68, 0x505256, 0xe6eaef], rock: 0x7e7a74, marker: [0xff7a1a, 0x1a1a1a], accent: 0x2a6ad8,
+      forest: 0x2a3a2a, tundra: 0xdce2ea, granite: 0x8a8682, snow: 0xf4f6f9,
+    },
+    earth: { fall: 0, ridges: 0.25, trees: ['spruce', 'spruce', 'pine'], density: 12000, treeline: 9, snowLine: -1, snowyTrees: 1, ground: 'snow',
+      snowbank: 1.1, lake: { ice: 1, depth: 7 },
+      signs: [{ at: 'start', lines: [['VARGÅSEN', 70], ['RALLY SWEDEN', 44], ['VÄRMLAND', 40]] }, { at: "COLIN'S CREST", d: 1, lines: [["COLIN'S", 66], ['CREST', 70], ['1968 - 2007', 40]] }],
+      houses: [{ at: 'start', n: 3, wall: 0x8e2a22, roof: 0x2a2a2c }, { at: 'LAKESIDE', n: 2, wall: 0x8e2a22, roof: 0x2a2a2c }] },
+  },
+  {
+    id: 'ouninpohja', name: 'Ouninpohja', region: 'RALLY FINLAND · JÄMSÄ · STAGE 10', seed: 1951, letter: 'J',
+    blurb: 'The fastest gravel stage in the world: narrow, flat out over blind crests through the pine and birch, with the Yellow House jump, the steps down to the Kakaristo junction, and then it gets faster. Commit, keep it straight in the air and land on all four.',
+    length: 5200, ...EARTH,
+    hw: 4.4, ribbon: 130, shoulder: 8, style: 'mountain', offRR: 0.3,
+    course: OUNINPOHJA_COURSE, real: true, surfLabel: 'GRAVEL', roadLines: 0,
+    roadRough: 0.07,
+    surf: { base: SURF.GRAVEL, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
+    features: [], ramp: { H: 1.0, L: 12, landing: 70 }, crest: { h: 1.9, L: 40, landing: 55 },
+    craterClusters: 0, meteorZones: 0, chicanes: 0, dontCut: 0,
+    checkpoints: 8, rocks: 420, targetFactor: 1.06,
+    sky: {
+      day: true, sunDir: [0.4, 0.5, -0.5], sunColor: 0xfff4e0, sunIntensity: 3.1, sunSize: 1.0,
+      zenith: [0.08, 0.24, 0.56], horizon: [0.62, 0.74, 0.86], fog: [380, 4400],
+    },
+    planet: null,
+    hemi: { sky: 0xa8c4ec, ground: 0x5a5440, intensity: 0.65 },
+    colors: {
+      road: 0x9a8a72, roadDark: 0x7e705c, off: 0x4c5a30, offB: 0x6a6040, offC: 0x8a9050,
+      surf: [0x9c978d, 0xbfe3f5, 0x9aa2ab, 0x9a8a72, 0x5a5c60, 0xe6eaef], rock: 0x8a8580, marker: [0xff8a1a, 0xf4f4f0], accent: 0x2a6ad8,
+      forest: 0x2e4224, tundra: 0x5e6a34, granite: 0x8a8580, snow: 0xeef2f6,
+    },
+    earth: { fall: 0, ridges: 0.3, trees: ['pine', 'spruce', 'birch', 'birch'], density: 11000, treeline: 9, snowLine: 9, ground: 'meadow',
+      lake: { ice: 0, depth: 8 },
+      signs: [{ at: 'start', lines: [['OUNINPOHJA', 66], ['JÄMSÄ', 50], ['RALLY FINLAND', 40]] }, { at: 'finish', lines: [['HÄMEPOHJA', 66], ['FINISH', 52], ['', 30]] }],
+      houses: [{ at: 'YELLOW HOUSE', n: 1, wall: 0xe8c040, roof: 0x5a3a2a, d: -1 }, { at: 'start', n: 2, wall: 0x8e2a22, roof: 0x3a3a3a }, { at: 'KAKARISTO JUNCTION', n: 2, wall: 0x8e2a22, roof: 0x3a3a3a }] },
+  },
+  {
+    id: 'sorba', name: 'Col de Sorba', region: 'TOUR DE CORSE · HAUTE-CORSE · STAGE 11', seed: 1956, letter: 'T',
+    blurb: "The rally of 10,000 corners: from Ghisoni up the Fium'Orbu gorge and through the Corsican pines to the 1,311 m Col de Sorba. Narrow, bumpy tarmac that never stops turning, granite walls on one side and a drop on the other.",
+    length: 3000, ...EARTH,
+    hw: 4.2, ribbon: 150, shoulder: 7, style: 'mountain', offRR: 0.32,
+    course: SORBA_COURSE, real: true, altitude: [673, 1311], altUnit: 'M', surfLabel: 'TARMAC', roadLines: 2,
+    roadRough: 0.06,
+    surf: { base: SURF.TARMAC, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
+    features: [], crest: { h: 1.0, L: 36, landing: 40 },
+    craterClusters: 0, meteorZones: 0, chicanes: 0, dontCut: 0,
+    checkpoints: 7, rocks: 900, targetFactor: 1.05,
+    sky: {
+      day: true, sunDir: [0.6, 0.62, 0.3], sunColor: 0xfff2dc, sunIntensity: 3.3, sunSize: 1.0,
+      zenith: [0.05, 0.2, 0.55], horizon: [0.56, 0.68, 0.82], fog: [450, 5200],
+    },
+    planet: null,
+    hemi: { sky: 0xa0c0ee, ground: 0x6a5a44, intensity: 0.62 },
+    colors: {
+      road: 0x48494c, roadDark: 0x3a3b3e, off: 0x4e5a30, offB: 0x8a7a68, offC: 0x7a7a46,
+      surf: [0x9c978d, 0xbfe3f5, 0x9aa2ab, 0xa4846c, 0x48494c, 0xe6eaef], rock: 0xa89a8c, marker: [0xe8352a, 0xf4f4f0], accent: 0xffb21a,
+      forest: 0x34442a, tundra: 0x5e6236, granite: 0xa8988a, snow: 0xeef2f6,
+    },
+    earth: { fall: 1, ridges: 1.2, trees: ['pine', 'pine', 'maquis', 'maquis'], density: 9000, treeline: 9, snowLine: 9, ground: 'maquis',
+      walls: 0xa49888,
+      signs: [{ at: 'start', lines: [['GHISONI', 70], ['GHISONACCIA', 40], ['ALT 673 M', 40]] }, { at: 'COL DE SORBA', lines: [['COL DE SORBA', 60], ['BOCCA DI SORBA', 44], ['ALT 1311 M', 40]] }],
+      houses: [{ at: 'start', n: 4, wall: 0xb0a48e, roof: 0x7a6a5a }] },
   },
 ];
 
-STAGES.forEach((d, i) => { d.tpl = i; d.letter = d.letter || 'LIW'[i]; });
+STAGES.forEach((d, i) => { d.tpl = i; d.letter = d.letter || 'LIW'[i]; d.real = !!d.real; });
 const STAGE_LETTERS = STAGES.map((d) => d.letter).join('');
 /** Surface summary for menus: the main surface, or a stage's own description of its mix. */
 function surfLabel(def) { return def.surfLabel || SURF_INFO[def.surf.base].name; }
@@ -1638,9 +1855,9 @@ function stageCode(def) { return 'RR-' + def.letter + '-' + def.seed; }
 function stageDef(tpl, seed) {
   const base = STAGES[tpl];
   seed = Math.abs(Math.floor(seed)) % 1000000000;
-  if (seed === base.seed || base.course) return base;          // a real road has only one layout
-  const code = 'RR-' + base.letter + '-' + seed;
-  return Object.assign({}, base, { id: code, seed, name: base.name + ' #' + seed, region: 'CUSTOM STAGE · ' + code, custom: true });
+  if (seed === base.seed || base.real) return base;            // a real road has only one layout
+  const code = 'RR-' + base.letter + '-' + seed;               // other seeds lay out a random stage from the template
+  return Object.assign({}, base, { id: code, seed, name: base.name + ' #' + seed, region: 'CUSTOM STAGE · ' + code, custom: true, course: null });
 }
 /** Parse "RR-L-1234", "L1234", "i-99" or a bare number (keeps the current template). */
 function parseStageCode(str, fallbackTpl) {
@@ -1658,7 +1875,7 @@ const SETUP_OPTS = {
   damp: { label: 'DAMPERS', names: ['SOFT', 'MEDIUM', 'FIRM'], desc: ['Low bump and rebound damping: wheels follow rough ground, but the body floats and wallows.', 'Balanced bump and rebound.', 'High damping: tied down over crests and quick direction changes; skips over ripples.'] },
   arb: { label: 'ANTI-ROLL BARS', names: ['SOFT', 'MEDIUM', 'STIFF'], desc: ['Soft bars: each wheel moves on its own; more body roll, more grip over rough ground.', 'Balanced roll stiffness.', 'Stiff bars: flat and quick to change direction; wheels lift and skip on rough ground.'] },
   gear: { label: 'FINAL DRIVE', names: ['SHORT', 'STANDARD', 'LONG'], desc: ['Shorter final drive: +11% pull in every gear, -10% top speed. Twisty stages.', 'Balanced.', 'Longer final drive: +10% top speed, -9% pull. Fast open stages.'] },
-  tyre: { label: 'TYRES', names: ['ALL-TERRAIN', 'STUDDED', 'SLICK'], desc: ['Consistent grip on every surface.', 'Tungsten studs: +60% grip on ice; they skate a little on steel (-15%) and tarmac (-14%).', 'Soft slicks: +18% grip on tarmac and +12% on metal plating; poor on anything loose (-20% or worse).'] },
+  tyre: { label: 'TYRES', names: ['ALL-TERRAIN', 'STUDDED', 'SLICK'], desc: ['Consistent grip on every surface.', 'Tungsten studs: +60% grip on ice and +40% on snow; they skate a little on steel (-15%) and tarmac (-14%).', 'Soft slicks: +18% grip on tarmac and +12% on metal plating; poor on anything loose (-20% or worse).'] },
 };
 const TUNE = {
   susp: [{ k: 0.8, c: 1, land: 1.5 }, { k: 1, c: 1, land: 0 }, { k: 1.3, c: 1, land: -1.2 }],
@@ -1666,11 +1883,13 @@ const TUNE = {
   damp: [{ b: 0.8, r: 0.82 }, { b: 1, r: 1 }, { b: 1.25, r: 1.2 }],
   arb: [0.55, 1, 1.6],                  // multiplier on both bars (the front/rear split lives in SUSP)
   gear: [{ v: 0.9 }, { v: 1 }, { v: 1.1 }],           // the final drive is the car's own divided by v: road speed per rpm scales with v, pull the other way
-  tyre: [[1, 1, 1, 1, 1], [0.97, 1.6, 0.85, 0.98, 0.86], [0.8, 0.7, 1.12, 0.78, 1.18]],   // per surface: regolith, ice, metal, gravel, tarmac
+  tyre: [[1, 1, 1, 1, 1, 1], [0.97, 1.6, 0.85, 0.98, 0.86, 1.4], [0.8, 0.7, 1.12, 0.78, 1.18, 0.6]],   // per surface: regolith, ice, metal, gravel, tarmac, snow
 };
 const RECOMMENDED = [{ susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 1, damp: 1, arb: 0, gear: 0, tyre: 1 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 },
   { susp: 1, damp: 1, arb: 1, gear: 2, tyre: 0 }, { susp: 0, damp: 0, arb: 0, gear: 1, tyre: 1 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 },
-  { susp: 1, damp: 1, arb: 1, gear: 0, tyre: 0 }];
+  { susp: 1, damp: 1, arb: 1, gear: 0, tyre: 0 },
+  { susp: 1, damp: 1, arb: 1, gear: 0, tyre: 1 }, { susp: 1, damp: 1, arb: 0, gear: 1, tyre: 1 }, { susp: 0, damp: 1, arb: 0, gear: 2, tyre: 0 },
+  { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 }];
 const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
 const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
 /* ---- garage: pilot + vehicle parts (chosen in the garage, kept for every stage) ----
@@ -1764,11 +1983,11 @@ const GARAGE = {
     { name: 'MINI', blurb: 'Mini Cooper S, 1964 Monte Carlo winner. 1071 cc, front-wheel drive, ten-inch wheels and a quarter of the power: pure momentum.' },
   ] },
   wheels: { label: 'WHEELS', opts: [
-    { name: 'STANDARD', blurb: 'All-round rally tyres.', mu: [1, 1, 1, 1, 1], kg: 0, steer: 1, rr: 0 },
-    { name: 'CRAWLER', blurb: 'Big knobbly tyres. Dig into loose ground, heavy and slow to turn.', mu: [1.08, 1.04, 1.02, 1.1, 0.96], kg: 24, steer: 0.965, rr: 0.012, rScale: 1.04 },
-    { name: 'SLICK ROLLER', blurb: 'Low-profile slicks. Sharp on tarmac and metal, slide on anything loose.', mu: [0.94, 0.86, 1.06, 0.9, 1.08], kg: -12, steer: 1.035, rr: -0.003, rScale: 0.98 },
-    { name: 'HOVER PADS', blurb: 'Grav pads instead of wheels. Light and nimble, a touch less grip.', mu: [0.97, 0.97, 0.97, 0.97, 0.97], kg: -20, steer: 1.07, rr: 0 },
-    { name: 'SPIKE RIMS', blurb: 'Studded tyres. Bite on ice and metal, a bit of drag, worse on tarmac.', mu: [1.02, 1.25, 1.08, 1.02, 0.94], kg: 8, steer: 1, rr: 0.008 },
+    { name: 'STANDARD', blurb: 'All-round rally tyres.', mu: [1, 1, 1, 1, 1, 1], kg: 0, steer: 1, rr: 0 },
+    { name: 'CRAWLER', blurb: 'Big knobbly tyres. Dig into loose ground, heavy and slow to turn.', mu: [1.08, 1.04, 1.02, 1.1, 0.96, 1.08], kg: 24, steer: 0.965, rr: 0.012, rScale: 1.04 },
+    { name: 'SLICK ROLLER', blurb: 'Low-profile slicks. Sharp on tarmac and metal, slide on anything loose.', mu: [0.94, 0.86, 1.06, 0.9, 1.08, 0.86], kg: -12, steer: 1.035, rr: -0.003, rScale: 0.98 },
+    { name: 'HOVER PADS', blurb: 'Grav pads instead of wheels. Light and nimble, a touch less grip.', mu: [0.97, 0.97, 0.97, 0.97, 0.97, 0.97], kg: -20, steer: 1.07, rr: 0 },
+    { name: 'SPIKE RIMS', blurb: 'Studded tyres. Bite on ice and metal, a bit of drag, worse on tarmac.', mu: [1.02, 1.25, 1.08, 1.02, 0.94, 1.2], kg: 8, steer: 1, rr: 0.008 },
   ] },
   color: { label: 'PAINT', opts: [
     { name: 'BLAZE', hex: 0xff7a1a }, { name: 'NEBULA', hex: 0x8b5cff }, { name: 'COMET', hex: 0x19c8e6 }, { name: 'SOLAR', hex: 0xffd21f },
@@ -2650,9 +2869,14 @@ function convexHull(pts) {
   return lo.concat(up);                        // counter-clockwise
 }
 function makeMountainTerrain(tr) {
-  const N = tr.N, cx = tr.cx, cz = tr.cz, cy = tr.cy, seed = tr.def.seed;
+  const N = tr.N, cx = tr.cx, cz = tr.cz, cy = tr.cy, seed = tr.def.seed, E = tr.def.earth || {};
   const nB = makeNoise2D(seed * 3 + 2), nC = makeNoise2D(seed * 3 + 3), nD = makeNoise2D(seed * 3 + 4);
-  tr.yLo = cy[Math.round(tr.startS / DS)]; tr.yHi = cy[Math.round(tr.finishS / DS)];
+  // the climb runs from the start line to the stage's highest point (the finish on Pikes Peak, the col on the Turini)
+  const iS = Math.round(tr.startS / DS), iF = Math.round(tr.finishS / DS);
+  tr.yLo = cy[iS]; tr.yHi = cy[iF];
+  for (let i = iS; i <= iF; i++) tr.yHi = Math.max(tr.yHi, cy[i]);
+  tr.yHi = Math.max(tr.yHi, tr.yLo + 30);
+  const fallK = E.fall === 0 ? 0 : 1, ridgeK = E.ridges === undefined ? 1 : E.ridges;
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
   for (let i = 0; i < N; i++) { x0 = Math.min(x0, cx[i]); x1 = Math.max(x1, cx[i]); z0 = Math.min(z0, cz[i]); z1 = Math.max(z1, cz[i]); }
   // outside the road's footprint (its convex hull) the mountain falls away, easing out onto the plains far below
@@ -2670,7 +2894,7 @@ function makeMountainTerrain(tr) {
   };
   const HD = makeGrid(x0 - 2600, z0 - 2600, x1 + 2600, z1 + 2600, 40);      // hull distance is slow: kept on a coarse grid
   for (let b = 0; b < HD.nz; b++) for (let a = 0; a < HD.nx; a++) HD.v[b * HD.nx + a] = hullDist(HD.x0 + a * HD.cell, HD.z0 + b * HD.cell);
-  const fall = (hd) => { const f = 0.4 * (Math.sqrt(hd * hd + 6400) - 80); return 700 * Math.tanh(f / 700); };
+  const fall = (hd) => { const f = 0.4 * (Math.sqrt(hd * hd + 6400) - 80); return fallK * 700 * Math.tanh(f / 700); };
   // broad shape: a smooth average of the road's heights (every 8 m), defined everywhere
   const B = makeGrid(x0 - 900, z0 - 900, x1 + 900, z1 + 900, 40), sB = 110, invB = 1 / (2 * sB * sB);
   const bx = [], bz = [], by = [];
@@ -2711,10 +2935,61 @@ function makeMountainTerrain(tr) {
       h += st * (0.3 + 0.7 * far) * (9 * (rb * rb - 0.4) + 24 * far * (rb2 * rb2 - 0.4));
     }
     const r = 1 - Math.abs(nC(x / 420, z / 420));                                   // ridges and gullies further out
-    h += far * far * (18 + 0.08 * Math.min(hd, 1500)) * (r * r - 0.45);
+    h += ridgeK * far * far * (18 + 0.08 * Math.min(hd, 1500)) * (r * r - 0.45);
+    if (lake) h -= lake.depth * 2.2 * far * far * smoothstep(0.12, 0.42, nL(x / 360, z / 360));   // lake basins in the forest, never by the road
     return h;
   };
+  const lake = E.lake || null, nL = makeNoise2D(seed * 3 + 9);
+  let lo = Infinity; for (let i = 0; i < N; i++) lo = Math.min(lo, cy[i]);
+  tr.lakeY = lake ? lo - 2.5 : null;
   return { T, near, hull, hullDist };
+}
+/** A designed space stage: dig any landmark craters (inside the corners marked with !), raise canyon walls beside
+ *  walled sections, and fit the ground to the road's designed heights so it meets the road instead of walling it in. */
+function fitTerrainToRoad(tr, plan) {
+  const t = tr.terrain, T0 = t.T, N = tr.N, def = tr.def, cx = tr.cx, cz = tr.cz;
+  const craters = [];
+  for (const c of plan.landmarks || []) {
+    const i = Math.round((c.s0 + c.s1) / 2 / DS), R = Math.min(c.R1, c.R2), side = c.dir > 0 ? -1 : 1;
+    craters.push({ x: cx[i] + tr.rx[i] * side * R, z: cz[i] + tr.rz[i] * side * R, R: R * 0.56 });
+  }
+  const T1 = (x, z) => {
+    let h = T0(x, z);
+    for (const c of craters) { const dx = x - c.x, dz = z - c.z, dd = dx * dx + dz * dz; if (dd < c.R * c.R * 2.6) h += craterProfile(Math.sqrt(dd) / c.R, c.R * 0.24, c.R * 0.06); }
+    return h;
+  };
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (let i = 0; i < N; i++) { x0 = Math.min(x0, cx[i]); x1 = Math.max(x1, cx[i]); z0 = Math.min(z0, cz[i]); z1 = Math.max(z1, cz[i]); }
+  const G = makeGrid(x0 - 300, z0 - 300, x1 + 300, z1 + 300, 8), xs = [], zs = [], rs = [];
+  for (let i = 0; i < N; i += 2) { xs.push(cx[i]); zs.push(cz[i]); rs.push(tr.cy[i] - T1(cx[i], cz[i])); }
+  splatFit(G, xs, zs, rs, 34, 0.6);
+  // canyon walls: mesas a few tens of metres out on both sides, kept clear of every other part of the road
+  let Wg = null;
+  const walled = tr.secs.filter((sc) => sc.walls > 0);
+  if (walled.length) {
+    Wg = makeGrid(x0 - 300, z0 - 300, x1 + 300, z1 + 300, 6);
+    const wx = [], wz = [], wv = [], off = def.hw + 46, nW = makeNoise2D(def.seed + 31);
+    tr.secs.forEach((sc, k) => {
+      if (!(sc.walls > 0)) return;
+      const end = k + 1 < tr.secs.length ? tr.secs[k + 1].s : tr.total;
+      for (let s = sc.s - 60; s < end + 60; s += 4) {
+        const i = clamp(Math.round(s / DS), 0, N - 1);
+        for (const side of [-1, 1]) {
+          const x = cx[i] + tr.rx[i] * side * off, z = cz[i] + tr.rz[i] * side * off;
+          let clear = true;
+          for (let j = 0; j < N && clear; j += 3) if ((x - cx[j]) ** 2 + (z - cz[j]) ** 2 < (off - 8) ** 2) clear = false;
+          if (clear) { wx.push(x); wz.push(z); wv.push(sc.walls * (0.75 + 0.5 * (0.5 + 0.5 * nW(s / 90, side)))); }
+        }
+      }
+    });
+    splatFit(Wg, wx, wz, wv, 11, 0.3);
+  }
+  tr.landmarks = craters;
+  t.T = (x, z) => {
+    let h = T1(x, z) + gridAt(G, x, z);
+    if (Wg) { const w = gridAt(Wg, x, z); if (w > 0.5) h += w * smoothstep(0.18, 0.62, w / 34) * (0.92 + 0.08 * Math.sin(h * 0.9)); }   // sheer sides, flat tops and ledges
+    return h;
+  };
 }
 
 function boxBlur(src, r) {
@@ -2793,21 +3068,34 @@ function planTrack(def, seed) {
   P.straight(190, null);                      // finish straight + run-off
   return P;
 }
-/** Plan a scripted course (a real road): its sections in order, each a run of straights, crests and corners. */
+/** Plan a scripted course (a real road, or a designed stage): its sections in order, each a run of straights,
+ *  crests, jumps and corners. Path tokens: S<m> straight; C crest, J kicker ramp, X chasm jump (each a straight
+ *  sized by the stage's own feature); L|R<radius>[><exit radius]:<heading> a corner that turns to an absolute
+ *  heading in degrees (0 = the start direction, + = left), with a trailing ! marking a landmark inside it;
+ *  K a straight carrying a chicane; @<letter> switches the road surface from here on (R regolith, I ice, M metal,
+ *  G gravel, T tarmac, S snow). */
+const SURF_LETTERS = { R: 0, I: 1, M: 2, G: 3, T: 4, S: 5 };
 function planCourse(def) {
-  const P = makePlan(def), secs = [];
+  const P = makePlan(def), secs = [], marks = [], landmarks = [], zones = [];
   let surf = def.surf.base;
   for (const sec of def.course) {
     if (sec.surf !== undefined) surf = sec.surf;
-    secs.push({ name: sec.name, s: P.k.length * DS, grade: sec.grade, surf });
+    secs.push({ name: sec.name, s: P.k.length * DS, grade: sec.grade, surf, walls: sec.walls || 0 });
     for (const t of sec.path.split(' ')) {
-      const m = t.match(/^([LR])(\d+)(?:>(\d+))?:(-?\d+)$/);
-      if (m) { const dir = m[1] === 'L' ? 1 : -1; P.corner(dir, +m[2], +(m[3] || m[2]), (+m[4] * Math.PI / 180 - P.heading) * dir); }
-      else if (t === 'C') P.straight(P.featureLen('crest'), 'crest');
+      const m = t.match(/^([LR])(\d+)(?:>(\d+))?:(-?\d+)(!?)$/);
+      if (m) {
+        const dir = m[1] === 'L' ? 1 : -1;
+        P.corner(dir, +m[2], +(m[3] || m[2]), (+m[4] * Math.PI / 180 - P.heading) * dir);
+        if (m[5]) landmarks.push(P.segs[P.segs.length - 1]);
+      } else if (t === 'C') P.straight(P.featureLen('crest'), 'crest');
+      else if (t === 'J') P.straight(P.featureLen('ramp'), 'ramp');
+      else if (t === 'X') P.straight(P.featureLen('chasm'), 'chasm');
+      else if (t === 'K') { const s0 = P.k.length * DS, len = def.style === 'platform' ? 150 : 190; P.straight(len, null); zones.push({ s0, s1: s0 + len, course: true }); }
+      else if (t[0] === '@') marks.push({ s: P.k.length * DS, surf: SURF_LETTERS[t[1]] });
       else P.straight(+t.slice(1), null);
     }
   }
-  P.secs = secs;
+  Object.assign(P, { secs, marks, landmarks, zones });
   return P;
 }
 
@@ -2860,10 +3148,11 @@ function generateTrack(def) {
     cx: geo.cx, cz: geo.cz, th: geo.th,
     tx: new Float64Array(N), tz: new Float64Array(N), rx: new Float64Array(N), rz: new Float64Array(N),
     kap: new Float32Array(N), cy: null, bank: null, ramp: new Float32Array(N), chasm: new Float32Array(N), surf: new Uint8Array(N),
-    rough: def.roadRough, terrain: def.course ? null : makeTerrainFns(def), noiseR: makeNoise2D(def.seed + 99), noiseC: makeNoise2D(def.seed + 177),
+    rough: def.roadRough, terrain: def.style === 'mountain' ? null : makeTerrainFns(def), noiseR: makeNoise2D(def.seed + 99), noiseC: makeNoise2D(def.seed + 177),
     segs: plan.segs, feats: plan.feats, corners: plan.segs.filter((s) => s.type === 'corner'), secs: plan.secs || null,
     craters: [], craterBuckets: [], colliderBuckets: [], clusters: [], extraRocks: [],
-    gates: [], startS: 24, finishS: total - 95, chicaneZones: [], chicanes: [], attempts,
+    gates: [], startS: 24, finishS: total - 95, chicaneZones: [], chicanes: [], attempts, earth: def.earth || null,
+    snowbank: def.earth && def.earth.snowbank || 0,
   };
   TR = tr;
   for (let i = 0; i < N; i++) {
@@ -2878,6 +3167,12 @@ function generateTrack(def) {
     const ge = boxBlur(boxBlur(gr, 12), 12);
     tr.cy = new Float64Array(N);
     for (let i = 1; i < N; i++) tr.cy[i] = tr.cy[i - 1] + 0.5 * (ge[i - 1] + ge[i]) * DS;
+    if (tr.terrain && def.follow) {                       // a designed stage also rides the ground's own swell
+      const raw = new Float64Array(N);
+      for (let i = 0; i < N; i++) raw[i] = tr.terrain.large(tr.cx[i], tr.cz[i]);
+      const sw = boxBlur(boxBlur(raw, 22), 22);
+      for (let i = 0; i < N; i++) tr.cy[i] += def.follow * (sw[i] - sw[0]);
+    }
   } else {
     const raw = new Float64Array(N);
     for (let i = 0; i < N; i++) raw[i] = tr.terrain.large(tr.cx[i], tr.cz[i]);
@@ -2887,7 +3182,8 @@ function generateTrack(def) {
     const L = def.crest.L;
     for (let i = 0; i < N; i++) { const x = (i * DS - f.sc) / L; if (Math.abs(x) < 0.5) { const c = Math.cos(Math.PI * x); tr.cy[i] += def.crest.h * c * c; } }
   }
-  if (!tr.terrain) tr.terrain = makeMountainTerrain(tr);   // a mountain built around the road
+  if (!tr.terrain) tr.terrain = makeMountainTerrain(tr);   // a mountain (or Earth forest) built around the road
+  else if (tr.secs) fitTerrainToRoad(tr, plan);             // a designed space stage: the ground meets its road
   // ---- Banking into corners ----
   const bankRaw = new Float64Array(N);
   for (let i = 0; i < N; i++) bankRaw[i] = clamp(tr.kap[i] * 3.2, -0.09, 0.09);
@@ -2917,7 +3213,19 @@ function generateTrack(def) {
     }
     s += rng.range(90, 220);
   }
-  if (tr.secs) for (const sc of tr.secs) for (let i = Math.round(sc.s / DS); i < N; i++) tr.surf[i] = sc.surf;
+  if (tr.secs) {                                       // a course's own surfaces: per section, then switches within them, then
+    const base = new Uint8Array(N);                     // the random patches (kept above) laid over the top
+    for (const sc of tr.secs) base.fill(sc.surf, Math.round(sc.s / DS));
+    for (const m of plan.marks) base.fill(m.surf, Math.round(m.s / DS));
+    const patched = tr.surf.slice();
+    for (let i = 0; i < N; i++) tr.surf[i] = patched[i] !== def.surf.base ? patched[i] : base[i];
+    if (tr.snowbank) {                                   // ploughed banks along the snowy and icy sections, eased in and out
+      const w = new Float32Array(N), K = 30;
+      for (let i = 0; i < N; i++) w[i] = base[i] === SURF.SNOW || base[i] === SURF.ICE ? 1 : 0.12;
+      const b = tr.bankW = new Float32Array(N);
+      for (let i = 0; i < N; i++) { let a = 0, n = 0; for (let k = Math.max(0, i - K); k <= Math.min(N - 1, i + K); k++) { a += w[k]; n++; } b[i] = a / n; }
+    }
+  }
   // ---- Checkpoint gates: prefer mid-straights and ends of landing zones ----
   const cands = [];
   for (const sg of tr.segs) if (sg.type === 'straight') {
@@ -2950,9 +3258,12 @@ function generateTrack(def) {
     }
     return null;
   };
-  // Meteor showers were removed, but their zones are still reserved so every stage (and saved ghost) keeps its layout.
-  for (let i = 0; i < def.meteorZones; i++) pickZone(300);
-  for (let i = 0; i < def.chicanes; i++) { const z = pickZone(def.style === 'platform' ? 150 : 190); if (z) tr.chicaneZones.push(z); }
+  if (plan.zones) for (const z of plan.zones) { zones.push(z); tr.chicaneZones.push(z); }   // a course puts its chicanes where it was designed to
+  else {
+    // Meteor showers were removed, but their zones are still reserved so every random stage keeps its layout.
+    for (let i = 0; i < def.meteorZones; i++) pickZone(300);
+    for (let i = 0; i < def.chicanes; i++) { const z = pickZone(def.style === 'platform' ? 150 : 190); if (z) tr.chicaneZones.push(z); }
+  }
   // ---- Road craters (static clusters) ----
   tr.craterBuckets = Array.from({ length: (N >> 2) + 2 }, () => []);
   for (let c = 0; c < def.craterClusters; c++) {
@@ -3013,6 +3324,7 @@ function placeChicanes(tr) {
       let cost = kMax * 600 + kSum / n * 1500;
       for (const f of tr.feats) if (b > f.s0 - 25 && a < featEnd(f)) cost += 100;
       for (const g of tr.gates) if (g.s > a - 20 && g.s < b + 20) cost += 60;
+      if (z.course) cost += Math.abs(s0 + span / 2 - (z.s0 + z.s1) / 2) * 0.05 + kMax * 20000;   // a designed straight: the rows sit mid-way, clear of the bends
       for (const c of tr.craters) if (c.s + c.R * 1.6 > a - 40 && c.s - c.R * 1.6 < b + 8) cost += 15;
       if (cost < bestCost) { bestCost = cost; best = s0; }
     }
@@ -3328,6 +3640,7 @@ function heightSD(s, d, x, z) {
     const road = base + bank * d + ramp + TR.rough * TR.noiseR(s / 13.0, d / 7.0);
     const w = smoothstep(hw + 0.6, zone, ad);
     h = w > 0 ? road + (TR.terrain.T(x, z) - road) * w : road;
+    if (TR.snowbank && ad > hw + 0.4) h += TR.snowbank * (TR.bankW ? TR.bankW[i0] : 1) * (0.85 + 0.3 * TR.noiseC(s / 17, d > 0 ? 3 : -3)) * smoothstep(hw + 0.4, hw + 1.7, ad) * (1 - smoothstep(hw + 3.6, hw + 6.5, ad));   // ploughed snowbanks
   } else h = TR.terrain.T(x, z);
   const ch = TR.chasm[i0] + (TR.chasm[i0 + 1] - TR.chasm[i0]) * f;
   if (ch > 0) h -= ch;
@@ -3381,63 +3694,226 @@ function sampleGround(x, z, hint, out) {
    the physics uses. Surface detail (regolith grain, cracked ice, deck plating,
    gravel) is generated in the fragment shader from per-vertex surface weights.
    ============================================================================= */
+/* ---- Ground detail maps: two tileable RGBA textures generated once (no image files), shared by every stage.
+   A: r stones (rounded height per Voronoi cell), g crack network (thin cell edges), b fine grain, a broad mottling.
+   B: r streaks (wind ripples, polish, frost), g grass blades, b aggregate chips, a crust (wavy dried ridges).
+   The terrain shader samples them at several scales and turns them into albedo, roughness and bump. ---- */
+function genDetailMaps(N) {
+  const rnd = mulberry32(7177);
+  const wrap = (v, p) => ((v % p) + p) % p;
+  // periodic value noise with period p lattice cells over the whole map
+  const lattice = (p) => { const g = new Float32Array(p * p); for (let i = 0; i < g.length; i++) g[i] = rnd(); return g; };
+  const vnoise = (g, p, u, v) => {            // u, v in [0,1) map space
+    const x = u * p, y = v * p, xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const sx = xf * xf * (3 - 2 * xf), sy = yf * yf * (3 - 2 * yf);
+    const x0 = wrap(xi, p), x1 = wrap(xi + 1, p), y0 = wrap(yi, p), y1 = wrap(yi + 1, p);
+    const a = g[y0 * p + x0], b = g[y0 * p + x1], c = g[y1 * p + x0], d = g[y1 * p + x1];
+    return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+  };
+  const vnoiseXY = (g, px, py, u, v) => {     // stretched: px cells across, py down (g sized px*py)
+    const x = u * px, y = v * py, xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const sx = xf * xf * (3 - 2 * xf), sy = yf * yf * (3 - 2 * yf);
+    const x0 = wrap(xi, px), x1 = wrap(xi + 1, px), y0 = wrap(yi, py), y1 = wrap(yi + 1, py);
+    const a = g[y0 * px + x0], b = g[y0 * px + x1], c = g[y1 * px + x0], d = g[y1 * px + x1];
+    return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+  };
+  const fbm = (oct, p0, u, v, gs) => { let s = 0, w = 0.5, t = 0; for (let o = 0; o < oct; o++) { s += w * vnoise(gs[o], p0 << o, u, v); t += w; w *= 0.5; } return s / t; };
+  const fbmSet = (oct, p0) => { const gs = []; for (let o = 0; o < oct; o++) gs.push(lattice(p0 << o)); return gs; };
+  // periodic Voronoi: F1, F2 (in cell units) and the nearest cell's random value
+  const cells = (p, jit) => { const c = new Float32Array(p * p * 3); for (let i = 0; i < p * p; i++) { c[i * 3] = 0.5 + (rnd() - 0.5) * jit; c[i * 3 + 1] = 0.5 + (rnd() - 0.5) * jit; c[i * 3 + 2] = rnd(); } return c; };
+  const vor = (c, p, u, v, out) => {
+    const x = u * p, y = v * p, xi = Math.floor(x), yi = Math.floor(y);
+    let f1 = 9, f2 = 9, id = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const cx = xi + dx, cy = yi + dy, k = (wrap(cy, p) * p + wrap(cx, p)) * 3;
+      const ex = cx + c[k] - x, ey = cy + c[k + 1] - y, d = Math.sqrt(ex * ex + ey * ey);
+      if (d < f1) { f2 = f1; f1 = d; id = c[k + 2]; } else if (d < f2) f2 = d;
+    }
+    out[0] = f1; out[1] = f2; out[2] = id;
+  };
+  const A = new Uint8Array(N * N * 4), B = new Uint8Array(N * N * 4), o = [0, 0, 0], o2 = [0, 0, 0];
+  const fGrain = fbmSet(3, 64), fMott = fbmSet(4, 4), fWarp = fbmSet(2, 8), fStreak = [0, 1, 2].map((o) => { const g = new Float32Array((3 << o) * (40 << o)); for (let i = 0; i < g.length; i++) g[i] = rnd(); return g; }), fBlade = fbmSet(2, 128), fCrust = fbmSet(3, 6);
+  const cStone = cells(40, 0.85), cCrack = cells(9, 0.9), cCrack2 = cells(23, 0.9), cChip = cells(96, 0.9), cTuft = cells(30, 0.9);
+  const sat = (x) => (x < 0 ? 0 : x > 1 ? 1 : x), b8 = (x) => Math.round(sat(x) * 255);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const u = (i + 0.5) / N, v = (j + 0.5) / N, k = (j * N + i) * 4;
+    // stones: a rounded dome inside each cell, sized per cell, with a little lumpiness
+    vor(cStone, 40, u, v, o);
+    const rad = 0.3 + 0.32 * o[2], dome = Math.sqrt(sat(1 - (o[0] / rad) * (o[0] / rad)));
+    const stone = dome * (0.75 + 0.25 * vnoise(fGrain[0], 64, u, v)) * (0.55 + 0.45 * o[2]);
+    // cracks: two nets of thin cell edges, the coarse one wandered by a warp so it doesn't read as polygons
+    const wu = u + (vnoise(fWarp[0], 8, u, v) - 0.5) * 0.03, wv = v + (vnoise(fWarp[1], 16, u, v) - 0.5) * 0.03;
+    vor(cCrack, 9, wu, wv, o);
+    vor(cCrack2, 23, wu, wv, o2);
+    const crack = Math.max(1 - sat((o[1] - o[0]) / 0.07), 0.7 * (1 - sat((o2[1] - o2[0]) / 0.09)) * (vnoise(fMott[2], 16, u, v) > 0.45 ? 1 : 0.3));
+    A[k] = b8(stone); A[k + 1] = b8(crack); A[k + 2] = b8(fbm(3, 64, u, v, fGrain)); A[k + 3] = b8((fbm(4, 4, u, v, fMott) - 0.5) * 1.6 + 0.5);
+    // streaks: noise stretched along v (the shader turns it to run across the wind or along the road)
+    const sv = v + (vnoise(fWarp[1], 8, u, v) - 0.5) * 0.04;
+    const st = (vnoiseXY(fStreak[0], 3, 40, u, sv) * 0.5 + vnoiseXY(fStreak[1], 6, 80, u, sv) * 0.3 + vnoiseXY(fStreak[2], 12, 160, u, sv) * 0.2);
+    // grass: fine blades (stretched noise) clumped into tufts
+    vor(cTuft, 30, u, v, o);
+    const tuft = sat(1 - o[0] / 0.75), blade = vnoise(fBlade[0], 128, u, v * 0.35 + u * 0.15) * 0.6 + vnoise(fBlade[1], 256, u * 0.4 + v * 0.2, v) * 0.4;
+    // chips: aggregate stones in tarmac, each its own shade with a dark gap between
+    vor(cChip, 96, u, v, o2);
+    const chip = (0.25 + 0.75 * o2[2]) * sat((o2[1] - o2[0]) / 0.1);
+    const crust = Math.abs(fbm(3, 6, u, v, fCrust) - 0.5) * 2;
+    B[k] = b8((st - 0.5) * 2.2 + 0.5); B[k + 1] = b8(blade * (0.45 + 0.55 * tuft)); B[k + 2] = b8(chip); B[k + 3] = b8(1 - crust);
+  }
+  return { A, B };
+}
+let _detailTex = null;
+function detailTextures() {
+  if (_detailTex) return _detailTex;
+  const N = LOW_SPEC ? 256 : 512, m = genDetailMaps(N);
+  _detailTex = [m.A, m.B].map((data) => {
+    const t = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true;
+    t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    t.needsUpdate = true;
+    return t;
+  });
+  return _detailTex;
+}
 const TERRAIN_FRAG = `
 vec2 wp = vWPos.xz;
 float camDist = length(vWPos - cameraPosition);
-float hf = 1.0 - smoothstep(25.0, 110.0, camDist);
-float n1 = rrNoise(wp * 0.33);
-float n2 = rrNoise(wp * 1.7 + 3.1);
-float n3 = rrNoise(wp * 6.3 + 7.7);
-float n4 = rrNoise(wp * 19.0 + 1.3);
-float pReg = 0.9 + 0.14 * (n1 - 0.5) + hf * (0.12 * (n2 - 0.5) + 0.12 * (n3 - 0.5) - 0.12 * step(0.8, n4));
-float cr1 = 1.0 - smoothstep(0.0, 0.03, abs(rrNoise(wp * 0.21) - 0.5));
-float cr2 = 1.0 - smoothstep(0.0, 0.045, abs(rrNoise(wp * 0.83 + 13.0) - 0.5));
-float pIce = 1.0 + 0.08 * (n1 - 0.5) - 0.22 * cr1 - 0.12 * cr2 * hf + 0.05 * hf * (n3 - 0.5);
+float hf = 1.0 - smoothstep(30.0, 150.0, camDist);           // fine detail (and bump) fades out with distance
+float fp = length(fwidth(wp));                                // metres per pixel: anything smaller than a few pixels is left out
+float hfFine = hf * (1.0 - smoothstep(0.006, 0.025, fp));
+float bCm = 1.0 - smoothstep(0.0015, 0.004, fp), bStone = 1.0 - smoothstep(0.004, 0.012, fp);   // bump only from what spans several pixels
+// two detail maps, each read at a few scales and rotations so no tile repeats visibly
+const mat2 rrRot = mat2(0.8, 0.6, -0.6, 0.8);
+vec4 A1 = texture2D(uDetA, wp * 0.24);                       // 4.2 m tile
+vec4 A2 = texture2D(uDetA, rrRot * wp * 0.083 + 0.37);       // 12 m tile
+vec4 A3 = texture2D(uDetA, rrRot * rrRot * wp * 0.77 + 0.61); // 1.3 m tile: small stones
+vec4 B1 = texture2D(uDetB, wp * 0.29);
+vec4 B2 = texture2D(uDetB, rrRot * wp * 1.17 + 0.2);
+float big = rrNoise(wp * 0.031);
+float mott = mix(A1.a, A2.a, 0.5) + 0.35 * (big - 0.5);
+float grain = mix(A1.b, A3.b, 0.45);
+float sSum = max(dot(vSurfW, vec4(1.0)) + dot(vSurfX, vec4(1.0)), 0.001);
+vec4 sw4 = vSurfW / sSum;
+vec4 sx4 = vSurfX / sSum;
+float ax = abs(vTrk.x);
+float onRoad = 1.0 - smoothstep(uHW - 0.2, uHW + 0.8, ax);
+// wheel tracks: the cars run in two pairs of ruts either side of the centre line
+float alongN = rrNoise(vec2(vTrk.y * 0.05, 1.7));
+float ruts = (exp(-pow((ax - 0.85) / 0.32, 2.0)) + 0.7 * exp(-pow((ax - 2.35) / 0.38, 2.0))) * onRoad * (0.65 + 0.35 * alongN);
+// --- regolith: fine dust mottled by old ejecta, scattered stones where the mottle is dark
+float rStones = smoothstep(0.35, 0.8, A3.r) * smoothstep(0.62, 0.3, mott) * (1.0 - 0.7 * ruts);
+float aReg = 0.88 + 0.26 * (mott - 0.5) + hf * (0.2 * (grain - 0.5)) - 0.1 * ruts + 0.16 * rStones * (A2.b - 0.3);
+float hReg = 0.006 * grain * bCm + 0.03 * rStones * bStone + 0.012 * smoothstep(0.4, 0.9, A2.r) - 0.01 * ruts;
+// --- ice: clear blue-white sheet, a coarse network of pressure cracks with finer crazing between, frost blown into streaks
+float crBig = A2.g, crFine = A1.g * smoothstep(0.35, 0.65, mott);
+float frost = smoothstep(0.45, 0.85, texture2D(uDetB, rrRot * wp * 0.12).r) * (0.5 + 0.5 * A2.a);
+float aIce = 1.0 + 0.1 * (mott - 0.5) - 0.3 * crBig - 0.14 * crFine * hf + 0.16 * frost - 0.08 * ruts;
+float hIce = -0.012 * crBig - 0.005 * crFine + 0.003 * frost;
+float rIce = 0.06 + 0.5 * crBig + 0.25 * crFine + 0.35 * frost;
+// --- metal deck: plates with seams and rivets, brushed scratches, grime gathering at the seams and in the ruts
 vec2 pc = vec2(vTrk.x / 3.2, vTrk.y / 4.8);
 vec2 pf = fract(pc);
 float seam = 1.0 - smoothstep(0.0, 0.035, min(min(pf.x, 1.0 - pf.x), min(pf.y, 1.0 - pf.y)));
 float pid = rrHash12(floor(pc) + 0.5);
 vec2 rq = abs(pf - 0.5);
 float rivet = (1.0 - smoothstep(0.018, 0.03, length(rq - vec2(0.44)))) * hf;
-float pMetal = (0.76 + 0.3 * pid) * (1.0 - 0.5 * seam) * (0.94 + 0.1 * n3 * hf) * (0.9 + 0.1 * n1) + 0.25 * rivet;
-float g1 = rrNoise(wp * 3.7), g2 = rrNoise(wp * 10.0 + 5.0);
-float pGrav = 0.82 + 0.34 * (g1 - 0.5) + hf * (0.24 * (g2 - 0.5) - 0.24 * step(0.74, g2));
-float t2 = rrNoise(wp * 31.0 + 2.0);
-float pTar = 0.9 + 0.1 * (n1 - 0.5) + 0.12 * (rrNoise(wp * 0.9 + 5.0) - 0.5) + hf * (0.16 * (t2 - 0.5) + 0.1 * step(0.86, t2));
-float swSum = max(dot(vSurfW, vec4(1.0)) + vSurfT, 0.001);
-vec4 sw4 = vSurfW / swSum;
-float swT = vSurfT / swSum;
-diffuseColor.rgb *= dot(sw4, vec4(pReg, pIce, pMetal, pGrav)) + swT * pTar;
-float rockF = (1.0 - smoothstep(0.5, 0.82, vNrmY)) * uRock;   // mountain faces: bands of granite, cut by cracks
+float scratch = smoothstep(0.55, 0.95, texture2D(uDetB, vec2(vTrk.x * 0.9 + pid * 7.0, vTrk.y * 0.06)).r);
+float grime = smoothstep(0.4, 0.75, mott) * 0.25 + 0.3 * seam + 0.18 * ruts;
+float aMetal = (0.78 + 0.28 * pid) * (1.0 - 0.45 * seam) * (0.95 + 0.1 * scratch * hf) * (1.0 - grime * 0.6) + 0.22 * rivet + 0.06 * (A3.b - 0.5) * hf;
+float hMetal = -0.01 * seam + 0.006 * rivet + 0.001 * scratch * bCm;
+float rMetal = 0.32 + 0.3 * seam + 0.25 * grime - 0.12 * scratch;
+// --- gravel: packed fines with loose stones at two sizes, each stone its own shade; swept clear in the ruts
+float g1 = A3.r, g2 = texture2D(uDetA, wp * 2.3 + 0.13).r;
+float loose = (1.0 - 0.75 * ruts) * (0.6 + 0.4 * smoothstep(0.3, 0.7, mott)) + (1.0 - onRoad) * 0.3;
+float aGrav = 0.84 + 0.18 * (mott - 0.5) + loose * (0.32 * g1 * (A1.b - 0.45) + hfFine * 0.16 * g2 * (B2.b - 0.4)) - 0.08 * ruts + hf * 0.1 * (grain - 0.5) + loose * 0.2 * (A1.r - 0.22);
+float hGrav = loose * (0.016 * A1.r + 0.022 * g1 * bStone + 0.012 * g2 * bCm) + 0.004 * grain * bCm;
+// --- tarmac: aggregate chips in a dark binder, sealed cracks, square repair patches, tyre-polished lines
+float chip = texture2D(uDetB, wp * 1.6).b;
+float tCrack = smoothstep(0.6, 0.95, A2.g) * smoothstep(0.55, 0.8, mott);
+vec2 pq = vec2(vTrk.y / 7.0, vTrk.x / 2.3);
+float patchId = rrHash12(floor(pq) + 3.0);
+float repair = step(0.86, patchId) * onRoad * (1.0 - smoothstep(0.42, 0.5, max(abs(fract(pq.x) - 0.5), abs(fract(pq.y) - 0.5))));
+float aTar = 0.92 + 0.14 * (mott - 0.5) + hf * 0.22 * (chip - 0.45) - 0.22 * tCrack - 0.12 * repair * (0.6 + 0.4 * patchId) - 0.1 * ruts;
+float hTar = 0.0025 * chip * bCm - 0.006 * tCrack + 0.003 * repair;
+float rTar = 0.88 - 0.22 * ruts - 0.1 * tCrack + 0.06 * (chip - 0.5);
+// --- snow: wind-rippled powder with sparkle, packed and glazed in the wheel tracks
+float rip = texture2D(uDetB, rrRot * wp * 0.21 + 0.5).r;
+float rip2 = B2.r;
+float glint = step(0.93, texture2D(uDetB, wp * 3.1).b) * hfFine;
+float pack = clamp(ruts * 1.15, 0.0, 1.0);
+float aSnow = 1.0 + 0.05 * (mott - 0.5) + 0.05 * (rip - 0.5) - 0.17 * pack * (0.7 + 0.3 * A3.b) + 0.12 * glint;
+float hSnow = 0.012 * rip + (0.004 * rip2 + 0.004 * grain) * bCm - 0.02 * pack;
+float rSnow = 0.72 - 0.45 * pack - 0.5 * glint + 0.1 * rip;
+// --- ground beside an Earth road: told apart by the vertex colour (green = grass, bright = snow, else soil and scree)
+vec3 vc = diffuseColor.rgb;
+float lum = dot(vc, vec3(0.299, 0.587, 0.114));
+float wSn = smoothstep(0.32, 0.55, lum);
+float wGr = smoothstep(0.004, 0.03, vc.g - max(vc.r, vc.b)) * (1.0 - wSn);
+float blades = mix(B1.g, B2.g, 0.5);
+float dry = smoothstep(0.55, 0.85, mott);
+float aGround = mix(0.84 + 0.3 * (mott - 0.5) + 0.3 * smoothstep(0.35, 0.8, A1.r) * (A2.b - 0.4) + hf * 0.15 * (grain - 0.5),
+                    0.7 + 0.55 * blades + 0.15 * (mott - 0.5) + 0.1 * dry, wGr);
+aGround = mix(aGround, aSnow + 0.17 * pack, wSn);
+float hGround = mix(mix(0.02 * smoothstep(0.35, 0.8, A1.r) + 0.005 * grain * bCm, 0.012 * blades * bCm, wGr), 0.014 * rip + 0.004 * grain * bCm, wSn);
+float rGround = mix(0.95, 0.72, wSn);
+// mix the materials by the surface weights
+float rrAlb = dot(sw4, vec4(aReg, aIce, aMetal, aGrav)) + dot(sx4, vec4(aTar, aSnow, aGround, 0.0));
+diffuseColor.rgb *= rrAlb;
+diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.95, 1.02, 1.06) + vec3(0.0, 0.01, 0.025), sx4.y * pack);   // glazed tracks pick up the sky
+diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.08, 1.0, 0.72), wGr * dry * sx4.z * 0.6);                  // straw-coloured dry grass
+float rrH = dot(sw4, vec4(hReg, hIce, hMetal, hGrav)) + dot(sx4, vec4(hTar, hSnow, hGround, 0.0));
+// rock faces on a mountain: bands of strata cut by cracks, the stone detail on top
+float rockF = (1.0 - smoothstep(0.5, 0.82, vNrmY)) * uRock * (1.0 - wSn * sx4.z);   // (snowbanks are steep too, but they are snow)
 float strata = rrNoise(vec2((wp.x + wp.y) * 0.03, vWPos.y * 0.45)), crack = 1.0 - smoothstep(0.0, 0.07, abs(rrNoise(wp * 0.11 + vWPos.y * 0.05) - 0.5));
-diffuseColor.rgb *= mix(1.0, 0.72 + 0.5 * strata - 0.3 * crack, rockF);
-// painted lines on tarmac: a double yellow centre line and white edge lines, worn in places
-float wear = smoothstep(0.2, 0.45, rrNoise(vec2(vTrk.y * 0.11, 3.0)));
-float yl = (1.0 - smoothstep(0.05, 0.075, abs(abs(vTrk.x) - 0.17))) * wear;
-float wl = (1.0 - smoothstep(0.07, 0.1, abs(abs(vTrk.x) - (uHW - 0.45)))) * wear;
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.56, 0.07), yl * swT * uLines);
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.82, 0.82, 0.8), wl * swT * uLines);
-float edgeD = abs(abs(vTrk.x) - (uHW - 0.6));
+float faceTex = texture2D(uDetA, vec2((wp.x - wp.y) * 0.11, vWPos.y * 0.2)).a;
+diffuseColor.rgb *= mix(1.0, (0.72 + 0.5 * strata - 0.3 * crack) * (0.8 + 0.4 * faceTex) * (0.92 + 0.16 * A2.g), rockF);
+rrH += rockF * (0.04 * faceTex - 0.03 * crack);
+// painted lines on tarmac, worn in places: 1 = US double yellow centre and white edges, 2 = French dashed white centre line
+float swT = sx4.x;
+float wear = smoothstep(0.2, 0.45, rrNoise(vec2(vTrk.y * 0.11, 3.0))) * (0.75 + 0.25 * smoothstep(0.2, 0.6, A3.b));
+float yl = (1.0 - smoothstep(0.05, 0.075, abs(ax - 0.17))) * wear * step(0.5, uLines) * step(uLines, 1.5);
+float wl = (1.0 - smoothstep(0.07, 0.1, abs(ax - (uHW - 0.45)))) * wear * step(0.5, uLines) * step(uLines, 1.5);
+float dash = (1.0 - smoothstep(0.055, 0.075, ax)) * step(fract(vTrk.y / 13.0), 0.23) * wear * step(1.5, uLines);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.56, 0.07), yl * swT);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.82, 0.82, 0.8), (wl + dash) * swT);
+float edgeD = abs(ax - (uHW - 0.6));
 float stripeZone = (1.0 - smoothstep(0.26, 0.32, edgeD)) * uStripe * sw4.z;
-float stripe = step(0.5, fract((vTrk.y + abs(vTrk.x)) * 0.22));
+float stripe = step(0.5, fract((vTrk.y + ax) * 0.22));
 diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.015), vec3(0.8, 0.5, 0.03), stripe), stripeZone);
-float rrRough = clamp(dot(sw4, vec4(0.95, 0.08 + 0.5 * cr1 + 0.2 * cr2, 0.4 + 0.25 * seam, 0.9)) + swT * 0.86, 0.04, 1.0);
-float rrMetal = sw4.z * 0.5;
+float rrRough = clamp(dot(sw4, vec4(0.95 - 0.1 * rStones, rIce, rMetal, 0.9)) + dot(sx4, vec4(rTar - 0.2 * (yl + wl + dash), rSnow, rGround, 0.0)), 0.04, 1.0);
+rrRough = mix(rrRough, 0.85, rockF);
+float rrMetal = sw4.z * 0.5 * (1.0 - grime * 0.5);
+vec2 rrDH = vec2(dFdx(rrH), dFdy(rrH)) * (1.0 - smoothstep(0.01, 0.04, fp)) * hf * uBump;
+`;
+// bump from a height in metres (three's perturbNormalArb, which only exists when a material has a bumpMap)
+const TERRAIN_BUMP = `
+vec3 rrPerturb(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy, float faceDirection) {
+  vec3 vSigmaX = dFdx(surf_pos), vSigmaY = dFdy(surf_pos), vN = surf_norm;
+  vec3 R1 = cross(vSigmaY, vN), R2 = cross(vN, vSigmaX);
+  float fDet = dot(vSigmaX, R1) * faceDirection;
+  vec3 vGrad = sign(fDet) * (dHdxy.x * R1 + dHdxy.y * R2);
+  return normalize(abs(fDet) * surf_norm - vGrad);
+}
 `;
 function makeTerrainMaterial(def) {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0.0, envMapIntensity: def.sky.day ? 0.3 : 0.7 });
-  const stripe = def.style === 'platform' ? 1 : 0;
+  const stripe = def.style === 'platform' ? 1 : 0, det = detailTextures();
+  mat.extensions = { derivatives: true };        // dFdx/dFdy for the bump on WebGL1
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uHW = { value: def.hw };
     sh.uniforms.uStripe = { value: stripe };
-    sh.uniforms.uLines = { value: def.roadLines ? 1 : 0 };
+    sh.uniforms.uLines = { value: def.roadLines || 0 };
+    sh.uniforms.uBump = { value: LOW_SPEC ? 0.6 : 1.4 };
+    sh.uniforms.uDetA = { value: det[0] };
+    sh.uniforms.uDetB = { value: det[1] };
     sh.uniforms.uRock = { value: def.style === 'mountain' ? 1 : 0 };
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec4 surfW;\nattribute float surfT;\nattribute vec2 trk;\nvarying vec4 vSurfW;\nvarying float vSurfT;\nvarying vec2 vTrk;\nvarying vec3 vWPos;\nvarying float vNrmY;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSurfW = surfW; vSurfT = surfT; vTrk = trk; vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vNrmY = objectNormal.y;');
+      .replace('#include <common>', '#include <common>\nattribute vec4 surfW;\nattribute vec4 surfX;\nattribute vec2 trk;\nvarying vec4 vSurfW;\nvarying vec4 vSurfX;\nvarying vec2 vTrk;\nvarying vec3 vWPos;\nvarying float vNrmY;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSurfW = surfW; vSurfX = surfX; vTrk = trk; vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vNrmY = objectNormal.y;');
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uHW;\nuniform float uStripe;\nuniform float uLines;\nuniform float uRock;\nvarying vec4 vSurfW;\nvarying float vSurfT;\nvarying vec2 vTrk;\nvarying vec3 vWPos;\nvarying float vNrmY;\n' + GLSL_NOISE)
+      .replace('#include <common>', '#include <common>\nuniform float uHW;\nuniform float uStripe;\nuniform float uLines;\nuniform float uRock;\nuniform float uBump;\nuniform sampler2D uDetA;\nuniform sampler2D uDetB;\nvarying vec4 vSurfW;\nvarying vec4 vSurfX;\nvarying vec2 vTrk;\nvarying vec3 vWPos;\nvarying float vNrmY;\n' + GLSL_NOISE + TERRAIN_BUMP)
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + TERRAIN_FRAG)
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = rrPerturb(-vViewPosition, normal, rrDH, faceDirection);')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = rrRough;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = rrMetal;');
   };
@@ -3466,7 +3942,7 @@ let PAL = null;
 function buildPalette(def) {
   const c = def.colors;
   PAL = {
-    surf: [0, 1, 2, 3, 4].map((k) => srgb(c.surf[k] !== undefined ? c.surf[k] : 0x55575a)), off: srgb(c.off), offB: srgb(c.offB), offC: srgb(c.offC),
+    surf: [0, 1, 2, 3, 4, 5].map((k) => srgb(c.surf[k] !== undefined ? c.surf[k] : 0x55575a)), off: srgb(c.off), offB: srgb(c.offB), offC: srgb(c.offC),
     cliff: srgb(def.style === 'ring' ? 0x3d6a8c : 0x2b2522),
     mtn: def.style === 'mountain' ? { forest: srgb(c.forest), tundra: srgb(c.tundra), granite: srgb(c.granite), snow: srgb(c.snow) } : null,
   };
@@ -3474,8 +3950,8 @@ function buildPalette(def) {
 const _c1 = new THREE.Color(), _c2 = new THREE.Color();
 /** Share of forest cover at a point on the mountain: full low down, thinning out at the treeline (near Glen Cove). */
 function forestAt(x, z, y) {
-  const q = (y - TR.yLo) / (TR.yHi - TR.yLo);
-  return 1 - smoothstep(0.4, 0.52, q + 0.06 * TR.noiseC(x / 90 + 7, z / 90));
+  const q = (y - TR.yLo) / (TR.yHi - TR.yLo), tl = TR.earth ? TR.earth.treeline : 0.46;
+  return 1 - smoothstep(tl - 0.06, tl + 0.06, q + 0.06 * TR.noiseC(x / 90 + 7, z / 90));
 }
 /** Mountain ground by altitude: forest floor below the treeline, alpine tundra above it, then pink granite scree
  *  and lingering snow near the summit. Steep faces are bare rock at any height. */
@@ -3484,9 +3960,11 @@ function mountainColor(x, z, ny, y, out) {
   const n1 = TR.noiseC(x / 23, z / 23), n3 = TR.noiseC(x / 140 - 30, z / 140), n4 = TR.noiseC(x / 60 + 11, z / 60 - 7);
   out.copy(P.tundra).lerp(PAL.offC, clamp(0.3 + n1 * 0.7, 0, 0.65));
   out.lerp(P.forest, forestAt(x, z, y) * clamp(0.9 + n1 * 0.3, 0, 1));
-  out.lerp(P.granite, smoothstep(0.15, 0.55, n4 * 0.5 + n3 * 0.3 + (q - 0.72) * 1.4) * 0.9);   // boulder fields up high
+  const E = TR.earth, tl = E ? E.treeline : 0.46, sl = E ? E.snowLine : 0.8;
+  out.lerp(P.granite, smoothstep(0.15, 0.55, n4 * 0.5 + n3 * 0.3 + (q - tl - 0.26) * 1.4) * 0.9);   // boulder fields up high
   out.lerp(P.granite, 1 - smoothstep(0.6, 0.84, ny));
-  const snow = smoothstep(0.8, 0.98, q + 0.25 * n3) * smoothstep(0.2, 0.45, n4 + 0.4 * n1) * smoothstep(0.6, 0.82, ny);
+  if (sl < 0) return out.lerp(P.snow, (0.9 + 0.08 * n1) * smoothstep(0.45, 0.7, ny));        // a winter stage: snow over everything but cliffs
+  const snow = smoothstep(sl, sl + 0.18, q + 0.25 * n3) * smoothstep(0.2, 0.45, n4 + 0.4 * n1) * smoothstep(0.6, 0.82, ny);
   return out.lerp(P.snow, snow * 0.85);
 }
 function offroadColor(x, z, ny, out, y) {
@@ -3505,7 +3983,7 @@ function buildRibbon(mat) {
   const M = offs.length, N = TR.N, count = N * M;
   const R = TR.ribbon = {
     M, N, offs, kind, pos: new Float32Array(count * 3), nrm: new Float32Array(count * 3), col: new Float32Array(count * 3),
-    sw: new Float32Array(count * 4), st: new Float32Array(count), trk: new Float32Array(count * 2), owned: new Uint8Array(count),
+    sw: new Float32Array(count * 4), sx: new Float32Array(count * 4), trk: new Float32Array(count * 2), owned: new Uint8Array(count),
     nearI: new Int32Array(count), dAt: new Float32Array(count), chunks: [],
   };
   const roadZone = hw + def.shoulder + 6, K = 45;
@@ -3554,7 +4032,7 @@ function buildRibbon(mat) {
     geo.setAttribute('normal', new THREE.BufferAttribute(R.nrm.subarray(a * 3, b * 3), 3));
     geo.setAttribute('color', new THREE.BufferAttribute(R.col.subarray(a * 3, b * 3), 3));
     geo.setAttribute('surfW', new THREE.BufferAttribute(R.sw.subarray(a * 4, b * 4), 4));
-    geo.setAttribute('surfT', new THREE.BufferAttribute(R.st.subarray(a, b), 1));
+    geo.setAttribute('surfX', new THREE.BufferAttribute(R.sx.subarray(a * 4, b * 4), 4));
     geo.setAttribute('trk', new THREE.BufferAttribute(R.trk.subarray(a * 2, b * 2), 2));
     const idx = [];
     const o = R.owned;
@@ -3598,8 +4076,8 @@ function colorRibbon(i0, i1) {
   for (let i = i0; i <= i1; i++) for (let j = 0; j < M; j++) {
     const v = i * M + j;
     const x = R.pos[v * 3], y = R.pos[v * 3 + 1], z = R.pos[v * 3 + 2];
-    let sw0 = 0, sw1 = 0, sw2 = 0, sw3 = 0, sw4 = 0;
-    const put = (idx, w) => { if (idx === 0) sw0 += w; else if (idx === 1) sw1 += w; else if (idx === 2) sw2 += w; else if (idx === 3) sw3 += w; else sw4 += w; };
+    let sw0 = 0, sw1 = 0, sw2 = 0, sw3 = 0, sw4 = 0, sw5 = 0, sw6 = 0;   // regolith, ice, metal, gravel, tarmac, snow, Earth ground
+    const put = (idx, w) => { if (idx === 0) sw0 += w; else if (idx === 1) sw1 += w; else if (idx === 2) sw2 += w; else if (idx === 3) sw3 += w; else if (idx === 4) sw4 += w; else if (idx === 5) sw5 += w; else sw6 += w; };
     if (R.kind[j] === 1) {
       _c1.copy(PAL.cliff);
       put(offS, 1);
@@ -3609,6 +4087,10 @@ function colorRibbon(i0, i1) {
       const rw = 1 - smoothstep(hw - 0.3, hw + 1.1, ad);
       const si = TR.surf[ni];
       offroadColor(x, z, R.nrm[v * 3 + 1], _c1, y);
+      if (TR.snowbank && PAL.mtn && ad > hw) {                        // ploughed banks are clean snow
+        const bk = smoothstep(hw + 0.1, hw + 1.2, ad) * (1 - smoothstep(hw + 4.5, hw + 8, ad)) * (TR.bankW ? TR.bankW[ni] : 1);
+        _c1.lerp(PAL.mtn.snow, bk * 0.92);
+      }
       if (rw > 0) {
         _c2.copy(PAL.surf[si]);
         const n = TR.noiseC(s / 9, d / 3.5);
@@ -3628,10 +4110,11 @@ function colorRibbon(i0, i1) {
       }
       const depth = baseY(s) - y;                                      // chasm walls / floors fade into darkness
       if (depth > 1.5 && !PAL.mtn) _c1.multiplyScalar(Math.max(0.1, 1 - depth / 30));
-      put(si, rw); put(offS, 1 - rw);
+      put(si, rw); put(PAL.mtn ? 6 : offS, 1 - rw);
     }
     R.col[v * 3] = _c1.r; R.col[v * 3 + 1] = _c1.g; R.col[v * 3 + 2] = _c1.b;
-    R.sw[v * 4] = sw0; R.sw[v * 4 + 1] = sw1; R.sw[v * 4 + 2] = sw2; R.sw[v * 4 + 3] = sw3; R.st[v] = sw4;
+    R.sw[v * 4] = sw0; R.sw[v * 4 + 1] = sw1; R.sw[v * 4 + 2] = sw2; R.sw[v * 4 + 3] = sw3;
+    R.sx[v * 4] = sw4; R.sx[v * 4 + 1] = sw5; R.sx[v * 4 + 2] = sw6;
   }
 }
 
@@ -3656,7 +4139,7 @@ function buildFarTerrain(mat) {
       if (d < dist[k]) dist[k] = d;
     }
   }
-  const pos = new Float32Array(nx * nx * 3), col = new Float32Array(nx * nx * 3), sw = new Float32Array(nx * nx * 4), trk = new Float32Array(nx * nx * 2), st = new Float32Array(nx * nx);
+  const pos = new Float32Array(nx * nx * 3), col = new Float32Array(nx * nx * 3), sw = new Float32Array(nx * nx * 4), trk = new Float32Array(nx * nx * 2), sx = new Float32Array(nx * nx * 4);
   for (let gz = 0; gz <= res; gz++) for (let gx = 0; gx <= res; gx++) {
     const k = gz * nx + gx, x = minX + gx * stepX, z = minZ + gz * stepZ;
     const dd = Math.min(dist[k], 3000);
@@ -3665,7 +4148,8 @@ function buildFarTerrain(mat) {
     const beyond = Math.max(0, dd - W - 40);
     if (!mtn) h -= beyond * beyond / (2 * 6500);                     // small-moon horizon curvature
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z;
-    sw[k * 4] = 1; trk[k * 2] = 99;
+    if (mtn) sx[k * 4 + 2] = 1; else if (def.surf.off < 4) sw[k * 4 + def.surf.off] = 1; else sx[k * 4 + def.surf.off - 4] = 1;
+    trk[k * 2] = 99;
   }
   for (let gz = 0; gz <= res; gz++) for (let gx = 0; gx <= res; gx++) {
     const k = gz * nx + gx, x = pos[k * 3], z = pos[k * 3 + 2];
@@ -3688,7 +4172,7 @@ function buildFarTerrain(mat) {
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   geo.setAttribute('surfW', new THREE.BufferAttribute(sw, 4));
-  geo.setAttribute('surfT', new THREE.BufferAttribute(st, 1));
+  geo.setAttribute('surfX', new THREE.BufferAttribute(sx, 4));
   geo.setAttribute('trk', new THREE.BufferAttribute(trk, 2));
   geo.setIndex(idx);
   geo.computeVertexNormals();
@@ -3975,15 +4459,19 @@ function buildIceDecor(rng) {
   Scenery.floaters = fl; Scenery.floaterData = data;
 }
 
-/* ---- Pikes Peak scenery: spruce forest up to the treeline, signs at the start and the summit, the summit house ---- */
-function makeSpruceGeometry() {
-  const parts = [[new THREE.CylinderGeometry(0.035, 0.05, 0.3, 5), 0.15, 0x4a3626], [new THREE.ConeGeometry(0.3, 0.62, 7), 0.45, 0x22341d],
-    [new THREE.ConeGeometry(0.22, 0.5, 7), 0.72, 0x283c22], [new THREE.ConeGeometry(0.13, 0.34, 6), 0.9, 0x2e4427]];
-  const pos = [], nrm = [], col = [];
-  for (const [g0, y, hex] of parts) {
-    const g = g0.toNonIndexed(); g.translate(0, y, 0);
-    const c = srgb(hex), p = g.attributes.position.array, n = g.attributes.normal.array;
-    for (let i = 0; i < p.length; i += 3) { pos.push(p[i], p[i + 1], p[i + 2]); nrm.push(n[i], n[i + 1], n[i + 2]); col.push(c.r, c.g, c.b); }
+/* ---- Earth scenery (Pikes Peak and the real rally stages): forest by species up to the treeline, signs, houses,
+   stone walls on the drop side of the bends, lakes, and the Pikes Peak summit house ---- */
+/** Merge parts [geometry, y offset, colour] into one vertex-coloured tree of unit height; `snow` whitens upward faces. */
+function treeGeometry(parts, snow) {
+  const pos = [], nrm = [], col = [], c = new THREE.Color(), white = new THREE.Color(0xf4f7fa).convertSRGBToLinear();
+  for (const [g0, y, hex, sx] of parts) {
+    const g = g0.index ? g0.toNonIndexed() : g0.clone(); if (sx) g.scale(sx[0], sx[1], sx[2]); g.translate(0, y, 0);
+    const base = srgb(hex), p = g.attributes.position.array, n = g.attributes.normal.array;
+    for (let i = 0; i < p.length; i += 3) {
+      c.copy(base);
+      if (snow && hex !== 0x4a3626 && n[i + 1] > 0.15) c.lerp(white, snow * smoothstep(0.15, 0.6, n[i + 1]));
+      pos.push(p[i], p[i + 1], p[i + 2]); nrm.push(n[i], n[i + 1], n[i + 2]); col.push(c.r, c.g, c.b);
+    }
     g.dispose(); g0.dispose();
   }
   const geo = new THREE.BufferGeometry();
@@ -3992,6 +4480,24 @@ function makeSpruceGeometry() {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
 }
+const TREE_KINDS = {
+  // Engelmann spruce (Pikes Peak) and Norway spruce (Värmland): a dark narrow cone in tiers
+  spruce: { h: [5, 13], w: [0.55, 0.75], parts: (s) => treeGeometry([[new THREE.CylinderGeometry(0.035, 0.05, 0.3, 5), 0.15, 0x4a3626], [new THREE.ConeGeometry(0.3, 0.62, 7), 0.45, 0x22341d],
+    [new THREE.ConeGeometry(0.22, 0.5, 7), 0.72, 0x283c22], [new THREE.ConeGeometry(0.13, 0.34, 6), 0.9, 0x2e4427]], s) },
+  // Scots and Corsican pine: a tall bare trunk, rust-coloured near the top, and a loose flat-topped crown
+  pine: { h: [9, 18], w: [0.4, 0.55], parts: (s) => treeGeometry([[new THREE.CylinderGeometry(0.03, 0.045, 0.72, 5), 0.36, 0x4a3626], [new THREE.CylinderGeometry(0.02, 0.03, 0.2, 5), 0.78, 0x9a5a34],
+    [new THREE.IcosahedronGeometry(0.34, 0), 0.74, 0x2a3c22, [1.1, 0.42, 1.1]], [new THREE.IcosahedronGeometry(0.26, 0), 0.88, 0x30442a, [1.15, 0.4, 0.95]], [new THREE.IcosahedronGeometry(0.2, 0), 0.62, 0x263620, [0.9, 0.4, 1.1]]], s) },
+  // European larch in winter: needles gone, a thin grey-brown spire
+  larch: { h: [8, 15], w: [0.4, 0.5], parts: (s) => treeGeometry([[new THREE.CylinderGeometry(0.025, 0.045, 0.5, 5), 0.25, 0x4a3626], [new THREE.ConeGeometry(0.24, 0.78, 6), 0.58, 0x5e554b],
+    [new THREE.ConeGeometry(0.14, 0.4, 6), 0.84, 0x7a6038]], s) },
+  // silver birch: white trunk, a rounded light-green crown
+  birch: { h: [7, 13], w: [0.45, 0.6], parts: (s) => treeGeometry([[new THREE.CylinderGeometry(0.025, 0.04, 0.62, 5), 0.31, 0xe6e2d8], [new THREE.IcosahedronGeometry(0.3, 1), 0.66, 0x5a7a34, [1, 1.15, 1]],
+    [new THREE.IcosahedronGeometry(0.2, 0), 0.86, 0x6a8a3c]], s) },
+  // Corsican maquis: dense evergreen scrub (holm oak, strawberry tree, heather) in low dark clumps
+  maquis: { h: [1.0, 2.6], w: [1.1, 1.6], low: true, parts: (s) => treeGeometry([[new THREE.IcosahedronGeometry(0.42, 0), 0.42, 0x3a4a26, [1, 0.9, 1]], [new THREE.IcosahedronGeometry(0.3, 0), 0.62, 0x46562c, [1, 0.8, 1]],
+    [new THREE.IcosahedronGeometry(0.28, 0), 0.4, 0x4e5a2e, [1.4, 0.7, 0.8]]], s) },
+};
+const makeSpruceGeometry = () => TREE_KINDS.spruce.parts(0);
 function signTexture(lines, w, h) {
   return makeCanvas(w, h, (g) => {
     g.fillStyle = '#5a3a22'; g.fillRect(0, 0, w, h);
@@ -4000,30 +4506,43 @@ function signTexture(lines, w, h) {
     lines.forEach(([t, px], k) => { g.font = `700 ${px}px Georgia, "Times New Roman", serif`; g.fillText(t, w / 2, h * (k + 1) / (lines.length + 1)); });
   });
 }
+/** Stage distance of a named place: the start, the finish, or the start of a named section. */
+function placeS(at) {
+  if (at === 'start') return TR.startS;
+  if (at === 'finish') return TR.finishS;
+  const sc = (TR.secs || []).find((q) => q.name === at);
+  return sc ? sc.s : TR.startS;
+}
 function buildMountainDecor(rng) {
-  const def = TR.def, hw = def.hw, W = def.ribbon, zone = hw + def.shoulder;
-  // spruce trees, denser near the road; each 250 m square of forest is its own mesh so it can be culled
-  const geo = makeSpruceGeometry();
+  const def = TR.def, hw = def.hw, W = def.ribbon, zone = hw + def.shoulder, E = def.earth || {};
+  // trees, denser near the road; each 250 m square of forest is its own mesh (per species) so it can be culled
+  const kinds = E.trees || ['spruce'], geos = new Map(), snowy = E.snowyTrees || 0;
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, flatShading: true, envMapIntensity: 0.3 });
   const CELL = 250, cells = new Map(), tint = new THREE.Color();
-  for (let k = 0, n = LOW_SPEC ? 5000 : 10000; k < n; k++) {
+  for (let k = 0, n = (E.density || 10000) / (LOW_SPEC ? 2 : 1); k < n; k++) {
     const s = rng.range(0, TR.total), d = rng.sign() * (hw + 5 + Math.pow(rng.next(), 1.5) * (W - hw - 8));
     const r1 = rng.next(), r2 = rng.next(), r3 = rng.next();
     const i = clamp(Math.round(s / DS), 0, TR.N - 1), x = TR.cx[i] + TR.rx[i] * d, z = TR.cz[i] + TR.rz[i] * d;
     locateFrom(x, z, locateGlobal(x, z), LQ2);                     // clear of every part of the road
-    if (Math.abs(LQ2.d) < hw + 5 || (Math.abs(LQ2.d) < hw + 9 && TR.gates.some((g) => Math.abs(g.s - LQ2.s) < 10))) continue;
+    const kindName = kinds[Math.floor((r3 * 7.31 % 1) * kinds.length)], K = TREE_KINDS[kindName];
+    const clearD = K.low ? hw + 2.5 : hw + 5;
+    if (Math.abs(LQ2.d) < clearD || (Math.abs(LQ2.d) < hw + 9 && TR.gates.some((g) => Math.abs(g.s - LQ2.s) < 10))) continue;
     const y = heightSD(LQ2.s, LQ2.d, x, z), f = forestAt(x, z, y);
     if (r1 > f * 0.95) continue;
+    if (TR.lakeY !== null && TR.lakeY !== undefined && y < TR.lakeY + 0.6) continue;    // not in the lake
     const e = 1.5, sl = Math.hypot(TR.terrain.T(x + e, z) - TR.terrain.T(x - e, z), TR.terrain.T(x, z + e) - TR.terrain.T(x, z - e)) / (2 * e);
     if (sl > 0.85) continue;                                       // no trees on the rock faces
-    const h = (5 + r2 * 8) * (0.6 + 0.4 * f), w = h * (0.55 + 0.2 * r3);
-    const key = Math.floor(x / CELL) * 100000 + Math.floor(z / CELL);
-    let c = cells.get(key); if (!c) cells.set(key, c = []);
-    c.push({ x, y: y - 0.35, z, h, w, rot: r3 * TAU, shade: 0.75 + 0.45 * r2 });
-    if (Math.abs(LQ2.d) < zone + 4) addCollider({ x, z, r: 0.5, y0: y - 1, y1: y + h, kind: 'tree' });
+    const h = lerp(K.h[0], K.h[1], r2) * (0.6 + 0.4 * f), w = h * lerp(K.w[0], K.w[1], r3);
+    const snow = snowy > 0 && (r2 * 13.7 % 1) < snowy && (E.snowLine < 0 || (y - TR.yLo) / (TR.yHi - TR.yLo) > E.snowLine - 0.15) ? 1 : 0;
+    const gk = kindName + snow;
+    if (!geos.has(gk)) geos.set(gk, K.parts(snow ? 0.75 : 0));
+    const key = gk + ':' + Math.floor(x / CELL) * 100000 + Math.floor(z / CELL);
+    let c = cells.get(key); if (!c) cells.set(key, c = { gk, list: [] });
+    c.list.push({ x, y: y - 0.35, z, h, w, rot: r3 * TAU, shade: 0.75 + 0.45 * r2 });
+    if (Math.abs(LQ2.d) < zone + 4 && !K.low) addCollider({ x, z, r: 0.5, y0: y - 1, y1: y + h, kind: 'tree' });
   }
-  for (const list of cells.values()) {
-    const g = geo.clone(), mesh = new THREE.InstancedMesh(g, mat, list.length);
+  for (const { gk, list } of cells.values()) {
+    const g = geos.get(gk).clone(), mesh = new THREE.InstancedMesh(g, mat, list.length);
     let ax = 0, ay = 0, az = 0;
     list.forEach((t, k) => {
       _q.setFromAxisAngle(UP, t.rot);
@@ -4037,8 +4556,8 @@ function buildMountainDecor(rng) {
     mesh.castShadow = true; mesh.receiveShadow = true;
     stageGroup.add(mesh);
   }
-  geo.dispose();
-  // brown Forest Service signs at the start and at the summit
+  for (const g of geos.values()) g.dispose();
+  // brown road signs at the start, the top and the landmarks
   const sign = (s, d, lines) => {
     const i = clamp(Math.round(s / DS), 0, TR.N - 1);
     worldAt(s, d, WP);
@@ -4053,10 +4572,15 @@ function buildMountainDecor(rng) {
     stageGroup.add(grp);
     addCollider({ x: WP.x, z: WP.z, r: 1.2, y0: WP.h - 1, y1: WP.h + 3.6, kind: 'sign' });
   };
-  sign(TR.startS + 30, hw + 5, [['PIKES PEAK', 70], ['HIGHWAY', 58], ['ELEV 9,390 FT', 40]]);
-  sign(TR.finishS + 22, hw + 5, [['PIKES PEAK', 70], ['SUMMIT', 58], ['ELEV 14,115 FT', 40]]);
-  // the summit house: a long, low stone building beside the end of the road
-  const s0 = TR.total - 34, i0 = clamp(Math.round(s0 / DS), 0, TR.N - 1), dH = -(hw + 21);
+  for (const sg of E.signs || []) sign(placeS(sg.at) + (sg.at === 'start' ? 30 : sg.at === 'finish' ? 22 : 12), (sg.d || 1) * (hw + 5 + (TR.snowbank ? 2.5 : 0)), sg.lines);
+  if (E.summitHouse) buildSummitHouse();
+  if (E.houses) for (const hs of E.houses) buildHouses(hs, rng);
+  if (E.walls) buildStoneWalls(E.walls);
+  if (TR.lakeY !== null && TR.lakeY !== undefined) buildLake(E.lake);
+}
+/** The Pikes Peak summit house: a long, low stone building beside the end of the road. */
+function buildSummitHouse() {
+  const hw = TR.hw, s0 = TR.total - 34, i0 = clamp(Math.round(s0 / DS), 0, TR.N - 1), dH = -(hw + 21);
   worldAt(s0, dH, WP);
   let lo = Infinity, hi = -Infinity;
   for (const a of [-13, 13]) for (const b of [-6, 6]) { const h = heightGlobal(WP.x + TR.tx[i0] * a + TR.rx[i0] * b, WP.z + TR.tz[i0] * a + TR.rz[i0] * b); lo = Math.min(lo, h); hi = Math.max(hi, h); }
@@ -4069,6 +4593,78 @@ function buildMountainDecor(rng) {
   house.position.set(WP.x, lo, WP.z); house.rotation.y = trackYaw(i0);
   house.traverse((o) => { o.castShadow = true; o.receiveShadow = true; });
   stageGroup.add(house);
+}
+/** A few gabled houses beside the road: Falu-red wooden houses in Värmland, the Yellow House at Ouninpohja, stone
+ *  village houses at La Bollène and Ghisoni, the hotels on the Col de Turini (big). */
+function buildHouses(hs, rng) {
+  const hw = TR.hw, wall = new THREE.MeshStandardMaterial({ color: hs.wall, roughness: 0.85 }), roofM = new THREE.MeshStandardMaterial({ color: hs.roof, roughness: 0.7 });
+  const trim = new THREE.MeshStandardMaterial({ color: 0xf2efe8, roughness: 0.8 }), glass = new THREE.MeshStandardMaterial({ color: 0x1a2430, roughness: 0.15, metalness: 0.4 });
+  const s0 = placeS(hs.at) + (hs.at === 'start' ? 45 : 20);
+  for (let k = 0; k < hs.n; k++) {
+    const side = hs.d || (k % 2 ? -1 : 1), s = s0 + k * (hs.big ? 34 : 26) + rng.range(-4, 4);
+    const Wd = hs.big ? 11 : rng.range(6, 8), Ln = hs.big ? 18 : rng.range(8, 11), Ht = hs.big ? 9 : rng.range(3.2, 4.4);
+    const d = side * (hw + (TR.snowbank ? 9 : 7) + Wd / 2 + rng.range(0, 5));
+    const i = clamp(Math.round(s / DS), 0, TR.N - 1);
+    worldAt(s, d, WP);
+    if (WP.h <= VOID_H + 1) continue;
+    const j = locateGlobal(WP.x, WP.z), dj = Math.abs((WP.x - TR.cx[j]) * TR.rx[j] + (WP.z - TR.cz[j]) * TR.rz[j]);
+    if (dj < hw + 4 + Wd / 2) continue;                      // too close to another stretch of road
+    let lo = Infinity;
+    for (const a of [-Ln / 2, Ln / 2]) for (const b of [-Wd / 2, Wd / 2]) lo = Math.min(lo, heightGlobal(WP.x + TR.tx[i] * a + TR.rx[i] * b, WP.z + TR.tz[i] * a + TR.rz[i] * b));
+    const grp = new THREE.Group(), foot = WP.h - lo + 0.3;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(Wd, Ht + foot, Ln), wall); body.position.y = (Ht + foot) / 2 - foot; grp.add(body);
+    const roofG = new THREE.CylinderGeometry(1, 1, Ln + 0.8, 3, 1); roofG.rotateZ(Math.PI / 2); roofG.rotateY(Math.PI / 2);   // a triangular prism along the house
+    const roof = new THREE.Mesh(roofG, roofM); roof.scale.set(Wd * 0.62, Wd * 0.3, 1); roof.position.y = Ht + Wd * 0.13; grp.add(roof);
+    for (const z of [-Ln / 2 - 0.02, Ln / 2 + 0.02]) for (const x of hs.big ? [-3, 0, 3] : [-1.5, 1.5]) for (let fl = 0; fl < (hs.big ? 3 : 1); fl++) {
+      const w = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.3, 0.08), glass); w.position.set(x, 1.6 + fl * 2.7, z); grp.add(w);
+      const f = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.55, 0.05), trim); f.position.set(x, 1.6 + fl * 2.7, z + Math.sign(z) * -0.02); grp.add(f);
+    }
+    for (const x of hs.big ? [-3, 0, 3] : [-1.5, 1.5]) for (const z of [-Ln / 4, Ln / 4]) for (let fl = 0; fl < (hs.big ? 3 : 1); fl++) {
+      const w = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.3, 1.1), glass); w.position.set(-side * (Wd / 2 + 0.02), 1.6 + fl * 2.7, z * (Ln > 12 ? 1.4 : 1)); if (Math.abs(x) < 0.1) grp.add(w);
+    }
+    grp.position.set(WP.x, WP.h, WP.z); grp.rotation.y = trackYaw(i);
+    grp.traverse((o) => { o.castShadow = true; o.receiveShadow = true; });
+    stageGroup.add(grp);
+    for (const a of [-Ln / 3, 0, Ln / 3]) addCollider({ x: WP.x + TR.tx[i] * a, z: WP.z + TR.tz[i] * a, r: Wd / 2, y0: WP.h - 1, y1: WP.h + Ht, kind: 'house' });
+  }
+}
+/** Low dry-stone parapets along the outside of the bends where the ground falls away, as on the Alpine and Corsican roads. */
+function buildStoneWalls(color) {
+  const hw = TR.hw, list = [];
+  for (const c of TR.corners) {
+    if (Math.min(c.R1, c.R2) > 140) continue;
+    const out = c.dir > 0 ? 1 : -1;
+    for (let s = c.s0 - 10; s < c.s1 + 10; s += 2) {
+      if (s < TR.startS + 40 || s > TR.finishS + 20) continue;
+      worldAt(s, out * (hw + 6), WP); const hFar = WP.h;
+      worldAt(s, out * (hw + 0.8), WP);
+      if (WP.h - hFar < 1.2 || TR.gates.some((g) => Math.abs(g.s - s) < 8)) continue;   // only where it drops away
+      list.push({ s, x: WP.x, y: WP.h, z: WP.z, yaw: trackYaw(clamp(Math.round(s / DS), 0, TR.N - 1)) });
+    }
+  }
+  if (!list.length) return;
+  const geo = new THREE.BoxGeometry(0.5, 0.75, 2.04); geo.translate(0, 0.3, 0);
+  const mesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 }), list.length);
+  const base = srgb(color), c = new THREE.Color();
+  list.forEach((w, k) => {
+    _q.setFromAxisAngle(UP, w.yaw);
+    mesh.setMatrixAt(k, _m4.compose(_p.set(w.x, w.y, w.z), _q, _s.set(1, 0.9 + 0.2 * Math.sin(w.s * 1.7), 1)));
+    mesh.setColorAt(k, c.copy(base).multiplyScalar(0.85 + 0.2 * Math.sin(w.s * 2.3 + 1)));
+    addCollider({ x: w.x, z: w.z, r: 0.45, y0: w.y - 1, y1: w.y + 0.7, kind: 'wall' });
+  });
+  mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
+  stageGroup.add(mesh);
+}
+/** A lake filling the low ground: open water in a Finnish summer, snow-covered ice in Värmland. */
+function buildLake(L) {
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (let i = 0; i < TR.N; i += 8) { x0 = Math.min(x0, TR.cx[i]); x1 = Math.max(x1, TR.cx[i]); z0 = Math.min(z0, TR.cz[i]); z1 = Math.max(z1, TR.cz[i]); }
+  const m = 2600, geo = new THREE.PlaneGeometry(x1 - x0 + 2 * m, z1 - z0 + 2 * m); geo.rotateX(-Math.PI / 2);
+  const mat = L.ice ? new THREE.MeshStandardMaterial({ color: 0xe4ecf4, roughness: 0.55, metalness: 0, envMapIntensity: 0.6 })
+    : new THREE.MeshStandardMaterial({ color: 0x1c3446, roughness: 0.06, metalness: 0.2, envMapIntensity: 1.4 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set((x0 + x1) / 2, TR.lakeY, (z0 + z1) / 2); mesh.receiveShadow = true;
+  stageGroup.add(mesh);
 }
 
 function hullTextures(seed) {
@@ -4514,6 +5110,7 @@ const TYRE_SURF = [
   { kp: 0.09, ap: 0.11, C: 1.42 },     // METAL deck plating
   { kp: 0.16, ap: 0.19, C: 1.25 },     // GRAVEL
   { kp: 0.1, ap: 0.12, C: 1.42 },      // TARMAC
+  { kp: 0.13, ap: 0.16, C: 1.3 },      // SNOW: packed snow peaks later than ice and keeps more once it slides
 ];
 for (const t of TYRE_SURF) { t.B = Math.tan(Math.PI / (2 * t.C)); t.BC = t.B * t.C; }
 /** Tyre forces for wheel w spinning at om (rad/s): out.Fx along the wheel, out.Fy across it (to the car's
@@ -8544,7 +9141,7 @@ function buildPaceNotes() {
     const where = cl.ds.length > 1 && spread > 6 ? 'CRATERS' : mean < -TR.hw * 0.3 ? 'CRATER LEFT' : mean > TR.hw * 0.3 ? 'CRATER RIGHT' : 'CRATER MIDDLE';
     raw.push({ s: cl.s - 16, end: cl.s + 8, kind: 'icon', icon: '◎', text: where });
   }
-  const surfIcons = ['◌', '❄', '▦', '∴', '▬'];
+  const surfIcons = ['◌', '❄', '▦', '∴', '▬', '❅'];
   for (let i = Math.round(TR.startS / DS) + 1; i < Math.round(TR.finishS / DS); i++) {
     if (TR.surf[i] !== TR.surf[i - 1]) raw.push({ s: i * DS - 18, end: i * DS, kind: 'icon', icon: surfIcons[TR.surf[i]], text: 'ONTO ' + SURF_INFO[TR.surf[i]].name });
   }
@@ -8692,9 +9289,9 @@ const HUD = {
     const w0 = car.wheels[2].grounded ? car.wheels[2].gs : car.wheels[0].gs;
     const surfName = w0.road ? SURF_INFO[w0.surf].name : 'OFF-ROAD';
     this.set('surfName', surfName);
-    if (def.altitude) {                    // the climb mapped onto the real one: 9,390 ft at the start line, 14,115 ft at the finish
-      const a = def.altitude, ft = a[0] + (car.pos.y - 0.9 - TR.yLo) / (TR.yHi - TR.yLo) * (a[1] - a[0]);
-      this.set('altVal', String(Math.max(0, Math.round(ft / 10) * 10)).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' FT');
+    if (def.altitude) {                    // the climb mapped onto the real one: start line to the top (9,390 to 14,115 ft on Pikes Peak)
+      const a = def.altitude, alt = a[0] + (car.pos.y - 0.9 - TR.yLo) / (TR.yHi - TR.yLo) * (a[1] - a[0]), ft = def.altUnit !== 'M';
+      this.set('altVal', String(Math.max(0, ft ? Math.round(alt / 10) * 10 : Math.round(alt))).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (ft ? ' FT' : ' M'));
     }
     this.el.gripFill.style.width = clamp(w0.mu / 0.9 * 100, 5, 100).toFixed(0) + '%';
     this.el.driftTag.style.opacity = car.drifting && Game.state === 'racing' ? 1 : 0;
@@ -9096,6 +9693,10 @@ function emitCarParticles(dt, ctl) {
       } else if (surf === SURF.TARMAC) {   // tyre smoke
         const c = 0.78 + r3 * 0.12;
         FX.dust.emit(x, y + 0.1, z, bx * 0.35 + r1 * 1.5, 0.5 + r3 * 1.2, bz * 0.35 + r2 * 1.5, 1.2 + r3, 1.0, 2.6, c, c, c * 1.02, 0.35, 0.05, 1.3);
+      } else if (surf === SURF.SNOW) {   // snow spray: a roostertail of powder off the tyres
+        const c = 0.9 + r3 * 0.1;
+        FX.dust.emit(x, y + 0.1, z, bx + r1 * 3, 1.2 + r3 * 3, bz + r2 * 3, 1.0 + r3 * 1.4, 0.5 + r3 * 0.5, 1.6, c, c, c * 1.03, 0.55, 0.35, 0.6);
+        if (Math.random() < 0.3) FX.dust.emit(x, y + 0.3, z, bx * 0.5 + r1, 0.6 + r3, bz * 0.5 + r2, 2.0, 1.0, 2.2, 0.95, 0.97, 1.0, 0.25, 0.04, 1.1);
       } else if (surf === SURF.ICE) {
         FX.glow.emit(x, y, z, bx + r1 * 4, 0.8 + r3 * 2.6, bz + r2 * 4, 0.5 + r3 * 0.5, 0.1 + r3 * 0.12, -0.05, 0.7, 0.9, 1.0, 0.9, 0.5, 0.6);
         if (Math.random() < 0.35) FX.dust.emit(x, y + 0.2, z, bx * 0.5 + r1, 0.5 + r3, bz * 0.5 + r2, 1.3, 0.6, 1.8, 0.85, 0.93, 1.0, 0.2, 0.05, 1.0);
@@ -9647,7 +10248,9 @@ function stageArt(def, W, H) {
       }
       x.lineTo(W, hz + 1); x.closePath(); x.fill();
     };
-    ridge(hz, H * 0.12, 9, rnd() * TAU, '#93a9c0');
+    const E = def.earth || {}, lowland = E.fall === 0;     // Sweden and Finland: forest and lakes, no mountain
+    ridge(hz, H * (lowland ? 0.045 : 0.12), lowland ? 5 : 9, rnd() * TAU, lowland ? '#a9b8c9' : '#93a9c0');
+    if (!lowland) {
     const pk = W * (0.28 + rnd() * 0.14), top = hz - H * 0.44, pts = [];
     for (let px2 = 0; px2 <= W; px2 += 3) {
       const t = (px2 - pk) / (W * (px2 < pk ? 0.36 : 0.58)), prof = Math.max(0, 1 - Math.abs(t)), y = hz - (hz - top) * Math.pow(prof, 1.25);
@@ -9658,15 +10261,32 @@ function stageArt(def, W, H) {
     g.addColorStop(0, hex(col.granite)); g.addColorStop(0.6, hex(col.offB)); g.addColorStop(1, hex(col.tundra));
     x.fillStyle = g; massif(); x.fill();
     x.save(); massif(); x.clip(); x.fillStyle = hex(col.snow, 0.85);
-    for (let i = 0; i < 14; i++) {
+    const sl = E.snowLine === undefined ? 0.8 : E.snowLine;     // snow in the gullies; a winter col is white down its upper slopes
+    if (sl < 0.5) {
+      x.beginPath(); x.moveTo(0, top);
+      for (let px2 = 0; px2 <= W; px2 += 6) x.lineTo(px2, top + (hz - top) * (0.42 + 0.1 * Math.sin(px2 * 0.05) + 0.06 * rnd()));
+      x.lineTo(W, 0); x.lineTo(0, 0); x.closePath(); x.fill();
+    }
+    for (let i = 0, n = sl >= 1 ? 0 : sl < 0.5 ? 30 : 14; i < n; i++) {
       const u = pk + (rnd() - 0.5) * W * 0.3, v = top + rnd() * (hz - top) * 0.35, w = W * (0.004 + rnd() * 0.01);
       x.beginPath(); x.moveTo(u, v); x.lineTo(u + w, v); x.lineTo(u + w * 0.4 + (rnd() - 0.5) * w * 3, v + H * (0.04 + rnd() * 0.06)); x.closePath(); x.fill();
     }
     x.restore();
-    x.fillStyle = hex(col.forest);
+    }
     for (let px2 = -4; px2 < W + 4; px2 += 2 + rnd() * 3) {
-      const th = H * (0.03 + rnd() * 0.05), base = hz + 2 + rnd() * 3;
+      const th = H * (lowland ? 0.05 + rnd() * 0.06 : 0.03 + rnd() * 0.05), base = hz + 2 + rnd() * 3;
+      x.fillStyle = hex(col.forest);
       x.beginPath(); x.moveTo(px2, base - th); x.lineTo(px2 + th * 0.28, base); x.lineTo(px2 - th * 0.28, base); x.closePath(); x.fill();
+      if (E.snowyTrees && rnd() < E.snowyTrees) {          // snow lying on the branches
+        x.fillStyle = 'rgba(240,245,250,.9)';
+        x.beginPath(); x.moveTo(px2, base - th); x.lineTo(px2 + th * 0.12, base - th * 0.55); x.lineTo(px2 - th * 0.12, base - th * 0.55); x.closePath(); x.fill();
+      }
+    }
+    if (E.lake) {                                        // a lake beyond the road: open water in summer, ice in winter
+      const lx0 = W * (0.02 + rnd() * 0.1), lw = W * (0.3 + rnd() * 0.15), ly = hz + 4, lh = H * 0.035;
+      x.fillStyle = E.lake.ice ? '#dbe6ef' : '#5f87a8';
+      x.beginPath(); x.ellipse(lx0 + lw / 2, ly + lh / 2, lw / 2, lh / 2, 0, 0, TAU); x.fill();
+      if (!E.lake.ice) { x.fillStyle = 'rgba(220,235,250,.35)'; x.fillRect(lx0 + lw * 0.2, ly + lh * 0.35, lw * 0.5, Math.max(1, lh * 0.12)); }
     }
   }
   const vx = W * 0.44, bw = Math.min(H * 0.85, W * 0.3), bend = (rnd() - 0.5) * bw * 1.4, gh = H - hz;
@@ -9685,7 +10305,10 @@ function stageArt(def, W, H) {
   x.quadraticCurveTo(vx + bend + bw * 0.3, hz + gh * 0.45, vx + 1, hz); x.closePath();
   g = x.createLinearGradient(0, hz, 0, H); g.addColorStop(0, hex(col.roadDark)); g.addColorStop(1, hex(col.road));
   x.fillStyle = g; x.fill();
-  if (def.roadLines) {                     // double yellow centre line
+  if (def.roadLines === 2) {               // French roads: a dashed white centre line
+    x.strokeStyle = 'rgba(235,235,230,.85)'; x.lineWidth = Math.max(1, bw * 0.014); x.setLineDash([bw * 0.06, bw * 0.14]);
+    x.beginPath(); x.moveTo(vx, hz); x.quadraticCurveTo(vx + bend, hz + gh * 0.45, vx, H); x.stroke(); x.setLineDash([]);
+  } else if (def.roadLines) {              // double yellow centre line
     x.strokeStyle = 'rgba(232,180,40,.9)';
     for (const o of [-1, 1]) {
       x.lineWidth = Math.max(1, bw * 0.012); x.beginPath(); x.moveTo(vx + o * 0.4, hz);
@@ -9790,7 +10413,7 @@ function ratingsHTML(R, cmp) {
 function partChips(k, o) {
   const out = [];
   if (k === 'wheels') {
-    ['REGOLITH', 'ICE', 'METAL', 'GRAVEL', 'TARMAC'].forEach((n, i) => { const d = Math.round((o.mu[i] - 1) * 100); if (Math.abs(d) >= 3) out.push([d > 0, `${n} ${d > 0 ? '+' : '−'}${Math.abs(d)}%`]); });
+    ['REGOLITH', 'ICE', 'METAL', 'GRAVEL', 'TARMAC', 'SNOW'].forEach((n, i) => { const d = Math.round((o.mu[i] - 1) * 100); if (Math.abs(d) >= 3) out.push([d > 0, `${n} ${d > 0 ? '+' : '−'}${Math.abs(d)}%`]); });
     if (o.kg) out.push([o.kg < 0, `${o.kg > 0 ? '+' : '−'}${Math.abs(o.kg)} KG`]);
   }
   if (o.steer && o.steer !== 1) out.push([o.steer > 1, `TURN-IN ${o.steer > 1 ? '+' : '−'}${Math.round(Math.abs(o.steer - 1) * 100)}%`]);
@@ -10042,7 +10665,7 @@ const Menu = {
     on('loadSeed', loadCode);
     seedIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadCode(); } });
     on('randSeed', () => {
-      if (STAGES[Game.stageIdx].course) { flashButton(document.getElementById('randSeed'), 'REAL ROAD: ONE LAYOUT'); return; }
+      if (STAGES[Game.stageIdx].real) { flashButton(document.getElementById('randSeed'), 'REAL ROAD: ONE LAYOUT'); return; }
       if (Game.state === 'menu') loadStage(stageDef(Game.stageIdx, 1 + Math.floor(Math.random() * 999999)), enterMenu);
     });
     on('copyCode', () => copyText(stageCode(Game.def), 'STAGE CODE', document.getElementById('copyCode')));
