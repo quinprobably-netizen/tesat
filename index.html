@@ -4786,6 +4786,153 @@ function makeBodyKit(g, M, add, tube, build, map) {
   };
   /** Mirror helper: calls f(sx) for sx = -1 and +1. */
   K.both = (f) => { f(-1); f(1); };
+  K.clamp = clamp; K.lerp = lerp;
+  /* ---- real-size drawing: the builders below draw the real car in metres and these helpers move it into the
+     shared model space, so that carGeometry's map (warpShell) puts every point back exactly where it was drawn.
+     Real space: x across the car (+ is the car's LEFT), y up from the ground at ride height, z forward from the
+     FRONT AXLE (the rear axle is at z = -wb). Each wheel centre is at y = tyre radius (K.spec.tyre.r). ---- */
+  const sp = CAR_SPECS[build.body];
+  K.spec = sp; K.wb = sp.wb; K.tyreR = sp.tyre.r; K.trackF = sp.track[0]; K.trackR = sp.track[1];
+  const zf = MODEL.FZ + MODEL.ARCH, zr = MODEL.RZ - MODEL.ARCH, a0 = map.z(MODEL.FZ);
+  const zfR = map.z(zf) - a0, zrR = map.z(zr) - a0;                // where the map's overhang scale takes over, in real z
+  const RX = (x) => x / map.sx, RY = (y) => MODEL.GY + y / map.sy;
+  const RZ = (z) => z > zfR ? zf + (z - zfR) / map.so : z < zrR ? zr + (z - zrR) / map.so : MODEL.FZ + z / map.sz;
+  /** A real-space point [x, y, z] in model space. */
+  K.R = (x, y, z) => [RX(x), RY(y), RZ(z)];
+  K.RX = RX; K.RY = RY; K.RZ = RZ;
+  /** Move a geometry drawn in real metres into model space (vertices and normals), in place. */
+  K.real = (geo) => {
+    const pos = geo.attributes.position, nor = geo.attributes.normal, v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      const z = pos.getZ(i), zs = z > zfR || z < zrR ? map.so : map.sz;
+      pos.setXYZ(i, RX(pos.getX(i)), RY(pos.getY(i)), RZ(z));
+      if (nor) { v.set(nor.getX(i) * map.sx, nor.getY(i) * map.sy, nor.getZ(i) * zs).normalize(); nor.setXYZ(i, v.x, v.y, v.z); }
+    }
+    pos.needsUpdate = true; if (nor) nor.needsUpdate = true;
+    return geo;
+  };
+  /** Add a real-space geometry, posed at (x, y, z) with rotation (rx, ry, rz) in real space. */
+  K.radd = (geo, mat, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
+    if (rx || ry || rz) geo.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx, ry, rz)));
+    geo.translate(x, y, z);
+    return add(K.real(geo), mat, 0, 0, 0);
+  };
+  /** Real-size box (w across, h tall, d long), centred at (x, y, z). */
+  K.rbox = (w, h, d, mat, x, y, z, rx, ry, rz) => K.radd(new THREE.BoxGeometry(w, h, d), mat, x, y, z, rx, ry, rz);
+  /** Real-size tube of radius r between two real points. */
+  K.rtube = (x0, y0, z0, x1, y1, z1, r, mat, seg = 6) => {
+    const a = new THREE.Vector3(x0, y0, z0), b = new THREE.Vector3(x1, y1, z1), len = a.distanceTo(b);
+    const geo = new THREE.CylinderGeometry(r, r, len, seg);
+    geo.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(UP, b.clone().sub(a).normalize())));
+    geo.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    return add(K.real(geo), mat, 0, 0, 0);
+  };
+  /** Real-size round lamp of radius r facing forward (dir 1) or back (-1), with a dark bezel; seg sides. */
+  K.rlamp = (x, y, z, r, mat, dir = 1, seg = 14) => {
+    K.radd(new THREE.CylinderGeometry(r * 1.12, r * 1.12, 0.04, seg), K.dark, x, y, z - dir * 0.02, Math.PI / 2);
+    return K.radd(new THREE.CircleGeometry(r, seg), mat || K.headMat, x, y, z + dir * 0.003, 0, dir > 0 ? 0 : Math.PI, 0);
+  };
+  /** A flat real-size panel (lamp lens, grille, window) from an outline [[a, b], ...] in one plane:
+   *  plane 'side' (z, y) at x, facing out on side sign(x); 'front' (x, y) at z facing dir; 'top' (x, z) at y. */
+  K.rpanel = (pts, mat, plane, at, dir = 1) => {
+    const sh = new THREE.Shape(pts.map(([p, q]) => new THREE.Vector2(p, q)));
+    const flat = new THREE.ShapeGeometry(sh), fp = flat.attributes.position, fn = flat.attributes.normal;
+    for (let i = 0; i < fp.count; i++) {
+      const u = fp.getX(i), v = fp.getY(i);
+      if (plane === 'side') { fp.setXYZ(i, at, v, u); fn.setXYZ(i, Math.sign(dir), 0, 0); }
+      else if (plane === 'front') { fp.setXYZ(i, u, v, at); fn.setXYZ(i, 0, 0, Math.sign(dir)); }
+      else { fp.setXYZ(i, u, at, v); fn.setXYZ(i, 0, Math.sign(dir), 0); }
+    }
+    // ShapeGeometry winds toward +w: (z, y) faces -x, (x, y) faces +z, (x, z) faces -y; flip where that's the wrong way
+    const idx = flat.index;
+    const flip = (plane === 'side' && dir > 0) || (plane === 'front' && dir < 0) || (plane === 'top' && dir > 0);
+    if (flip && idx) for (let i = 0; i < idx.count; i += 3) { const t = idx.getX(i + 1); idx.setX(i + 1, idx.getX(i + 2)); idx.setX(i + 2, t); }
+    return add(K.real(flat), mat, 0, 0, 0);
+  };
+  /** Extrude a real side silhouette [[z, y], ...] (closed, metres) across the car: full width w, centred at x. */
+  K.rprofile = (pts, w, mat, o = {}) => {
+    const bev = o.bevel === undefined ? 0.03 : o.bevel, depth = Math.max(0.005, w - 2 * bev);
+    const sh = pts instanceof THREE.Shape ? pts : new THREE.Shape(pts.map(([z, y]) => new THREE.Vector2(z, y)));
+    const geo = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: bev > 0, bevelThickness: bev, bevelSize: bev, bevelSegments: o.seg || 2, curveSegments: o.curve || 6 });
+    geo.rotateY(-Math.PI / 2); geo.translate(depth / 2 + (o.x || 0), 0, 0);
+    return add(K.real(geo), mat, 0, 0, 0);
+  };
+  /** Points on a real circle in the side view (centre cz, cy; radius r; angles 0 = forward, π/2 = up). */
+  K.rarc = (cz, cy, r, a0, a1, n = 8) => Array.from({ length: n + 1 }, (_, i) => { const t = a0 + (a1 - a0) * i / n; return [cz + Math.cos(t) * r, cy + Math.sin(t) * r]; });
+  /** Height of an open wheel arch's top edge at z: `base` away from the wheels, the arch circle (radius r around
+   *  each real wheel centre) over them. Use it for a loft's bottom line so the wheels show through. */
+  K.archY = (z, base, r = sp.tyre.r + 0.06) => {
+    let y = base;
+    for (const cz of [0, -sp.wb]) { const d = z - cz; if (Math.abs(d) < r) y = Math.max(y, sp.tyre.r + Math.sqrt(r * r - d * d)); }
+    return y;
+  };
+  /** Loft a body from real cross-sections along z. stations: [{ z, yb, ys, yt, w, wb, wt, crown, r }] in metres —
+   *  yb bottom, ys height of the widest point, yt roof/deck height on the centre line, w half width at ys,
+   *  wb half width at the bottom (default w - r), wt half width where the side meets the top (default 0.9 w),
+   *  crown how much lower the top's edges are than its centre (default 0.04), r bottom corner turn-under (0.04).
+   *  o.zs: list of z to resample at (linear between stations), o.bottom(z, yb): change the bottom line (arches),
+   *  o.mat: surface material ([sides, top] allowed), o.under: material for the flat underside (default dark),
+   *  o.caps: [front, rear] cap materials (null leaves that end open), o.side/o.top: segments (4/3). */
+  K.loft = (stations, o = {}) => {
+    stations = stations.slice().sort((p, q) => q.z - p.z);           // nose first
+    const at = (z) => {
+      let i = 0; while (i < stations.length - 2 && z < stations[i + 1].z) i++;
+      const A = stations[i], B = stations[i + 1] || A, t = A.z === B.z ? 0 : clamp((A.z - z) / (A.z - B.z), 0, 1);
+      const L = (k, d) => { const va = A[k] !== undefined ? A[k] : d(A), vb = B[k] !== undefined ? B[k] : d(B); return va + (vb - va) * t; };
+      const r = L('r', () => 0.04), w = L('w', () => 0.9);
+      const s = { z, r, w, yb: L('yb', () => 0.3), yt: L('yt', () => 1.0) };
+      s.ys = L('ys', (S) => ((S.yb || 0.3) + (S.yt || 1)) / 2); s.wb = L('wb', (S) => (S.w || 0.9) - (S.r || 0.04));
+      s.wt = L('wt', (S) => (S.w || 0.9) * 0.9); s.crown = L('crown', () => 0.04);
+      if (o.bottom) s.yb = o.bottom(z, s.yb);
+      s.ys = Math.max(s.ys, s.yb + 0.01); s.yt = Math.max(s.yt, s.ys + 0.01);
+      return s;
+    };
+    const zs = o.zs ? o.zs.slice().sort((p, q) => q - p) : stations.map((s) => s.z);
+    const nS = o.side || 4, nT = o.top || 3;
+    // one half section, from the bottom corner up the side and over the top to the centre line
+    const half = (s) => {
+      const pts = [[s.wb, s.yb]];
+      const yeT = s.yt - s.crown;
+      // lower side: from the turned-under bottom corner out to the widest point
+      for (let k = 1; k <= 2; k++) { const t = k / 2, e = Math.sin(t * Math.PI / 2); pts.push([s.wb + (s.w - s.wb) * e, s.yb + (s.ys - s.yb) * (1 - Math.cos(t * Math.PI / 2))]); }
+      // upper side: tumblehome in to the top edge
+      for (let k = 1; k <= nS; k++) { const t = k / nS; pts.push([s.w + (s.wt - s.w) * t * t, s.ys + (yeT - s.ys) * t]); }
+      // top: crowned to the centre
+      for (let k = 1; k <= nT; k++) { const t = k / nT; pts.push([s.wt * (1 - t), yeT + s.crown * Math.sin(t * Math.PI / 2)]); }
+      return pts;
+    };
+    const secs = zs.map((z) => { const s = at(z); return { s, h: half(s) }; });
+    const nH = secs[0].h.length;                                        // points per half
+    // ring: up the car's right side (x < 0) from its bottom corner, over the top, down the left side
+    const ring = (h) => h.map(([x, y]) => [-x, y]).concat(h.slice(0, -1).reverse());
+    const R0 = ring(secs[0].h), nR = R0.length;
+    const P = [], I = [];
+    secs.forEach(({ s, h }) => ring(h).forEach(([x, y]) => P.push(x, y, s.z)));
+    for (let j = 0; j < secs.length - 1; j++) for (let k = 0; k < nR - 1; k++) {
+      const a = j * nR + k, b = a + 1, c = a + nR, d = c + 1;
+      I.push(a, b, c, b, d, c);
+    }
+    const mk = (pos, idx) => { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals(); return geo; };
+    const surf = mk(P, I);
+    const mats = Array.isArray(o.mat) ? o.mat : [o.mat || K.paint];
+    const out = add(K.real(surf), mats[0], 0, 0, 0);
+    // flat underside between the two bottom corners
+    const U = [], UI = [];
+    secs.forEach(({ s }) => U.push(-s.wb, s.yb, s.z, s.wb, s.yb, s.z));
+    for (let j = 0; j < secs.length - 1; j++) { const a = j * 2; UI.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    if (o.under !== null) add(K.real(mk(U, UI)), o.under || K.dark, 0, 0, 0);
+    // end caps
+    const caps = o.caps || [mats[0], mats[0]];
+    [[0, 1], [secs.length - 1, -1]].forEach(([j, dir], e) => {
+      if (!caps[e]) return;
+      const { s, h } = secs[j], rg = ring(h), C = [0, (s.yb + s.yt) / 2, s.z], CI = [];
+      rg.forEach(([x, y]) => C.push(x, y, s.z)); C.push(-s.wb, s.yb, s.z);       // close along the bottom
+      for (let k = 1; k <= rg.length; k++) dir > 0 ? CI.push(0, k + 1, k) : CI.push(0, k, k + 1);
+      add(K.real(mk(C, CI)), caps[e], 0, 0, 0);
+    });
+    out.userData.sections = secs.map((q) => q.s);
+    return out;
+  };
   return K;
 }
 /* ---- Group B body builders: one per GARAGE.body option, same order. Each draws the shell with the kit
@@ -5605,6 +5752,8 @@ function gbBody_mini(K) {
   K.box(0.07, 0.07, 0.1, K.trim, 0.5, -0.38, T - 0.1);
   return { seatX: 0.4, seatY: belt - 0.06, seatZ: -0.1, pilotScale: 0.8, rearZ: T, thrY: -0.26, wing: [roof, roof + 0.2, -1.2, 1.4], shockTop: 0.0, antenna: [-0.7, roof + 0.05, -0.7] };
 }
+/* Tailpipe x positions (model space) per car, at the builder's thrY and rearZ. */
+const TAILPIPES = [[0.42], [-0.5, 0.5], [0.42], [-0.36, 0.36], [0.42], [-0.32, 0.32], [0.5], [0.3], [0.3], [0.3], [0.3], [0.5]];
 const BODY_BUILDERS = [gbBody_twincharger, gbBody_fivepot, gbBody_t16, gbBody_stradale, gbBody_rswedge, gbBody_sixr, gbBody_prerunner, gbBody_yaris, gbBody_i20, gbBody_puma, gbBody_focus, gbBody_mini];
 /* Rally wheels per car: spoke count and width, rim and caliper colours (in GARAGE.body order). */
 const RIM_STYLES = [
@@ -5936,7 +6085,7 @@ function buildCarModel(build) {
   // ---- exhaust: tailpipes, with a flame for the anti-lag pops on upshifts and lifts ----
   const flameMat = new THREE.MeshBasicMaterial({ color: 0xff8a3a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
   const flames = [];
-  for (const sx of [[0.42], [-0.5, 0.5], [0.42], [-0.36, 0.36], [0.42], [-0.32, 0.32], [0.5], [0.3], [0.3], [0.3], [0.3], [0.5]][body]) {
+  for (const sx of TAILPIPES[body]) {
     add(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 10), trim, sx, thrY - 0.04, rearZ + 0.12, Math.PI / 2, 0, 0);
     const z = rearZ - 0.09;
     const end = new THREE.Mesh(new THREE.CircleGeometry(0.045, 10), new THREE.MeshBasicMaterial({ color: 0x0a0a0a })); end.position.set(sx, thrY - 0.04, z); end.rotation.y = Math.PI; shell.add(end);
@@ -8481,7 +8630,7 @@ function init() {
     AudioSys, EngineSound, Game, car, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; },
-    openService, leaveService, startRally, Rally, Garage, Menu, Settings, GARAGE, GEARBOX, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
+    openService, leaveService, startRally, Rally, Garage, Menu, Settings, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
   };
