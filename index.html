@@ -4902,7 +4902,6 @@ function makeBodyKit(g, M, add, tube, build, map) {
       return pts;
     };
     const secs = zs.map((z) => { const s = at(z); return { s, h: half(s) }; });
-    const nH = secs[0].h.length;                                        // points per half
     // ring: up the car's right side (x < 0) from its bottom corner, over the top, down the left side
     const ring = (h) => h.map(([x, y]) => [-x, y]).concat(h.slice(0, -1).reverse());
     const R0 = ring(secs[0].h), nR = R0.length;
@@ -4943,7 +4942,7 @@ function makeBodyKit(g, M, add, tube, build, map) {
 // Lancia Delta S4, 1986 works car (Martini Racing). Real figures: 3.99 m long, 1.88 m wide, 1.36 m tall (over the
 // roof intake), 2.44 m wheelbase, 1.51 / 1.535 m tracks; overhangs ~0.76 m front, ~0.79 m rear.
 function gbBody_twincharger(K) {
-  const wb = K.wb, PI = Math.PI;
+  const wb = K.wb;
   const NOSE = 0.76, TAIL = -wb - 0.79;
   // ---- helpers ----
   const poly = (pts, mat, out) => {          // flat convex polygon from real [x, y, z] points, facing `out`
@@ -5121,7 +5120,7 @@ function gbBody_twincharger(K) {
 // shovel nose). Upright Sport quattro screen, flat roof, raked fastback rear window, box arches, boot-mounted
 // radiators breathing through the rear quarter scoops, huge tail wing on tall endplates.
 function gbBody_fivepot(K) {
-  const wb = K.wb, r = K.tyreR, PI = Math.PI;
+  const wb = K.wb, r = K.tyreR;
   const NOSE = 1.12, TAIL = -wb - 0.896;
   const lin = (a, b, n) => Array.from({ length: n + 1 }, (_, i) => a + (b - a) * i / n);
   const uniq = (a) => Array.from(new Set(a.map((v) => +v.toFixed(3))));
@@ -5637,7 +5636,7 @@ function gbBody_stradale(K) {
 // low rounded nose with twin round lamps each side, the Sierra windscreen and cut-down Sierra doors, mid-engine
 // haunches, the roof-top engine air scoop and the big dished wing at roof height.
 function gbBody_rswedge(K) {
-  const wb = K.wb, r = K.tyreR, PI = Math.PI;
+  const wb = K.wb, r = K.tyreR;
   const NOSE = 0.73, TAIL = -wb - 0.74;
   const lin = (a, b, n) => Array.from({ length: n + 1 }, (_, i) => a + (b - a) * i / n);
   const uniq = (a) => Array.from(new Set(a.map((v) => +v.toFixed(3))));
