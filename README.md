@@ -67,17 +67,19 @@ Engines and drivetrains:
 | TWINCHARGER (Delta S4) | 1.8 L I4, supercharger + turbo | 480 hp @ 8,000 | 490 N·m @ 5,000 | 890 kg | 4WD 30/70, viscous centre, open front, limited-slip rear |
 | FIVE-POT (Sport quattro S1 E2) | 2.1 L I5 turbo | 470 hp @ 8,000 | 480 N·m @ 5,500 | 1,090 kg | 4WD 50/50, locking centre and rear, open front |
 | T16 (205 T16) | 1.8 L I4 turbo | 450 hp @ 8,000 | 460 N·m @ 5,000 | 910 kg | 4WD 33/67, viscous centre, open front, limited-slip rear |
-| STRADALE (037) | 2.1 L I4 supercharged | 320 hp @ 8,000 | 333 N·m @ 5,500 | 960 kg | Rear-wheel drive, limited-slip rear |
+| STRADALE (037) | 2.1 L I4 supercharged (Evo tune) | 385 hp @ 8,000 | 400 N·m @ 5,500 | 960 kg | 4WD 35/65, viscous centre, open front, limited-slip rear |
 | RS WEDGE (RS200) | 1.8 L I4 turbo (Cosworth BDT) | 450 hp @ 8,000 | 420 N·m @ 6,000 | 1,050 kg | 4WD 37/63, viscous centre, front and rear |
-| SIX-R (Metro 6R4) | 3.0 L V6, naturally aspirated | 410 hp @ 9,000 | 365 N·m @ 6,500 | 1,030 kg | 4WD 38/62, viscous centre, front and rear |
+| SIX-R (Metro 6R4) | 3.0 L V6, twin-turbo (V64V) | 480 hp @ 8,000 | 450 N·m @ 6,000 | 1,030 kg | 4WD 38/62, viscous centre, front and rear |
 | PRERUNNER (first-gen Tacoma) | 3.4 L V6, twin-screw supercharged (built 5VZ-FE) | 515 hp @ 6,800 | 600 N·m @ 4,500 | 1,200 kg | 4WD 40/60, viscous centre, open front, locking rear |
+
+Two cars are built past their real specs so every car rates in A class (A 718 to A 733). The STRADALE gets a bigger supercharger and a four-wheel-drive conversion the real 037 never had: rear-drive, no amount of power lifted it out of C class, because it couldn't put the power down. The SIX-R gets the twin-turbo version of its V64V, the engine family that later went into the Jaguar XJ220.
 
 The PRERUNNER is the odd one out: a rally-built first-gen Toyota Tacoma pickup rather than a Group B car. Its engine is the Tacoma's own 3.4 L V6 (190 hp stock), built and supercharged to a figure chosen so the heavier, draggier truck rates in the same class as the Group B cars (A 720).
 
 - The pull at the wheels is engine torque × gear ratio × driveline efficiency, less aerodynamic drag, so each car accelerates and tops out as its engine and weight dictate.
-- The differentials split that torque between the axles and wheels. An open diff gives both wheels only what the weaker one can take; limited-slip, viscous and locking diffs pass progressively more to the wheel with grip. Torque a tyre can't take spins it up and costs it cornering grip, so the rear-drive STRADALE steps out under power and the four-wheel-drive cars slide all four.
+- The differentials split that torque between the axles and wheels. An open diff gives both wheels only what the weaker one can take; limited-slip, viscous and locking diffs pass progressively more to the wheel with grip. Torque a tyre can't take spins it up and costs it cornering grip, so a car with less drive at the front steps its tail out under power, and the four-wheel-drive cars slide all four.
 - TRACTION CONTROL (on by default, in SETTINGS) trims the engine to what the drivetrain can put down, so nothing spins. The TC light on the speedo turns amber while it works. The AI always drives with it.
-- Target times are set by the TWINCHARGER, so other cars can be quicker or slower on a stage: the STRADALE is slow off the line on loose ground.
+- Target times are set by the TWINCHARGER, so other cars can be quicker or slower on a stage.
 
 Transmission:
 - Six-speed sequential gearbox with a rev limiter at each engine's redline and a short torque cut on each shift. In first the clutch slips on a standing start.
@@ -124,7 +126,7 @@ Every car carries its own full aero package, modelled on the car: splitters, div
 
 Parts change the car's real physics; the pilot is looks only and has no effect on performance. Wheels change grip on each surface, weight and rolling drag. Each car's aero package is fixed: downforce presses each axle's tyres harder as speed rises, and it shifts with pitch, so the nose gains grip when the car dives under braking.
 
-Every build gets a **PI** (performance index, 100 to 999) and a class: D, C (501+), B (601+), A (701+), S1 (801+), S2 (901+) and X (999). Six ratings out of 10 make up the PI: speed, handling, acceleration, launch, braking and offroad. They are worked out from the build's physics: a full-throttle run on regolith with the drivetrain's traction limit for top speed, 0-100 and 0-160 km/h, tyre grip with downforce for cornering and braking, and loose-surface grip for offroad. Every tile shows the PI the build would have with that part, and hovering one previews the rating changes. The service park shows the PI with the chosen setup. As standard, the TWINCHARGER rates A 731 and the rear-drive STRADALE C 563.
+Every build gets a **PI** (performance index, 100 to 999) and a class: D, C (501+), B (601+), A (701+), S1 (801+), S2 (901+) and X (999). Six ratings out of 10 make up the PI: speed, handling, acceleration, launch, braking and offroad. They are worked out from the build's physics: a full-throttle run on regolith with the drivetrain's traction limit for top speed, 0-100 and 0-160 km/h, tyre grip with downforce for cornering and braking, and loose-surface grip for offroad. Every tile shows the PI the build would have with that part, and hovering one previews the rating changes. The service park shows the PI with the chosen setup. As standard every car rates in A class: TWINCHARGER A 731, FIVE-POT A 720, T16 A 733, STRADALE A 730, RS WEDGE A 718, SIX-R A 724 and PRERUNNER A 720.
 
 ## Modes and sharing
 
