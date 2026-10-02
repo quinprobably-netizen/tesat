@@ -1106,6 +1106,7 @@ const GARAGE = {
     { name: 'STRADALE', blurb: 'Lancia 037 inspired. Low, light, rear-drive: flies on tarmac, a handful on loose ground.' },
     { name: 'RS WEDGE', blurb: 'Ford RS200 inspired. Mid-engined, balanced and planted.' },
     { name: 'SIX-R', blurb: 'MG Metro 6R4 inspired. Screaming V6 in a tiny box: instant punch, low top speed.' },
+    { name: 'PRERUNNER', blurb: 'First-gen Toyota Tacoma inspired. A pickup with a supercharged V6: heavy and draggy, but its torque hauls it out of every hairpin.' },
   ] },
   wheels: { label: 'WHEELS', opts: [
     { name: 'STANDARD', blurb: 'All-round rally tyres.', mu: [1, 1, 1, 1, 1], kg: 0, steer: 1, drag: 0 },
@@ -1166,6 +1167,12 @@ const CAR_SPECS = [
   { engine: '3.0 L V6, naturally aspirated', pitch: 1.3, hp: 410, hpAt: 9000, nm: 365, nmAt: 6500, redline: 9500, idle: 1100, lag: 0, offBoost: 1,
     curve: [[1000, 200], [2000, 245], [3000, 280], [4000, 305], [5000, 330], [6500, 365], [7500, 355], [8500, 335], [9000, 325], [9500, 300]],
     kg: 1030, vtop: 51, steer: 1.03, front: 0.38, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous' },
+  // first-gen Tacoma (1995-2004): its 3.4 L 5VZ-FE V6 (190 hp and 298 N·m stock) built for racing with a
+  // twin-screw supercharger, in a stripped truck with composite panels. The tune is sized so the heavier,
+  // draggier pickup rates in the same class as the Group B cars.
+  { engine: '3.4 L V6, twin-screw supercharged (built 5VZ-FE)', pitch: 0.9, hp: 515, hpAt: 6800, nm: 600, nmAt: 4500, redline: 7200, idle: 900, lag: 0, offBoost: 1,
+    curve: [[900, 312], [2000, 432], [3000, 516], [4000, 582], [4500, 600], [5500, 588], [6500, 554], [6800, 540], [7200, 498]],
+    kg: 1200, vtop: 56, steer: 0.97, front: 0.4, centre: 'viscous', fdiff: 'open', rdiff: 'locking' },
 ];
 /* ---- aero: each car's full aerodynamic package, as it ran in the rallies (indexed like GARAGE.body).
    cda: drag area head-on (m²); cdaSide: drag area side-on, blended in by the slip angle, so a sliding car
@@ -1185,6 +1192,8 @@ const CAR_AERO = [
     text: 'Chin splitter with dive planes, roof-height rear wing with a gurney lip, rear diffuser' },
   { cda: 0.95, cdaSide: 2.5, claF: 0.22, claR: 0.32, pitch: 0.08, parts: { skirts: true, strakes: 3 },
     text: 'Full-width front air dam, flat roof spoiler on stanchions, side skirts, rear diffuser' },
+  { cda: 1.05, cdaSide: 2.9, claF: 0.16, claR: 0.38, pitch: 0.06, parts: { strakes: 3 },
+    text: 'Steel bumper with a splitter lip, cab-roof spoiler, wing on the bed cage, bed diffuser' },
 ];
 const aeroText = (a) => `${a.text}. Drag ${a.cda.toFixed(2)} m², downforce ${(a.claF + a.claR).toFixed(2)} m² (${Math.round(a.claF / (a.claF + a.claR) * 100)}% front)`;
 function engineTorque(spec, rpm) {
@@ -4647,7 +4656,115 @@ function gbBody_sixr(K) {
     wing: [GT + 0.06, 1.14, -1.6, 1.6], shockTop: 0.02, antenna: [-0.4, GT + 0.06, -0.4],
   };
 }
-const BODY_BUILDERS = [gbBody_twincharger, gbBody_fivepot, gbBody_t16, gbBody_stradale, gbBody_rswedge, gbBody_sixr];
+function gbBody_prerunner(K) {
+  // First-gen Toyota Tacoma (1995-2004) built as a rally truck: upright regular cab, flat bonnet and square
+  // grille, bolt-on fender flares, open bed with a tube cage over it carrying the wing and a spare wheel.
+  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = -0.44;
+  const AR = 0.56, AA = Math.asin(0.11 / AR);
+  const NOSE = 2.28, TAIL = -2.42, BELT = 0.2, CABZ = -0.36, BED = -0.1;
+  // ---- lower shell: bonnet and cab sides to the beltline, then down to the bed floor; wheel openings cut ----
+  const body = [
+    [NOSE - 0.04, -0.52], [NOSE, -0.42], [NOSE + 0.01, 0.04], [NOSE - 0.06, 0.1],
+    [1.0, BELT - 0.01], [0.94, BELT], [CABZ, BELT], [CABZ - 0.04, BED], [TAIL + 0.02, BED],
+    [TAIL, -0.44], [TAIL + 0.06, -0.52],
+    ...K.arc(RZ, WY, AR, PI + AA, -AA, 10),
+    ...K.arc(FZ, WY, AR, PI + AA, -AA, 10),
+  ];
+  K.profile(body, 1.68, [K.side, K.paint], { bevel: 0.05 });
+  // ---- cab: upright screen, flat roof, near-vertical back glass ----
+  const GT = 0.82;
+  K.profile([[0.94, BELT], [0.52, GT], [CABZ + 0.06, GT], [CABZ + 0.02, BELT]], 1.54, K.glass, { bevel: 0.02 });
+  K.box(1.6, 0.06, 0.96, K.paint, 0, GT + 0.03, 0.08);                       // roof panel
+  K.box(1.56, 0.36, 0.05, K.paint, 0, BELT + 0.17, CABZ + 0.02);              // cab back wall below the glass
+  K.box(1.0, 0.24, 0.02, K.glass, 0, GT - 0.16, CABZ + 0.01);                 // sliding back window
+  K.both((sx) => {
+    K.tube(sx * 0.77, BELT, 0.94, sx * 0.77, GT + 0.01, 0.52, 0.04, K.paint);  // A pillar
+    K.box(0.07, GT - BELT, 0.16, K.paint, sx * 0.775, (GT + BELT) / 2, CABZ + 0.1); // B pillar
+    K.box(0.04, 0.035, 1.3, K.dark, sx * 0.82, BELT + 0.01, 0.3);              // window seal
+    K.box(0.12, 0.03, 0.04, K.dark, sx * 0.85, 0.34, 0.8);                    // mirror arm
+    K.box(0.07, 0.16, 0.16, K.dark, sx * 0.93, 0.36, 0.78);                   // tall truck mirror
+  });
+  // interior: dash, cage hoop behind the seats
+  K.box(1.5, 0.02, 1.2, K.dark, 0, BELT - 0.01, 0.3);
+  K.box(1.4, 0.12, 0.22, K.dark, 0, BELT + 0.06, 0.78);
+  K.tube(0.64, BELT, CABZ + 0.18, 0.64, GT - 0.02, CABZ + 0.18, 0.025, K.dark);
+  K.tube(-0.64, BELT, CABZ + 0.18, -0.64, GT - 0.02, CABZ + 0.18, 0.025, K.dark);
+  K.tube(-0.64, GT - 0.02, CABZ + 0.18, 0.64, GT - 0.02, CABZ + 0.18, 0.025, K.dark);
+  // ---- bed: side walls, front wall, tailgate, floor ----
+  const WALL = 0.26;
+  K.both((sx) => {
+    K.profile([[CABZ - 0.06, BED], [CABZ - 0.06, WALL], [TAIL + 0.02, WALL], [TAIL + 0.02, BED]], 0.07, [K.side, K.paint], { x: sx * 0.805, bevel: 0.012 });
+    K.box(0.12, 0.025, -TAIL + CABZ - 0.02, K.dark, sx * 0.79, WALL + 0.012, (CABZ + TAIL) / 2 - 0.02); // bed rail cap
+  });
+  K.box(1.6, WALL - BED, 0.06, K.paint, 0, (WALL + BED) / 2, CABZ - 0.07);     // bed front wall
+  K.box(1.6, WALL - BED + 0.02, 0.06, K.paint, 0, (WALL + BED) / 2, TAIL + 0.03); // tailgate
+  K.box(0.36, 0.06, 0.02, K.dark, 0, WALL - 0.06, TAIL - 0.005);              // tailgate handle
+  K.box(1.52, 0.02, -TAIL + CABZ - 0.12, K.dark, 0, BED + 0.01, (CABZ + TAIL) / 2); // bed floor
+  // spare wheel strapped flat in the bed
+  K.add(new THREE.CylinderGeometry(0.4, 0.4, 0.24, 18), K.rubber, 0, BED + 0.13, -1.55);
+  K.add(new THREE.CylinderGeometry(0.24, 0.24, 0.25, 6), K.dark, 0, BED + 0.13, -1.55);
+  K.box(0.05, 0.02, 0.9, K.trim, 0, BED + 0.26, -1.55);                       // strap
+  // tube cage over the bed: from the cab roof corners down to the tailgate corners
+  K.both((sx) => {
+    K.tube(sx * 0.66, GT + 0.02, CABZ - 0.02, sx * 0.72, WALL + 0.02, TAIL + 0.18, 0.035, K.dark);
+    K.tube(sx * 0.66, GT + 0.02, CABZ - 0.02, sx * 0.72, WALL + 0.02, CABZ - 0.22, 0.03, K.dark);
+  });
+  K.tube(-0.66, GT + 0.02, CABZ - 0.02, 0.66, GT + 0.02, CABZ - 0.02, 0.035, K.dark);
+  // ---- bolt-on fender flares and rock sliders ----
+  const flare = (wc, top, fwd, back) => {
+    const r = 0.58, a = Math.asin(0.08 / r);
+    return [[wc + fwd, -0.5], [wc + fwd - 0.04, top - 0.1], [wc + fwd - 0.2, top], [wc - back + 0.2, top], [wc - back + 0.04, top - 0.1], [wc - back, -0.5],
+      ...K.arc(wc, WY, r, PI + a, -a, 10)];
+  };
+  K.both((sx) => {
+    K.profile(flare(FZ, 0.14, 0.64, 0.64), 0.2, K.dark, { x: sx * 0.92, bevel: 0.02 });
+    K.profile(flare(RZ, 0.14, 0.64, 0.64), 0.2, K.dark, { x: sx * 0.92, bevel: 0.02 });
+    K.tube(sx * 0.9, -0.5, 0.66, sx * 0.9, -0.5, -0.6, 0.05, K.dark);          // rock slider under the doors
+    K.box(0.04, 0.03, 0.22, K.trim, sx * 0.86, 0.02, 0.0);                     // door handle
+    K.box(0.3, 0.26, 0.02, K.dark, sx * 0.9, -0.66, FZ - 0.68);               // mud flaps
+    K.box(0.3, 0.26, 0.02, K.dark, sx * 0.9, -0.66, RZ - 0.7);
+  });
+  // ---- nose: square grille with chrome bars, wide headlights, amber corners, steel bumper ----
+  K.box(0.86, 0.26, 0.03, K.dark, 0, -0.06, NOSE + 0.075);
+  for (let i = 0; i < 4; i++) K.box(0.8, 0.025, 0.02, K.trim, 0, 0.04 - i * 0.065, NOSE + 0.095);
+  K.box(0.12, 0.08, 0.02, K.trim, 0, -0.06, NOSE + 0.11);                    // badge
+  K.both((sx) => {
+    K.box(0.34, 0.17, 0.03, K.dark, sx * 0.6, -0.04, NOSE + 0.075);
+    K.box(0.3, 0.13, 0.03, K.headMat, sx * 0.6, -0.04, NOSE + 0.09);          // rectangular headlight
+    K.box(0.08, 0.13, 0.03, K.trim, sx * 0.81, -0.04, NOSE + 0.07);           // corner lamp
+  });
+  K.box(1.86, 0.2, 0.2, K.dark, 0, -0.38, NOSE + 0.08);                       // steel bumper
+  K.box(1.0, 0.04, 0.5, K.trim, 0, -0.55, NOSE - 0.1, -0.25, 0, 0);           // skid plate
+  K.box(1.9, 0.035, 0.3, K.dark, 0, -0.5, NOSE + 0.22);                      // splitter lip
+  K.both((sx) => K.lamp(sx * 0.5, -0.38, NOSE + 0.19, 0.08));                 // fog lamps in the bumper
+  // roof light pod: four spots on a bar over the windscreen
+  K.box(1.3, 0.06, 0.08, K.dark, 0, GT + 0.11, 0.5);
+  [-0.48, -0.16, 0.16, 0.48].forEach((x) => K.lamp(x, GT + 0.19, 0.56, 0.085));
+  // ---- tail: tall corner lamps, step bumper, hitch ----
+  K.both((sx) => {
+    K.box(0.12, 0.34, 0.03, K.dark, sx * 0.76, 0.06, TAIL - 0.005);
+    K.box(0.09, 0.3, 0.03, K.tailMat, sx * 0.76, 0.06, TAIL - 0.02);
+  });
+  K.box(1.8, 0.14, 0.16, K.dark, 0, -0.34, TAIL - 0.06);                     // step bumper
+  K.box(0.1, 0.08, 0.16, K.trim, 0, -0.42, TAIL - 0.18);                     // hitch
+  // ---- stock aero: spoiler on the cab roof's trailing edge, wing on the bed cage with endplates ----
+  if (K.wing === 0) {
+    K.box(1.5, 0.04, 0.24, K.paint, 0, GT + 0.07, CABZ - 0.02, -0.12);
+    const WY2 = 0.62, WZ = -2.05;
+    K.box(1.7, 0.05, 0.42, K.paint, 0, WY2, WZ, 0.08);
+    K.box(1.7, 0.06, 0.03, K.dark, 0, WY2 + 0.02, WZ - 0.22);                // gurney lip
+    K.both((sx) => {
+      K.box(0.03, 0.24, 0.48, K.dark, sx * 0.86, WY2 - 0.02, WZ);             // endplates
+      K.tube(sx * 0.6, WY2 - 0.02, WZ, sx * 0.71, WALL + 0.02, WZ + 0.05, 0.025, K.dark); // uprights to the cage
+    });
+  }
+  return {
+    seatX: 0.36, seatY: 0.04, seatZ: 0.02, pilotScale: 1.0,
+    rearZ: -2.46, thrY: -0.36,
+    wing: [GT + 0.06, 1.14, -1.6, 1.6], shockTop: 0.04, antenna: [-0.55, GT + 0.06, -0.1],
+  };
+}
+const BODY_BUILDERS = [gbBody_twincharger, gbBody_fivepot, gbBody_t16, gbBody_stradale, gbBody_rswedge, gbBody_sixr, gbBody_prerunner];
 /* Rally wheels per car: spoke count and width, rim and caliper colours (in GARAGE.body order). */
 const RIM_STYLES = [
   { spokes: 8, spokeW: 0.05, color: 0xf2f2ee, caliper: 0xd8262e },   // TWINCHARGER: white multi-spoke
@@ -4656,6 +4773,7 @@ const RIM_STYLES = [
   { spokes: 8, spokeW: 0.05, color: 0xd9b25a, caliper: 0xd8262e },   // STRADALE: gold multi-spoke
   { spokes: 8, spokeW: 0.06, color: 0xf2f2ee, caliper: 0xe6a21a },   // RS WEDGE: white eight-spoke
   { spokes: 8, spokeW: 0.045, color: 0xc9ccd2, caliper: 0xd8262e },  // SIX-R: silver multi-spoke
+  { spokes: 6, spokeW: 0.1, color: 0x2a2d33, caliper: 0xd8262e },    // PRERUNNER: black six-spoke
 ];
 function buildCarModel(build) {
   build = cleanBuild(build);
@@ -4717,7 +4835,7 @@ function buildCarModel(build) {
   // ---- exhaust: tailpipes, with a flame for the anti-lag pops on upshifts and lifts ----
   const flameMat = new THREE.MeshBasicMaterial({ color: 0xff8a3a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
   const flames = [];
-  for (const sx of [[0.42], [-0.5, 0.5], [0.42], [-0.36, 0.36], [0.42], [-0.32, 0.32]][body]) {
+  for (const sx of [[0.42], [-0.5, 0.5], [0.42], [-0.36, 0.36], [0.42], [-0.32, 0.32], [0.5]][body]) {
     add(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 10), trim, sx, thrY - 0.04, rearZ + 0.12, Math.PI / 2, 0, 0);
     const z = rearZ - 0.09;
     const end = new THREE.Mesh(new THREE.CircleGeometry(0.045, 10), new THREE.MeshBasicMaterial({ color: 0x0a0a0a })); end.position.set(sx, thrY - 0.04, z); end.rotation.y = Math.PI; g.add(end);

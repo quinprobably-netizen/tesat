@@ -70,6 +70,9 @@ Engines and drivetrains:
 | STRADALE (037) | 2.1 L I4 supercharged | 320 hp @ 8,000 | 333 N·m @ 5,500 | 960 kg | Rear-wheel drive, limited-slip rear |
 | RS WEDGE (RS200) | 1.8 L I4 turbo (Cosworth BDT) | 450 hp @ 8,000 | 420 N·m @ 6,000 | 1,050 kg | 4WD 37/63, viscous centre, front and rear |
 | SIX-R (Metro 6R4) | 3.0 L V6, naturally aspirated | 410 hp @ 9,000 | 365 N·m @ 6,500 | 1,030 kg | 4WD 38/62, viscous centre, front and rear |
+| PRERUNNER (first-gen Tacoma) | 3.4 L V6, twin-screw supercharged (built 5VZ-FE) | 515 hp @ 6,800 | 600 N·m @ 4,500 | 1,200 kg | 4WD 40/60, viscous centre, open front, locking rear |
+
+The PRERUNNER is the odd one out: a rally-built first-gen Toyota Tacoma pickup rather than a Group B car. Its engine is the Tacoma's own 3.4 L V6 (190 hp stock), built and supercharged to a figure chosen so the heavier, draggier truck rates in the same class as the Group B cars (A 720).
 
 - The pull at the wheels is engine torque × gear ratio × driveline efficiency, less aerodynamic drag, so each car accelerates and tops out as its engine and weight dictate.
 - The differentials split that torque between the axles and wheels. An open diff gives both wheels only what the weaker one can take; limited-slip, viscous and locking diffs pass progressively more to the wheel with grip. Torque a tyre can't take spins it up and costs it cornering grip, so the rear-drive STRADALE steps out under power and the four-wheel-drive cars slide all four.
@@ -99,7 +102,7 @@ In the **garage** you build your ride Mario Kart style, with a live 3D preview t
 | Part | Options |
 |---|---|
 | Pilot | NOVA (astronaut, medium), ZIX (alien, light), BOLT-9 (robot, heavy), MISO (cat, light), GRAVL (rock golem, heavy), PIP (drone, feather), KOI (goldfish, light), VEGA (rally ace, medium) |
-| Car | Group B inspired: TWINCHARGER (Lancia Delta S4), FIVE-POT (Audi Sport quattro S1 E2), T16 (Peugeot 205 T16), STRADALE (Lancia 037), RS WEDGE (Ford RS200), SIX-R (MG Metro 6R4). Each comes with its real engine and drivetrain, shown under the CAR tab along with its aero package. |
+| Car | Group B inspired: TWINCHARGER (Lancia Delta S4), FIVE-POT (Audi Sport quattro S1 E2), T16 (Peugeot 205 T16), STRADALE (Lancia 037), RS WEDGE (Ford RS200), SIX-R (MG Metro 6R4), plus the PRERUNNER rally pickup (first-gen Toyota Tacoma). Each comes with its real engine and drivetrain, shown under the CAR tab along with its aero package. |
 | Wheels | STANDARD, CRAWLER, SLICK ROLLER, HOVER PADS, SPIKE RIMS |
 | Paint | 12 colours, including metallic chrome and copper |
 | Decal | CLEAN, STRIPES, FLAMES, CHECKER, BOLT, STARS |
@@ -117,6 +120,7 @@ Every car carries its own full aero package, modelled on the car: splitters, div
 | STRADALE | Deep chin splitter, rear wing on endplates, rear diffuser | 0.75 m² | 0.45 m² (33%) |
 | RS WEDGE | Chin splitter with dive planes, roof-height rear wing with a gurney lip, rear diffuser | 0.85 m² | 0.62 m² (32%) |
 | SIX-R | Full-width front air dam, flat roof spoiler on stanchions, side skirts, rear diffuser | 0.95 m² | 0.54 m² (41%) |
+| PRERUNNER | Steel bumper with a splitter lip, cab-roof spoiler, wing on the bed cage, bed diffuser | 1.05 m² | 0.54 m² (30%) |
 
 Parts change the car's real physics; the pilot is looks only and has no effect on performance. Wheels change grip on each surface, weight and rolling drag. Each car's aero package is fixed: downforce presses each axle's tyres harder as speed rises, and it shifts with pitch, so the nose gains grip when the car dives under braking.
 
