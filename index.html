@@ -763,6 +763,11 @@ body{-webkit-font-smoothing:none}
 .gar-spec{font-size:17px}
 .gar-spec i{font-size:15px;color:var(--neon-pink)}
 @media (max-width:760px){.gar-tabs{background:rgba(4,2,12,.98);border-radius:0}}
+/* the big pixel type makes the CAR tab's spec sheet tall: keep room for the car list and scroll the info under it */
+@media (min-width:761px) and (min-height:501px){
+  .gar-opts{flex:1 1 auto;min-height:min(250px,45%)}
+  .gar-desc{flex:0 1 auto;min-height:0;overflow:auto;padding:8px 4px 0 0;border-top:2px solid rgba(0,240,255,.3)}
+}
 
 /* ---- service, settings, pause, finish ---- */
 .setrow>span{font-size:18px;color:var(--neon-cyan);letter-spacing:.12em}
