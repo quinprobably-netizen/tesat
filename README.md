@@ -1,6 +1,6 @@
 # Regolith Rally
 
-A point-to-point rally game in a single self-contained HTML file. You drive a Group B-inspired rally car against the clock across eleven stages: six in space (the Moon, a planetary ring, a derelict station field, a Martian canyon, the ice of Europa and an orbital smelter over Io) and five real roads on Earth: the Pikes Peak hill climb, the Col de Turini (Monte-Carlo), Vargåsen (Rally Sweden), Ouninpohja (Rally Finland) and the Col de Sorba (Tour de Corse). Everything is generated procedurally: terrain, textures, sky, particles and sound.
+A point-to-point rally game in a single self-contained HTML file. You drive a Group B-inspired rally car against the clock across thirteen stages: eight in space (the Moon, a planetary ring, a derelict station field, a Martian canyon, the ice of Europa, an orbital smelter over Io, a moon of the black hole Cygnus X-1 and a Dyson swarm around Tabby's Star) and five real roads on Earth: the Pikes Peak hill climb, the Col de Turini (Monte-Carlo), Vargåsen (Rally Sweden), Ouninpohja (Rally Finland) and the Col de Sorba (Tour de Corse). Everything is generated procedurally: terrain, textures, sky, particles and sound.
 
 **Play:** open `index.html` in a modern browser. It loads three.js r128 from cdnjs and needs no build step or server.
 
@@ -23,6 +23,8 @@ The stages are sized for real-size cars: the space roads are 12 to 16 m wide (wi
 | Vargåsen | Rally Sweden's snow stage through the Värmland forest, snowbanks, a frozen lake and Colin's Crest |
 | Ouninpohja | Rally Finland's fastest gravel: blind crests and jumps through pine and birch, past the Yellow House |
 | Col de Sorba | Tour de Corse tarmac from Ghisoni up the gorge and through the Corsican pines to the 1,311 m col |
+| Event Horizon | A dark moon of Cygnus X-1: ice streams, a crater looped at the photon sphere, hairpins, then flat out to escape velocity |
+| Dyson Swarm | Metal decks of a Dyson swarm around Tabby's Star: collector arrays, an icy mirror field, a jump between statites, corona hairpins |
 
 **Pikes Peak** follows the real hill climb's named sections in order, from the start line through Engineers Corner, Glen Cove and the W's switchbacks to the summit, each with its own grade. The HUD altimeter climbs from the real start's 9,390 ft to the 14,115 ft summit (the game compresses the 1,440 m climb to about 385 m). It is tarmac through the pine forest and gravel above the treeline after Glen Cove, as when Group B cars raced there. There are no guard rails: the mountain falls away on one side and is cut into on the other. The co-driver calls each section by name. A real road has only one layout, so there is no random seed for this stage.
 
@@ -35,6 +37,10 @@ The stages are sized for real-size cars: the space roads are 12 to 16 m wide (wi
 **Col de Sorba** is the Tour de Corse road from Ghisoni up the Fium'Orbu gorge and through the Corsican pines to the 1,311 m col (the real climb from Ghisoni is 10.1 km at 6.3%), on the island of "10,000 corners": narrow, bumpy tarmac that never stops turning, granite walls on one side and maquis falling away on the other.
 
 The four new real stages were laid out from their roads' named landmarks, lengths, heights and grades as published by the rally organisers and climbing guides (rally histories and stage guides for the Monte-Carlo, Sweden, Finland and Corsica rallies, and cycling climb profiles of the Turini and Sorba). Map and elevation services weren't reachable when they were built, so individual corners are representative of each road rather than traced from it.
+
+**Event Horizon** circles Cygnus X-1, a real black hole of about 21 solar masses that feeds on its blue supergiant companion. The sky draws the hole's shadow ringed by its photon ring, the accretion disk nearly edge-on and brighter on the side spinning towards you, the far side of the disk bent up over the top by gravity, and the stars behind it lensed into an Einstein ring. The blue companion is the sun that lights the stage.
+
+**Dyson Swarm** runs across the decks of a swarm of collectors wrapped around Tabby's Star (KIC 8462852), the real star whose irregular dimming once had astronomers wondering about alien megastructures. Rings of collectors cross the star, seen from behind as dark panels with lit rims and running lights, and through the gaps the far side's inner faces glow in the starlight. Mirror collectors on masts line the road, tilted to the star, and bigger ones hang off in space.
 
 **Ground textures** are generated once when the game starts: two tileable detail maps (stones, crack networks, fine grain, mottling, wind ripples, grass, aggregate chips and crust) that the terrain shader reads at several scales and rotations, so no tile repeats visibly. Each surface turns them into its own look and a height for bump lighting: pebbles and dust on regolith, pressure cracks and frost on ice, plates, rivets and scratches on metal decks, loose stones swept out of the wheel tracks on gravel, aggregate, sealed cracks and repair patches on tarmac, and wind-rippled powder glazed in the tyre tracks on snow. Beside an Earth road the ground reads as grass, soil and scree or snow. Fine detail and bump fade out as they shrink below a few pixels so the ground doesn't shimmer.
 
@@ -119,7 +125,7 @@ Transmission:
 ## Menus
 
 - **Home.** PLAY (stage select), RALLY, GARAGE and SETTINGS, with your current pilot, car, PI and ratings beside them.
-- **Stage select.** The eleven stages are listed on the left, each with its best time and medal. The chosen stage is shown on the right with a picture, its corner count, length, surface, checkpoints and target time, and two tabs: LEADERBOARD, and CODES & GHOSTS for stage codes, seeds and ghost codes.
+- **Stage select.** The thirteen stages are listed on the left, each with its best time and medal. The chosen stage is shown on the right with a picture, its corner count, length, surface, checkpoints and target time, and two tabs: LEADERBOARD, and CODES & GHOSTS for stage codes, seeds and ghost codes.
 - **Settings.** Every switch in one place, reachable from the home screen, the stage select (⚙) and the pause menu: manual gears, ABS and traction control, bumper cam, ghost and racing line, sound and co-driver voice, your driver name, and a controls reference for keyboard, gamepad and touch.
 - **Pause.** Resume, restart, settings or quit to the stage select.
 
@@ -167,7 +173,7 @@ Every build gets a **PI** (performance index, 100 to 999) and a class: D, C (501
 
 ## Modes and sharing
 
-- **Stage codes.** Every stage has a code such as `RR-I-4471` (template letter L/I/W/M/E/F + seed; a code generates a random stage from that template rather than its designed course). Type a code or a bare seed under CODES & GHOSTS on the stage select, or press RANDOM SEED, to generate a new stage from that template. Copy the code to send a friend the exact same stage. The Earth stages (`RR-P-1916` Pikes Peak, `RR-C-1911` Turini, `RR-S-1950` Vargåsen, `RR-J-1951` Ouninpohja, `RR-T-1956` Sorba) always build the real road, whatever the seed.
+- **Stage codes.** Every stage has a code such as `RR-I-4471` (template letter L/I/W/M/E/F/B/D + seed; a code generates a random stage from that template rather than its designed course). Type a code or a bare seed under CODES & GHOSTS on the stage select, or press RANDOM SEED, to generate a new stage from that template. Copy the code to send a friend the exact same stage. The Earth stages (`RR-P-1916` Pikes Peak, `RR-C-1911` Turini, `RR-S-1950` Vargåsen, `RR-J-1951` Ouninpohja, `RR-T-1956` Sorba) always build the real road, whatever the seed.
 - **Service park.** Before each stage, pick springs (soft/medium/stiff), dampers (soft/medium/firm), anti-roll bars (soft/medium/stiff), final drive (short/standard/long) and tyres (all-terrain/studded/slick). Each stage marks a recommended setup with ★, and your choice is remembered per stage type.
 - **Rally mode.** Runs every stage back to back. Damage carries over. Between stages the crew repairs 40% for free, and a full repair costs time. Your best rally total is saved.
 - **Ghost codes and leaderboards.** Each stage keeps a local leaderboard of your runs plus imported ghosts. Use COPY THIS RUN'S GHOST CODE on the finish screen (or COPY MY BEST GHOST under CODES & GHOSTS) to get a few-KB text code. A friend pastes it into IMPORT A GHOST CODE: the right stage is generated and they race your run as a magenta rival ghost. RACE/RACING on the leaderboard picks which imported ghost to race.
