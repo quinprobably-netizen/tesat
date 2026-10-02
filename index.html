@@ -198,7 +198,7 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
 .gar-tabs button{pointer-events:auto;min-width:0;border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:8px;padding:9px 4px;font-size:11px;font-weight:900;letter-spacing:.12em;color:var(--dim)}
 .gar-tabs button.on{background:var(--accent);border-color:var(--accent);color:#1a1204}
 .gar-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow:auto;flex:1;align-content:start;padding:2px}
-.gar-opts.pilot{grid-template-columns:repeat(4,1fr)}
+.gar-opts.pilot{grid-template-columns:repeat(4,minmax(0,1fr))}
 .gar-opts.color{grid-template-columns:repeat(4,1fr)}
 .gar-opts.glow,.gar-opts.decal{grid-template-columns:repeat(3,1fr)}
 .gtile.sw i.gl{box-shadow:0 0 16px var(--c)} .gtile.sw i.off{background:repeating-linear-gradient(45deg,#333 0 4px,#222 4px 8px)}
@@ -234,7 +234,7 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
   .gar-stats{top:60px;right:8px;bottom:auto;width:min(230px,56vw);padding:8px 10px;transform-origin:top right}
   .gar-stats .ride-head{margin-bottom:6px} .gar-stats .ride-head img{width:36px;height:36px} .gar-stats .ride-parts{display:none}
   .sbar{grid-template-columns:84px 1fr 22px;font-size:8px;letter-spacing:.1em} .rbar{height:6px} .pi-row{margin-bottom:6px} .pi-badge i,.pi-badge b{font-size:12px;padding:3px 5px}
-  .gar-opts.pilot{grid-template-columns:repeat(3,1fr)}
+  .gar-opts.pilot{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 /* stage select: the stages on the left, the chosen one on the right; fits one screen on desktop */
 #menu{padding:18px 20px 12px;background:linear-gradient(90deg,rgba(3,5,12,.86),rgba(3,5,12,.5) 50%,rgba(3,5,12,.8))}
@@ -531,6 +531,8 @@ html,body{font-family:var(--body)}
 .gtile.sel{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent),0 6px 24px rgba(255,194,26,.14)}
 .gtile b{font-size:17px;font-weight:700;letter-spacing:.03em}
 .gtile small{font-size:11px;letter-spacing:.12em;font-weight:600}
+.gtile.pt b,.gtile.pt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gtile.pt b{font-size:15px;letter-spacing:0} .gtile.pt small{font-size:10px;letter-spacing:.04em}
 .gtile.sw b{font-size:13px}
 .chips em{font-size:10.5px;border-radius:2px;font-weight:700}
 .gar-spec i{font-family:var(--display);font-size:11px;font-weight:700}
@@ -650,7 +652,7 @@ table.splits td:first-child{font-family:var(--display);font-size:13px;font-weigh
   .gar-tg:first-child{flex:2} .gar-tg:last-child{flex:4}
   .gar-tabs button{font-size:11.5px;padding:6px 1px!important;letter-spacing:.04em!important}
   .gar-opts{grid-template-columns:repeat(3,1fr);gap:5px}
-  .gar-opts.pilot{grid-template-columns:repeat(4,1fr)} .gar-opts.color{grid-template-columns:repeat(6,1fr)} .gar-opts.glow,.gar-opts.decal{grid-template-columns:repeat(3,1fr)}
+  .gar-opts.pilot{grid-template-columns:repeat(4,minmax(0,1fr))} .gar-opts.color{grid-template-columns:repeat(6,1fr)} .gar-opts.glow,.gar-opts.decal{grid-template-columns:repeat(3,1fr)}
   .gtile{padding:6px 7px}
   .gtile b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .gtile small{font-size:9.5px;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1363,19 +1365,79 @@ const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
 const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
 /* ---- garage: pilot + vehicle parts (chosen in the garage, kept for every stage) ----
    Parts change the car's real physics: the tyres' grip on each surface (mu: regolith, ice, metal, gravel,
-   tarmac), their weight and rolling drag. Each car keeps its own aero package (CAR_AERO). The pilot, paint,
-   decal and glow are looks only: every pilot weighs the same. Each build
+   tarmac), their weight and rolling drag. Each car keeps its own aero package (CAR_AERO). The pilot (a real
+   rally driver), paint, decal and glow are looks only: every pilot weighs the same. Each build
    is rated from what those physics give it (see perfRatings): six ratings and a PI with a class. */
 const GARAGE = {
+  /* Pilots are stylised avatars of real rally drivers, one per car in the same order, then four more legends.
+     Looks only. `helmet`: base colour, `bands` ([colour, from, to] as latitude 0 = crown .. 1 = chin),
+     an optional `crest` stripe over the top, and an optional `cross` (Nordic cross on the crown). `kind`: full-face,
+     open-face with goggles (1960s) or off-road with a peak. `nat` picks the flag; `stripes` go across the suit. */
   pilot: { label: 'PILOT', opts: [
-    { name: 'NOVA', cls: 'MEDIUM', kind: 'astro', suit: '#f2f4f8', trim: '#ff7a1a', visor: '#ffb52e', bg: '#27406e', blurb: 'Rookie astronaut on their first rally.' },
-    { name: 'ZIX', cls: 'LIGHT', kind: 'alien', suit: '#7ee05a', trim: '#2f7a2a', visor: '#101418', bg: '#3b1f5e', blurb: 'Tiny, twitchy and very excited to be here.' },
-    { name: 'BOLT-9', cls: 'HEAVY', kind: 'robot', suit: '#9aa6b8', trim: '#3a4150', visor: '#58f0ff', bg: '#16324a', blurb: 'Retired loader bot with a new hobby.' },
-    { name: 'MISO', cls: 'LIGHT', kind: 'cat', suit: '#ffb36b', trim: '#ffffff', visor: '#8ef0ff', bg: '#5e2a3a', blurb: 'Station cat with sharp reflexes and sure paws.' },
-    { name: 'GRAVL', cls: 'HEAVY', kind: 'golem', suit: '#8a7f73', trim: '#5a5047', visor: '#ff9a3c', bg: '#3e2a1c', blurb: 'Living asteroid. Sits very still, drives very fast.' },
-    { name: 'PIP', cls: 'FEATHER', kind: 'drone', suit: '#e8ecf2', trim: '#ff4fd8', visor: '#ff4fd8', bg: '#1d3a3a', blurb: 'Survey drone that wandered into the service park.' },
-    { name: 'KOI', cls: 'LIGHT', kind: 'fish', suit: '#dfe9f2', trim: '#ff6a2e', visor: '#7fd8ff', bg: '#123a52', blurb: 'Goldfish in a water-filled helmet. Smooth hands, sticks to the road.' },
-    { name: 'VEGA', cls: 'MEDIUM', kind: 'racer', suit: '#20242c', trim: '#e8322e', visor: '#ffd21f', bg: '#4a1620', blurb: 'Veteran rally ace. Flat out everywhere.' },
+    { name: 'TOIVONEN', full: 'Henri Toivonen', nat: 'FIN', cls: 'FIN · DELTA S4', kind: 'full', skin: '#e9c2a4', hair: '#5a3a22',
+      helmet: { base: '#f4f4f2', bands: [['#0b2a5b', 0.36, 0.41], ['#3fa0dc', 0.41, 0.45], ['#d6282b', 0.45, 0.49]] },
+      suit: '#f4f4f2', trim: '#0b2a5b', stripes: ['#0b2a5b', '#3fa0dc', '#d6282b'], visor: '#7fb6e6', bg: '#16325e',
+      blurb: 'Won the Delta S4\'s debut, the 1985 RAC Rally, then the 1986 Monte Carlo. Martini colours.' },
+    { name: 'MOUTON', full: 'Michèle Mouton', nat: 'FRA', cls: 'FRA · QUATTRO', kind: 'full', skin: '#efcdb4', hair: '#3b2416',
+      helmet: { base: '#f4f4f2', bands: [['#1d3f94', 0.34, 0.39], ['#f4f4f2', 0.39, 0.43], ['#d82a2f', 0.43, 0.48]], crest: '#d82a2f' },
+      suit: '#f2f2f0', trim: '#c8102e', stripes: ['#c8102e', '#1b1b1b'], visor: '#c9a46a', bg: '#4a1a20',
+      blurb: 'Four WRC wins for Audi and 1982 runner-up. Won Pikes Peak in the Sport quattro S1 in 1985.' },
+    { name: 'VATANEN', full: 'Ari Vatanen', nat: 'FIN', cls: 'FIN · 205 T16', kind: 'full', skin: '#ebc6a8', hair: '#c9a86a',
+      helmet: { base: '#f4f4f2', bands: [['#1c4fa0', 0.4, 0.48]], cross: '#1c4fa0' },
+      suit: '#f4f4f2', trim: '#1c4fa0', stripes: ['#1c4fa0', '#f2c200', '#d6282b'], visor: '#8fc3ea', bg: '#1a2f5c',
+      blurb: '1981 world champion and the 205 T16\'s lead driver. Later won Pikes Peak and the Dakar for Peugeot.' },
+    { name: 'RÖHRL', full: 'Walter Röhrl', nat: 'GER', cls: 'GER · 037', kind: 'full', skin: '#e7c0a0', hair: '#6b5440',
+      helmet: { base: '#f4f4f2', bands: [['#151515', 0.38, 0.41], ['#d0101a', 0.41, 0.44], ['#f2c200', 0.44, 0.47]], crest: '#151515' },
+      suit: '#f4f4f2', trim: '#0b2a5b', stripes: ['#0b2a5b', '#3fa0dc', '#d6282b'], visor: '#b9c7d6', bg: '#2a2a32',
+      blurb: 'World champion in 1980 and 1982. Won the 1983 Monte Carlo in the Lancia 037.' },
+    { name: 'BLOMQVIST', full: 'Stig Blomqvist', nat: 'SWE', cls: 'SWE · RS200', kind: 'full', skin: '#ecc8aa', hair: '#d8c08a',
+      helmet: { base: '#f2c200', bands: [['#0a5ca8', 0.36, 0.46]], crest: '#0a5ca8' },
+      suit: '#f4f4f2', trim: '#0a3a8a', stripes: ['#0a3a8a', '#4a90d9'], visor: '#6fa8dc', bg: '#0f3258',
+      blurb: '1984 world champion. Drove the Ford RS200 in its only Group B season, 1986.' },
+    { name: 'POND', full: 'Tony Pond', nat: 'GBR', cls: 'GBR · METRO 6R4', kind: 'full', skin: '#ebc3a5', hair: '#4a3020',
+      helmet: { base: '#f4f4f2', bands: [['#c8102e', 0.36, 0.42], ['#012169', 0.42, 0.48]] },
+      suit: '#f4f4f2', trim: '#c8102e', stripes: ['#c8102e', '#012169'], visor: '#9ab6d6', bg: '#2a1f4e',
+      blurb: 'Austin Rover works driver. Took the Metro 6R4 to third on its debut, the 1985 RAC Rally.' },
+    { name: 'STEWART', full: 'Ivan "Ironman" Stewart', nat: 'USA', cls: 'USA · BAJA', kind: 'mx', skin: '#d9a87e', hair: '#8a8a88',
+      helmet: { base: '#f4f4f2', bands: [['#c8102e', 0.3, 0.38], ['#0a3161', 0.38, 0.46]], crest: '#c8102e' },
+      suit: '#d01c1f', trim: '#f4f4f2', stripes: ['#f4f4f2', '#1b1b1b'], visor: '#e0a030', bg: '#5a2a14',
+      blurb: 'Off-road legend who won the Baja 1000 outright in Toyota trucks, famous for driving it solo.' },
+    { name: 'ROVANPERÄ', full: 'Kalle Rovanperä', nat: 'FIN', cls: 'FIN · GR YARIS', kind: 'full', skin: '#efcfb6', hair: '#c9a873',
+      helmet: { base: '#141414', bands: [['#eb0a1e', 0.4, 0.45], ['#f4f4f2', 0.45, 0.48]], crest: '#eb0a1e' },
+      suit: '#1a1a1a', trim: '#eb0a1e', stripes: ['#eb0a1e', '#f4f4f2'], visor: '#5c6670', bg: '#3c1014',
+      blurb: 'The youngest world champion ever in 2022, then again in 2023, in the GR Yaris Rally1.' },
+    { name: 'NEUVILLE', full: 'Thierry Neuville', nat: 'BEL', cls: 'BEL · I20 N', kind: 'full', skin: '#e9c4a6', hair: '#3a2a1c',
+      helmet: { base: '#14161c', bands: [['#f2c200', 0.38, 0.43], ['#d0101a', 0.43, 0.48]], crest: '#f2c200' },
+      suit: '#0b1f3f', trim: '#00aad2', stripes: ['#00aad2', '#e8622c'], visor: '#7d8ea0', bg: '#0c2240',
+      blurb: '2024 world champion with Hyundai in the i20 N Rally1.' },
+    { name: 'TÄNAK', full: 'Ott Tänak', nat: 'EST', cls: 'EST · PUMA', kind: 'full', skin: '#ecc8aa', hair: '#2a2420',
+      helmet: { base: '#f4f4f2', bands: [['#0072ce', 0.36, 0.41], ['#141414', 0.41, 0.46]], crest: '#0072ce' },
+      suit: '#0d2a5c', trim: '#f4f4f2', stripes: ['#f4f4f2', '#4a90d9'], visor: '#7aa0c8', bg: '#10264a',
+      blurb: '2019 world champion. Led M-Sport Ford in the Puma Rally1 in 2023.' },
+    { name: 'GRÖNHOLM', full: 'Marcus Grönholm', nat: 'FIN', cls: 'FIN · FOCUS WRC', kind: 'full', skin: '#ecc6a6', hair: '#b08a5a',
+      helmet: { base: '#f4f4f2', bands: [['#003580', 0.42, 0.48]], cross: '#003580' },
+      suit: '#f4f4f2', trim: '#00843d', stripes: ['#00843d', '#7ac143', '#0a3a8a'], visor: '#8fc3ea', bg: '#123a2a',
+      blurb: 'Champion in 2000 and 2002. Won Ford the 2006 makes\' title in the Focus RS WRC 06.' },
+    { name: 'HOPKIRK', full: 'Paddy Hopkirk', nat: 'GBR', cls: 'GBR · MINI', kind: 'open', skin: '#efc9ab', hair: '#2a1e16',
+      helmet: { base: '#f4f4f2', bands: [['#1b1b1b', 0.46, 0.5]] },
+      suit: '#2b3a55', trim: '#c8102e', stripes: [], visor: '#6a8aa0', bg: '#4a1c1c',
+      blurb: 'Won the 1964 Monte Carlo Rally in the Mini Cooper S, car 37.' },
+    { name: 'McRAE', full: 'Colin McRae', nat: 'SCO', cls: 'SCO · 1995 CHAMP', kind: 'full', skin: '#efc6a6', hair: '#b0542a',
+      helmet: { base: '#0a3a9a', bands: [['#f2c200', 0.38, 0.44], ['#f4f4f2', 0.44, 0.47]], crest: '#f4f4f2' },
+      suit: '#0a3a9a', trim: '#f2c200', stripes: ['#f2c200', '#f4f4f2'], visor: '#d8b24a', bg: '#0a2a6a',
+      blurb: '1995 world champion in the blue and yellow Subaru. Flat out or bust.' },
+    { name: 'OGIER', full: 'Sébastien Ogier', nat: 'FRA', cls: 'FRA · 8× CHAMP', kind: 'full', skin: '#e9c4a6', hair: '#2a1e16',
+      helmet: { base: '#f4f4f2', bands: [['#141414', 0.36, 0.42], ['#002395', 0.42, 0.45], ['#ed2939', 0.45, 0.48]], crest: '#141414' },
+      suit: '#1a1a1a', trim: '#eb0a1e', stripes: ['#eb0a1e', '#f4f4f2'], visor: '#6c7884', bg: '#1c1c2a',
+      blurb: 'Eight world titles with VW, M-Sport and Toyota.' },
+    { name: 'MIKKOLA', full: 'Hannu Mikkola', nat: 'FIN', cls: 'FIN · 1983 CHAMP', kind: 'full', skin: '#ebc4a4', hair: '#7a5a3a',
+      helmet: { base: '#f4f4f2', bands: [['#c8102e', 0.38, 0.44]], cross: '#003580' },
+      suit: '#f4f4f2', trim: '#c8102e', stripes: ['#c8102e', '#1b1b1b'], visor: '#c9a46a', bg: '#3a1418',
+      blurb: '1983 world champion in the Audi quattro. Won the 1000 Lakes seven times.' },
+    { name: 'LOEB', full: 'Sébastien Loeb', nat: 'FRA', cls: 'FRA · 9× CHAMP', kind: 'full', skin: '#e9c4a6', hair: '#3a2a1c',
+      helmet: { base: '#f4f4f2', bands: [['#d01c1f', 0.36, 0.44], ['#141414', 0.44, 0.47]], crest: '#d01c1f' },
+      suit: '#f2f2f0', trim: '#d01c1f', stripes: ['#d01c1f', '#141414'], visor: '#8a96a4', bg: '#4a1418',
+      blurb: 'Nine world titles in a row with Citroën, 2004 to 2012.' },
   ] },
   body: { label: 'CAR', opts: [
     { name: 'TWINCHARGER', blurb: 'Lancia Delta S4 inspired. Supercharger plus turbo: pulls hard from any revs.' },
@@ -5946,7 +6008,7 @@ function buildCarModel(build) {
     flames.push(fl);
   }
   // ---- pilot, in the driver's seat (left-hand drive) ----
-  const P = buildPilotHead(pilot);
+  const P = buildPilotHead(build.pilot);
   P.position.set(spec.seatX, seatY, seatZ);
   P.scale.setScalar(spec.pilotScale);
   shell.add(P);
@@ -6127,57 +6189,108 @@ function drawDecal(c, w, h, decal, ink, roof) {
   }
   c.restore();
 }
-/** A small 3D bust of the chosen pilot (about 0.6 m tall), built from primitives. */
-function buildPilotHead(p) {
-  const g = new THREE.Group();
-  const suit = new THREE.MeshStandardMaterial({ color: p.suit, metalness: 0.2, roughness: 0.5 });
-  const trimM = new THREE.MeshStandardMaterial({ color: p.trim, metalness: 0.3, roughness: 0.45 });
-  const visor = new THREE.MeshStandardMaterial({ color: p.visor, metalness: 0.9, roughness: 0.1, emissive: p.visor, emissiveIntensity: 0.25 });
-  const glow = new THREE.MeshBasicMaterial({ color: p.visor, toneMapped: false });
+/** Draw a small national flag (stylised) with its top-left corner at (px, py). */
+function drawFlag(x, nat, px, py, w, h) {
+  x.save(); x.beginPath(); x.rect(px, py, w, h); x.clip();
+  const fill = (col, a, b, c, d) => { x.fillStyle = col; x.fillRect(px + a * w, py + b * h, c * w, d * h); };
+  const nordic = (bg, cr, inner) => { fill(bg, 0, 0, 1, 1); fill(cr, 0.28, 0, 0.22, 1); fill(cr, 0, 0.38, 1, 0.24);
+    if (inner) { fill(inner, 0.33, 0, 0.12, 1); fill(inner, 0, 0.44, 1, 0.12); } };
+  const diag = (col, lw) => { x.strokeStyle = col; x.lineWidth = lw; x.beginPath(); x.moveTo(px, py); x.lineTo(px + w, py + h); x.moveTo(px + w, py); x.lineTo(px, py + h); x.stroke(); };
+  switch (nat) {
+    case 'FIN': nordic('#ffffff', '#003580'); break;
+    case 'SWE': nordic('#006aa7', '#fecc00'); break;
+    case 'FRA': fill('#002395', 0, 0, 1 / 3, 1); fill('#ffffff', 1 / 3, 0, 1 / 3, 1); fill('#ed2939', 2 / 3, 0, 1 / 3, 1); break;
+    case 'BEL': fill('#141414', 0, 0, 1 / 3, 1); fill('#fdda24', 1 / 3, 0, 1 / 3, 1); fill('#ef3340', 2 / 3, 0, 1 / 3, 1); break;
+    case 'GER': fill('#141414', 0, 0, 1, 1 / 3); fill('#dd0000', 0, 1 / 3, 1, 1 / 3); fill('#ffce00', 0, 2 / 3, 1, 1 / 3); break;
+    case 'EST': fill('#0072ce', 0, 0, 1, 1 / 3); fill('#141414', 0, 1 / 3, 1, 1 / 3); fill('#ffffff', 0, 2 / 3, 1, 1 / 3); break;
+    case 'SCO': fill('#005eb8', 0, 0, 1, 1); diag('#ffffff', h * 0.22); break;
+    case 'USA':
+      for (let k = 0; k < 7; k++) fill(k % 2 ? '#ffffff' : '#b22234', 0, k / 7, 1, 1 / 7);
+      fill('#3c3b6e', 0, 0, 0.42, 4 / 7); break;
+    default:                   // GBR
+      fill('#012169', 0, 0, 1, 1); diag('#ffffff', h * 0.24); diag('#c8102e', h * 0.08);
+      fill('#ffffff', 0.4, 0, 0.2, 1); fill('#ffffff', 0, 0.33, 1, 0.34); fill('#c8102e', 0.44, 0, 0.12, 1); fill('#c8102e', 0, 0.4, 1, 0.2);
+  }
+  x.restore();
+  x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = 1; x.strokeRect(px + 0.5, py + 0.5, w - 1, h - 1);
+}
+/** Paint a driver's helmet design onto a 2D context: `ty(v)` maps latitude (0 crown .. 1 chin) to y,
+ *  `crestW(v)` gives the half-width of the stripe over the top at that latitude, `cols` the x of each stripe. */
+function paintHelmet(x, hm, w, h, ty, crestW, cols) {
+  x.fillStyle = hm.base; x.fillRect(0, 0, w, h);
+  for (const [col, v0, v1] of hm.bands || []) { x.fillStyle = col; x.fillRect(0, ty(v0), w, ty(v1) - ty(v0)); }
+  const stripe = (col, cx, v1) => {
+    x.fillStyle = col; x.beginPath();
+    for (let k = 0; k <= 20; k++) { const v = 0.01 + (v1 - 0.01) * k / 20; x.lineTo(cx - crestW(v), ty(v)); }
+    for (let k = 20; k >= 0; k--) { const v = 0.01 + (v1 - 0.01) * k / 20; x.lineTo(cx + crestW(v), ty(v)); }
+    x.fill();
+  };
+  if (hm.crest) for (const cx of cols.crest) stripe(hm.crest, cx, 0.4);
+  if (hm.cross) { for (const cx of cols.crest) stripe(hm.cross, cx, 0.36); for (const cx of cols.side) stripe(hm.cross, cx, 0.36); }
+}
+const _helmetTex = new Map();
+/** The helmet as an equirectangular texture for a THREE.SphereGeometry (front +z is u = 0.25). */
+function helmetTexture(i) {
+  if (_helmetTex.has(i)) return _helmetTex.get(i);
+  const p = GARAGE.pilot.opts[i];
+  const t = makeCanvas(512, 256, (x, w, h) => {
+    paintHelmet(x, p.helmet, w, h, (v) => v * h, (v) => (w * 0.022) / Math.max(Math.sin(Math.PI * v), 0.12),
+      { crest: [w * 0.25, w * 0.75], side: [0, w * 0.5, w] });
+    // name and flag on both sides of the shell
+    x.font = 'italic 800 22px "Barlow Condensed", "Segoe UI", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    const ink = new THREE.Color(p.helmet.base).getHSL({}).l > 0.55 ? '#15171b' : '#f2f2f2';
+    for (const cx of [w * 0.5, 0, w]) {
+      x.fillStyle = ink; x.fillText(p.name, cx, h * 0.3);
+      drawFlag(x, p.nat, cx - 16, h * 0.54, 32, 20);
+    }
+  });
+  _helmetTex.set(i, t);
+  return t;
+}
+const _suitTex = new Map();
+/** Race suit for the shoulders (a cylinder: front +z is u = 0). Team stripes run across the chest. */
+function suitTexture(i) {
+  if (_suitTex.has(i)) return _suitTex.get(i);
+  const p = GARAGE.pilot.opts[i];
+  const t = makeCanvas(256, 64, (x, w, h) => {
+    x.fillStyle = p.suit; x.fillRect(0, 0, w, h);
+    p.stripes.forEach((col, k) => { x.fillStyle = col; x.fillRect(0, h * (0.42 + k * 0.12), w, h * 0.1); });
+    x.fillStyle = p.trim; x.fillRect(0, 0, w, h * 0.14);                               // collar trim
+    for (const cx of [0, w]) drawFlag(x, p.nat, cx - 10 + (cx ? -24 : 24), h * 0.2, 20, 13);   // flag on the chest
+  });
+  _suitTex.set(i, t);
+  return t;
+}
+/** A small 3D bust of the chosen driver (about 0.6 m tall): suit, HANS collar and their helmet. */
+function buildPilotHead(i) {
+  const p = GARAGE.pilot.opts[i], g = new THREE.Group();
+  const suit = new THREE.MeshStandardMaterial({ map: suitTexture(i), metalness: 0.05, roughness: 0.7 });
+  const shell = new THREE.MeshStandardMaterial({ map: helmetTexture(i), metalness: 0.25, roughness: 0.28 });
+  const base = new THREE.MeshStandardMaterial({ color: p.helmet.base, metalness: 0.25, roughness: 0.28 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x15171b, metalness: 0.3, roughness: 0.6 });
+  const visor = new THREE.MeshStandardMaterial({ color: p.visor, metalness: 0.9, roughness: 0.08, emissive: p.visor, emissiveIntensity: 0.12 });
+  const skin = new THREE.MeshStandardMaterial({ color: p.skin, roughness: 0.75 });
   const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
-  add(new THREE.CylinderGeometry(0.2, 0.3, 0.26, 12), suit, 0, 0.05, 0);                // shoulders
-  const k = p.kind;
-  if (k === 'astro' || k === 'cat') {
-    add(new THREE.SphereGeometry(0.24, 18, 12), suit, 0, 0.36, 0);
-    const v = add(new THREE.SphereGeometry(0.2, 18, 10, -Math.PI * 0.42, Math.PI * 0.84, Math.PI * 0.25, Math.PI * 0.42), visor, 0, 0.37, 0.06);
-    v.rotation.y = 0;
-    add(new THREE.TorusGeometry(0.2, 0.035, 6, 16), trimM, 0, 0.17, 0).rotation.x = Math.PI / 2;
-    if (k === 'cat') for (const sx of [-0.13, 0.13]) { const e = add(new THREE.ConeGeometry(0.08, 0.16, 4), suit, sx, 0.6, -0.02); e.rotation.z = -sx * 1.6; }
-  } else if (k === 'alien') {
-    const h = add(new THREE.SphereGeometry(0.22, 16, 12), suit, 0, 0.38, 0); h.scale.set(1, 1.2, 1);
-    for (const sx of [-0.09, 0.09]) { const e = add(new THREE.SphereGeometry(0.075, 10, 8), visor, sx, 0.42, 0.17); e.scale.set(1, 1.35, 0.6); }
-    for (const sx of [-0.1, 0.1]) { add(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 4), trimM, sx * 1.2, 0.7, 0); add(new THREE.SphereGeometry(0.04, 8, 6), glow, sx * 1.35, 0.8, 0); }
-  } else if (k === 'robot') {
-    add(new THREE.BoxGeometry(0.38, 0.32, 0.34), suit, 0, 0.36, 0);
-    add(new THREE.BoxGeometry(0.3, 0.07, 0.02), glow, 0, 0.4, 0.175);
-    add(new THREE.BoxGeometry(0.42, 0.1, 0.1), trimM, 0, 0.36, 0);
-    add(new THREE.CylinderGeometry(0.015, 0.015, 0.2, 4), trimM, 0.1, 0.6, 0); add(new THREE.SphereGeometry(0.035, 8, 6), glow, 0.1, 0.7, 0);
-  } else if (k === 'golem') {
-    const h = add(new THREE.DodecahedronGeometry(0.27, 0), suit, 0, 0.38, 0); h.rotation.set(0.4, 0.3, 0.2);
-    for (const sx of [-0.09, 0.09]) add(new THREE.BoxGeometry(0.08, 0.035, 0.02), glow, sx, 0.42, 0.25);
-    add(new THREE.DodecahedronGeometry(0.1, 0), trimM, 0.18, 0.55, -0.05);
-  } else if (k === 'fish') {   // goldfish in a water-filled bubble
-    const water = new THREE.MeshStandardMaterial({ color: p.visor, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.45, depthWrite: false });
-    add(new THREE.SphereGeometry(0.26, 18, 12), water, 0, 0.4, 0).castShadow = false;
-    add(new THREE.TorusGeometry(0.2, 0.035, 6, 16), trimM, 0, 0.17, 0).rotation.x = Math.PI / 2;
-    const fishM = new THREE.MeshStandardMaterial({ color: p.trim, roughness: 0.4 });
-    const f = add(new THREE.SphereGeometry(0.1, 12, 8), fishM, 0, 0.42, 0.02); f.scale.set(0.7, 0.8, 1.2);
-    const tail = add(new THREE.ConeGeometry(0.07, 0.12, 4), fishM, 0, 0.42, -0.12); tail.rotation.x = -Math.PI / 2;
-    for (const sx of [-0.04, 0.04]) add(new THREE.SphereGeometry(0.018, 6, 4), glow, sx, 0.45, 0.12);
-  } else if (k === 'racer') {  // full-face rally helmet
-    add(new THREE.SphereGeometry(0.24, 18, 12), suit, 0, 0.37, 0);
-    add(new THREE.BoxGeometry(0.34, 0.1, 0.12), visor, 0, 0.38, 0.17);
-    add(new THREE.BoxGeometry(0.06, 0.4, 0.44), trimM, 0, 0.45, 0);
-    add(new THREE.TorusGeometry(0.2, 0.035, 6, 16), trimM, 0, 0.17, 0).rotation.x = Math.PI / 2;
-  } else {                     // drone
-    add(new THREE.SphereGeometry(0.2, 18, 12), suit, 0, 0.4, 0);
-    add(new THREE.TorusGeometry(0.28, 0.03, 6, 24), trimM, 0, 0.4, 0).rotation.x = Math.PI / 2;
-    add(new THREE.SphereGeometry(0.08, 12, 8), glow, 0, 0.42, 0.15);
+  add(new THREE.CylinderGeometry(0.2, 0.3, 0.26, 16), suit, 0, 0.05, 0);                // shoulders
+  const hans = add(new THREE.TorusGeometry(0.19, 0.04, 6, 18), dark, 0, 0.18, -0.02); hans.rotation.x = Math.PI / 2;
+  add(new THREE.SphereGeometry(0.24, 24, 16), shell, 0, 0.37, 0);                         // helmet
+  // the face opening: a band around the front, as an arc of a slightly bigger sphere
+  const front = (r, mat, t0, t1, half) => add(new THREE.SphereGeometry(r, 18, 6, Math.PI / 2 - half, half * 2, t0 * Math.PI, (t1 - t0) * Math.PI), mat, 0, 0.37, 0);
+  if (p.kind === 'open') {        // 1960s open-face helmet: the face shows, goggles up on the brow
+    front(0.243, skin, 0.42, 0.72, 0.5);
+    add(new THREE.TorusGeometry(0.236, 0.016, 6, 28), dark, 0, 0.42, 0).rotation.x = Math.PI / 2;    // goggle strap
+    for (const sx of [-0.07, 0.07]) add(new THREE.CylinderGeometry(0.045, 0.045, 0.03, 12), visor, sx, 0.5, 0.21).rotation.x = Math.PI / 2 - 0.4;
+  } else {
+    front(0.246, visor, 0.4, 0.56, 0.62);                                                  // visor
+    if (p.kind === 'mx') {        // off-road: a peak over the visor and a long chin bar
+      const peak = add(new THREE.BoxGeometry(0.24, 0.02, 0.16), new THREE.MeshStandardMaterial({ color: p.helmet.crest || p.trim, roughness: 0.4 }), 0, 0.53, 0.22); peak.rotation.x = 0.25;
+      const chin = add(new THREE.BoxGeometry(0.16, 0.08, 0.1), base, 0, 0.24, 0.22); chin.rotation.x = -0.3;
+    }
   }
   return g;
 }
 // the livery text is drawn on a canvas, which doesn't wait for web fonts: redraw once the livery font has loaded
-if (document.fonts && document.fonts.load) document.fonts.load('italic 800 20px "Barlow Condensed"').then(() => { LIV_CACHE.clear(); if (Game.carModel) rebuildCarModel(); }).catch(() => {});
+if (document.fonts && document.fonts.load) document.fonts.load('italic 800 20px "Barlow Condensed"').then(() => { LIV_CACHE.clear(); _helmetTex.clear(); if (Game.carModel) rebuildCarModel(); }).catch(() => {});
 /** Swap the player's car model for the current garage build. */
 function rebuildCarModel() {
   setCarTune(tuneFor(DEFAULT_SETUP, Store.data.garage));   // the physics follows the car on show (the stage setup applies at the start)
@@ -7952,74 +8065,50 @@ function pilotPortrait(i) {
   if (_portraits.has(i)) return _portraits.get(i);
   const p = GARAGE.pilot.opts[i], c = document.createElement('canvas'), S = 160;
   c.width = S; c.height = S;
-  const x = c.getContext('2d'), cx = S / 2;
+  const x = c.getContext('2d'), cx = S / 2, cy = 70, R = 48;
   const bg = x.createRadialGradient(cx, S * 0.4, 10, cx, S * 0.5, S * 0.75);
   bg.addColorStop(0, p.bg); bg.addColorStop(1, '#05060c');
   x.fillStyle = bg; x.fillRect(0, 0, S, S);
-  x.fillStyle = 'rgba(255,255,255,.55)';
-  for (let k = 0; k < 18; k++) { const r = mulberry32(i * 97 + k)(); x.fillRect((r * 997) % S, (r * 6133) % (S * 0.6), 1.5, 1.5); }
-  const circle = (px, py, r, col) => { x.fillStyle = col; x.beginPath(); x.arc(px, py, r, 0, TAU); x.fill(); };
-  const ellipse = (px, py, rx, ry, col, rot) => { x.fillStyle = col; x.beginPath(); x.ellipse(px, py, rx, ry, rot || 0, 0, TAU); x.fill(); };
-  // shoulders
-  x.fillStyle = p.suit; x.beginPath(); x.moveTo(cx - 62, S); x.quadraticCurveTo(cx - 58, S * 0.72, cx, S * 0.7); x.quadraticCurveTo(cx + 58, S * 0.72, cx + 62, S); x.fill();
-  x.fillStyle = p.trim; x.fillRect(cx - 40, S * 0.84, 80, 6);
-  const shine = (px, py, r) => { x.fillStyle = 'rgba(255,255,255,.45)'; x.beginPath(); x.ellipse(px, py, r * 0.5, r * 0.25, -0.6, 0, TAU); x.fill(); };
-  switch (p.kind) {
-    case 'astro': case 'cat':
-      if (p.kind === 'cat') for (const sx of [-1, 1]) { x.fillStyle = p.suit; x.beginPath(); x.moveTo(cx + sx * 20, 34); x.lineTo(cx + sx * 44, 10); x.lineTo(cx + sx * 48, 46); x.fill(); x.fillStyle = '#ff8fa8'; x.beginPath(); x.moveTo(cx + sx * 28, 34); x.lineTo(cx + sx * 42, 20); x.lineTo(cx + sx * 44, 40); x.fill(); }
-      circle(cx, 72, 48, p.suit);
-      ellipse(cx, 76, 36, 28, p.visor);
-      if (p.kind === 'cat') { ellipse(cx - 13, 74, 6, 9, '#15171b'); ellipse(cx + 13, 74, 6, 9, '#15171b'); x.fillStyle = '#ff8fa8'; x.beginPath(); x.moveTo(cx - 4, 86); x.lineTo(cx + 4, 86); x.lineTo(cx, 91); x.fill(); }
-      shine(cx - 14, 64, 26);
-      x.strokeStyle = p.trim; x.lineWidth = 6; x.beginPath(); x.arc(cx, 72, 48, Math.PI * 0.15, Math.PI * 0.85); x.stroke();
-      break;
-    case 'alien':
-      x.strokeStyle = p.trim; x.lineWidth = 3;
-      for (const sx of [-1, 1]) { x.beginPath(); x.moveTo(cx + sx * 14, 36); x.quadraticCurveTo(cx + sx * 26, 16, cx + sx * 30, 8); x.stroke(); circle(cx + sx * 30, 8, 6, '#caff7a'); }
-      ellipse(cx, 76, 40, 50, p.suit);
-      ellipse(cx - 17, 76, 13, 19, p.visor, 0.35); ellipse(cx + 17, 76, 13, 19, p.visor, -0.35);
-      circle(cx - 20, 70, 4, '#fff'); circle(cx + 14, 70, 4, '#fff');
-      x.strokeStyle = p.trim; x.lineWidth = 3; x.beginPath(); x.arc(cx, 104, 8, 0.2, Math.PI - 0.2); x.stroke();
-      break;
-    case 'robot':
-      x.fillStyle = p.trim; x.fillRect(cx - 3, 12, 6, 22); circle(cx, 12, 6, p.visor);
-      x.fillStyle = p.suit; x.fillRect(cx - 44, 32, 88, 80);
-      x.fillStyle = p.trim; x.fillRect(cx - 50, 56, 100, 18);
-      x.fillStyle = '#0a0f16'; x.fillRect(cx - 34, 58, 68, 14);
-      x.fillStyle = p.visor; x.shadowColor = p.visor; x.shadowBlur = 12; x.fillRect(cx - 28, 61, 56, 8); x.shadowBlur = 0;
-      x.fillStyle = p.trim; for (let k = 0; k < 5; k++) x.fillRect(cx - 24 + k * 11, 90, 6, 12);
-      break;
-    case 'golem':
-      x.fillStyle = p.suit; x.beginPath();
-      [[-44, 60], [-30, 26], [4, 18], [38, 30], [48, 70], [34, 110], [-6, 118], [-40, 100]].forEach(([dx, dy], k) => (k ? x.lineTo(cx + dx, dy) : x.moveTo(cx + dx, dy)));
-      x.fill();
-      x.fillStyle = p.trim; x.beginPath(); x.moveTo(cx - 30, 26); x.lineTo(cx + 4, 18); x.lineTo(cx - 6, 44); x.fill();
-      circle(cx + 20, 96, 6, p.trim); circle(cx - 26, 44, 4, p.trim);
-      x.fillStyle = p.visor; x.shadowColor = p.visor; x.shadowBlur = 14; x.fillRect(cx - 24, 66, 16, 6); x.fillRect(cx + 8, 66, 16, 6); x.shadowBlur = 0;
-      break;
-    case 'fish':
-      circle(cx, 70, 50, 'rgba(127,216,255,.35)');
-      x.strokeStyle = 'rgba(255,255,255,.5)'; x.lineWidth = 3; x.beginPath(); x.arc(cx, 70, 50, 0, TAU); x.stroke();
-      ellipse(cx - 4, 74, 26, 17, p.trim);
-      x.fillStyle = p.trim; x.beginPath(); x.moveTo(cx + 18, 74); x.lineTo(cx + 42, 58); x.lineTo(cx + 42, 90); x.fill();
-      circle(cx - 18, 70, 5, '#fff'); circle(cx - 19, 70, 2.5, '#111');
-      circle(cx - 28, 44, 4, 'rgba(255,255,255,.7)'); circle(cx - 20, 32, 3, 'rgba(255,255,255,.6)');
-      shine(cx - 18, 46, 24);
-      x.fillStyle = p.suit; x.fillRect(cx - 34, 116, 68, 8);
-      break;
-    case 'racer':
-      circle(cx, 72, 48, p.suit);
-      x.fillStyle = p.trim; x.fillRect(cx - 7, 24, 14, 96);
-      x.fillStyle = '#0a0c10'; x.fillRect(cx - 38, 62, 76, 26);
-      x.fillStyle = p.visor; x.globalAlpha = 0.85; x.fillRect(cx - 34, 66, 68, 18); x.globalAlpha = 1;
-      shine(cx - 18, 70, 18);
-      break;
-    default:                   // drone
-      x.strokeStyle = p.trim; x.lineWidth = 7; x.beginPath(); x.ellipse(cx, 74, 60, 16, -0.12, 0, TAU); x.stroke();
-      circle(cx, 72, 38, p.suit);
-      circle(cx, 74, 17, '#15171b'); x.shadowColor = p.visor; x.shadowBlur = 16; circle(cx, 74, 10, p.visor); x.shadowBlur = 0;
-      shine(cx - 14, 56, 20);
+  const ellipse = (px, py, rx, ry, col) => { x.fillStyle = col; x.beginPath(); x.ellipse(px, py, rx, ry, 0, 0, TAU); x.fill(); };
+  const rrect = (px, py, w, h, r, col) => { x.fillStyle = col; x.beginPath(); x.roundRect ? x.roundRect(px, py, w, h, r) : x.rect(px, py, w, h); x.fill(); };
+  // race suit: shoulders with the team stripes, a flag on the chest and the HANS collar
+  x.save(); x.beginPath(); x.moveTo(cx - 64, S); x.quadraticCurveTo(cx - 60, S * 0.72, cx, S * 0.7); x.quadraticCurveTo(cx + 60, S * 0.72, cx + 64, S); x.closePath(); x.clip();
+  x.fillStyle = p.suit; x.fillRect(0, S * 0.68, S, S * 0.32);
+  p.stripes.forEach((col, k) => { x.fillStyle = col; x.beginPath(); x.moveTo(0, S * (0.9 + k * 0.05)); x.lineTo(S, S * (0.78 + k * 0.05)); x.lineTo(S, S * (0.81 + k * 0.05)); x.lineTo(0, S * (0.93 + k * 0.05)); x.fill(); });
+  x.restore();
+  drawFlag(x, p.nat, cx + 26, 132, 18, 12);
+  rrect(cx - 34, 108, 68, 14, 7, '#1b1e24');
+  // helmet: the same design as the 3D one, seen from the front
+  const ty = (v) => cy - R * Math.cos(Math.PI * Math.min(v, 1));
+  x.save(); x.beginPath(); x.arc(cx, cy, R, 0, TAU); x.clip();
+  x.translate(cx - R, 0);
+  paintHelmet(x, p.helmet, R * 2, S, ty, () => 7, { crest: [R], side: [] });
+  x.restore();
+  x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = 2; x.beginPath(); x.arc(cx, cy, R, 0, TAU); x.stroke();
+  const face = (top, h) => {        // the face in the opening: skin, brows and eyes
+    rrect(cx - 30, top, 60, h, 9, p.skin);
+    x.fillStyle = p.hair; x.fillRect(cx - 24, top + 3, 16, 3); x.fillRect(cx + 8, top + 3, 16, 3);
+    for (const sx of [-14, 14]) { ellipse(cx + sx, top + 11, 6, 4, '#fff'); ellipse(cx + sx + 1, top + 11, 3, 3.5, '#2a2a2a'); }
+  };
+  if (p.kind === 'open') {          // open face: the whole face shows, goggles up on the helmet
+    x.fillStyle = p.skin; x.beginPath(); x.ellipse(cx, cy + 22, 32, 34, 0, 0, TAU); x.fill();
+    face(cy + 4, 20);
+    x.strokeStyle = '#7a3a2a'; x.lineWidth = 2.5; x.beginPath(); x.arc(cx, cy + 32, 10, 0.25, Math.PI - 0.25); x.stroke();
+    x.fillStyle = '#1b1e24'; x.fillRect(cx - R, cy - 20, R * 2, 7);
+    for (const sx of [-15, 15]) { ellipse(cx + sx, cy - 17, 12, 9, '#1b1e24'); ellipse(cx + sx, cy - 17, 9, 6.5, p.visor); }
+  } else {
+    rrect(cx - 34, cy - 10, 68, 30, 10, '#0a0c10');
+    face(cy - 6, 22);
+    x.globalAlpha = 0.8; rrect(cx - 36, cy - 22, 72, 14, 6, p.visor); x.globalAlpha = 1;   // visor flipped up
+    x.fillStyle = 'rgba(255,255,255,.45)'; x.fillRect(cx - 26, cy - 19, 22, 3);
+    if (p.kind === 'mx') {          // off-road: peak on top and a long chin bar
+      x.fillStyle = p.helmet.crest || p.trim; x.strokeStyle = 'rgba(0,0,0,.4)'; x.lineWidth = 1.5;
+      x.beginPath(); x.moveTo(cx - 54, cy - 24); x.lineTo(cx + 54, cy - 24); x.lineTo(cx + 42, cy - 42); x.lineTo(cx - 42, cy - 42); x.closePath(); x.fill(); x.stroke();
+      x.fillStyle = p.helmet.base; x.beginPath(); x.moveTo(cx - 26, cy + 24); x.lineTo(cx + 26, cy + 24); x.lineTo(cx + 14, cy + 50); x.lineTo(cx - 14, cy + 50); x.fill();
+    }
   }
+  x.fillStyle = 'rgba(255,255,255,.35)'; x.beginPath(); x.ellipse(cx - 24, cy - 30, 13, 6, -0.6, 0, TAU); x.fill();   // shine
+  drawFlag(x, p.nat, 8, 8, 24, 15);
   const url = c.toDataURL();
   _portraits.set(i, url);
   return url;
@@ -8127,7 +8216,7 @@ const Garage = {
     }).join('');
     const cur = cat.opts[b[k]];
     const cosmetic = { color: 'Paint job for the body, wings and wheel arches. Chrome and copper are extra shiny. WORKS is the car\'s own rally livery.', decal: 'Livery pattern for the sides and roof (on WORKS paint, over the sides only).', glow: 'Colour of the underglow and hover pad lights.' };
-    if (k === 'pilot') cosmetic.pilot = `<b>${cur.name}</b> ${cur.blurb}`;
+    if (k === 'pilot') cosmetic.pilot = `<b>${cur.full}</b> ${cur.blurb}`;
     let desc = cosmetic[k] ? cosmetic[k] + ' <em>Looks only, no effect on performance.</em>' : `<b>${cur.name}</b> ${cur.blurb}`;
     if (k === 'body') {
       const sp = CAR_SPECS[b.body];
