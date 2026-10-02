@@ -1,33 +1,55 @@
 # Regolith Rally
 
-A point-to-point rally game in a single self-contained HTML file. You drive a Group B-inspired rally car against the clock across seven stages: the Moon, a planetary ring, a derelict station field, a Martian canyon, the ice of Europa, an orbital smelter over Io, and the Pikes Peak hill climb in Colorado. Everything is generated procedurally: terrain, textures, sky, particles and sound.
+A point-to-point rally game in a single self-contained HTML file. You drive a Group B-inspired rally car against the clock across thirteen stages: eight in space (the Moon, a planetary ring, a derelict station field, a Martian canyon, the ice of Europa, an orbital smelter over Io, a moon of the black hole Cygnus X-1 and a Dyson swarm around Tabby's Star) and five real roads on Earth: the Pikes Peak hill climb, the Col de Turini (Monte-Carlo), Vargåsen (Rally Sweden), Ouninpohja (Rally Finland) and the Col de Sorba (Tour de Corse). Everything is generated procedurally: terrain, textures, sky, particles and sound.
 
 **Play:** open `index.html` in a modern browser. It loads three.js r128 from cdnjs and needs no build step or server.
 
 ## Stages
 
-The first six stages are generated from a fixed seed, so the layout is the same every time. Pikes Peak is laid out from the real road instead. Every stage runs at Earth gravity (9.81 m/s²), wherever it is set.
+Every stage is laid out from a course: a list of named sections, each a string of straights, corners (radius and heading), crests, kickers, chasms, chicane straights and surface changes, with its own grade. The space stages' courses are designed to roam across their worlds, past landmarks such as a crater rim the road wraps around or a canyon whose walls rise either side of the road. The five Earth stages follow their real roads' named sections in order. The co-driver calls each section by name as you reach it. Every stage runs at Earth gravity (9.81 m/s²), wherever it is set.
 
-The stages are sized for real-size cars: the space roads are 12 to 16 m wide (wide by Earth standards, so there is room to slide) and Pikes Peak is 9 m, its real two lanes and gutters. Each surface has a realistic grip and rolling resistance: tarmac 1.05, regolith dust 0.74, metal deck plating 0.72, gravel 0.66 and ice 0.30, with loose surfaces dragging more. Chicane rows leave a wider gap, and the jumps and crests are checked against the real cars' 22 to 32 cm of wheel travel.
+The stages are sized for real-size cars: the space roads are 12 to 16 m wide (wide by Earth standards, so there is room to slide) and the Earth roads 8.4 to 9.2 m. Each surface has a realistic grip and rolling resistance: tarmac 1.05, regolith dust 0.74, metal deck plating 0.72, gravel 0.66, packed snow 0.42 and ice 0.30, with loose surfaces dragging more. Studded tyres add 40% grip on snow. Chicane rows leave a wider gap, and the jumps and crests are checked against the real cars' 22 to 32 cm of wheel travel.
 
 | Stage | Character |
 |---|---|
-| Lunar Dust Run | Wide and forgiving regolith roads, crests and kickers, one chasm |
-| Ice Ring Traverse | Slippery ice causeway on a planetary ring under a gas giant, with drop-offs at the edges |
-| Wreckage Belt | Tight metal-plated corners through station wreckage, broken up by chicanes |
-| Red Canyon Sprint | Fast gravel roads between rust-red Martian mesas, big crests |
-| Europa Fracture Line | Low-grip ice shelf with cliffs on both sides, under a huge Jupiter |
-| Foundry Gauntlet | Hairpins on the metal decks of an orbital smelter over Io; the hardest of the generated stages |
-| Pikes Peak | The Race to the Clouds, cut to 5.5 km timed: see below |
+| Lunar Dust Run | Wide and forgiving regolith roads from Tranquility Base, along Hadley Rille, round a crater rim and over the Apennine crests |
+| Ice Ring Traverse | Slippery ice causeway on a planetary ring under a gas giant: a shepherd moon, the Encke Gap and a chicane maze in the spokes |
+| Wreckage Belt | Tight metal-plated corners through a derelict station: docking bay, hull breach, spine corridor, reactor loop and the cargo maze |
+| Red Canyon Sprint | Fast gravel along rust-red Martian mesas, then down onto a canyon floor between sheer walls and back up to the rim |
+| Europa Fracture Line | Low-grip ice shelf with cliffs on both sides, under a huge Jupiter: chaos terrain, fracture jumps and long sweepers |
+| Foundry Gauntlet | Hairpins on the metal decks of an orbital smelter over Io, a slag bridge jump and crane alley; the hardest space stage |
+| Pikes Peak | The Race to the Clouds, cut to 5.6 km timed: see below |
+| Col de Turini | The Monte-Carlo's night stage up to the 1,604 m col: tarmac, snow and ice, hairpins and stone walls |
+| Vargåsen | Rally Sweden's snow stage through the Värmland forest, snowbanks, a frozen lake and Colin's Crest |
+| Ouninpohja | Rally Finland's fastest gravel: blind crests and jumps through pine and birch, past the Yellow House |
+| Col de Sorba | Tour de Corse tarmac from Ghisoni up the gorge and through the Corsican pines to the 1,311 m col |
+| Event Horizon | A dark moon of Cygnus X-1: ice streams, a crater looped at the photon sphere, hairpins, then flat out to escape velocity |
+| Dyson Swarm | Metal decks of a Dyson swarm around Tabby's Star: collector arrays, an icy mirror field, a jump between statites, corona hairpins |
 
 **Pikes Peak** follows the real hill climb's named sections in order, from the start line through Engineers Corner, Glen Cove and the W's switchbacks to the summit, each with its own grade. The HUD altimeter climbs from the real start's 9,390 ft to the 14,115 ft summit (the game compresses the 1,440 m climb to about 385 m). It is tarmac through the pine forest and gravel above the treeline after Glen Cove, as when Group B cars raced there. There are no guard rails: the mountain falls away on one side and is cut into on the other. The co-driver calls each section by name. A real road has only one layout, so there is no random seed for this stage.
+
+**Col de Turini** climbs from La Bollène-Vésubie through the chestnut woods and the Forêt de Turini, up the ladder of hairpins (the lacets) to the 1,604 m col, then drops a little way down the north side towards Peïra-Cava, the classic Monte-Carlo stage. The real climb from La Bollène is 15.3 km at 7.2% with 18 hairpins; the game keeps its shape over 4.1 km, with the HUD altimeter running from 690 m to the col. The lower road is dry tarmac with white dashed centre lines; higher up it turns to snow thrown on by spectators and ice in the shade, with ploughed snowbanks. Low stone walls sit on the outside of the tighter hairpins where the ground falls away, and hotels stand at the col.
+
+**Vargåsen** is the Rally Sweden stage near Torsby: packed snow over gravel through snow-laden spruce and pine, between ploughed snowbanks (solid enough to lean the car on, as the real drivers do), past a frozen lake and red wooden houses, with an icy stretch near the end. It finishes over Colin's Crest, named after Colin McRae, where the record is a 45 m jump (Brynildsen, 2016).
+
+**Ouninpohja** is the Rally Finland classic: narrow, fast gravel over blind crests through pine, spruce and birch, past the lakes and the Yellow House jump, down the steps to the Kakaristo junction (where Finnish co-drivers say "it gets faster now") to the Hämepohja finish. The real 33 km stage had 77 take-offs and was won at over 130 km/h average; the game takes its character over 5.2 km.
+
+**Col de Sorba** is the Tour de Corse road from Ghisoni up the Fium'Orbu gorge and through the Corsican pines to the 1,311 m col (the real climb from Ghisoni is 10.1 km at 6.3%), on the island of "10,000 corners": narrow, bumpy tarmac that never stops turning, granite walls on one side and maquis falling away on the other.
+
+The four new real stages were laid out from their roads' named landmarks, lengths, heights and grades as published by the rally organisers and climbing guides (rally histories and stage guides for the Monte-Carlo, Sweden, Finland and Corsica rallies, and cycling climb profiles of the Turini and Sorba). Map and elevation services weren't reachable when they were built, so individual corners are representative of each road rather than traced from it.
+
+**Event Horizon** circles Cygnus X-1, a real black hole of about 21 solar masses that feeds on its blue supergiant companion. The sky draws the hole's shadow ringed by its photon ring, the accretion disk nearly edge-on and brighter on the side spinning towards you, the far side of the disk bent up over the top by gravity, and the stars behind it lensed into an Einstein ring. The blue companion is the sun that lights the stage.
+
+**Dyson Swarm** runs across the decks of a swarm of collectors wrapped around Tabby's Star (KIC 8462852), the real star whose irregular dimming once had astronomers wondering about alien megastructures. Rings of collectors cross the star, seen from behind as dark panels with lit rims and running lights, and through the gaps the far side's inner faces glow in the starlight. Mirror collectors on masts line the road, tilted to the star, and bigger ones hang off in space.
+
+**Ground textures** are generated once when the game starts: two tileable detail maps (stones, crack networks, fine grain, mottling, wind ripples, grass, aggregate chips and crust) that the terrain shader reads at several scales and rotations, so no tile repeats visibly. Each surface turns them into its own look and a height for bump lighting: pebbles and dust on regolith, pressure cracks and frost on ice, plates, rivets and scratches on metal decks, loose stones swept out of the wheel tracks on gravel, aggregate, sealed cracks and repair patches on tarmac, and wind-rippled powder glazed in the tyre tracks on snow. Beside an Earth road the ground reads as grass, soil and scree or snow. Fine detail and bump fade out as they shrink below a few pixels so the ground doesn't shimmer.
 
 Hazards:
 - **Craters.**
 - **Kicker ramps and crests.**
 - **Chasm jumps.**
 - **Chicanes.** Rows of red and white water-filled barriers reach in from alternating sides of the road, so you have to weave left and right between them. The co-driver calls each one ("chicane left-right") and a chevron board on the end of each row points to the gap. The blocks are loose: hit them and they scatter, costing you speed and some damage.
-- **Grip changes.** Surfaces are regolith, ice, metal or gravel.
+- **Grip changes.** Surfaces are regolith, ice, metal, gravel, tarmac or snow. The co-driver calls each change ("onto ice").
 
 Rules and scoring:
 - Checkpoint gates must be passed in order. Missing one sends you back to the last gate with +5 s.
@@ -35,7 +57,7 @@ Rules and scoring:
 - Passing a chicane row on its barrier side, through the blocks or round the end, costs +5 s.
 - Damage builds up from hard landings and impacts and lowers your top speed until the stage ends.
 - Best times, splits and a ghost replay of your best run are stored in `localStorage`.
-- When the physics changes enough to make old times unfair (Earth gravity, then the real engines, then the real drivetrains and chassis), saved times are moved to an archive and the boards start fresh. Setups and the garage are kept.
+- When the physics changes enough to make old times unfair (Earth gravity, then the real engines, then the real drivetrains and chassis), or the stages are relaid (the new space layouts), saved times are moved to an archive and the boards start fresh. Pikes Peak's times and ghosts were kept when the space stages were relaid, since its road didn't change. Setups and the garage are kept.
 
 Handling:
 - Each car is built from its real chassis: wheelbase, front and rear tracks, weight split, wheel travel, tyre size and brake discs. The same numbers place the wheels, set the springs (1.6 Hz on the medium setting, a gravel rally set-up), the brakes, the body's inertia and the collision hull, and size the 3D model.
@@ -103,7 +125,7 @@ Transmission:
 ## Menus
 
 - **Home.** PLAY (stage select), RALLY, GARAGE and SETTINGS, with your current pilot, car, PI and ratings beside them.
-- **Stage select.** The seven stages are listed on the left, each with its best time and medal. The chosen stage is shown on the right with a picture, its corner count, length, surface, checkpoints and target time, and two tabs: LEADERBOARD, and CODES & GHOSTS for stage codes, seeds and ghost codes.
+- **Stage select.** The thirteen stages are listed on the left, each with its best time and medal. The chosen stage is shown on the right with a picture, its corner count, length, surface, checkpoints and target time, and two tabs: LEADERBOARD, and CODES & GHOSTS for stage codes, seeds and ghost codes.
 - **Settings.** Every switch in one place, reachable from the home screen, the stage select (⚙) and the pause menu: manual gears, ABS and traction control, bumper cam, ghost and racing line, sound and co-driver voice, your driver name, and a controls reference for keyboard, gamepad and touch.
 - **Pause.** Resume, restart, settings or quit to the stage select.
 
@@ -151,7 +173,7 @@ Every build gets a **PI** (performance index, 100 to 999) and a class: D, C (501
 
 ## Modes and sharing
 
-- **Stage codes.** Every stage has a code such as `RR-I-4471` (template letter L/I/W/M/E/F + seed). Type a code or a bare seed under CODES & GHOSTS on the stage select, or press RANDOM SEED, to generate a new stage from that template. Copy the code to send a friend the exact same stage. Pikes Peak (`RR-P-1916`) always builds the real road, whatever the seed.
+- **Stage codes.** Every stage has a code such as `RR-I-4471` (template letter L/I/W/M/E/F/B/D + seed; a code generates a random stage from that template rather than its designed course). Type a code or a bare seed under CODES & GHOSTS on the stage select, or press RANDOM SEED, to generate a new stage from that template. Copy the code to send a friend the exact same stage. The Earth stages (`RR-P-1916` Pikes Peak, `RR-C-1911` Turini, `RR-S-1950` Vargåsen, `RR-J-1951` Ouninpohja, `RR-T-1956` Sorba) always build the real road, whatever the seed.
 - **Service park.** Before each stage, pick springs (soft/medium/stiff), dampers (soft/medium/firm), anti-roll bars (soft/medium/stiff), final drive (short/standard/long) and tyres (all-terrain/studded/slick). Each stage marks a recommended setup with ★, and your choice is remembered per stage type.
 - **Rally mode.** Runs every stage back to back. Damage carries over. Between stages the crew repairs 40% for free, and a full repair costs time. Your best rally total is saved.
 - **Ghost codes and leaderboards.** Each stage keeps a local leaderboard of your runs plus imported ghosts. Use COPY THIS RUN'S GHOST CODE on the finish screen (or COPY MY BEST GHOST under CODES & GHOSTS) to get a few-KB text code. A friend pastes it into IMPORT A GHOST CODE: the right stage is generated and they race your run as a magenta rival ghost. RACE/RACING on the leaderboard picks which imported ghost to race.
