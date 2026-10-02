@@ -6135,7 +6135,7 @@ const EngineSound = {
     const dog = /dog|hewland|sequential|straight/i.test(sp.box || '');
     return {
       cyl, firing, amps, turbo, sc, dog,
-      pipe: o.pipe || (176 - cyl * 6),                                                       // exhaust fundamental, Hz
+      pipe: o.pipe || (176 - cyl * 6) * clamp(Math.pow(2 / (sp.disp || 2), 0.25), 0.85, 1.2),   // bigger engines ring lower                                                       // exhaust fundamental, Hz
       antiLag: o.antiLag != null ? o.antiLag : turbo ? (sp.lag > 0.2 ? 1 : 0.5) : 0,         // Group B anti-lag, rally turbo cars
       burble: o.burble != null ? o.burble : sc ? 0.3 : turbo ? 0.35 : 0.15,
       whine: o.whine != null ? o.whine : sc ? 1 : 0,
