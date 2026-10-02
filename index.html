@@ -770,9 +770,10 @@ function fmtDelta(d) { return (d < 0 ? '-' : '+') + Math.abs(d).toFixed(2); }
    ============================================================================= */
 const Store = {
   key: 'regolithRally.v1',
-  era: 3,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost
+  era: 4,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost,
+            // 4 = coupled driveline, real gearboxes, chassis and tyres per car
   data: { best: {}, settings: { muted: false, voice: true, ghost: true, cam: 'chase', name: 'DRIVER' },
-    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 3 },
+    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 4 },
   load() {
     try {
       const raw = window.localStorage.getItem(this.key);
@@ -823,17 +824,21 @@ const Store = {
    Everything about a stage derives from its seed + these parameters.
    ============================================================================= */
 const SURF = { REGOLITH: 0, ICE: 1, METAL: 2, GRAVEL: 3, TARMAC: 4 };
+/* Surfaces: peak grip of an all-round rally tyre (mu) and the rolling resistance coefficient (rr). Packed
+   regolith grips like a dirt road and loose gravel a little less, both rolling heavily; ice grips poorly
+   unless the tyres are studded; deck plating is like a smooth concrete floor. How each surface's grip builds
+   and falls away with slip is in TYRE_SURF. */
 const SURF_INFO = [
-  { name: 'REGOLITH', mu: 0.86, drag: 0.020 },
-  { name: 'ICE',      mu: 0.50, drag: 0.004 },
-  { name: 'METAL',    mu: 0.68, drag: 0.006 },
-  { name: 'GRAVEL',   mu: 0.74, drag: 0.035 },
-  { name: 'TARMAC',   mu: 1.00, drag: 0.004 },
+  { name: 'REGOLITH', mu: 0.74, rr: 0.045 },
+  { name: 'ICE',      mu: 0.3,  rr: 0.012 },
+  { name: 'METAL',    mu: 0.72, rr: 0.012 },
+  { name: 'GRAVEL',   mu: 0.66, rr: 0.035 },
+  { name: 'TARMAC',   mu: 1.05, rr: 0.014 },
 ];
 
-// Every stage runs at standard Earth gravity. Tyre load (gripG) and the suspension reference (suspG)
-// stay separate knobs, so a stage could still be tuned apart if it ever needs to be.
-const EARTH = { gravity: 9.81, clampG: 0, gripG: 9.81, suspG: 9.2, damping: 0.55, hardLanding: 11 };
+// Every stage runs at standard Earth gravity. Tyre load (gripG) stays a separate knob for the speed plans,
+// so a stage could still be tuned apart if it ever needs to be. damping: the dampers' share of critical damping.
+const EARTH = { gravity: 9.81, clampG: 0, gripG: 9.81, damping: 0.55, hardLanding: 11 };
 
 /* Pikes Peak: a 5.6 km cut of the real 20 km hill climb, built from its named sections in order, with a grade per
    section (the real road averages 7.2%). The road turns to gravel after Glen Cove, near the treeline.
@@ -868,12 +873,14 @@ const PIKES_COURSE = [
   { name: 'FINISH LINE', grade: 0.03, path: 'S190' },
 ];
 
+// Road widths (`hw`, half the width) suit real-size cars: 12-16 m on the space stages (wide by Earth standards, so
+// there is room to slide), 9 m on Pikes Peak (the real road's two lanes and gutters).
 const STAGES = [
   {
     id: 'lunar', name: 'Lunar Dust Run', region: 'SELENE HIGHLANDS · STAGE 1', seed: 1969,
     blurb: 'Wide and forgiving regolith roads through the lunar highlands. Crests and kickers throw you into the air: learn to land straight here.',
     length: 3000, ...EARTH,
-    hw: 9.5, ribbon: 110, shoulder: 16, style: 'hills', offDrag: 0.22,
+    hw: 8.0, ribbon: 110, shoulder: 16, style: 'hills', offRR: 0.22,
     corner: { rMin: 50, rMax: 230, angMin: 25, angMax: 100, compound: 0.3 },
     straight: [45, 150], maxHeading: 70,
     roadRough: 0.12, terrainAmp: 24, terrainScale: 520,
@@ -897,7 +904,7 @@ const STAGES = [
     id: 'ice', name: 'Ice Ring Traverse', region: 'KHARON RING B · STAGE 2', seed: 4471,
     blurb: 'A slick causeway of water ice riding a planetary ring. Brake early, flick it in with the handbrake and mind the edges: below is only the gas giant.',
     length: 3100, ...EARTH,
-    hw: 8.5, ribbon: 62, shoulder: 14, style: 'ring', offDrag: 0.10,
+    hw: 7.2, ribbon: 62, shoulder: 14, style: 'ring', offRR: 0.10,
     corner: { rMin: 55, rMax: 250, angMin: 25, angMax: 95, compound: 0.35 },
     straight: [45, 160], maxHeading: 68,
     roadRough: 0.07, terrainAmp: 4, terrainScale: 320,
@@ -921,7 +928,7 @@ const STAGES = [
     id: 'wreck', name: 'Wreckage Belt', region: 'DERELICT STATION FIELD · STAGE 3', seed: 90210,
     blurb: 'Tight and technical on the deck plating of a derelict station. Corners come thick and fast, broken up by barrier chicanes.',
     length: 2600, ...EARTH,
-    hw: 7.5, ribbon: 44, shoulder: 10, style: 'platform', offDrag: 0.18,
+    hw: 6.4, ribbon: 44, shoulder: 10, style: 'platform', offRR: 0.18,
     corner: { rMin: 34, rMax: 150, angMin: 30, angMax: 115, compound: 0.4 },
     straight: [28, 100], maxHeading: 75,
     roadRough: 0.035, terrainAmp: 5, terrainScale: 260,
@@ -945,7 +952,7 @@ const STAGES = [
     id: 'mars', name: 'Red Canyon Sprint', region: 'VALLES MARINERIS · STAGE 4', seed: 1976, letter: 'M',
     blurb: 'Fast gravel roads between rust-red mesas. You can carry real speed here, but the crests bite.',
     length: 3300, ...EARTH,
-    hw: 9.0, ribbon: 100, shoulder: 15, style: 'hills', offDrag: 0.26,
+    hw: 7.6, ribbon: 100, shoulder: 15, style: 'hills', offRR: 0.26,
     corner: { rMin: 60, rMax: 260, angMin: 20, angMax: 90, compound: 0.25 },
     straight: [60, 180], maxHeading: 65,
     roadRough: 0.1, terrainAmp: 34, terrainScale: 600,
@@ -969,7 +976,7 @@ const STAGES = [
     id: 'europa', name: 'Europa Fracture Line', region: 'JOVIAN ICE SHELF · STAGE 5', seed: 1610, letter: 'E',
     blurb: 'A cracked ice shelf under a sky filled with Jupiter. Very little grip: long slides, big jumps and cliffs on both sides.',
     length: 3000, ...EARTH,
-    hw: 9.0, ribbon: 60, shoulder: 14, style: 'ring', offDrag: 0.12,
+    hw: 7.6, ribbon: 60, shoulder: 14, style: 'ring', offRR: 0.12,
     corner: { rMin: 60, rMax: 240, angMin: 25, angMax: 90, compound: 0.3 },
     straight: [55, 170], maxHeading: 66,
     roadRough: 0.08, terrainAmp: 5, terrainScale: 300,
@@ -993,7 +1000,7 @@ const STAGES = [
     id: 'foundry', name: 'Foundry Gauntlet', region: 'IO ORBITAL SMELTER · STAGE 6', seed: 2718, letter: 'F',
     blurb: 'Glowing slag and hairpins on the decks of an orbital smelter. The toughest stage: brake late, turn in hard, stay off the edges.',
     length: 2500, ...EARTH,
-    hw: 7.2, ribbon: 42, shoulder: 9, style: 'platform', offDrag: 0.2,
+    hw: 6.2, ribbon: 42, shoulder: 9, style: 'platform', offRR: 0.2,
     corner: { rMin: 30, rMax: 130, angMin: 35, angMax: 125, compound: 0.45 },
     straight: [26, 90], maxHeading: 80,
     roadRough: 0.03, terrainAmp: 4, terrainScale: 240,
@@ -1017,7 +1024,7 @@ const STAGES = [
     id: 'pikes', name: 'Pikes Peak', region: 'COLORADO, USA · STAGE 7', seed: 1916, letter: 'P',
     blurb: "The Race to the Clouds, cut to 5.6 km: the real hill climb's named sections and the W's switchbacks, from the forest to the 14,115 ft summit. Tarmac low down, gravel above the treeline as when Group B cars raced here, and no guard rails.",
     length: 5600, ...EARTH,
-    hw: 5.5, ribbon: 150, shoulder: 8, style: 'mountain', offDrag: 0.3,
+    hw: 4.6, ribbon: 150, shoulder: 8, style: 'mountain', offRR: 0.3,
     course: PIKES_COURSE, altitude: [9390, 14115], surfLabel: 'TARMAC · GRAVEL', roadLines: true,
     roadRough: 0.05,
     surf: { base: SURF.TARMAC, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
@@ -1068,15 +1075,15 @@ const SETUP_OPTS = {
   damp: { label: 'DAMPERS', names: ['SOFT', 'MEDIUM', 'FIRM'], desc: ['Low bump and rebound damping: wheels follow rough ground, but the body floats and wallows.', 'Balanced bump and rebound.', 'High damping: tied down over crests and quick direction changes; skips over ripples.'] },
   arb: { label: 'ANTI-ROLL BARS', names: ['SOFT', 'MEDIUM', 'STIFF'], desc: ['Soft bars: each wheel moves on its own; more body roll, more grip over rough ground.', 'Balanced roll stiffness.', 'Stiff bars: flat and quick to change direction; wheels lift and skip on rough ground.'] },
   gear: { label: 'FINAL DRIVE', names: ['SHORT', 'STANDARD', 'LONG'], desc: ['Shorter final drive: +11% pull in every gear, -10% top speed. Twisty stages.', 'Balanced.', 'Longer final drive: +10% top speed, -9% pull. Fast open stages.'] },
-  tyre: { label: 'TYRES', names: ['ALL-TERRAIN', 'STUDDED', 'SLICK'], desc: ['Consistent grip on every surface.', '+35% grip on ice; slightly less elsewhere and -15% on tarmac.', '+18% grip on metal plating and +14% on tarmac; poor on ice and gravel.'] },
+  tyre: { label: 'TYRES', names: ['ALL-TERRAIN', 'STUDDED', 'SLICK'], desc: ['Consistent grip on every surface.', 'Tungsten studs: +60% grip on ice; they skate a little on steel (-15%) and tarmac (-14%).', 'Soft slicks: +18% grip on tarmac and +12% on metal plating; poor on anything loose (-20% or worse).'] },
 };
 const TUNE = {
   susp: [{ k: 0.8, c: 1, land: 1.5 }, { k: 1, c: 1, land: 0 }, { k: 1.3, c: 1, land: -1.2 }],
   // damper valving: low-speed bump (b) and rebound (r) multipliers; c scales the damping ratio set by the springs
   damp: [{ b: 0.8, r: 0.82 }, { b: 1, r: 1 }, { b: 1.25, r: 1.2 }],
   arb: [0.55, 1, 1.6],                  // multiplier on both bars (the front/rear split lives in SUSP)
-  gear: [{ v: 0.9 }, { v: 1 }, { v: 1.1 }],           // share of the standard top speed (pull in each gear scales the other way)
-  tyre: [[1, 1, 1, 1, 1], [0.95, 1.35, 0.88, 0.97, 0.85], [0.92, 0.8, 1.18, 0.88, 1.14]],   // per surface: regolith, ice, metal, gravel, tarmac
+  gear: [{ v: 0.9 }, { v: 1 }, { v: 1.1 }],           // the final drive is the car's own divided by v: road speed per rpm scales with v, pull the other way
+  tyre: [[1, 1, 1, 1, 1], [0.97, 1.6, 0.85, 0.98, 0.86], [0.8, 0.7, 1.12, 0.78, 1.18]],   // per surface: regolith, ice, metal, gravel, tarmac
 };
 const RECOMMENDED = [{ susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 1, damp: 1, arb: 0, gear: 0, tyre: 1 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 },
   { susp: 1, damp: 1, arb: 1, gear: 2, tyre: 0 }, { susp: 0, damp: 0, arb: 0, gear: 1, tyre: 1 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 },
@@ -1109,11 +1116,11 @@ const GARAGE = {
     { name: 'PRERUNNER', blurb: 'First-gen Toyota Tacoma inspired. A pickup with a supercharged V6: heavy and draggy, but its torque hauls it out of every hairpin.' },
   ] },
   wheels: { label: 'WHEELS', opts: [
-    { name: 'STANDARD', blurb: 'All-round rally tyres.', mu: [1, 1, 1, 1, 1], kg: 0, steer: 1, drag: 0 },
-    { name: 'CRAWLER', blurb: 'Big knobbly tyres. Dig into loose ground, heavy and slow to turn.', mu: [1.08, 1.04, 1.02, 1.1, 0.96], kg: 24, steer: 0.965, drag: 0.008 },
-    { name: 'SLICK ROLLER', blurb: 'Low-profile slicks. Sharp on tarmac and metal, slide on anything loose.', mu: [0.94, 0.86, 1.06, 0.9, 1.08], kg: -12, steer: 1.035, drag: -0.002 },
-    { name: 'HOVER PADS', blurb: 'Grav pads instead of wheels. Light and nimble, a touch less grip.', mu: [0.97, 0.97, 0.97, 0.97, 0.97], kg: -20, steer: 1.07, drag: 0 },
-    { name: 'SPIKE RIMS', blurb: 'Studded tyres. Bite on ice and metal, a bit of drag, worse on tarmac.', mu: [1.02, 1.25, 1.08, 1.02, 0.94], kg: 8, steer: 1, drag: 0.006 },
+    { name: 'STANDARD', blurb: 'All-round rally tyres.', mu: [1, 1, 1, 1, 1], kg: 0, steer: 1, rr: 0 },
+    { name: 'CRAWLER', blurb: 'Big knobbly tyres. Dig into loose ground, heavy and slow to turn.', mu: [1.08, 1.04, 1.02, 1.1, 0.96], kg: 24, steer: 0.965, rr: 0.012, rScale: 1.04 },
+    { name: 'SLICK ROLLER', blurb: 'Low-profile slicks. Sharp on tarmac and metal, slide on anything loose.', mu: [0.94, 0.86, 1.06, 0.9, 1.08], kg: -12, steer: 1.035, rr: -0.003, rScale: 0.98 },
+    { name: 'HOVER PADS', blurb: 'Grav pads instead of wheels. Light and nimble, a touch less grip.', mu: [0.97, 0.97, 0.97, 0.97, 0.97], kg: -20, steer: 1.07, rr: 0 },
+    { name: 'SPIKE RIMS', blurb: 'Studded tyres. Bite on ice and metal, a bit of drag, worse on tarmac.', mu: [1.02, 1.25, 1.08, 1.02, 0.94], kg: 8, steer: 1, rr: 0.008 },
   ] },
   color: { label: 'PAINT', opts: [
     { name: 'BLAZE', hex: 0xff7a1a }, { name: 'NEBULA', hex: 0x8b5cff }, { name: 'COMET', hex: 0x19c8e6 }, { name: 'SOLAR', hex: 0xffd21f },
@@ -1136,67 +1143,118 @@ function cleanBuild(b) {
   if (b && typeof b === 'object') for (const k of GARAGE_KEYS) { const v = b[k]; if (Number.isInteger(v) && v >= 0 && v < GARAGE[k].opts.length) out[k] = v; }
   return out;
 }
-/* ---- real engines and drivetrains, one per car (indexed like GARAGE.body) ----
-   Figures follow the Group B works cars each body is modelled on (period figures varied with boost
-   and event, so these are representative). `curve` is torque in N·m against rpm at full boost; turbo
-   engines also have lag: torque off boost is `offBoost` of the curve and the turbo spools up over
-   about `lag` seconds (quicker at high revs). `kg` is the homologation weight; the pilot and FUEL_KG
-   of fuel ride on top. `vtop` is the top speed at the redline in sixth with the standard final drive,
-   `steer` the chassis's turn-in (wheelbase and balance), `pitch` the engine note. Drivetrain: `front` is the centre differential's nominal share
-   of torque to the front axle (0 = rear drive); each differential is open, a limited-slip (lsd),
-   viscous or locking type, and passes at most `bias` times the slipping side's torque to the side
-   with grip (an open diff: 1, so both sides get only what the weaker one can take). */
+/* ---- real cars, one per GARAGE.body option (same order) ----
+   Engines, gearboxes, differentials, weights, dimensions and tyres follow the Group B works cars each
+   body is modelled on (period figures varied with boost, event and surface, so these are representative;
+   the README lists the sources). Engine: `curve` is crank torque (N·m) against rpm at full boost; turbo
+   engines have lag (torque off boost is `offBoost` of the curve and the turbo spools over about `lag`
+   seconds, quicker at high revs); `disp` (L) sets the engine braking; `launch` is the rpm the clutch is
+   fully home by on a standing start; `Ie` the engine, flywheel and clutch inertia (kg·m²). Gearbox: each
+   gear's ratio, the final drive and reverse; `shift` is how long a change takes (s). Drivetrain: `front` is
+   the centre differential's nominal share of torque to the front axle (0 = rear drive); each differential
+   is open, limited-slip (lsd), Torsen, viscous or locking (see DIFF_TYPES). Chassis: wheelbase `wb`,
+   `track` front and rear, `wf` the share of weight on the front axle, `cgH` the centre of mass height,
+   `dims` length, width and height, `travel` the wheel travel (all metres). `kg` is the homologation weight;
+   the pilot and FUEL_KG of fuel ride on top. `tyre`: rolling radius r, width w, rim size and the gravel
+   tyre's size; `disc`: brake disc diameters front and rear (mm). `pitch` is the engine note. */
 const FUEL_KG = 45, REF_PILOT_KG = 75;
-const DIFF_TYPES = { open: { bias: 1, name: 'open' }, lsd: { bias: 2.6, name: 'limited-slip' }, viscous: { bias: 3, name: 'viscous' }, locking: { bias: 6, name: 'locking' } };
+const DIFF_TYPES = {
+  open: { name: 'open' },
+  lsd: { name: 'limited-slip', lf: 0.4, lfCoast: 0.25, pre: 80 },     // plated (ZF type): holds up to 40% of its input torque across its sides on power
+  torsen: { name: 'Torsen', lf: 0.5, lfCoast: 0.5, pre: 0 },          // torque-sensing worm gears, bias ratio 3:1
+  viscous: { name: 'viscous', kv: 60, kvCentre: 450 },                  // silicone coupling: torque grows with the speed difference (N·m per rad/s at the wheels)
+  locking: { name: 'locking', lock: true },                             // locked solid
+};
 const CAR_SPECS = [
+  // Lancia Delta S4 (1985-86 works car)
   { engine: '1.8 L inline-4, supercharger + turbo', pitch: 1, hp: 480, hpAt: 8000, nm: 490, nmAt: 5000, redline: 8500, idle: 1000, lag: 0.25, offBoost: 0.8,
     curve: [[1000, 210], [2000, 310], [3000, 400], [4000, 455], [5000, 490], [6000, 480], [7000, 455], [8000, 427], [8500, 385]],
-    kg: 890, vtop: 54, steer: 1, front: 0.3, centre: 'viscous', fdiff: 'open', rdiff: 'lsd' },
+    disp: 1.76, launch: 5000, Ie: 0.1, enginePos: 'mid',
+    box: '5-speed Hewland dog box', gears: [2.92, 2.06, 1.6, 1.29, 1.06], final: 4.36, rev: 3.0, shift: 0.1,
+    kg: 890, front: 0.3, centre: 'viscous', fdiff: 'open', rdiff: 'lsd',
+    wb: 2.44, track: [1.5, 1.52], wf: 0.42, cgH: 0.46, dims: [4.0, 1.8, 1.34], travel: 0.25,
+    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: '215/65 R16 gravel' }, disc: [330, 330] },
+  // Audi Sport quattro S1 E2 (1985-86)
   { engine: '2.1 L inline-5, turbo', pitch: 1.09, hp: 470, hpAt: 8000, nm: 480, nmAt: 5500, redline: 8300, idle: 1000, lag: 0.7, offBoost: 0.5,
     curve: [[1000, 170], [2000, 200], [3000, 250], [4000, 370], [5000, 462], [5500, 480], [6500, 470], [7500, 445], [8000, 418], [8300, 385]],
-    kg: 1090, vtop: 56, steer: 0.94, front: 0.5, centre: 'locking', fdiff: 'open', rdiff: 'locking' },
+    disp: 2.11, launch: 5500, Ie: 0.13, enginePos: 'front',
+    box: '6-speed manual', gears: [3.17, 2.13, 1.6, 1.29, 1.06, 0.89], final: 4.11, rev: 3.5, shift: 0.14,
+    kg: 1090, front: 0.5, centre: 'locking', fdiff: 'open', rdiff: 'locking',
+    wb: 2.224, track: [1.52, 1.5], wf: 0.56, cgH: 0.5, dims: [4.16, 1.86, 1.34], travel: 0.24,
+    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: '215/65 R16 gravel' }, disc: [330, 300] },
+  // Peugeot 205 Turbo 16 Evolution 2 (1985-86)
   { engine: '1.8 L inline-4, turbo', pitch: 1, hp: 450, hpAt: 8000, nm: 460, nmAt: 5000, redline: 8300, idle: 1000, lag: 0.55, offBoost: 0.55,
     curve: [[1000, 150], [2000, 190], [3000, 280], [4000, 405], [5000, 460], [6000, 450], [7000, 425], [8000, 400], [8300, 370]],
-    kg: 910, vtop: 53, steer: 1.06, front: 0.33, centre: 'viscous', fdiff: 'open', rdiff: 'lsd' },
-  // 037 with the Evo 2's 2.1 L taken further: a bigger Abarth Volumex supercharger, and four-wheel drive (a
-  // conversion the real car never had) so it can put the power down like the rest of the field
+    disp: 1.78, launch: 5000, Ie: 0.1, enginePos: 'mid',
+    box: '5-speed manual', gears: [2.92, 2.06, 1.6, 1.29, 1.06], final: 4.2, rev: 3.0, shift: 0.12,
+    kg: 910, front: 0.33, centre: 'viscous', fdiff: 'open', rdiff: 'lsd',
+    wb: 2.54, track: [1.43, 1.43], wf: 0.42, cgH: 0.46, dims: [3.83, 1.7, 1.35], travel: 0.26,
+    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: '215/65 R16 gravel' }, disc: [300, 300] },
+  // Lancia 037 Rally Evolution 2 (1984), with a bigger supercharger and a four-wheel-drive conversion the real car
+  // never had (Q's call: so it can put the power down like the rest of the field)
   { engine: '2.1 L inline-4, supercharged (Evo tune)', pitch: 0.97, hp: 385, hpAt: 8000, nm: 400, nmAt: 5500, redline: 8500, idle: 1000, lag: 0, offBoost: 1,
     curve: [[1000, 228], [2000, 288], [3000, 336], [4000, 372], [5000, 394], [5500, 400], [6500, 386], [7500, 360], [8000, 342], [8500, 314]],
-    kg: 960, vtop: 56, steer: 1.03, front: 0.35, centre: 'viscous', fdiff: 'open', rdiff: 'lsd' },
+    disp: 2.11, launch: 4500, Ie: 0.11, enginePos: 'mid',
+    box: '5-speed ZF', gears: [2.92, 2.06, 1.6, 1.29, 1.06], final: 4.0, rev: 3.0, shift: 0.14,
+    kg: 960, front: 0.35, centre: 'viscous', fdiff: 'open', rdiff: 'lsd',
+    wb: 2.44, track: [1.51, 1.49], wf: 0.42, cgH: 0.44, dims: [3.92, 1.85, 1.25], travel: 0.22,
+    tyre: { r: 0.315, w: 0.225, rim: 16, kg: 20, size: '225/60 R16' }, disc: [300, 300] },
+  // Ford RS200 (1986 works car)
   { engine: '1.8 L inline-4, turbo (Cosworth BDT)', pitch: 1, hp: 450, hpAt: 8000, nm: 420, nmAt: 6000, redline: 8500, idle: 1000, lag: 0.6, offBoost: 0.55,
     curve: [[1000, 140], [2000, 180], [3000, 250], [4000, 350], [5000, 410], [6000, 420], [7000, 412], [8000, 400], [8500, 370]],
-    kg: 1050, vtop: 54, steer: 1, front: 0.37, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous' },
-  // the 6R4's V64V with the twin turbos Austin Rover developed for it (the engine family later went into the
+    disp: 1.8, launch: 5500, Ie: 0.1, enginePos: 'mid',
+    box: '5-speed FF Developments', gears: [2.92, 2.06, 1.6, 1.29, 1.06], final: 4.3, rev: 3.0, shift: 0.12,
+    kg: 1050, front: 0.37, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous',
+    wb: 2.53, track: [1.5, 1.5], wf: 0.46, cgH: 0.46, dims: [4.0, 1.76, 1.32], travel: 0.25,
+    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: '215/65 R16 gravel' }, disc: [300, 300] },
+  // MG Metro 6R4 (1986), with the twin-turbo V64V Austin Rover developed for it (the engine family later went into the
   // Jaguar XJ220): lower redline than the atmospheric version, much more mid-range
   { engine: '3.0 L V6, twin-turbo (V64V)', pitch: 1.2, hp: 480, hpAt: 8000, nm: 450, nmAt: 6000, redline: 8500, idle: 1100, lag: 0.45, offBoost: 0.6,
     curve: [[1000, 200], [2000, 250], [3000, 300], [4000, 370], [5000, 425], [6000, 450], [7000, 440], [8000, 427], [8500, 395]],
-    kg: 1030, vtop: 53, steer: 1.03, front: 0.38, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous' },
+    disp: 2.99, launch: 5000, Ie: 0.12, enginePos: 'mid',
+    box: '5-speed manual', gears: [2.92, 2.06, 1.6, 1.29, 1.06], final: 4.2, rev: 3.0, shift: 0.12,
+    kg: 1030, front: 0.38, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous',
+    wb: 2.41, track: [1.53, 1.52], wf: 0.45, cgH: 0.48, dims: [3.66, 1.89, 1.49], travel: 0.25,
+    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: '215/65 R16 gravel' }, disc: [300, 300] },
   // first-gen Tacoma (1995-2004): its 3.4 L 5VZ-FE V6 (190 hp and 298 N·m stock) built for racing with a
-  // twin-screw supercharger, in a stripped truck with composite panels. The tune is sized so the heavier,
-  // draggier pickup rates in the same class as the Group B cars.
+  // twin-screw supercharger, in a stripped truck with composite panels and long-travel suspension. The tune
+  // is sized so the heavier, draggier pickup rates in the same class as the Group B cars.
   { engine: '3.4 L V6, twin-screw supercharged (built 5VZ-FE)', pitch: 0.9, hp: 515, hpAt: 6800, nm: 600, nmAt: 4500, redline: 7200, idle: 900, lag: 0, offBoost: 1,
     curve: [[900, 312], [2000, 432], [3000, 516], [4000, 582], [4500, 600], [5500, 588], [6500, 554], [6800, 540], [7200, 498]],
-    kg: 1200, vtop: 56, steer: 0.97, front: 0.4, centre: 'viscous', fdiff: 'open', rdiff: 'locking' },
+    disp: 3.38, launch: 3800, Ie: 0.2, enginePos: 'front',
+    box: '5-speed R150F', gears: [3.83, 2.06, 1.34, 1.0, 0.84], final: 4.1, rev: 4.22, shift: 0.22,
+    kg: 1200, front: 0.4, centre: 'viscous', fdiff: 'open', rdiff: 'locking',
+    wb: 2.62, track: [1.62, 1.62], wf: 0.53, cgH: 0.6, dims: [4.71, 1.83, 1.62], travel: 0.32,
+    tyre: { r: 0.385, w: 0.265, rim: 15, kg: 32, size: '265/75 R15' }, disc: [300, 290] },
 ];
+// derived: driveline efficiency (four-wheel drive loses a little more through the extra diffs), clutch capacity, and
+// the revs the engine settles at on a full-throttle standing start while the launch clutch slips
+for (const sp of CAR_SPECS) {
+  sp.eta = sp.front ? 0.88 : 0.91; sp.clutchT = 1.6 * Math.max(...sp.curve.map((c) => c[1])); sp.steer = 1;
+  sp.launchEq = sp.launch;
+  for (let rpm = sp.idle * 1.05; rpm < sp.launch; rpm += 25) if (sp.clutchT * smoothstep(sp.idle * 1.05, sp.launch, rpm) >= engineTorque(sp, rpm)) { sp.launchEq = rpm; break; }
+}
 /* ---- aero: each car's full aerodynamic package, as it ran in the rallies (indexed like GARAGE.body).
    cda: drag area head-on (m²); cdaSide: drag area side-on, blended in by the slip angle, so a sliding car
    scrubs speed; claF / claR: downforce areas at the front and rear axles (m²), which set the aero balance;
-   pitch: how much the front gains (and the rear loses) as the nose dips under braking, per 10 cm of dive.
+   pitch: how much the front gains (and the rear loses) as the nose dips under braking, per 10 cm of dive;
+   ge: the share of the downforce made by the underbody (splitter and diffuser), which grows as the car sits lower
+   and fades away off the ground.
    `parts` lists what the model draws for it, and `text` describes it in the garage. */
 const CAR_AERO = [
-  { cda: 0.85, cdaSide: 2.4, claF: 0.15, claR: 0.32, pitch: 0.06, parts: { skirts: true, strakes: 3, gurney: true },
+  { cda: 0.85, cdaSide: 2.4, claF: 0.15, claR: 0.32, pitch: 0.06, ge: 0.35, parts: { skirts: true, strakes: 3, gurney: true },
     text: 'Front splitter, hatch spoiler with a gurney flap, side skirts, roof intake, rear diffuser' },
-  { cda: 1.0, cdaSide: 2.6, claF: 0.36, claR: 0.46, pitch: 0.1, parts: { canards: 2, strakes: 4 },
+  { cda: 1.0, cdaSide: 2.6, claF: 0.36, claR: 0.46, pitch: 0.1, ge: 0.2, parts: { canards: 2, strakes: 4 },
     text: 'Shovel-nose splitter with dive planes, huge tail wing on endplates, roof-edge spoiler, rear diffuser' },
-  { cda: 0.8, cdaSide: 2.2, claF: 0.12, claR: 0.28, pitch: 0.05, parts: { splitter: [1.9, 0.24, -0.585, 2.21], finsT16: true },
+  { cda: 0.8, cdaSide: 2.2, claF: 0.12, claR: 0.28, pitch: 0.05, ge: 0.3, parts: { splitter: [1.9, 0.24, -0.585, 2.21], finsT16: true },
     text: 'Chin splitter, tailgate spoiler with end fins, rear-brake cooling scoops' },
-  { cda: 0.75, cdaSide: 2.3, claF: 0.15, claR: 0.3, pitch: 0.05, parts: { splitter: [1.86, 0.28, -0.56, 2.3], strakes: 3 },
+  { cda: 0.75, cdaSide: 2.3, claF: 0.15, claR: 0.3, pitch: 0.05, ge: 0.35, parts: { splitter: [1.86, 0.28, -0.56, 2.3], strakes: 3 },
     text: 'Deep chin splitter, rear wing on endplates, rear diffuser' },
-  { cda: 0.85, cdaSide: 2.4, claF: 0.2, claR: 0.42, pitch: 0.07, parts: { canards: 1, strakes: 3 },
+  { cda: 0.85, cdaSide: 2.4, claF: 0.2, claR: 0.42, pitch: 0.07, ge: 0.3, parts: { canards: 1, strakes: 3 },
     text: 'Chin splitter with dive planes, roof-height rear wing with a gurney lip, rear diffuser' },
-  { cda: 0.95, cdaSide: 2.5, claF: 0.22, claR: 0.32, pitch: 0.08, parts: { skirts: true, strakes: 3 },
+  { cda: 0.95, cdaSide: 2.5, claF: 0.22, claR: 0.32, pitch: 0.08, ge: 0.3, parts: { skirts: true, strakes: 3 },
     text: 'Full-width front air dam, flat roof spoiler on stanchions, side skirts, rear diffuser' },
-  { cda: 1.05, cdaSide: 2.9, claF: 0.16, claR: 0.38, pitch: 0.06, parts: { strakes: 3 },
+  { cda: 1.05, cdaSide: 2.9, claF: 0.16, claR: 0.38, pitch: 0.06, ge: 0.15, parts: { strakes: 3 },
     text: 'Steel bumper with a splitter lip, cab-roof spoiler, wing on the bed cage, bed diffuser' },
 ];
 const aeroText = (a) => `${a.text}. Drag ${a.cda.toFixed(2)} m², downforce ${(a.claF + a.claR).toFixed(2)} m² (${Math.round(a.claF / (a.claF + a.claR) * 100)}% front)`;
@@ -1211,49 +1269,168 @@ function drivetrainText(spec) {
   if (!spec.front) return `Rear-wheel drive, ${d(spec.rdiff)} rear differential`;
   return `Four-wheel drive, ${Math.round(spec.front * 100)}/${Math.round(100 - spec.front * 100)} front/rear through a ${d(spec.centre)} centre differential; ${d(spec.fdiff)} front, ${d(spec.rdiff)} rear`;
 }
+/* ---- each car's real chassis, shared by the physics and the model ----
+   The body builders draw every car in one model space: wheel centres at x ±1.02, z +1.38 / −1.30 and y −0.44,
+   over a ground line at y −0.87. MODEL_BOX holds each builder's roof height and nose and tail z there.
+   carGeometry maps that space onto the real car: x by the tracks, y by the real height (over the real centre
+   of mass), z by the wheelbase between the wheel arches and by the real length beyond them. The physics
+   uses the same numbers: wheel positions, tyre radius, ride height, springs, brakes, inertia and hull. */
+const MODEL = { FZ: 1.38, RZ: -1.30, X: 1.02, GY: -0.87, ARCH: 0.55, archR: 0.52 };
+const MODEL_BOX = [[0.75, 2.41, -2.27], [0.65, 2.66, -2.3], [0.76, 2.285, -2.15], [0.44, 2.375, -2.25], [0.67, 2.25, -2.24], [0.8, 2.34, -2.335], [0.88, 2.65, -2.68]];
+const MODEL_HULL = [[0.95, -0.08, 1.9], [-0.95, -0.08, 1.9], [0.95, -0.08, -1.9], [-0.95, -0.08, -1.9],   // roof corners (y relative to the roof)
+  [0.95, -0.32, 2.15], [-0.95, -0.32, 2.15], [0.95, -0.32, -2.0], [-0.95, -0.32, -2.0]];
+function carGeometry(body, wh, mass) {
+  const sp = CAR_SPECS[body], box = MODEL_BOX[body], g = 9.81;
+  const r = sp.tyre.r * ((wh && wh.rScale) || 1), wb = sp.wb, a = wb * (1 - sp.wf), b = wb * sp.wf, h = sp.cgH;
+  const travel = sp.travel, rest = travel + 0.03, sag = g / (TAU * SUSP.freq) ** 2;
+  const tF = sp.track[0] / 2, tR = sp.track[1] / 2;
+  // model space → car space (origin at the centre of mass)
+  const sx = (tF + tR) / 2 / MODEL.X, sy = sp.dims[2] / (box[0] - MODEL.GY), sz = wb / (MODEL.FZ - MODEL.RZ);
+  const zf = MODEL.FZ + MODEL.ARCH, zr = MODEL.RZ - MODEL.ARCH;
+  const so = clamp((sp.dims[0] - (zf - zr) * sz) / ((box[1] - zf) + (zr - box[2])), 0.55, 1.1);
+  const map = {
+    sx, sy, sz, so,
+    x: (x) => x * sx,
+    y: (y) => (y - MODEL.GY) * sy - h,
+    z: (z) => z > zf ? a + (zf - MODEL.FZ) * sz + (z - zf) * so : z < zr ? -b + (zr - MODEL.RZ) * sz + (z - zr) * so : a + (z - MODEL.FZ) * sz,
+    zs: (z) => z > zf || z < zr ? so : sz,                       // local z scale (for normals)
+    WY: r / sy + MODEL.GY,                                       // model y of the real wheel centre at ride height
+    AR: (r + 0.075) / (MODEL.archR * (sy + sz) / 2),             // wheel arch size to suit the real tyre
+  };
+  const m = mass, Iy = (sp.enginePos === 'front' ? 1.05 : 0.9) * m * a * b;
+  const bias = clamp(sp.wf + 0.6 * h / wb, 0.5, 0.72), Btot = 1.25 * m * g * 1.1 * r;
+  const N0F = m * g * sp.wf / 2, N0R = m * g * (1 - sp.wf) / 2, w2 = (TAU * SUSP.freq) ** 2;
+  const pt = (p) => [map.x(p[0]), map.y(p[1]), map.z(p[2])];
+  return {
+    r, wb, a, b, rest, travel, sag, mountY: r - h + rest - sag, rcH: 0.1, map,
+    wheels: [{ x: tF, z: a, front: true }, { x: -tF, z: a, front: true }, { x: tR, z: -b, front: false }, { x: -tR, z: -b, front: false }],
+    inertia: new THREE.Vector3(0.95 * Iy, Iy, m * (0.1 * sp.dims[1] ** 2 + 0.045 * sp.dims[2] ** 2)),
+    Iw: 0.65 * sp.tyre.kg * r * r, N0: [N0F, N0F, N0R, N0R], kS: [N0F / g * w2, N0F / g * w2, N0R / g * w2, N0R / g * w2],
+    brakeT: [Btot * bias / 2, Btot * (1 - bias) / 2], hbT: 2.4 * 1.1 * N0R * r,
+    hull: MODEL_HULL.map((p) => pt(p[1] > -0.2 ? [p[0], box[0] + p[1], p[2]] : p)).concat([pt([0, box[0] + 0.2, -0.2])]),
+    spheres: [[0, 0.1, 1.05], [0, 0.1, -1.05]].map((p) => pt(p).concat(1.15 * (sx + sz) / 2)),
+  };
+}
 function tuneFor(setup, build) {
-  const su = TUNE.susp[setup.susp], dp = TUNE.damp[setup.damp] || TUNE.damp[1], g = TUNE.gear[setup.gear];
+  const su = TUNE.susp[setup.susp], dp = TUNE.damp[setup.damp] || TUNE.damp[1], gr = TUNE.gear[setup.gear];
   build = cleanBuild(build || DEFAULT_BUILD);
   const sp = CAR_SPECS[build.body] || CAR_SPECS[0], Wh = GARAGE.wheels.opts[build.wheels], aero = CAR_AERO[build.body] || CAR_AERO[0];
   const mass = sp.kg + REF_PILOT_KG + FUEL_KG + Wh.kg, dm = mass - (CAR_SPECS[0].kg + REF_PILOT_KG + FUEL_KG);
-  return { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land - dm * 0.003, v: g.v,
-    mu: TUNE.tyre[setup.tyre].map((m, i) => m * Wh.mu[i]), steer: sp.steer * Wh.steer, drag: Wh.drag,
-    dmg: clamp(1 - dm * 0.0012, 0.7, 1.3), spec: sp, mass, aero, cda: aero.cda, cla: aero.claF + aero.claR };
+  const tn = { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land - dm * 0.003, v: gr.v,
+    gears: sp.gears, final: sp.final / gr.v,
+    mu: TUNE.tyre[setup.tyre].map((m, i) => m * Wh.mu[i]), steer: sp.steer * Wh.steer, rr: Wh.rr,
+    dmg: clamp(1 - dm * 0.0012, 0.7, 1.3), spec: sp, mass, aero, cda: aero.cda, cla: aero.claF + aero.claR,
+    geo: carGeometry(build.body, Wh, mass) };
+  tn.r = tn.geo.r;
+  // automatic upshift points: where the next gear already pulls harder (or near the limiter); downshift below the torque band
+  tn.upRpm = sp.gears.map((gq, k) => {
+    if (k === sp.gears.length - 1) return Infinity;
+    const q = sp.gears[k + 1] / gq;
+    for (let rpm = sp.redline * 0.8; rpm < sp.redline * 0.985; rpm += 20) if (engineTorque(sp, rpm * q) * q >= engineTorque(sp, rpm)) return rpm;
+    return sp.redline * 0.985;
+  });
+  tn.downRpm = Math.max(sp.nmAt * 0.72, sp.redline * 0.42);
+  tn.vmax = topSpeed(tn);
+  return tn;
+}
+/** Pull at the driven wheels (N) at full throttle and full boost in gear k (0-based) at speed v: 0 past the limiter;
+ *  below the launch revs in first the clutch slips, so the engine pulls from its launch revs. */
+function gearPull(tn, k, v) {
+  const sp = tn.spec, G = tn.gears[k] * tn.final, rpmW = v / tn.r * G * 60 / TAU;
+  if (rpmW >= sp.redline) return 0;
+  return engineTorque(sp, Math.max(rpmW, k === 0 ? sp.launchEq : sp.idle)) * sp.eta * G / tn.r;
+}
+const rollingRes = (tn, surf) => SURF_INFO[surf].rr + tn.rr;
+/** Top speed on flat tarmac: where the best gear's pull meets drag and rolling resistance (or the limiter in top). */
+function topSpeed(tn) {
+  const m = tn.mass, crr = rollingRes(tn, SURF.TARMAC);
+  let best = 0;
+  for (let v = 15; v < 120; v += 0.25) {
+    let f = 0;
+    for (let k = 0; k < tn.gears.length; k++) f = Math.max(f, gearPull(tn, k, v));
+    const q = 0.5 * AIR_RHO * v * v;
+    if (f >= q * tn.cda + crr * (m * 9.81 + q * tn.cla)) best = v;
+  }
+  return best;
+}
+/** Full-throttle straight-line run on flat ground (surface `surf`): the clutch slips off the line until the
+ *  wheels catch up with the launch revs, gears change at the auto box's shift points (no drive during the
+ *  shift), and the pull is limited by the driven tyres' grip with the weight transfer onto them (load
+ *  sensitive, as in stepVehicle) and by how the centre differential splits it. Rotating parts add to the
+ *  inertia. Feeds the PI and, through refAccel, the AI's speed plan and the target times. */
+function straightRun(tn, surf, tMax) {
+  const sp = tn.spec, geo = tn.geo, m = tn.mass, g = 9.81, r = tn.r, n = tn.gears.length, ae = tn.aero;
+  const mu = SURF_INFO[surf].mu * tn.mu[surf], crr = rollingRes(tn, surf), h = sp.cgH, wb = sp.wb;
+  const grip = (N, N0) => N > 0 ? 2 * mu * N0 * Math.pow(N / (2 * N0), 0.85) : 0;
+  const s = sp.front, cen = DIFF_TYPES[sp.centre];
+  let v = 0, t = 0, k = 0, shift = 0, acc = 0, x = 0, t100 = 99, t160 = 99, x400 = 0;
+  const dt = 0.005;
+  while (t < (tMax || 60)) {
+    const q = 0.5 * AIR_RHO * v * v, dw = m * acc * h / wb;
+    const gF = grip(m * g * sp.wf - dw + q * ae.claF, geo.N0[0]), gR = grip(m * g * (1 - sp.wf) + dw + q * ae.claR, geo.N0[2]);
+    let trac = gR;
+    if (s) {
+      const open = Math.min(gF / s, gR / (1 - s)), full = gF + gR;
+      trac = cen.lock ? full : cen.kv ? full * 0.97 : cen.lf ? Math.min(full, open * (1 + 2 * cen.lf)) : open;
+    }
+    let Fd = 0, rot = 4 * geo.Iw;
+    if (shift > 0) shift -= dt;
+    else {
+      const G = tn.gears[k] * tn.final, rpmW = v / r * G * 60 / TAU;
+      if (k < n - 1 && rpmW >= tn.upRpm[k]) { k++; shift = sp.shift; }
+      else {
+        Fd = gearPull(tn, k, v);
+        if (rpmW >= sp.launchEq) rot += sp.Ie * G * G;
+      }
+    }
+    const F = Math.min(Fd, trac), res = q * tn.cda + crr * (m * g + q * tn.cla);
+    acc = (F - res) / (m + rot / (r * r));
+    v = Math.max(0, v + acc * dt); x += v * dt; t += dt;
+    if (t100 > 98 && v >= 100 / 3.6) t100 = t;
+    if (t160 > 98 && v >= 160 / 3.6) t160 = t;
+    if (!x400 && x >= 402) x400 = t;
+  }
+  return { t100, t160, v, x400 };
+}
+/** Steady cornering limit (g) on surface `surf` at speed v: each axle's pair of tyres with the lateral weight
+ *  transfer across it (load sensitive, so a wide, low car keeps more grip) and the downforce at that speed. */
+function corneringG(tn, surf, v) {
+  const sp = tn.spec, geo = tn.geo, m = tn.mass, g = 9.81, mu = SURF_INFO[surf].mu * tn.mu[surf], q = 0.5 * AIR_RHO * v * v;
+  const pair = (N, N0, dN) => mu * N0 * (Math.pow(Math.max(0, N / 2 + dN) / N0, 0.85) + Math.pow(Math.max(0, N / 2 - dN) / N0, 0.85));
+  let ay = mu * g;
+  for (let it = 0; it < 20; it++) {
+    const NF = m * g * sp.wf + q * tn.aero.claF, NR = m * g * (1 - sp.wf) + q * tn.aero.claR;
+    const dF = m * ay * sp.wf * (sp.cgH - geo.rcH) / sp.track[0], dR = m * ay * (1 - sp.wf) * (sp.cgH - geo.rcH) / sp.track[1];
+    // the axle that saturates first sets the limit (it carries its share of the cornering force)
+    const lim = Math.min(pair(NF, geo.N0[0], dF) / (m * sp.wf), pair(NR, geo.N0[2], dR) / (m * (1 - sp.wf)));
+    ay = 0.5 * ay + 0.5 * lim;
+  }
+  return ay / g;
 }
 
 /* ---- performance index: six ratings (0-10) from what the build's physics give it, and a PI (100-999)
-   with a class letter, like a racing game's car classes. Straight-line figures come from a full-throttle
-   run on regolith with the drivetrain's traction limit (all four wheels, or the rear pair's share on a
-   rear-drive car); cornering and braking from the tyres' grip with the downforce at speed. ---- */
+   with a class letter, like a racing game's car classes. Straight-line figures come from straightRun on
+   tarmac (where the real cars' figures were measured); cornering from corneringG on gravel, braking from the
+   tyres' grip with the downforce; offroad from the grip on loose surfaces and the drivetrain. ---- */
 const PI_CLASSES = [[998, 'X', '#5ef08c'], [900, 'S2', '#3d8bff'], [800, 'S1', '#b06bff'], [700, 'A', '#ff4d5e'], [600, 'B', '#ff8a3a'], [500, 'C', '#ffd23d'], [0, 'D', '#58f0ff']];
 function piClass(pi) { for (const c of PI_CLASSES) if (pi > c[0] || c[0] === 0) return { cls: c[1], color: c[2] }; return { cls: 'D', color: '#58f0ff' }; }
+const PI_SCALE = { speed: [170, 250], t160: [11, 6], t100: [5.5, 2.8], corner: [0.62, 0.86], brake: [64, 50], offroad: [0.5, 0.78] };
 function perfRatings(build, setup) {
   const tn = tuneFor(setup || DEFAULT_SETUP, build), sp = tn.spec, m = tn.mass, gG = 9.81;
-  const df = (v) => 0.5 * AIR_RHO * tn.cla * v * v;
+  const run = straightRun(tn, SURF.TARMAC, 40);
   const surfMu = (i) => SURF_INFO[i].mu * tn.mu[i];
-  const muR = surfMu(0), driven = sp.front ? 0.95 : 0.6;     // share of the car's weight on driven wheels under power (with transfer)
-  let v = 0, t = 0, t100 = 60, t160 = 60, vTopReach = 0;
-  const dt = 0.01, vGear = sp.vtop * tn.v;
-  while (t < 60) {
-    let f = 0;
-    for (let g = 1; g <= GEARBOX.frac.length; g++) f = Math.max(f, wheelForce(sp, tn.v, g, v));
-    f = Math.min(f, muR * driven * (m * gG + df(v)));
-    const a = (f - 0.5 * AIR_RHO * tn.cda * v * v - m * (SURF_INFO[0].drag + tn.drag) * v) / m;
-    if (a < 0.02 || v >= vGear - 0.05) break;
-    v += a * dt; t += dt;
-    if (t100 === 60 && v >= 100 / 3.6) t100 = t;
-    if (t160 === 60 && v >= 160 / 3.6) t160 = t;
-  }
-  vTopReach = Math.min(v, vGear) * 3.6;
-  const latG = (vv, i) => surfMu(i) * (1 + df(vv) / (m * gG));
-  const handling = (latG(15, 0) * 0.5 + latG(30, 0) * 0.5) * Math.sqrt(tn.steer);
-  const brakeDist = (100 / 3.6) ** 2 / (2 * gG * 0.92 * surfMu(0) * (1 + df(18) / (m * gG)));
-  const offroad = ((surfMu(3) + surfMu(0) + surfMu(1)) / 3) * (sp.front ? 1 : 0.86);
-  const r = (x, a, b) => clamp((x - a) / (b - a) * 10, 0, 10);
+  const df = (v) => 0.5 * AIR_RHO * tn.cla * v * v;
+  // cornering on gravel at a medium and a fast corner's speed; turn-in (yaw inertia against the wheelbase) sharpens it
+  const agility = Math.sqrt(m * tn.geo.a * tn.geo.b / tn.geo.inertia.y);
+  const corner = (corneringG(tn, SURF.GRAVEL, 15) * 0.5 + corneringG(tn, SURF.GRAVEL, 30) * 0.5) * Math.sqrt(tn.steer) * agility;
+  const brakeDist = (100 / 3.6) ** 2 / (2 * gG * 0.92 * surfMu(SURF.GRAVEL) * (1 + df(18) / (m * gG)));
+  const offroad = ((surfMu(SURF.GRAVEL) + surfMu(SURF.REGOLITH) + surfMu(SURF.ICE)) / 3) * (sp.front ? 1 : 0.86);
+  const vTop = Math.min(run.v, tn.vmax) * 3.6;
+  const r = (x, [a, b]) => clamp((x - a) / (b - a) * 10, 0, 10);
   const R = {
-    speed: r(vTopReach, 150, 230), accel: r(t160, 13, 5), launch: r(t100, 7.5, 3),
-    handling: r(handling, 0.7, 1.05), braking: r(brakeDist, 56, 44), offroad: r(offroad, 0.55, 0.9),
-    t100, t160, vmax: vTopReach, brakeDist, mass: m,
+    speed: r(vTop, PI_SCALE.speed), accel: r(run.t160, PI_SCALE.t160), launch: r(run.t100, PI_SCALE.t100),
+    handling: r(corner, PI_SCALE.corner), braking: r(brakeDist, PI_SCALE.brake), offroad: r(offroad, PI_SCALE.offroad),
+    t100: run.t100, t160: run.t160, vmax: vTop, brakeDist, mass: m, corner,
   };
   const score = R.speed * 0.16 + R.accel * 0.22 + R.launch * 0.14 + R.handling * 0.24 + R.braking * 0.12 + R.offroad * 0.12;
   R.pi = Math.round(clamp(200 + score * 84, 100, 999));
@@ -1357,6 +1534,37 @@ function mergeStatic(group) {
     const m = new THREE.Mesh(geo, mat);
     m.castShadow = list.some((e) => e.cast); m.receiveShadow = true;
     group.add(m);
+  }
+}
+/**
+ * Map a car shell drawn in the shared model space onto the real car (see carGeometry): merged meshes have their
+ * vertices moved through the map (normals follow the local stretch); kept meshes and groups move to their mapped
+ * position and stretch along the world axes; the pilot `P` only scales uniformly so the driver keeps his shape.
+ */
+function warpShell(shell, map, P) {
+  const v = new THREE.Vector3(), e = new THREE.Vector3(), q = new THREE.Quaternion();
+  for (const o of shell.children.slice()) {
+    o.updateMatrix();
+    if (o.isMesh && !o.userData.keep) {
+      const geo = o.geometry.clone(); geo.applyMatrix4(o.matrix);
+      o.geometry.dispose(); o.geometry = geo;
+      o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1);
+      const pos = geo.attributes.position, nor = geo.attributes.normal;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), zs = map.zs(z);
+        pos.setXYZ(i, map.x(x), map.y(y), map.z(z));
+        if (nor) { v.set(nor.getX(i) / map.sx, nor.getY(i) / map.sy, nor.getZ(i) / zs).normalize(); nor.setXYZ(i, v.x, v.y, v.z); }
+      }
+      pos.needsUpdate = true; if (nor) nor.needsUpdate = true;
+      geo.computeBoundingSphere(); geo.computeBoundingBox();
+      continue;
+    }
+    const zs = map.zs(o.position.z);
+    o.position.set(map.x(o.position.x), map.y(o.position.y), map.z(o.position.z));
+    if (o === P) { o.scale.multiplyScalar(Math.cbrt(map.sx * map.sy * zs)); continue; }
+    q.copy(o.quaternion);                                   // each local axis stretches by how much it points along x, y and z
+    const f = (ax) => { e.copy(ax).applyQuaternion(q); return Math.hypot(e.x * map.sx, e.y * map.sy, e.z * zs); };
+    o.scale.x *= f(new THREE.Vector3(1, 0, 0)); o.scale.y *= f(new THREE.Vector3(0, 1, 0)); o.scale.z *= f(new THREE.Vector3(0, 0, 1));
   }
 }
 /** Small canvas helper for procedural textures. */
@@ -2060,7 +2268,7 @@ function generateTrack(def) {
 const CHICANE = {
   over: 1.0, ext: 3.2,           // a row runs from `ext` m past its road edge to `over` m past the centreline
   gapL: 32, lead: 48, tail: 30,  // m between rows; the AI line eases in and out over lead / tail
-  clear: 1.75,                   // AI line: car centre this far outside a row's tip
+  clear: 1.5,                    // AI line: car centre this far outside a row's tip (half a real car's width and a margin)
   blockW: 1.2, blockH: 0.9, blockD: 0.6, mass: 300, penalty: 5,
 };
 /** Put a chicane in (or just around) each hazard zone, on the straightest stretch whose run-up is clear of crests, gates and craters. */
@@ -2138,25 +2346,30 @@ function buildGrid() {
 }
 function gridKey(ix, iz) { return (ix + 4096) * 8192 + (iz + 4096); }
 
-/** Full-throttle acceleration (m/s², before grip and slope) of the reference car (the default
- *  TWINCHARGER on the standard final drive, best gear, full boost) at speed v. Target times and the
- *  AI's speed plan use it, so they are the same whichever car is in the garage. */
-let _refAcc = null;
-function refAccel(v) {
+/** Full-throttle acceleration (m/s², before grip and slope) of the reference car (the default TWINCHARGER on
+ *  the standard final drive, best gear, full boost) at speed v on surface `surf`: its engine through its real
+ *  gears (with the rotating parts' inertia), less drag and rolling resistance. Target times and the AI's speed
+ *  plan use it, so they are the same whichever car is in the garage. */
+let _refAcc = null, _refTune = null;
+const refTune = () => _refTune || (_refTune = tuneFor(DEFAULT_SETUP, DEFAULT_BUILD));
+function refAccel(v, surf) {
   if (!_refAcc) {
-    const sp = CAR_SPECS[0], m = sp.kg + REF_PILOT_KG + FUEL_KG;
+    const tn = refTune(), m = tn.mass;
     _refAcc = new Float32Array(141);
     for (let k = 0; k <= 140; k++) {
-      const u = k * 0.5;
-      let f = 0;
-      for (let g = 1; g <= GEARBOX.frac.length; g++) f = Math.max(f, wheelForce(sp, 1, g, u));
-      _refAcc[k] = (f - 0.5 * AIR_RHO * CAR_AERO[0].cda * u * u) / m;
+      const u = k * 0.5, q = 0.5 * AIR_RHO * u * u;
+      let best = 0;
+      for (let g = 0; g < tn.gears.length; g++) {
+        const f = gearPull(tn, g, u), G = tn.gears[g] * tn.final;
+        if (f > 0) best = Math.max(best, (f - q * tn.cda) / (m + (4 * tn.geo.Iw + tn.spec.Ie * G * G) / (tn.r * tn.r)));
+      }
+      _refAcc[k] = best;
     }
   }
   const t = clamp(v / 0.5, 0, 140), k = Math.min(139, Math.floor(t));
-  return _refAcc[k] + (_refAcc[k + 1] - _refAcc[k]) * (t - k);
+  return _refAcc[k] + (_refAcc[k + 1] - _refAcc[k]) * (t - k) - SURF_INFO[surf].rr * 9.81;
 }
-const REF_VMAX = () => CAR_SPECS[0].vtop;
+const REF_VMAX = () => refTune().vmax;
 /** Lap-time style speed profile (curvature-limited, then accel/brake passes). Drives the AI and target times. */
 function computeSpeedProfile() {
   const N = TR.N, def = TR.def;
@@ -2187,7 +2400,7 @@ function computeSpeedProfile() {
   v[0] = 0;
   for (let i = 1; i < N; i++) {
     const mu = SURF_INFO[TR.surf[i]].mu;
-    const a = Math.max(0.4, Math.min(refAccel(v[i - 1]), mu * def.gripG * 0.9) - def.gravity * grade(i));
+    const a = Math.max(0.4, Math.min(refAccel(v[i - 1], TR.surf[i]), mu * def.gripG * 0.9) - def.gravity * grade(i));
     v[i] = Math.min(v[i], Math.sqrt(v[i - 1] * v[i - 1] + 2 * a * DS));
   }
   const brakeAt = (i) => Math.max(1, SURF_INFO[TR.surf[i]].mu * def.gripG * 0.75 + def.gravity * grade(i));   // uphill helps the brakes
@@ -2279,7 +2492,7 @@ function computeLineProfile() {
   for (let i = 0; i < N; i++) brake[i] = Math.max(1, SURF_INFO[TR.surf[i]].mu * def.gripG * 0.75 + def.gravity * grade(i));
   v[0] = 0;
   for (let i = 1; i < N; i++) {
-    const a = Math.max(0.4, Math.min(refAccel(v[i - 1]), SURF_INFO[TR.surf[i]].mu * def.gripG * 0.9) - def.gravity * grade(i));
+    const a = Math.max(0.4, Math.min(refAccel(v[i - 1], TR.surf[i]), SURF_INFO[TR.surf[i]].mu * def.gripG * 0.9) - def.gravity * grade(i));
     v[i] = Math.min(v[i], Math.sqrt(v[i - 1] * v[i - 1] + 2 * a * seg[i]));
   }
   for (let i = N - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * brake[i] * seg[i + 1]));
@@ -2422,7 +2635,7 @@ function sampleGround(x, z, hint, out) {
   const info = SURF_INFO[sidx];
   out.surf = sidx;
   out.mu = info.mu * (out.road ? 1 : 0.85);
-  out.drag = info.drag + (out.road ? 0 : TR.def.offDrag);
+  out.rr = info.rr + (out.road ? 0 : TR.def.offRR);        // soft verges roll heavily
   return out;
 }
 
@@ -3498,45 +3711,47 @@ function updateScenery(dt, t) {
 
 /* =============================================================================
    10. VEHICLE — model & physics
-   Physics: a single rigid body (mass + diagonal inertia) integrated at 120 Hz.
-   Four raycast suspension struts (spring + damper + bump stop + anti-roll bars)
-   push along the body's up axis. Each grounded tyre produces a longitudinal
-   force (drive / brake / handbrake / rolling drag) and a lateral force that
-   cancels sideslip, both clipped by a friction ellipse whose size is
-   surface μ × load. Handbrake cuts rear lateral grip (drifts); sliding lowers
-   grip further (kinetic friction). Every stage runs at Earth gravity (EARTH);
-   tyre load (gripG) and the optional grav-clamps (clampG) are separate knobs.
-   In the air the player can pitch/yaw, and a PD controller gently levels the
-   car to the ground below.
+   One rigid body integrated at 120 Hz. Each car brings its real chassis: weight and weight split,
+   centre-of-mass height, wheelbase and tracks (which also set its inertia), tyre size, gear ratios,
+   differentials and engine. Four raycast coil-overs (spring, two-stage damper, bump stop, anti-roll
+   bars) sit at the real wheel positions and push along the body's up axis.
+   The powertrain is solved as one coupled system every step (see drivelineStep): engine → clutch →
+   gearbox → centre, front and rear differentials → four wheels → tyres. Engine revs, clutch slip,
+   each wheel's spin and the torque each differential moves across all come out of one implicit
+   solve, so wheelspin, lock-ups, launch slip, engine braking and torque transfer emerge from the
+   parts instead of being scripted. Each tyre turns its slip ratio and slip angle into longitudinal and
+   lateral force through one combined-slip curve per surface (TYRE_SURF), scaled by the surface's grip
+   and the tyre's load. Brakes are torques at the wheels (ABS works on each wheel's slip, traction
+   control cuts the engine on driven-wheel slip). Aero drag and downforce act at each axle, in the air
+   too. In the air the player can pitch/yaw, and a PD controller gently levels the car to the ground.
    ============================================================================= */
 const CAR = {
-  mass: 950,
-  inertia: new THREE.Vector3(2100, 2500, 950),         // pitch (x), yaw (y), roll (z) — body space
-  wheels: [
-    { x: 1.02, z: 1.38, front: true }, { x: -1.02, z: 1.38, front: true },     // +x is the car's left
-    { x: 1.02, z: -1.30, front: false }, { x: -1.02, z: -1.30, front: false },
+  mass: 1010,
+  inertia: new THREE.Vector3(1250, 1330, 430),         // pitch (x), yaw (y), roll (z) — body space; each car's own (setCarTune)
+  wheels: [                                            // +x is the car's left; the origin is the centre of mass
+    { x: 0.75, z: 1.39, front: true }, { x: -0.75, z: 1.39, front: true },
+    { x: 0.76, z: -1.05, front: false }, { x: -0.76, z: -1.05, front: false },
   ],
-  mountY: -0.12, rest: 0.52, travel: 0.40, radius: 0.43,
-  vmax: 54, brakeCap: 1.0, brakeBias: 0.61, reverseVmax: 12, reverseAccel: 7,   // vmax, mass and inertia follow the chosen car (setCarTune)
-  maxSteer: 0.55, steerFalloff: 0.06, slipPeak: 0.13,
-  hull: [[0.95, 0.55, 1.9], [-0.95, 0.55, 1.9], [0.95, 0.55, -1.9], [-0.95, 0.55, -1.9],
-         [0.95, -0.32, 2.15], [-0.95, -0.32, 2.15], [0.95, -0.32, -2.0], [-0.95, -0.32, -2.0], [0, 0.95, -0.2]],
-  spheres: [[0, 0.1, 1.05, 1.15], [0, 0.1, -1.05, 1.15]],
+  wb: 2.44, mountY: 0.12, rest: 0.27, travel: 0.24, radius: 0.32, rcH: 0.1, Iw: 1.2,
+  kS: [24000, 24000, 32000, 32000], N0: [2100, 2100, 2850, 2850], brakeT: [2300, 1450], hbT: 2500,
+  vmax: 60, reverseVmax: 12, maxSteer: 0.55, steerFalloff: 0.06,
+  hull: [], spheres: [],
 };
 const PHYS_DT = 1 / 120;
-const BASE_INERTIA = CAR.inertia.clone(), BASE_MASS = CAR.mass;
 
 /* ---- suspension: coil-over per corner ----
-   Linear coil spring, a two-stage damper (separate bump and rebound valving, each with a
-   low-speed slope and a softer high-speed blow-off above its knee), a progressive urethane
-   bump stop over the last few cm of travel, then a hard stop. Anti-roll bars are stiffer at
-   the front than the rear, which keeps the car stable (mild understeer) on the limit. */
+   Linear coil spring (rate set per axle from the corner's weight, so every car rides at the same natural
+   frequency on the same setting), a two-stage damper (separate bump and rebound valving, each with a
+   low-speed slope and a softer high-speed blow-off above its knee), a progressive urethane bump stop over
+   the last few cm of travel, then a hard stop. Anti-roll bars are stiffer at the front than the rear,
+   which keeps the car stable (mild understeer) on the limit. */
 const SUSP = {
+  freq: 1.6,                           // natural frequency of each corner on the medium springs (Hz): a gravel rally set-up
   bump: 0.85, rebound: 1.2,            // share of critical damping, bump vs rebound (rebound is the firmer side, as on real dampers)
-  bumpKnee: 0.7, bumpHi: 0.4,         // m/s knee and high-speed slope (blow-off) in bump
+  bumpKnee: 0.7, bumpHi: 0.4,          // m/s knee and high-speed slope (blow-off) in bump
   rebKnee: 0.5, rebHi: 0.35,           // and in rebound
-  stopLen: 0.06, stopK: 3, stopC: 0.5, // bump stop: engages this far before full travel; force ≈ k·stopK·x²/stopLen, plus hydraulic damping
-  arbF: 1.1, arbR: 0.7,                // anti-roll bar rate as a share of the spring rate (front, rear)
+  stopLen: 0.05, stopK: 3, stopC: 0.5, // bump stop: engages this far before full travel; force ≈ k·stopK·x²/stopLen, plus hydraulic damping
+  arbF: 1.1, arbR: 0.7,                // anti-roll bar rate as a share of the axle's spring rate (front, rear)
 };
 function damperForce(v, cB, cR) {      // v > 0: compressing (bump); v < 0: extending (rebound)
   if (v >= 0) return cB * (v < SUSP.bumpKnee ? v : SUSP.bumpKnee + (v - SUSP.bumpKnee) * SUSP.bumpHi);
@@ -3544,55 +3759,84 @@ function damperForce(v, cB, cR) {      // v > 0: compressing (bump); v < 0: exte
   return -cR * (a < SUSP.rebKnee ? a : SUSP.rebKnee + (a - SUSP.rebKnee) * SUSP.rebHi);
 }
 
-/* ---- transmission: six-speed sequential box behind each car's real engine ----
-   Each gear's ratio is expressed as the share of the car's top speed it reaches at the redline, so the
-   overall ratio (wheel to crank) of gear g is redline·r / vTop(g) and the pull at the wheels is
-   engine torque × that ratio × driveline efficiency / tyre radius = T(rpm)·η·ω_redline / vTop(g).
-   Lifting gives engine braking; the limiter cuts fuel at the redline. In first the clutch slips on
-   a standing start, so the engine pulls from LAUNCH_X of the redline. The AI (and the automatic
-   setting) upshifts near the redline and downshifts as the revs drop. */
-const GEARBOX = {
-  frac: [0.26, 0.41, 0.555, 0.695, 0.845, 1.0],
-  idle: 0.12, upAt: 0.94, downAt: 0.5, shiftTime: 0.12, rpmMax: 9300, redline: 8500,   // idle, redline and rpmMax follow the car
-  engineBrake: 1.4,                    // m/s² at the redline in 1st, less in taller gears
-};
-const LAUNCH_X = 0.55, AIR_RHO = 1.2;
-const driveEff = (spec) => spec.front ? 0.85 : 0.88;     // four-wheel drive loses a little more through the extra diffs
-/** Pull (N) at the driven wheels at full throttle and full boost, in gear g (1-based) at speed v. */
-function wheelForce(spec, vScale, g, v) {
-  const vTop = spec.vtop * vScale * GEARBOX.frac[g - 1], x = v / vTop;
-  if (x >= 1) return 0;
-  const rpm = Math.max(x, g === 1 ? LAUNCH_X : spec.idle / spec.redline) * spec.redline;
-  return engineTorque(spec, rpm) * driveEff(spec) * (spec.redline * TAU / 60) / vTop;
+/* ---- tyres: one combined-slip curve per surface ----
+   Slip ratio κ = (ωr − v)/v and slip angle tan α = v_side/v (v floored at TYRE.v0, so a tyre at a standstill
+   still grips smoothly) are each divided by the surface's peak slip, and the combined slip s = |(κ/κp, tanα/αp)|
+   goes through Pacejka's magic formula sin(C·atan(B·s)), with B putting the peak at s = 1. The force points
+   along the slip, so a spinning or locked tyre has little left for cornering (power oversteer, locked fronts
+   that won't turn). C sets how much grip is left once the tyre slides: loose surfaces peak late and keep
+   most of it (the tyre ploughs); tarmac, metal and ice peak early and fall away. Peak force is the surface's
+   grip × the tyre's grip on it × load, rising less than linearly with load. */
+const TYRE = { v0: 3.5 };
+const TYRE_SURF = [
+  { kp: 0.17, ap: 0.2, C: 1.22 },      // REGOLITH: loose dust
+  { kp: 0.1, ap: 0.1, C: 1.5 },        // ICE
+  { kp: 0.09, ap: 0.11, C: 1.42 },     // METAL deck plating
+  { kp: 0.16, ap: 0.19, C: 1.25 },     // GRAVEL
+  { kp: 0.1, ap: 0.12, C: 1.42 },      // TARMAC
+];
+for (const t of TYRE_SURF) { t.B = Math.tan(Math.PI / (2 * t.C)); t.BC = t.B * t.C; }
+/** Tyre forces for wheel w spinning at om (rad/s): out.Fx along the wheel, out.Fy across it (to the car's
+ *  left), out.dFx = dFx/dω for the implicit drivetrain solve, out.kap the slip ratio, out.s the combined slip. */
+function tyreForce(w, om, out) {
+  const ts = w.ts, r = CAR.radius, vx = w.vLong, den = Math.max(Math.abs(vx), TYRE.v0);
+  const kap = (om * r - vx) / den, sx = kap / ts.kp, sy = w.vLat / den / ts.ap, s = Math.hypot(sx, sy), Fm = w.Fmax;
+  out.kap = kap; out.s = s;
+  if (s < 1e-6) { out.Fx = 0; out.Fy = 0; out.dFx = Fm * ts.BC / ts.kp * r / den; return out; }
+  const at = Math.atan(ts.B * s), f = Math.sin(ts.C * at), fp = Math.cos(ts.C * at) * ts.BC / (1 + ts.B * ts.B * s * s);
+  const cx = sx / s, cy = sy / s;
+  out.Fx = Fm * f * cx; out.Fy = -Fm * f * cy;
+  // dFx/dsx holding the slip angle, floored past the peak so the solve stays well posed on a spinning wheel
+  out.dFx = Fm * Math.max(fp * cx * cx + f / s * cy * cy, 0.04 * ts.BC) / ts.kp * r / den;
+  return out;
 }
-/** Point the shared car constants at the chosen car's real figures (mass, inertia, revs, top speed). */
+
+/* ---- powertrain constants ---- */
+const DRIVE = {
+  sub: 4,              // implicit substeps per physics step
+  Kc: 20000,           // stiffness of a coupling that holds (a locked clutch or diff, a brake holding its wheel), N·m per rad/s
+  shaftDrag: 0.3,      // bearing and gear drag at each wheel (N·m per rad/s)
+};
+const GEARBOX = { idle: 0.12, redline: 8500, rpmMax: 9300 };   // follow the car (setCarTune), for the rev counter
+const AIR_RHO = 1.2;
+/** Net crank torque (N·m) at `rpm` for throttle th (0-1): the full-throttle curve (scaled by the turbo's
+ *  boost) blended with the closed-throttle friction and pumping drag, which grows with revs. */
+function engineNet(sp, rpm, th, spool) {
+  const wot = engineTorque(sp, rpm) * (sp.lag > 0 ? sp.offBoost + (1 - sp.offBoost) * spool : 1);
+  return th * wot * sp.eta - (1 - th) * sp.disp * (9 + 21 * rpm / sp.redline);
+}
+/** Point the shared car constants at the chosen car's real figures (geometry, mass, inertia, springs, brakes, gearing). */
 function setCarTune(tune) {
   car.tune = tune;
-  const sp = tune.spec, m = tune.mass;
-  CAR.mass = m;
-  CAR.inertia.copy(BASE_INERTIA).multiplyScalar(m / BASE_MASS);
-  CAR.vmax = sp.vtop * tune.v;
+  const sp = tune.spec, G = tune.geo;
+  CAR.mass = tune.mass;
+  CAR.inertia.copy(G.inertia);
+  CAR.wheels.forEach((cw, k) => Object.assign(cw, G.wheels[k]));
+  Object.assign(CAR, { wb: G.wb, cgH: sp.cgH, mountY: G.mountY, rest: G.rest, travel: G.travel, radius: G.r, rcH: G.rcH, Iw: G.Iw,
+    kS: G.kS, N0: G.N0, brakeT: G.brakeT, hbT: G.hbT, hull: G.hull, spheres: G.spheres, vmax: tune.vmax });
   GEARBOX.redline = sp.redline; GEARBOX.idle = sp.idle / sp.redline; GEARBOX.rpmMax = Math.round(sp.redline / 0.914 / 100) * 100;
 }
-function newGroundSample() { return { h: 0, nx: 0, ny: 1, nz: 0, s: 0, d: 0, i: 0, void: false, road: true, surf: 0, mu: 1, drag: 0 }; }
+function newGroundSample() { return { h: 0, nx: 0, ny: 1, nz: 0, s: 0, d: 0, i: 0, void: false, road: true, surf: 0, mu: 1, rr: 0 }; }
 const car = {
   pos: new THREE.Vector3(), vel: new THREE.Vector3(), q: new THREE.Quaternion(), w: new THREE.Vector3(),
   steerAngle: 0, i: 0, s: 0, d: 0, speed: 0, reach: 0,     // reach: furthest point along the stage driven to without a short cut
   wheels: CAR.wheels.map(() => ({ mount: new THREE.Vector3(), n: new THREE.Vector3(0, 1, 0), gs: newGroundSample(), grounded: false, prevGround: true,
-    comp: 0, dist: 0, load: 0, arb: 0, slipLat: 0, vLong: 0, sliding: false, spinning: false, bottomed: false, spinV: 0, spinAngle: 0, emit: 0,
-    fw: new THREE.Vector3(), lt: new THREE.Vector3(), cp: new THREE.Vector3(), gripMax: 0, gripLat: 0, Ft: 0, alpha: 0, curve: 0, vLat: 0, cap: 0, drive: 0 })),
+    comp: 0, dist: 0, load: 0, arb: 0, slipLat: 0, vLong: 0, vLat: 0, sliding: false, spinning: false, locked: false, absOn: false, absP: 1, bottomed: false,
+    om: 0, spinAngle: 0, emit: 0, fw: new THREE.Vector3(), lt: new THREE.Vector3(), cp: new THREE.Vector3(),
+    N: 0, Fmax: 0, mu: 1, ts: TYRE_SURF[0], rr: 0, Fx: 0, Fy: 0, kap: 0, slip: 0, Tb: 0, brakeP: 0 })),
   nGround: 0, airTime: 0, wasAirborne: false, pitchLatch: false, steerLatch: false,
-  damage: 0, drifting: false, slip: 0, hullContact: false, spool: 1, tc: true, backfire: 0,
+  damage: 0, drifting: false, slip: 0, hullContact: false, spool: 1, tc: true, tcF: 1, tcCut: false, abs: true, backfire: 0,
   events: [], flipTimer: 0, offTimer: 0, globalTimer: 0, tune: null,
-  gear: 1, rpm: 0.12, shiftT: 0, shiftReq: 0, limiter: false, autoBox: true,
+  gear: 1, rpm: 0.12, we: 105, shiftT: 0, shiftDir: 0, blipRpm: 0, shiftReq: 0, limiter: false, cut: false, autoBox: true, revHold: 0,
+  Tcl: 0, clutchSlip: false,
 };
-setCarTune(tuneFor(DEFAULT_SETUP, DEFAULT_BUILD));
 const AX = new THREE.Vector3(), AY = new THREE.Vector3(), AZ = new THREE.Vector3();
 const F = new THREE.Vector3(), T = new THREE.Vector3();
 const _r = new THREE.Vector3(), _vp = new THREE.Vector3(), _fw = new THREE.Vector3(), _lt = new THREE.Vector3(), _cp = new THREE.Vector3();
 const _ft = new THREE.Vector3(), _tmp = new THREE.Vector3(), _tmp2 = new THREE.Vector3(), _wl = new THREE.Vector3(), _tl = new THREE.Vector3();
 const _n = new THREE.Vector3(), _qi = new THREE.Quaternion(), _dq = new THREE.Quaternion(), _sc = new THREE.Vector3(), _gn = new THREE.Vector3();
 const GS_AIR = newGroundSample(), GS_TMP = newGroundSample();
+setCarTune(tuneFor(DEFAULT_SETUP, DEFAULT_BUILD));
 
 function carAxes() {
   AX.set(1, 0, 0).applyQuaternion(car.q); AY.set(0, 1, 0).applyQuaternion(car.q); AZ.set(0, 0, 1).applyQuaternion(car.q);
@@ -3610,121 +3854,214 @@ function steerLimit(vLong, beta, dir) {
   if (car.nGround >= 2 && dir * beta > 0) m *= 1 + 0.7 * smoothstep(0.06, 0.4, Math.abs(beta));
   return m;
 }
-/** Engine + gearbox for one physics step. Returns the total force at the driven wheels
- *  (N, > 0 pulling, < 0 engine braking) and updates car.gear / car.rpm / car.spool. */
 function gearboxAuto() {
   const st = Game.state;
   return !Store.data.settings.manual || Game.autopilot || (!!Game.forceCtl && !Game.forceCtl.manual) || (st !== 'racing' && st !== 'countdown' && st !== 'paused');
 }
+/** Mean speed (rad/s) of the gearbox output, referred to the wheels: the centre differential's input. */
+function drivenOmega() {
+  const W = car.wheels, s = car.tune.spec.front;
+  return s / 2 * (W[0].om + W[1].om) + (1 - s) / 2 * (W[2].om + W[3].om);
+}
+/** Overall ratio (crank turns per wheel turn) in the current gear; negative in reverse. */
+function gearRatio() {
+  const tn = car.tune;
+  return car.gear > 0 ? tn.gears[car.gear - 1] * tn.final : car.gear < 0 ? -tn.spec.rev * tn.final : 0;
+}
+/** Gear selection for one physics step: automatic shifts on engine revs, the player's requests with a
+ *  manual box (an over-revving downshift is refused), reverse from a standstill, the turbo's spool and the
+ *  anti-lag pops. The engine and wheels themselves are solved in drivelineStep. */
 function gearboxStep(dt, ctl, vFwd, nG) {
-  const G = GEARBOX, n = G.frac.length, tn = car.tune, sp = tn.spec;
-  const vTop = (g) => sp.vtop * tn.v * G.frac[g - 1];
-  const auto = gearboxAuto();
+  const tn = car.tune, sp = tn.spec, n = tn.gears.length, auto = gearboxAuto();
   car.autoBox = auto;
-  if (car.shiftT > 0) car.shiftT = Math.max(0, car.shiftT - dt);
-  let x = Math.max(0, vFwd) / vTop(car.gear);
-  // stopped in a tall gear with manual shifting: dip the clutch and pull away in first, as a driver would
-  if (!auto && vFwd < 2 && car.gear > 1 && ctl.throttle > 0 && car.shiftT <= 0) { car.gear = 1; car.shiftReq = 0; x = Math.max(0, vFwd) / vTop(1); }
-  if (car.shiftT <= 0) {
-    let to = 0;
-    if (auto) {
-      if (vFwd < 2) to = 1 - car.gear;                                                     // stopped: back to first
-      else if (car.gear < n && x > G.upAt && ctl.throttle > 0.1 && nG > 0) to = 1;
-      else if (car.gear > 1) {
-        const xDown = x * G.frac[car.gear - 1] / G.frac[car.gear - 2];
-        if (xDown < 0.86 && (x < G.downAt || (ctl.brake > 0.1 && xDown < 0.8))) to = -1;
+  if (car.shiftT > 0) { car.shiftT = Math.max(0, car.shiftT - dt); if (car.shiftT <= 0) car.shiftDir = 0; }
+  // reverse: hold the brake at a standstill to engage it; the throttle, or letting go of the brake, takes it back out
+  if (car.gear > 0) {
+    car.revHold = Math.abs(vFwd) < 0.8 && ctl.brake > 0.3 && ctl.throttle === 0 && car.shiftT <= 0 ? car.revHold + dt : 0;
+    if (car.revHold > 0.3) { car.gear = -1; car.revHold = 0; car.shiftT = sp.shift; car.shiftDir = 0; car.events.push({ type: 'shift', up: false }); }
+  } else if (ctl.brake === 0 || (ctl.throttle > 0 && vFwd > -1.5)) { car.gear = 1; car.shiftT = sp.shift; car.shiftDir = 0; car.events.push({ type: 'shift', up: true }); }
+  const wD = Math.abs(drivenOmega());
+  const rpmIn = (gr) => wD * tn.gears[gr - 1] * tn.final * 60 / TAU;
+  if (car.gear > 0) {
+    // stopped in a tall gear with manual shifting: dip the clutch and pull away in first, as a driver would
+    if (!auto && vFwd < 2 && car.gear > 1 && ctl.throttle > 0 && car.shiftT <= 0) { car.gear = 1; car.shiftReq = 0; }
+    if (car.shiftT <= 0) {
+      let to = 0;
+      const rIn = rpmIn(car.gear);
+      if (auto) {
+        if (vFwd < 1.5 && car.gear > 1) to = 1 - car.gear;                                       // stopped: back to first
+        else if (car.gear < n && rIn > tn.upRpm[car.gear - 1] && ctl.throttle > 0.1 && nG > 0) to = 1;
+        else if (car.gear > 1) {
+          const rDown = rpmIn(car.gear - 1);
+          if (rDown < sp.redline * 0.9 && (rIn < tn.downRpm || (ctl.brake > 0.1 && rDown < sp.redline * 0.8))) to = -1;
+        }
+      } else if (car.shiftReq) {
+        to = car.shiftReq;
+        if (to < 0 && car.gear > 1 && rpmIn(car.gear - 1) > sp.redline * 1.04) { to = 0; car.events.push({ type: 'overrev' }); }
       }
-    } else if (car.shiftReq) {
-      to = car.shiftReq;
-      if (to < 0 && car.gear > 1 && x * G.frac[car.gear - 1] / G.frac[car.gear - 2] > 1.06) { to = 0; car.events.push({ type: 'overrev' }); }
-    }
-    car.shiftReq = 0;
-    const ng = clamp(car.gear + to, 1, n);
-    if (ng !== car.gear) {
-      if (to > 0 && car.rpm > 0.8) car.backfire = 0.12;                                    // anti-lag pop on a flat-out upshift
-      car.gear = ng; car.shiftT = G.shiftTime; car.events.push({ type: 'shift', up: to > 0 }); x = Math.max(0, vFwd) / vTop(ng);
+      car.shiftReq = 0;
+      const ng = clamp(car.gear + to, 1, n);
+      if (ng !== car.gear) {
+        if (to > 0 && car.rpm > 0.8 && ctl.throttle > 0.5) car.backfire = 0.12;                // anti-lag pop on a flat-out upshift
+        car.gear = ng; car.shiftT = sp.shift; car.shiftDir = Math.sign(to); car.blipRpm = rpmIn(ng);
+        car.events.push({ type: 'shift', up: to > 0 });
+      }
     }
   }
-  // engine speed: locked to the wheels on the ground (plus wheelspin), free-revving in the air
-  // (reversing runs in first; in the air the engine free-revs, but stays short of the limiter)
-  const spin = car.wheels.some((w) => w.spinning) ? 0.12 : 0;
-  const xr = vFwd < 0 ? -vFwd / vTop(1) : x;
-  let target = nG > 0 ? Math.max(G.idle + ctl.throttle * 0.1 * (vFwd < 3 ? 1 : 0), car.gear === 1 && vFwd >= 0 ? ctl.throttle * LAUNCH_X : 0, xr + spin) : Math.max(xr * 0.8, G.idle + ctl.throttle * 0.75);
-  if (car.shiftT > 0) target = Math.max(G.idle, xr);
-  car.rpm = damp(car.rpm || G.idle, Math.min(target, 1.03), nG > 0 ? 30 : 5, dt);
-  car.limiter = nG > 0 && ctl.throttle > 0 && (car.rpm >= 0.995 || x >= 1);
+  car.shiftReq = 0;
   // turbo: boost builds over about sp.lag seconds on the throttle (faster at high revs) and bleeds
   // away off it; the rally cars' anti-lag keeps some of it through a quick lift or a gear change
+  const thr = car.gear < 0 ? ctl.brake : ctl.throttle;
   if (sp.lag > 0) {
-    const want = car.shiftT > 0 ? Math.max(car.spool, 0.7) : ctl.throttle;
+    const want = car.shiftT > 0 ? Math.max(car.spool, 0.7) : thr;
     car.spool = want > car.spool ? Math.min(want, car.spool + dt * (0.35 + car.rpm) / sp.lag) : Math.max(want, car.spool - dt * 1.2);
-    if (ctl.throttle < 0.1 && car.rpm > 0.75 && car.spool > 0.6 && !car.backfire && Math.random() < dt * 6) car.backfire = 0.08;
+    if (thr < 0.1 && car.rpm > 0.75 && car.spool > 0.6 && !car.backfire && Math.random() < dt * 6) car.backfire = 0.08;
   } else car.spool = 1;
   if (car.backfire > 0) car.backfire = Math.max(0, car.backfire - dt);
-  if (car.shiftT > 0) return 0;                                                            // clutch in / ignition cut while shifting
-  const g = car.gear - 1, m = CAR.mass;
-  if (ctl.throttle > 0) {
-    if (car.limiter || x >= 1) return 0;                                                   // rev limiter: fuel cut
-    const xr = Math.max(x, car.gear === 1 ? LAUNCH_X : G.idle);
-    const torque = engineTorque(sp, xr * sp.redline) * (sp.offBoost + (1 - sp.offBoost) * car.spool);
-    return ctl.throttle * torque * driveEff(sp) * (sp.redline * TAU / 60) / vTop(car.gear) * (1 - 0.25 * car.damage);
+}
+
+/* ---- the coupled powertrain solve ----
+   Five spinning parts: the engine (with flywheel and clutch) and the four wheels. Couplings join them:
+   the clutch (engine ↔ gearbox output through the overall ratio), the centre differential (front axle ↔
+   rear axle), the front and rear differentials (left ↔ right) and each brake (wheel ↔ ground). A coupling
+   either holds (a stiff link, solved implicitly) or slips at its torque capacity:
+     clutch: capacity rises with revs off the line (a launch slips it), and it opens while shifting;
+     open diff: no coupling, so the torque splits evenly and a light wheel spins up;
+     limited-slip / Torsen: holds up to a share of its input torque (plus a preload);
+     viscous: torque grows with the speed difference; locking: always holds;
+     brake: holds its wheel up to the brake torque, so a hard stop locks a wheel past the tyre's grip.
+   Each substep is backward Euler: (M − h·J)·Δω = h·τ(ω), with the tyres' slope and every holding coupling
+   in J, and the slipping couplings' torques in τ; the couplings that change between holding and slipping
+   are re-solved. */
+const DL = {
+  A: new Float64Array(25), b: new Float64Array(5), x: new Float64Array(5), M: new Float64Array(5), om: new Float64Array(5),
+  cpl: Array.from({ length: 8 }, () => ({ on: false, u: new Float64Array(5), K: 0, cap: Infinity, lin: true, sgn: 1 })),
+  F: Array.from({ length: 4 }, () => ({ Fx: 0, Fy: 0, dFx: 0, kap: 0, s: 0 })),
+};
+DL.cpl[1].u.set([0, 0.5, 0.5, -0.5, -0.5]);                 // centre: front axle against rear axle
+DL.cpl[2].u.set([0, 1, -1, 0, 0]); DL.cpl[3].u.set([0, 0, 0, 1, -1]);   // front and rear axles: left against right
+for (let k = 0; k < 4; k++) DL.cpl[4 + k].u[k + 1] = 1;      // brakes: each wheel against the ground
+function setCpl(c, on, K, cap) {
+  if (on && !c.on) c.lin = true;
+  c.on = on; c.K = K; c.cap = cap;
+}
+/** Set up differential coupling c of type `type` carrying input torque Tin (N·m at the wheels). */
+function diffCpl(c, type, Tin, power, centre) {
+  const d = DIFF_TYPES[type];
+  if (!d || type === 'open') { c.on = false; return; }
+  if (d.lock) setCpl(c, true, DRIVE.Kc, Infinity);
+  else if (d.kv) { setCpl(c, true, centre ? d.kvCentre : d.kv, Infinity); c.lin = true; }
+  else setCpl(c, true, DRIVE.Kc, d.pre + (power ? d.lf : d.lfCoast) * Tin);
+}
+function dot5(u, v) { return u[0] * v[0] + u[1] * v[1] + u[2] * v[2] + u[3] * v[3] + u[4] * v[4]; }
+function solve5(A, b, x) {
+  // Gaussian elimination; A is symmetric positive definite, so no pivoting is needed
+  for (let i = 0; i < 5; i++) {
+    const p = A[i * 6];
+    for (let j = i + 1; j < 5; j++) {
+      const f = A[j * 5 + i] / p;
+      if (f === 0) continue;
+      for (let k = i; k < 5; k++) A[j * 5 + k] -= f * A[i * 5 + k];
+      b[j] -= f * b[i];
+    }
   }
-  if (ctl.brake === 0 && nG > 0 && vFwd > 3) return -m * G.engineBrake * Math.min(1, x) * Math.sqrt(G.frac[0] / G.frac[g]);
-  return 0;
-}
-/** Split `D` between two outputs with nominal share `s` to A through a differential that passes at
- *  most `bias` times the slipping side's torque to the other. cA / cB: what each side can take
- *  before it spins. o.a / o.b: what each side gets; o.xa / o.xb: the excess that spins a side up. */
-const _dA = { a: 0, b: 0, xa: 0, xb: 0 }, _dB = { a: 0, b: 0, xa: 0, xb: 0 };
-function diffSplit(D, s, bias, cA, cB, o) {
-  let a = D * s, b = D - a;
-  if (a > cA && b > cB) { a = cA; b = cB; }
-  else if (a > cA) { a = cA; b = Math.min(D - cA, cB, s > 0 ? bias * (1 - s) / s * cA : Infinity); }
-  else if (b > cB) { b = cB; a = Math.min(D - cB, cA, s < 1 ? bias * s / (1 - s) * cB : Infinity); }
-  const x = Math.max(0, D - a - b), satA = s > 0 && a >= cA - 1e-6, satB = s < 1 && b >= cB - 1e-6;
-  o.a = a; o.b = b;
-  o.xa = satA ? (satB ? x * s : x) : 0;
-  o.xb = satB ? (satA ? x * (1 - s) : x) : (satA ? 0 : x);
-  return o;
-}
-/** Most an axle's differential can put down: both tyres' limits, or the weaker side's times (1 + bias). */
-const axleCap = (cL, cR, bias) => Math.min(cL + cR, (1 + bias) * Math.min(cL, cR));
-/** Engine pull D (N) → per-wheel drive force (w.drive), through the centre, front and rear
- *  differentials. Torque a tyre can't take spins it (the friction ellipse in stepVehicle then costs
- *  it cornering grip: power oversteer on a rear-drive car). Traction control trims the engine to
- *  what the drivetrain can put down, so nothing spins. */
-function allocateDrive(D, sp, tc) {
-  const W = car.wheels, cap = (k) => W[k].grounded ? W[k].cap : 0;
-  const fb = sp.front ? DIFF_TYPES[sp.fdiff].bias : 1, rb = DIFF_TYPES[sp.rdiff].bias, cb = sp.front ? DIFF_TYPES[sp.centre].bias : 1;
-  const run = (D) => {
-    const ctr = diffSplit(D, sp.front, cb, axleCap(cap(0), cap(1), fb), axleCap(cap(2), cap(3), rb), _dA);
-    const fa = ctr.a + ctr.xa, ra = ctr.b + ctr.xb;
-    diffSplit(fa, 0.5, fb, cap(0), cap(1), _dB); W[0].drive = _dB.a + _dB.xa; W[1].drive = _dB.b + _dB.xb;
-    diffSplit(ra, 0.5, rb, cap(2), cap(3), _dB); W[2].drive = _dB.a + _dB.xa; W[3].drive = _dB.b + _dB.xb;
-  };
-  if (tc) {
-    // the most the drivetrain can put down without spinning a wheel: delivered force with no excess
-    const ctr = diffSplit(1e7, sp.front, cb, axleCap(cap(0), cap(1), fb), axleCap(cap(2), cap(3), rb), _dA);
-    D = Math.min(D, 0.96 * (ctr.a + ctr.b));
-    run(D);
-    for (let k = 0; k < 4; k++) W[k].drive = Math.min(W[k].drive, cap(k) * 0.98);
-  } else {
-    run(D);
-    for (let k = 0; k < 4; k++) W[k].drive = Math.min(W[k].drive, W[k].gripMax * 2.5);
+  for (let i = 4; i >= 0; i--) {
+    let s = b[i];
+    for (let k = i + 1; k < 5; k++) s -= A[i * 5 + k] * x[k];
+    x[i] = s / A[i * 6];
   }
 }
+/** One physics step of the powertrain. G: overall ratio (0 = neutral); th0: throttle after the driver aids. */
+function drivelineStep(dt, ctl, G, th0) {
+  const tn = car.tune, sp = tn.spec, W = car.wheels, r = CAR.radius, h = dt / DRIVE.sub;
+  const om = DL.om, M = DL.M, A = DL.A, b = DL.b, x = DL.x, C = DL.cpl, TF = DL.F;
+  M[0] = sp.Ie; for (let k = 0; k < 4; k++) M[k + 1] = CAR.Iw;
+  om[0] = car.we; for (let k = 0; k < 4; k++) om[k + 1] = W[k].om;
+  const s = sp.front, c0 = s / 2, c2 = (1 - s) / 2;
+  // clutch: an automatic launch clutch (engagement rises with revs from just over idle to the launch revs), open while shifting;
+  // a rear-drive car's driver dips it with the handbrake
+  const cl = C[0], wC = c0 * (om[1] + om[2]) + c2 * (om[3] + om[4]);
+  let eng = G === 0 || car.shiftT > 0 ? 0 : smoothstep(sp.idle * 1.05, sp.launch, Math.max(om[0], Math.abs(G * wC)) * 60 / TAU);
+  if (ctl.handbrake && !s) eng = 0;
+  setCpl(cl, eng > 0.002, DRIVE.Kc, sp.clutchT * eng);
+  cl.u[0] = 1; cl.u[1] = cl.u[2] = -G * c0; cl.u[3] = cl.u[4] = -G * c2;
+  // differentials (the centre one lets go while the handbrake is pulled, so the rears can lock)
+  const Tin = Math.abs(G * car.Tcl), power = car.Tcl * G >= 0;
+  if (s && !ctl.handbrake) diffCpl(C[1], sp.centre, Tin, power, true); else C[1].on = false;
+  if (s) diffCpl(C[2], sp.fdiff, Tin * s, power); else C[2].on = false;
+  diffCpl(C[3], sp.rdiff, Tin * (1 - s), power);
+  for (let k = 0; k < 4; k++) setCpl(C[4 + k], W[k].Tb > 1, DRIVE.Kc, W[k].Tb);
+  const dmg = 1 - 0.25 * car.damage;
+  let Tcl = 0;
+  for (let st = 0; st < DRIVE.sub; st++) {
+    // engine: driver's throttle (ignition cut on an upshift, a blip to match revs on a downshift), idle control, rev limiter
+    const rpm = om[0] * 60 / TAU;
+    if (rpm > sp.redline) car.cut = true; else if (rpm < sp.redline - 180) car.cut = false;
+    let th = car.shiftT > 0 ? (car.shiftDir < 0 && rpm < car.blipRpm ? 1 : 0) : th0;
+    th = car.cut ? 0 : Math.max(th, clamp((sp.idle * 1.1 - rpm) / 400, 0, 0.35));
+    const Te = engineNet(sp, rpm, th, car.spool) * (th > 0 ? dmg : 1);
+    const dTe = Math.min(0, (engineNet(sp, rpm + 60, th, car.spool) - engineNet(sp, rpm - 60, th, car.spool)) / (120 * TAU / 60));
+    for (let k = 0; k < 4; k++) {
+      const f = TF[k];
+      if (W[k].grounded) tyreForce(W[k], om[k + 1], f); else { f.Fx = 0; f.Fy = 0; f.dFx = 0; }
+    }
+    for (let it = 0; it < 8; it++) {
+      A.fill(0);
+      for (let i = 0; i < 5; i++) { A[i * 6] = M[i]; b[i] = 0; }
+      b[0] = h * Te; A[0] -= h * dTe;
+      for (let k = 0; k < 4; k++) {
+        const w = W[k], o = om[k + 1], f = TF[k], rr = w.grounded ? w.rr : 0;
+        const lin = Math.abs(o) < 2;   // rolling resistance: a torque against the spin, eased in near a standstill
+        b[k + 1] = h * (-f.Fx * r - rr * (lin ? o / 2 : Math.sign(o)) - DRIVE.shaftDrag * o);
+        A[(k + 1) * 6] += h * (f.dFx * r + (lin ? rr / 2 : 0) + DRIVE.shaftDrag);
+      }
+      for (let ci = 0; ci < 8; ci++) {
+        const c = C[ci]; if (!c.on) continue;
+        const u = c.u;
+        if (c.lin) {
+          const du = dot5(u, om), hk = h * c.K;
+          for (let i = 0; i < 5; i++) {
+            if (!u[i]) continue;
+            b[i] -= hk * du * u[i];
+            for (let j = 0; j < 5; j++) if (u[j]) A[i * 5 + j] += hk * u[i] * u[j];
+          }
+        } else for (let i = 0; i < 5; i++) if (u[i]) b[i] -= h * c.sgn * c.cap * u[i];
+      }
+      solve5(A, b, x);
+      let changed = false;
+      for (let ci = 0; ci < 8; ci++) {
+        const c = C[ci]; if (!c.on || c.cap === Infinity) continue;
+        const dn = dot5(c.u, om) + dot5(c.u, x);
+        if (c.lin) { const tq = c.K * dn; if (Math.abs(tq) > c.cap) { c.lin = false; c.sgn = Math.sign(tq); changed = true; } }
+        else if (dn * c.sgn < 0) { c.lin = true; changed = true; }
+      }
+      if (!changed) break;
+    }
+    for (let i = 0; i < 5; i++) om[i] += x[i];
+    if (om[0] < 0) om[0] = 0;
+    Tcl = !cl.on ? 0 : cl.lin ? cl.K * dot5(cl.u, om) : cl.sgn * cl.cap;
+  }
+  car.we = om[0]; car.Tcl = Tcl; car.clutchSlip = cl.on && !cl.lin;
+  car.rpm = om[0] * 60 / TAU / sp.redline;
+  for (let k = 0; k < 4; k++) {
+    const w = W[k], c = C[4 + k];
+    w.om = om[k + 1];
+    w.brakeP = c.on ? Math.abs((c.lin ? c.K * om[k + 1] : c.cap) * om[k + 1]) : 0;    // brake power (W), heats the disc
+    if (!w.grounded) { w.Fx = 0; w.Fy = 0; continue; }
+    const f = tyreForce(w, w.om, TF[k]);
+    w.Fx = f.Fx; w.Fy = f.Fy; w.kap = f.kap; w.slip = f.s;
+  }
+}
+
 function stepVehicle(dt, ctl) {
-  const def = TR.def, m = CAR.mass, g = def.gravity;
+  const def = TR.def, m = CAR.mass, g = def.gravity, tn = car.tune, sp = tn.spec;
   carAxes();
   F.set(0, -m * g, 0); T.set(0, 0, 0);
   const vLongBody = car.vel.dot(AZ);
   const betaB = Math.atan2(car.vel.dot(AX), Math.abs(vLongBody) + 2);
   const steerMax = steerLimit(vLongBody, betaB, -ctl.steer);
   car.steerAngle = damp(car.steerAngle, -ctl.steer * steerMax, 12, dt);
-  const tn = car.tune;
-  const kS = m * def.suspG * tn.k / (4 * 0.2), cD = 2 * def.damping * tn.c * Math.sqrt(kS * m / 4);
-  const cB = cD * SUSP.bump * tn.db, cR = cD * SUSP.rebound * tn.dr;
-  const staticLoad = m * (g + def.clampG) / 4, maxLen = CAR.rest + CAR.radius;
+  const maxLen = CAR.rest + CAR.radius;
 
   // 1) suspension raycasts against the analytic ground
   let nG = 0;
@@ -3746,14 +4083,10 @@ function stepVehicle(dt, ctl) {
   const groundN = nG ? _gn.copy(_tmp).normalize() : null;
   // 2) anti-roll bars (front stiffer than rear)
   for (let a = 0; a < 4; a += 2) {
-    const wa = car.wheels[a], wb = car.wheels[a + 1], diff = wa.comp - wb.comp, arb = kS * (a ? SUSP.arbR : SUSP.arbF) * tn.arb;
+    const wa = car.wheels[a], wb = car.wheels[a + 1], diff = wa.comp - wb.comp, arb = CAR.kS[a] * tn.k * (a ? SUSP.arbR : SUSP.arbF) * tn.arb;
     wa.arb = wa.grounded ? diff * arb : 0; wb.arb = wb.grounded ? -diff * arb : 0;
   }
-  // 3) spring/damper + tyre forces
-  const dmgF = 1 - 0.35 * car.damage;
-  const vmaxEff = tn.spec.vtop * dmgF * tn.v;
-  let drive = gearboxStep(dt, ctl, vLongBody, nG);
-  if (drive > 0 && vLongBody > vmaxEff) drive = 0;
+  // 3) springs and dampers, then each tyre's frame, load and grip
   const fc = Game.forceCtl;
   car.abs = fc && typeof fc.abs === 'boolean' ? fc.abs
     : Store.data.settings.abs !== false || Game.autopilot || Game.state !== 'racing';     // the AI always brakes with ABS
@@ -3761,12 +4094,14 @@ function stepVehicle(dt, ctl) {
     : Store.data.settings.tc !== false || Game.autopilot || Game.state !== 'racing';      // and drives with traction control
   for (let k = 0; k < 4; k++) {
     const w = car.wheels[k], cw = CAR.wheels[k];
-    if (!w.grounded) { w.load = 0; w.sliding = false; w.spinning = false; w.slipLat = 0; w.prevGround = false; continue; }
+    if (!w.grounded) { w.load = 0; w.N = 0; w.Fmax = 0; w.sliding = false; w.spinning = false; w.locked = false; w.slipLat = 0; w.prevGround = false; continue; }
     w.prevGround = true;
     _r.subVectors(w.mount, car.pos);
     _vp.crossVectors(car.w, _r).add(car.vel);
     const compVel = -_vp.dot(w.n);
     w.compVel = compVel;
+    const kS = CAR.kS[k] * tn.k, cD = 2 * def.damping * tn.c * Math.sqrt(kS * CAR.N0[k] / 9.81);
+    const cB = cD * SUSP.bump * tn.db, cR = cD * SUSP.rebound * tn.dr;
     let Fs = kS * w.comp + damperForce(compVel, cB, cR) + w.arb;
     // progressive urethane bump stop over the last few cm, then the hard stop at full travel
     const onStop = w.comp - (CAR.travel - SUSP.stopLen);
@@ -3788,61 +4123,51 @@ function stepVehicle(dt, ctl) {
     _cp.copy(w.mount).addScaledVector(AY, -w.dist);
     _r.subVectors(_cp, car.pos);
     _vp.crossVectors(car.w, _r).add(car.vel);
-    const vLong = _vp.dot(_fw), vLat = _vp.dot(_lt);
-    const gs = w.gs;
-    // load sensitivity: grip grows less than linearly with load, so weight transfer and bumps don't snap the car around
-    const loadRatio = Math.pow(clamp(Fs / staticLoad, 0, 2.2), 0.85);
-    const gripMax = gs.mu * tn.mu[gs.surf] * loadRatio * m * def.gripG / 4 * (cw.front ? 1.0 : 1.04) + 1;
-    let gripLat = gripMax;
-    if (ctl.handbrake && !cw.front) gripLat *= 0.42;
-    // lateral: progressive slip-angle curve. Rounded build-up to the peak, then a gentle fall-off
-    // to ~88% while sliding, so the limit is felt before it is crossed and slides stay catchable.
-    const alpha = Math.atan2(vLat, Math.abs(vLong) + 3), xs = Math.abs(alpha) / CAR.slipPeak;
-    const curve = xs < 1 ? xs * (1.6 - 0.6 * xs) : 1 - 0.12 * smoothstep(1, 3.5, xs);
-    const Ft = -gripLat * Math.sign(alpha) * curve;
     w.fw.copy(_fw); w.lt.copy(_lt); w.cp.copy(_cp);
-    w.gripMax = gripMax; w.gripLat = gripLat; w.Ft = Ft; w.alpha = alpha; w.curve = curve; w.vLong = vLong; w.vLat = vLat;
-    // drive the tyre can still take on top of its cornering force (the rest of its friction ellipse);
-    // traction control leaves a sliding tyre only a trickle, so it never pushes a slide further
-    const ey = Ft / gripLat;
-    w.cap = gripMax * Math.max(car.tc ? 0.12 : 0.3, Math.sqrt(Math.max(0, 1 - ey * ey)));
-  }
-  // 4) drivetrain: share the engine's pull out through the differentials (see allocateDrive)
-  if (drive > 0) allocateDrive(drive, tn.spec, car.tc);
-  else for (let k = 0; k < 4; k++) car.wheels[k].drive = 0;
-  const sp = tn.spec, axleShare = [sp.front / 2, sp.front / 2, (1 - sp.front) / 2, (1 - sp.front) / 2];
-  for (let k = 0; k < 4; k++) {
-    const w = car.wheels[k], cw = CAR.wheels[k];
-    if (!w.grounded) continue;
-    const gripMax = w.gripMax, alpha = w.alpha, curve = w.curve, vLong = w.vLong, vLat = w.vLat, gs = w.gs;
-    let gripLat = w.gripLat, Ft = w.Ft, Fl = 0;
-    _fw.copy(w.fw); _lt.copy(w.lt); _cp.copy(w.cp);
-    if (drive > 0) Fl += w.drive;
-    else if (drive < 0 && vLong > 1) Fl += Math.max(drive * axleShare[k], -gripMax * 0.5);   // engine braking, through the driven wheels
-    // brakes: force follows line pressure (ctl.brake 0..1), split 61/39 front/rear. The system is sized so
-    // that on regolith the fronts reach lock-up at about 80% pressure (much sooner on ice). Past the tyre's
-    // grip the wheel locks: a locked tyre slides at kinetic grip and loses most of its steering force.
-    // ABS (a setting, always on for the AI) instead holds each wheel just under lock-up.
-    w.locked = false; w.absOn = false;
-    if (ctl.brake > 0) {
-      if (vLong > 1.0) {
-        const want = ctl.brake * (m / 4) * def.gripG * CAR.brakeCap * 2 * (cw.front ? CAR.brakeBias : 1 - CAR.brakeBias);
-        if (car.abs || want < gripMax * 0.95) { Fl -= Math.min(want, gripMax * 0.92); w.absOn = car.abs && want > gripMax * 0.92; }
-        else { w.locked = true; Fl -= gripMax * 0.8; gripLat *= 0.3; Ft = -gripLat * Math.sign(alpha) * curve; }
-      } else if (vLong > -CAR.reverseVmax) Fl -= ctl.brake * (m / 4) * CAR.reverseAccel;
-    }
-    if (ctl.handbrake && !cw.front) Fl -= clamp(vLong * (m / 4) * 25, -(m / 4) * 14, (m / 4) * 14);
-    Fl -= vLong * (m / 4) * (gs.drag + tn.drag);
-    if (ctl.throttle === 0 && ctl.brake === 0 && Math.abs(vLong) < 1.5) Fl -= vLong * (m / 4) * 6;
-    const ex = Fl / gripMax, ey = Ft / gripLat, e = Math.sqrt(ex * ex + ey * ey);
-    w.sliding = false;
-    if (e > 1) { Fl /= e; Ft /= e * 1.1; w.sliding = true; }
-    if (w.locked) w.sliding = true;
-    w.slipLat = vLat; w.spinning = ctl.throttle > 0 && ex > 1.05;
-    _cp.addScaledVector(AY, 0.55);                                // raised application point → moderate body roll
-    addForceAt(_ft.copy(_fw).multiplyScalar(Fl).addScaledVector(_lt, Ft), _cp);
+    w.vLong = _vp.dot(_fw); w.vLat = _vp.dot(_lt);
+    // load sensitivity: grip grows less than linearly with load, so weight transfer and bumps don't snap the car around
+    const gs = w.gs, N = Fs * Math.max(0, AY.dot(w.n)), N0 = CAR.N0[k];
+    w.N = N; w.mu = gs.mu * tn.mu[gs.surf]; w.ts = TYRE_SURF[gs.surf];
+    w.Fmax = w.mu * N0 * Math.pow(Math.min(N / N0, 3), 0.85);
+    w.rr = (gs.rr + tn.rr) * N * CAR.radius;                      // rolling resistance torque (N·m)
   }
   car.nGround = nG;
+  // 4) gearbox, brakes and driver aids, then the coupled powertrain solve
+  gearboxStep(dt, ctl, vLongBody, nG);
+  const rev = car.gear < 0, front = sp.front > 0;
+  const pedal = rev ? ctl.throttle : ctl.brake;                    // in reverse the throttle pedal brakes
+  for (let k = 0; k < 4; k++) {
+    const w = car.wheels[k], fw = k < 2;
+    // ABS: per wheel, eases the pressure off as soon as the wheel slips past the tyre's peak, then builds it back
+    if (car.abs && pedal > 0.02 && w.grounded && Math.abs(w.vLong) > 2) {
+      w.absP = -w.kap > 1.1 * w.ts.kp ? Math.max(0.12, w.absP - dt * 10) : Math.min(1, w.absP + dt * 5);
+    } else w.absP = Math.min(1, w.absP + dt * 8);
+    w.absOn = car.abs && pedal > 0.02 && w.absP < 0.97;
+    w.Tb = pedal * CAR.brakeT[fw ? 0 : 1] * (car.abs ? w.absP : 1) + (ctl.handbrake && !fw ? CAR.hbT : 0);
+  }
+  // throttle; in reverse the brake pedal drives, eased off near the reverse limit
+  let th0 = rev ? ctl.brake * clamp((CAR.reverseVmax + vLongBody) / 3, 0, 1) : ctl.throttle;
+  // traction control: cuts the engine while a driven wheel spins past the tyre's peak slip
+  if (car.tc && th0 > 0) {
+    let over = 0;
+    for (let k = front ? 0 : 2; k < 4; k++) { const w = car.wheels[k]; if (w.grounded) over = Math.max(over, w.kap * Math.sign(rev ? -1 : 1) / w.ts.kp); }
+    car.tcF = over > 1.35 ? Math.max(0.05, car.tcF - dt * 6 * (over - 0.9)) : Math.min(1, car.tcF + dt * 2.5);
+  } else car.tcF = Math.min(1, car.tcF + dt * 4);
+  car.tcCut = car.tc && th0 > 0.05 && car.tcF < 0.95;
+  if (car.tc) th0 *= car.tcF;
+  drivelineStep(dt, ctl, gearRatio(), th0);
+  car.limiter = car.cut && (rev ? ctl.brake : ctl.throttle) > 0;
+  // 5) tyre forces on the body, at the roll-centre height above each contact patch
+  for (let k = 0; k < 4; k++) {
+    const w = car.wheels[k];
+    if (!w.grounded) continue;
+    w.sliding = w.slip > 1.15;
+    w.locked = pedal > 0.02 && Math.abs(w.vLong) > 2 && Math.abs(w.om * CAR.radius) < 0.15 * Math.abs(w.vLong);
+    w.spinning = (front || k >= 2) && w.kap > 1.6 * w.ts.kp && Math.abs(w.om * CAR.radius) > 2;
+    w.slipLat = w.vLat;
+    _cp.copy(w.cp).addScaledVector(AY, CAR.rcH);
+    addForceAt(_ft.copy(w.fw).multiplyScalar(w.Fx).addScaledVector(w.lt, w.Fy), _cp);
+  }
   // stability assist: gently yaw the nose toward the direction of travel when the body slip
   // angle grows, so drifts are catchable on a keyboard. Disabled while the handbrake is held.
   if (ctl.handbrake) car.hbTimer = 0.35; else car.hbTimer = Math.max(0, (car.hbTimer || 0) - dt);
@@ -3850,29 +4175,35 @@ function stepVehicle(dt, ctl) {
     const vl = car.vel.dot(AZ), vs = car.vel.dot(AX), spd = Math.hypot(vl, vs);
     if (spd > 4 && vl > 0) {
       const beta = Math.atan2(vs, vl);
-      const k = CAR.inertia.y * 3.0 * smoothstep(0.12, 0.45, Math.abs(beta)) * Math.min(1, spd / 12) * nG / 4;
+      const k = CAR.inertia.y * 2.0 * smoothstep(0.12, 0.45, Math.abs(beta)) * Math.min(1, spd / 12) * nG / 4;
       T.addScaledVector(AY, k * beta);
     }
   }
   // yaw stability: at speed, bleed off yaw rate beyond what the steering asks for (kinematic
   // wheelbase model), so snap oversteer settles. Never adds yaw; fades out while drifting on purpose.
   if (nG >= 2 && !ctl.handbrake && vLongBody > 8) {
-    const wyB = car.w.dot(AY), wAsk = vLongBody * Math.tan(car.steerAngle) / 2.68, excess = wyB - wAsk;
+    const wyB = car.w.dot(AY), wAsk = vLongBody * Math.tan(car.steerAngle) / CAR.wb, excess = wyB - wAsk;
     if (Math.abs(wyB) > Math.abs(wAsk) && excess * wyB > 0) {
-      const yd = CAR.inertia.y * 2.2 * smoothstep(8, 30, vLongBody) * (1 - smoothstep(0.12, 0.35, Math.abs(betaB)));
+      const yd = CAR.inertia.y * 1.5 * smoothstep(8, 30, vLongBody) * (1 - smoothstep(0.12, 0.35, Math.abs(betaB)));
       T.addScaledVector(AY, -excess * yd);
     }
   }
-  // aerodynamics: drag grows from the head-on area to the side-on area as the car slides; downforce
-  // presses on each axle (front share rising as the nose dives), so the aero balance shifts the handling
+  // aerodynamics: drag grows from the head-on area to the side-on area as the car slides. Downforce needs
+  // air flowing front to back, presses on each axle (the front's share rising as the nose dives) and,
+  // from the underbody (splitter and diffuser), grows as that axle gets closer to the ground and fades
+  // away in the air, so a winged car still pitches nose-up off a jump.
   const vv = car.vel.length(), ae = tn.aero;
   if (vv > 1) {
     const sb = car.vel.dot(AX) / vv, cd = ae.cda + (ae.cdaSide - ae.cda) * sb * sb;
     F.addScaledVector(car.vel, -0.5 * AIR_RHO * cd * vv);
-    if (nG > 0) {
-      const q = 0.5 * AIR_RHO * vv * vv, wh = car.wheels;
-      const dive = clamp(((wh[0].comp + wh[1].comp) - (wh[2].comp + wh[3].comp)) / 2 / 0.1, -1.5, 1.5) * ae.pitch;
-      const cF = Math.max(0, ae.claF + dive * (ae.claF + ae.claR)), cR = Math.max(0, ae.claR - dive * (ae.claF + ae.claR));
+    const vf = Math.max(0, vLongBody), q = 0.5 * AIR_RHO * vf * vf, wh = car.wheels;
+    if (q > 1) {
+      // each axle's drop below its static ride height, per 10 cm (−2: off the ground)
+      const sag = 9.81 / (TAU * SUSP.freq) ** 2 / tn.k, axleH = (a) => wh[a].grounded || wh[a + 1].grounded ? clamp(((wh[a].comp + wh[a + 1].comp) / 2 - sag) / 0.1, -1.5, 1.5) : -2;
+      const hF = axleH(0), hR = axleH(2), ge = ae.ge;
+      const dive = nG > 0 ? clamp(hF - hR, -1.5, 1.5) * ae.pitch : 0;
+      const cF = Math.max(0, ae.claF + dive * (ae.claF + ae.claR)) * (1 + ge * clamp(hF * 0.5, -1, 0.5));
+      const cR = Math.max(0, ae.claR - dive * (ae.claF + ae.claR)) * (1 + ge * clamp(hR * 0.5, -1, 0.5));
       addForceAt(_ft.copy(AY).multiplyScalar(-q * cF), _cp.copy(car.pos).addScaledVector(AZ, CAR.wheels[0].z));
       addForceAt(_ft.copy(AY).multiplyScalar(-q * cR), _cp.copy(car.pos).addScaledVector(AZ, CAR.wheels[2].z));
     }
@@ -3942,7 +4273,7 @@ function stepVehicle(dt, ctl) {
   _wl.copy(car.w).applyQuaternion(_qi);
   _wl.x += _tl.x / CAR.inertia.x * dt; _wl.y += _tl.y / CAR.inertia.y * dt; _wl.z += _tl.z / CAR.inertia.z * dt;
   car.w.copy(_wl).applyQuaternion(car.q);
-  car.w.multiplyScalar(Math.exp(-(nG ? 0.6 : 0.15) * dt));
+  car.w.multiplyScalar(Math.exp(-(nG ? 0.3 : 0.15) * dt));
   if (car.w.lengthSq() > 144) car.w.setLength(12);
   _dq.set(car.w.x * dt * 0.5, car.w.y * dt * 0.5, car.w.z * dt * 0.5, 0).multiply(car.q);
   car.q.set(car.q.x + _dq.x, car.q.y + _dq.y, car.q.z + _dq.z, car.q.w + _dq.w).normalize();
@@ -4032,23 +4363,30 @@ function placeCar(s, d, speed) {
   _fw.crossVectors(_lt, up).normalize();
   _m4.makeBasis(_lt, up, _fw);
   car.q.setFromRotationMatrix(_m4);
-  car.pos.set(WP.x, GS_TMP.h + 1.0, WP.z);
+  car.pos.set(WP.x, GS_TMP.h + CAR.cgH + 0.08, WP.z);
   car.vel.copy(_fw).multiplyScalar(speed || 0);
   car.w.set(0, 0, 0);
   car.i = i; car.s = s; car.d = d; car.speed = speed || 0; car.reach = s;
-  car.gear = 1; car.rpm = GEARBOX.idle; car.shiftT = 0; car.shiftReq = 0;
+  // powertrain: the gear that suits the speed, the engine turning with it, the wheels rolling with the car
+  const tn = car.tune, sp = tn.spec, v = speed || 0, rpmAt = (g) => v / CAR.radius * tn.gears[g - 1] * tn.final * 60 / TAU;
+  let gear = 1;
+  for (let g = 2; g <= tn.gears.length; g++) if (rpmAt(g) > sp.redline * 0.55) gear = g;
+  car.gear = gear; car.we = Math.max(sp.idle, rpmAt(gear)) * TAU / 60; car.rpm = car.we * 60 / TAU / sp.redline;
+  car.shiftT = 0; car.shiftDir = 0; car.shiftReq = 0; car.revHold = 0; car.cut = false; car.limiter = false; car.tcF = 1; car.Tcl = 0;
+  for (const c of DL.cpl) c.lin = true;
   car.steerAngle = 0; car.airTime = 0; car.wasAirborne = false; car.flipTimer = 0; car.offTimer = 0;
   car.spool = 1; car.backfire = 0; car.events.length = 0;
-  for (const w of car.wheels) { w.prevGround = true; w.spinV = 0; w.comp = 0; w.grounded = false; }
+  for (const w of car.wheels) { w.prevGround = true; w.om = v / CAR.radius; w.absP = 1; w.kap = 0; w.comp = 0; w.grounded = false; }
 }
 
 /* ---- vehicle model ---- */
 /* ---- body kit: helpers each Group B body builder draws with ----
-   Car space: +z forward, +y up, +x the car's LEFT. The wheels sit at x ±1.02 (tyres 0.36 wide, radius 0.43),
-   z +1.38 (front) and -1.30 (rear); at ride height the wheel centres are at y ≈ -0.44 and the ground is at
-   y ≈ -0.87. A builder returns where the pilot sits, where the thrusters and extra wings mount, and so on. */
-function makeBodyKit(g, M, add, tube, build) {
-  const K = Object.assign({ g, add, tube, build, wing: 0, CAR, TAU }, M);   // wing 0: every car carries its own stock aero
+   Model space: +z forward, +y up, +x the car's LEFT. The wheel arches are centred on x ±1.02, z +1.38 (front)
+   and -1.30 (rear), and the ground is at y -0.87; carGeometry then maps the shell onto the real car. K.WY is the
+   model y of the real wheel centre at ride height, and every arc drawn around it (arches, flares) is scaled by
+   K.AR so the arches fit the real tyres. A builder returns where the pilot sits, the shock top mounts and so on. */
+function makeBodyKit(g, M, add, tube, build, map) {
+  const K = Object.assign({ g, add, tube, build, wing: 0, CAR, TAU, WY: map ? map.WY : -0.44, AR: map ? map.AR : 1 }, M);   // wing 0: every car carries its own stock aero
   K.box = (w, h, d, mat, x, y, z, rx, ry, rz) => add(new THREE.BoxGeometry(w, h, d), mat, x, y, z, rx, ry, rz);
   /** Extrude a side silhouette across the car. pts: [[z, y], ...] (a closed outline, no repeated end point);
    *  (or a THREE.Shape in the same z/y plane, which may have holes); w: full width; mat: a material or
@@ -4074,7 +4412,10 @@ function makeBodyKit(g, M, add, tube, build) {
     return add(new THREE.CircleGeometry(r, 14), mat || K.headMat, x, y, z + dir * 0.005, 0, dir > 0 ? 0 : Math.PI, 0);
   };
   /** Points on an arc in the side view (centre cz, cy; radius r; angles in radians, 0 = forward, π/2 = up). */
-  K.arc = (cz, cy, r, a0, a1, n = 8) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cz + Math.cos(a) * r, cy + Math.sin(a) * r]; });
+  K.arc = (cz, cy, r, a0, a1, n = 8) => {
+    if (cy === K.WY) r *= K.AR;                              // round a wheel: sized to the real tyre
+    return Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cz + Math.cos(a) * r, cy + Math.sin(a) * r]; });
+  };
   /** Mirror helper: calls f(sx) for sx = -1 and +1. */
   K.both = (f) => { f(-1); f(1); };
   return K;
@@ -4084,7 +4425,7 @@ function makeBodyKit(g, M, add, tube, build) {
    z, span] for the add-on wings), shockTop (y of the shock top mounts) and antenna ([x, y, z] on the roof).
    The builder draws its own stock aero (per-car parts from CAR_AERO are added after), and its lamps with K.headMat / K.tailMat. */
 function gbBody_twincharger(K) {
-  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = -0.44;
+  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = K.WY;
   // arch cut-out opening downward, from the rear edge over the top to the front edge
   const arch = (cz, r, n) => K.arc(cz, WY, r, PI, 0, n || 8);
 
@@ -4191,7 +4532,7 @@ function gbBody_twincharger(K) {
 }
 function gbBody_fivepot(K) {
   // Audi Sport quattro S1 E2 (1985): long shovel nose, boxy Ur-quattro greenhouse, box arches, low tail wing.
-  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = -0.44;
+  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = K.WY;
   const AR = 0.58, AA = Math.asin(0.11 / AR);
   // ---- main body: side silhouette with wheel openings cut into the bottom edge ----
   const body = [
@@ -4285,7 +4626,7 @@ function gbBody_fivepot(K) {
 function gbBody_t16(K) {
   // Peugeot 205 Turbo 16 (1984-85): tiny upright hatchback, tall thin-pillared glasshouse, short dipping bonnet,
   // near-vertical tailgate, squared box arches joined by bulged sills, mid-engine intakes ahead of the rear wheels.
-  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = -0.44;
+  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = K.WY;
   const AR = 0.58, AA = Math.asin(0.11 / AR);
   // ---- main lower body (to the belt line) with wheel openings; bonnet wedges down to the nose ----
   const body = [
@@ -4382,7 +4723,7 @@ function gbBody_stradale(K) {
   // Lancia 037 Rally (1982-83): very low, wide mid-engine coupe. Long sloping nose with a deep chin and low
   // twin round lamps, short steeply raked cabin, flying-buttress sail panels, long flat louvred engine deck,
   // raised rear wing at the very tail, round curvy arches.
-  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = -0.44;
+  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = K.WY;
   const AR = 0.54, AA = Math.asin(0.11 / AR);
   // ---- main lower body (to the belt line) with wheel openings ----
   const body = [
@@ -4472,7 +4813,7 @@ function gbBody_rswedge(K) {
   // Ford RS200 (1986): compact, rounded mid-engine coupe. Short rounded nose with paired round lamps high in the
   // corners over a wide black intake, big upright wraparound windscreen on a bubble cabin, flank scoops behind
   // the doors, muscular rear haunches, sloping engine deck with the wing mounted high at roof level, fat arches.
-  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = -0.44;
+  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = K.WY;
   const AR = 0.58, AA = Math.asin(0.06 / AR);
   // ---- main lower body to the belt line (bevel 0.05 grows it), rounded low nose, hips over the rear arch ----
   const body = [
@@ -4564,7 +4905,7 @@ function gbBody_rswedge(K) {
 function gbBody_sixr(K) {
   // MG Metro 6R4 (1985-86): tiny upright Metro box, giant square bolt-on flares, deep air dam,
   // flat roof-mounted rear spoiler overhanging the hatch, rear quarter air scoops.
-  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = -0.44;
+  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = K.WY;
   const AR = 0.56, AA = Math.asin(0.11 / AR);
   const NOSE = 2.02, TAIL = -1.96, BELT = 0.14;
   // ---- main shell: short sloping bonnet, high belt, vertical tail; wheel openings cut ----
@@ -4663,7 +5004,7 @@ function gbBody_sixr(K) {
 function gbBody_prerunner(K) {
   // First-gen Toyota Tacoma (1995-2004) built as a rally truck: upright regular cab, flat bonnet and square
   // grille, bolt-on fender flares, open bed with a tube cage over it carrying the wing and a spare wheel.
-  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = -0.44;
+  const PI = Math.PI, FZ = 1.38, RZ = -1.30, WY = K.WY;
   const AR = 0.56, AA = Math.asin(0.11 / AR);
   const NOSE = 2.28, TAIL = -2.42, BELT = 0.2, CABZ = -0.36, BED = -0.1;
   // ---- lower shell: bonnet and cab sides to the beltline, then down to the bed floor; wheel openings cut ----
@@ -4784,6 +5125,10 @@ function buildCarModel(build) {
   const accentHex = GARAGE.color.opts[build.color].hex, pilot = GARAGE.pilot.opts[build.pilot];
   const body = build.body, wheelKind = build.wheels;
   const g = new THREE.Group();
+  // the car's real chassis (carGeometry): the shell is drawn in the shared model space, then mapped onto the real
+  // car; wheels, brakes, coil-overs and anti-roll bars go straight in at the real positions
+  const geo = carGeometry(body, GARAGE.wheels.opts[wheelKind], CAR_SPECS[body].kg), map = geo.map, sp = CAR_SPECS[body];
+  const shell = new THREE.Group(); g.add(shell);
   const paintOpt = GARAGE.color.opts[build.color], metal = paintOpt.metal || 0.45, rough = paintOpt.rough || 0.32;
   const paint = new THREE.MeshStandardMaterial({ color: accentHex, metalness: metal, roughness: rough });
   const dark = new THREE.MeshStandardMaterial({ color: 0x1b1e24, metalness: 0.5, roughness: 0.55 });
@@ -4808,7 +5153,7 @@ function buildCarModel(build) {
   const top = new THREE.MeshStandardMaterial({ map: topTex, metalness: metal, roughness: rough });
   const add = (geo, mat, x, y, z, rx, ry, rz) => {
     const mm = new THREE.Mesh(geo, mat); mm.position.set(x, y, z); mm.rotation.set(rx || 0, ry || 0, rz || 0);
-    mm.castShadow = true; mm.receiveShadow = true; g.add(mm); return mm;
+    mm.castShadow = true; mm.receiveShadow = true; shell.add(mm); return mm;
   };
   const tube = (x0, y0, z0, x1, y1, z1, r, mat) => {       // straight tube between two points
     const a = new THREE.Vector3(x0, y0, z0), b = new THREE.Vector3(x1, y1, z1), len = a.distanceTo(b);
@@ -4816,8 +5161,8 @@ function buildCarModel(build) {
     mm.quaternion.setFromUnitVectors(UP, b.sub(a).normalize());
     return mm;
   };
-  // ---- body shell: Group B rally cars (physics hull is shared; only the look changes) ----
-  const K = makeBodyKit(g, { paint, dark, trim, glass, side, top, headMat, tailMat, rubber }, add, tube, build);
+  // ---- body shell: Group B rally cars ----
+  const K = makeBodyKit(shell, { paint, dark, trim, glass, side, top, headMat, tailMat, rubber }, add, tube, build, map);
   const spec = Object.assign({ seatY: -0.1, seatZ: -0.1, seatX: 0.36, pilotScale: 0.85, rearZ: -2.1, thrY: -0.2, wing: [0.3, 0.55, -1.8, 1.8], shockTop: 0.2, antenna: [0.55, 0.5, -1.2] },
     BODY_BUILDERS[body](K));
   const { seatY, seatZ, rearZ, thrY } = spec;
@@ -4842,9 +5187,9 @@ function buildCarModel(build) {
   for (const sx of [[0.42], [-0.5, 0.5], [0.42], [-0.36, 0.36], [0.42], [-0.32, 0.32], [0.5]][body]) {
     add(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 10), trim, sx, thrY - 0.04, rearZ + 0.12, Math.PI / 2, 0, 0);
     const z = rearZ - 0.09;
-    const end = new THREE.Mesh(new THREE.CircleGeometry(0.045, 10), new THREE.MeshBasicMaterial({ color: 0x0a0a0a })); end.position.set(sx, thrY - 0.04, z); end.rotation.y = Math.PI; g.add(end);
+    const end = new THREE.Mesh(new THREE.CircleGeometry(0.045, 10), new THREE.MeshBasicMaterial({ color: 0x0a0a0a })); end.position.set(sx, thrY - 0.04, z); end.rotation.y = Math.PI; shell.add(end);
     const fg = new THREE.ConeGeometry(0.09, 0.55, 10, 1, true); fg.translate(0, 0.27, 0); fg.rotateX(-Math.PI / 2);
-    const fl = new THREE.Mesh(fg, flameMat); fl.position.set(sx, thrY - 0.04, z); fl.visible = false; g.add(fl);
+    const fl = new THREE.Mesh(fg, flameMat); fl.position.set(sx, thrY - 0.04, z); fl.visible = false; shell.add(fl);
     fl.userData.keep = true;
     flames.push(fl);
   }
@@ -4852,7 +5197,7 @@ function buildCarModel(build) {
   const P = buildPilotHead(pilot);
   P.position.set(spec.seatX, seatY, seatZ);
   P.scale.setScalar(spec.pilotScale);
-  g.add(P);
+  shell.add(P);
   // hover-tech underglow
   const glowOpt = GARAGE.glow.opts[build.glow], glowCss = glowOpt.css || '0,0,0';
   const glowTex = makeCanvas(64, 128, (c, w, h) => {
@@ -4861,73 +5206,77 @@ function buildCarModel(build) {
     c.fillStyle = grd; c.save(); c.scale(1, 2); c.fillRect(0, 0, w, h / 2); c.restore();
   });
   const under = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 5.2), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55, toneMapped: false }));
-  under.rotation.x = -Math.PI / 2; under.position.y = -0.37; g.add(under);
+  under.rotation.x = -Math.PI / 2; under.position.y = -0.37; shell.add(under);
   under.userData.keep = true; under.visible = !!glowOpt.css;
-  mergeStatic(g);                                           // ~40 static parts → one mesh per material
+  mergeStatic(shell);                                       // ~40 static parts → one mesh per material
+  warpShell(shell, map, P);                                 // onto the real car's length, width, height and wheelbase
   // ---- wheels: pivot (steer + suspension) → spin group (tyre, rim, brake disc). The caliper rides on the
   // pivot, so it steers and moves with the hub but doesn't spin. Hover pads sit in the pivot. ----
   const wheels = [];
-  const R = [CAR.radius, 0.5, 0.41, CAR.radius, 0.42][wheelKind], W = [0.36, 0.46, 0.3, 0, 0.36][wheelKind];
+  const R = geo.r, W = sp.tyre.w * [1, 1.3, 0.92, 0, 1][wheelKind];   // the car's real tyre (crawlers a size up, slicks a touch lower)
   const rimSpec = RIM_STYLES[body];
   const rimMat = wheelKind === 2 ? paint : new THREE.MeshStandardMaterial({ color: rimSpec.color, metalness: 0.75, roughness: 0.3 });
   const discMats = [], rubberDS = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.92, side: THREE.DoubleSide });
   const caliperMat = new THREE.MeshStandardMaterial({ color: rimSpec.caliper, metalness: 0.3, roughness: 0.45 });
   let tireGeo = null, wallGeo = null, dishGeo = null, spokeGeo = null, nutGeo = null, discGeo = null, hatGeo = null, calGeo = null, treadGeo = null, padGeo = null, padGlow = null;
-  const rimR = Math.min(0.31, R - 0.11);
+  const rimR = Math.min(sp.tyre.rim * 0.0127, R - 0.07), pr = R / 0.43;
   if (wheelKind !== 3) {
     tireGeo = new THREE.CylinderGeometry(R, R, W, wheelKind === 1 ? 10 : 20, 1, true); tireGeo.rotateZ(Math.PI / 2);   // tread band
     wallGeo = new THREE.RingGeometry(rimR, R, 20, 1); wallGeo.rotateY(Math.PI / 2);                  // sidewalls, open to the rim
     dishGeo = new THREE.CylinderGeometry(rimR, rimR, W * 0.92, 20, 1, true); dishGeo.rotateZ(Math.PI / 2);
-    spokeGeo = new THREE.BoxGeometry(0.03, rimSpec.spokeW, rimR - 0.04); spokeGeo.translate(0, 0, (rimR - 0.04) / 2 + 0.03);
-    nutGeo = new THREE.CylinderGeometry(0.06, 0.07, 0.05, rimSpec.spokes > 5 ? 8 : 5); nutGeo.rotateZ(Math.PI / 2);
-    discGeo = new THREE.CylinderGeometry(rimR - 0.04, rimR - 0.04, 0.03, 22); discGeo.rotateZ(Math.PI / 2);
-    hatGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.06, 10); hatGeo.rotateZ(Math.PI / 2);
-    calGeo = new THREE.BoxGeometry(0.09, 0.13, 0.2);
-    if (wheelKind === 1) treadGeo = new THREE.BoxGeometry(W + 0.04, 0.1, 0.14);
-    if (wheelKind === 4) treadGeo = new THREE.ConeGeometry(0.035, 0.1, 5);
+    spokeGeo = new THREE.BoxGeometry(0.03, rimSpec.spokeW * 0.7, rimR - 0.035); spokeGeo.translate(0, 0, (rimR - 0.035) / 2 + 0.025);
+    nutGeo = new THREE.CylinderGeometry(0.045, 0.052, 0.04, rimSpec.spokes > 5 ? 8 : 5); nutGeo.rotateZ(Math.PI / 2);
+    // brake disc: the car's real disc size where it fits inside the rim
+    discGeo = new THREE.CylinderGeometry(Math.min(sp.disc[0] / 2000, rimR - 0.03), Math.min(sp.disc[0] / 2000, rimR - 0.03), 0.028, 22); discGeo.rotateZ(Math.PI / 2);
+    hatGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.05, 10); hatGeo.rotateZ(Math.PI / 2);
+    calGeo = new THREE.BoxGeometry(0.07, 0.1, 0.16);
+    if (wheelKind === 1) treadGeo = new THREE.BoxGeometry(W + 0.03, 0.07, 0.1);
+    if (wheelKind === 4) treadGeo = new THREE.ConeGeometry(0.026, 0.075, 5);
   } else {
-    padGeo = new THREE.CylinderGeometry(0.46, 0.36, 0.16, 20);
-    padGlow = new THREE.Mesh(new THREE.RingGeometry(0.12, 0.34, 24), new THREE.MeshBasicMaterial({ color: glowOpt.css ? glowOpt.hex : 0x78f0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+    padGeo = new THREE.CylinderGeometry(0.46 * pr, 0.36 * pr, 0.16 * pr, 20);
+    padGlow = new THREE.Mesh(new THREE.RingGeometry(0.12 * pr, 0.34 * pr, 24), new THREE.MeshBasicMaterial({ color: glowOpt.css ? glowOpt.hex : 0x78f0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
   }
-  for (const cw of CAR.wheels) {
-    const pivot = new THREE.Group(); pivot.position.set(cw.x, CAR.mountY - CAR.rest, cw.z); g.add(pivot);
+  for (const cw of geo.wheels) {
+    const pivot = new THREE.Group(); pivot.position.set(cw.x, geo.mountY - geo.rest, cw.z); g.add(pivot);
     const spin = new THREE.Group(); pivot.add(spin);
     let disc = null;
     if (tireGeo) {
       const out = cw.x > 0 ? 1 : -1;                         // +x is the car's left: the outer face points away from the centre
-      spin.position.y = R - CAR.radius;                     // keep the contact patch where the physics has it
+      spin.position.y = R - geo.r;                          // keep the contact patch where the physics has it
       const tire = new THREE.Mesh(tireGeo, rubber); tire.castShadow = true; spin.add(tire);
       for (const f of [-1, 1]) { const wl = new THREE.Mesh(wallGeo, rubberDS); wl.position.x = f * W / 2; spin.add(wl); }
       spin.add(new THREE.Mesh(dishGeo, rimMat));
-      const face = out * (W / 2 - 0.07);
+      const face = out * (W / 2 - 0.05);
       for (let k = 0; k < rimSpec.spokes; k++) {
         const sk = new THREE.Mesh(spokeGeo, rimMat); sk.position.x = face; sk.rotation.x = k / rimSpec.spokes * TAU; spin.add(sk);
       }
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(rimR - 0.015, 0.018, 4, 22), rimMat); ring.rotation.y = Math.PI / 2; ring.position.x = face; spin.add(ring);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(rimR - 0.012, 0.014, 4, 22), rimMat); ring.rotation.y = Math.PI / 2; ring.position.x = face; spin.add(ring);
       const nut = new THREE.Mesh(nutGeo, trim); nut.position.x = face + out * 0.01; spin.add(nut);
       // brake: vented disc behind the spokes (glows as it heats up under braking), caliper on the hub carrier
       const dm = new THREE.MeshStandardMaterial({ color: 0x6c7078, metalness: 0.85, roughness: 0.35, emissive: 0xff5a10, emissiveIntensity: 0 });
       discMats.push(dm);
-      disc = new THREE.Mesh(discGeo, dm); disc.position.x = -out * 0.04; spin.add(disc);
+      disc = new THREE.Mesh(discGeo, dm); disc.position.x = -out * 0.03; spin.add(disc);
       const hat = new THREE.Mesh(hatGeo, dark); hat.position.x = -out * 0.01; spin.add(hat);
-      const cal = new THREE.Mesh(calGeo, caliperMat); cal.position.set(-out * 0.04, spin.position.y + rimR * 0.55, cw.front ? -rimR * 0.45 : rimR * 0.45);
+      const cal = new THREE.Mesh(calGeo, caliperMat); cal.position.set(-out * 0.03, spin.position.y + rimR * 0.55, cw.front ? -rimR * 0.45 : rimR * 0.45);
       cal.rotation.x = cw.front ? 0.6 : -0.6; pivot.add(cal);
       if (wheelKind === 1) for (let k = 0; k < 10; k++) { const t = new THREE.Mesh(treadGeo, rubber); const a = k / 10 * TAU; t.position.set(0, Math.cos(a) * R, Math.sin(a) * R); t.rotation.x = -a; spin.add(t); }
-      if (wheelKind === 4) for (let k = 0; k < 24; k++) { const t = new THREE.Mesh(treadGeo, trim); const a = k / 12 * TAU; t.position.set(k % 2 ? 0.1 : -0.1, Math.cos(a) * R, Math.sin(a) * R); t.rotation.x = a; spin.add(t); }
+      if (wheelKind === 4) for (let k = 0; k < 24; k++) { const t = new THREE.Mesh(treadGeo, trim); const a = k / 12 * TAU; t.position.set(k % 2 ? W * 0.28 : -W * 0.28, Math.cos(a) * R, Math.sin(a) * R); t.rotation.x = a; spin.add(t); }
     } else {
-      const pad = new THREE.Mesh(padGeo, dark); pad.position.y = -CAR.radius + 0.3; pad.castShadow = true; pivot.add(pad);
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.04, 6, 20), paint); rim.rotation.x = Math.PI / 2; rim.position.y = pad.position.y + 0.05; pivot.add(rim);
-      const glow = padGlow.clone(); glow.rotation.x = Math.PI / 2; glow.position.y = pad.position.y - 0.09; pivot.add(glow);
-      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 6), trim); strut.position.y = pad.position.y + 0.25; pivot.add(strut);
+      const pad = new THREE.Mesh(padGeo, dark); pad.position.y = -R * 0.3; pad.castShadow = true; pivot.add(pad);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.44 * pr, 0.04 * pr, 6, 20), paint); rim.rotation.x = Math.PI / 2; rim.position.y = pad.position.y + 0.05 * pr; pivot.add(rim);
+      const glow = padGlow.clone(); glow.rotation.x = Math.PI / 2; glow.position.y = pad.position.y - 0.09 * pr; pivot.add(glow);
+      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.05 * pr, 0.05 * pr, 0.4 * pr, 6), trim); strut.position.y = pad.position.y + 0.25 * pr; pivot.add(strut);
     }
-    wheels.push({ pivot, spin, discMat: discMats[discMats.length - 1] || null, heat: 0, shock: makeShock(g, cw, trim, dark, wheelKind === 3 ? -CAR.radius + 0.45 : R - CAR.radius, spec.shockTop) });
+    // coil-over top mount on the strut tower under the bodywork
+    const top = new THREE.Vector3(cw.x * 0.72, map.y(spec.shockTop), cw.z + (cw.front ? -0.3 : 0.3) * map.sz);
+    wheels.push({ pivot, spin, discMat: discMats[discMats.length - 1] || null, heat: 0, shock: makeShock(g, cw, trim, dark, wheelKind === 3 ? -R * 0.3 + 0.45 * pr : R - geo.r, top) });
     poseShock(wheels[wheels.length - 1].shock, pivot.position.y);
   }
-  const arbVis = wheelKind === 3 ? null : makeArb(g, trim);
+  const arbVis = wheelKind === 3 ? null : makeArb(g, trim, geo);
   // headlight
   const spot = new THREE.SpotLight(0xe0f4ff, 2.2, 75, 0.5, 0.55, 1.2);
-  spot.position.set(0, 0.5, 1.9);
-  spot.target.position.set(0, -1.2, 14);
+  spot.position.set(0, map.y(0.5), map.z(1.9));
+  spot.target.position.set(0, -1.6, 14);
   g.add(spot, spot.target);
   const model = { group: g, wheels, flames, tailMat, tip, under, spot, pilot: P, arb: arbVis };
   if (arbVis) poseArb(arbVis, wheels);
@@ -4936,15 +5285,17 @@ function buildCarModel(build) {
 /* ---- anti-roll bars: a torsion bar across each axle, arms to either side and drop links to the hubs.
    Posed every frame from the wheel travel, so the arms visibly twist the bar when the car rolls. ---- */
 const _arbA = new THREE.Vector3(), _arbB = new THREE.Vector3();
-function makeArb(g, trim) {
+function makeArb(g, trim, geo) {
   const barMat = new THREE.MeshStandardMaterial({ color: 0x3a7bff, metalness: 0.6, roughness: 0.35 });
   const seg = (mat, r) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1, 8), mat); g.add(m); return m; };
-  return [0, 2].map((a) => {
-    const cw = CAR.wheels[a], zb = cw.z + (cw.front ? -0.32 : 0.32), yb = -0.4;
-    const bar = seg(barMat, 0.035);
-    _arbA.set(-0.66, yb, zb); _arbB.set(0.66, yb, zb); poseSeg(bar, _arbA, _arbB);
-    return { a, zb, yb, z: cw.z, arms: [seg(barMat, 0.03), seg(barMat, 0.03)], links: [seg(trim, 0.018), seg(trim, 0.018)] };
+  const axles = [0, 2].map((a) => {
+    const cw = geo.wheels[a], zb = cw.z + (cw.front ? -0.28 : 0.28), yb = geo.map.y(-0.4), xb = Math.abs(cw.x) * 0.65;
+    const bar = seg(barMat, 0.026);
+    _arbA.set(-xb, yb, zb); _arbB.set(xb, yb, zb); poseSeg(bar, _arbA, _arbB);
+    return { a, zb, yb, xb, xl: Math.abs(cw.x) * 0.8, z: cw.z, arms: [seg(barMat, 0.022), seg(barMat, 0.022)], links: [seg(trim, 0.014), seg(trim, 0.014)] };
   });
+  axles.rest = geo.mountY - geo.rest;
+  return axles;
 }
 function poseSeg(m, a, b) {
   const len = Math.max(0.01, a.distanceTo(b));
@@ -4953,18 +5304,17 @@ function poseSeg(m, a, b) {
   m.scale.set(1, len, 1);
 }
 function poseArb(arb, wheels) {
-  const rest = CAR.mountY - CAR.rest;
   for (const ax of arb) for (let s = 0; s < 2; s++) {
-    const w = wheels[ax.a + s], sx = CAR.wheels[ax.a + s].x > 0 ? 1 : -1, py = w.pivot.position.y;
-    const tipY = ax.yb + (py - rest) * 0.45 + 0.02;
-    _arbA.set(sx * 0.66, ax.yb, ax.zb); _arbB.set(sx * 0.66, tipY, ax.z); poseSeg(ax.arms[s], _arbA, _arbB);
-    _arbA.set(sx * 0.82, py + 0.12, ax.z); poseSeg(ax.links[s], _arbB, _arbA);
+    const w = wheels[ax.a + s], sx = w.pivot.position.x > 0 ? 1 : -1, py = w.pivot.position.y;
+    const tipY = ax.yb + (py - arb.rest) * 0.45 + 0.02;
+    _arbA.set(sx * ax.xb, ax.yb, ax.zb); _arbB.set(sx * ax.xb, tipY, ax.z); poseSeg(ax.arms[s], _arbA, _arbB);
+    _arbA.set(sx * ax.xl, py + 0.1, ax.z); poseSeg(ax.links[s], _arbB, _arbA);
   }
 }
 /* ---- coil-over shocks: damper body at the chassis, shaft and coil spring stretched to the hub each frame ---- */
 let _springGeo = null;
 const _shockDir = new THREE.Vector3(), _shockDown = new THREE.Vector3(0, -1, 0);
-function makeShock(g, cw, trim, dark, hubOff, topY) {
+function makeShock(g, cw, trim, dark, hubOff, top) {
   if (!_springGeo) {
     class Helix extends THREE.Curve {
       getPoint(t, out) { const a = t * 7 * TAU; return (out || new THREE.Vector3()).set(Math.cos(a) * 0.085, -t, Math.sin(a) * 0.085); }
@@ -4972,9 +5322,8 @@ function makeShock(g, cw, trim, dark, hubOff, topY) {
     _springGeo = new THREE.TubeGeometry(new Helix(), 120, 0.017, 5, false);
   }
   const springMat = new THREE.MeshStandardMaterial({ color: 0xffb52e, metalness: 0.4, roughness: 0.4 });
-  const top = new THREE.Vector3(cw.x * 0.72, topY, cw.z + (cw.front ? -0.3 : 0.3));   // top mount on the strut tower under the bodywork
   const root = new THREE.Group(); root.position.copy(top); g.add(root);
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.34, 10), dark); body.position.y = -0.17; root.add(body);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.28, 10), dark); body.position.y = -0.14; root.add(body);
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.03, 12), trim); cap.position.y = -0.02; root.add(cap);
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 8), trim); root.add(shaft);
   const spring = new THREE.Mesh(_springGeo, springMat); spring.position.y = -0.03; root.add(spring);
@@ -5074,6 +5423,7 @@ function buildPilotHead(p) {
 }
 /** Swap the player's car model for the current garage build. */
 function rebuildCarModel() {
+  setCarTune(tuneFor(DEFAULT_SETUP, Store.data.garage));   // the physics follows the car on show (the stage setup applies at the start)
   const old = Game.carModel;
   if (old) { scene.remove(old.group); disposeObject(old.group); }
   Game.carModel = buildCarModel(Store.data.garage);
@@ -5085,12 +5435,12 @@ function buildGhostModel(color) {
   const g = new THREE.Group();
   const mat = new THREE.MeshBasicMaterial({ color: color || 0x58f0ff, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
   const add = (geo, x, y, z) => { const mm = new THREE.Mesh(geo, mat); mm.position.set(x, y, z); g.add(mm); return mm; };
-  add(new THREE.BoxGeometry(1.9, 0.46, 3.6), 0, -0.02, 0);
-  add(new THREE.BoxGeometry(1.5, 0.34, 1.7), 0, 0.36, -0.28);
-  add(new THREE.SphereGeometry(0.82, 16, 8, 0, TAU, 0, Math.PI / 2), 0, 0.5, 0.05).scale.set(0.9, 0.62, 1.25);
-  add(new THREE.BoxGeometry(2.1, 0.07, 0.42), 0, 0.72, -1.85);
-  const wg = new THREE.CylinderGeometry(CAR.radius, CAR.radius, 0.36, 10); wg.rotateZ(Math.PI / 2);
-  for (const cw of CAR.wheels) add(wg, cw.x, CAR.mountY - CAR.rest + 0.12, cw.z);
+  // a generic Group B car at real size, around the centre of mass (the ghost doesn't know which car set the time)
+  add(new THREE.BoxGeometry(1.72, 0.42, 3.8), 0, 0.02, 0.05);
+  add(new THREE.BoxGeometry(1.36, 0.36, 1.6), 0, 0.4, -0.25);
+  add(new THREE.BoxGeometry(1.6, 0.05, 0.36), 0, 0.72, -1.7);
+  const wg = new THREE.CylinderGeometry(0.32, 0.32, 0.22, 10); wg.rotateZ(Math.PI / 2);
+  for (const [x, z] of [[0.76, 1.35], [-0.76, 1.35], [0.76, -1.1], [-0.76, -1.1]]) add(wg, x, -0.14, z);
   mergeStatic(g);
   g.visible = false;
   return g;
@@ -5626,17 +5976,15 @@ const HUD = {
     const pct = clamp(car.speed / (CAR.vmax * 1.12), 0, 1) * 100;
     this.el.spdArc.setAttribute('stroke-dasharray', pct.toFixed(1) + ' 100');
     // traction control light: dim when off, lit when on, amber while it is trimming the engine
-    const tcCut = car.tc && Input.ctl.throttle > 0 && car.wheels.some((w) => w.grounded && w.drive > 0 && w.drive >= w.cap * 0.97);
-    this.el.tcLbl.setAttribute('fill', !car.tc ? '#44506a' : tcCut ? '#ffb52e' : '#58f0ff');
+    this.el.tcLbl.setAttribute('fill', !car.tc ? '#44506a' : car.tcCut ? '#ffb52e' : '#58f0ff');
     this.el.dmgFill.style.width = (car.damage * 100).toFixed(1) + '%';
     // gearbox: gear, rev counter with redline, shift light (manual only) and limiter flash
-    const rev = car.vel.dot(AZ) < -0.5 && Input.ctl.brake > 0 && !Game.autopilot;
-    this.set('gearNum', rev ? 'R' : car.shiftT > 0 ? '-' : String(car.gear));
+    this.set('gearNum', car.gear < 0 ? 'R' : car.shiftT > 0 ? '-' : String(car.gear));
     const rpm = clamp(car.rpm, 0, 1.03) * GEARBOX.redline;
     this.el.rpmFill.style.width = clamp(rpm / GEARBOX.rpmMax * 100, 0, 100).toFixed(1) + '%';
     this.set('rpmNum', String(Math.round(rpm / 100) * 100));
     this.set('gearMode', car.autoBox ? 'AUTO' : 'MANUAL');
-    this.el.rpmBar.classList.toggle('shift', !car.autoBox && car.gear < GEARBOX.frac.length && car.rpm > 0.9 && (Game.clock % 0.2) < 0.12);
+    this.el.rpmBar.classList.toggle('shift', !car.autoBox && car.gear > 0 && car.gear < car.tune.gears.length && car.rpm * GEARBOX.redline > car.tune.upRpm[car.gear - 1] * 0.97 && (Game.clock % 0.2) < 0.12);
     this.el.rpmBar.classList.toggle('limit', car.limiter);
     // brake line pressure; amber while the ABS is working, white when a wheel has locked
     const bp = Game.autopilot ? 0 : Input.ctl.brake;
@@ -5914,7 +6262,7 @@ function aiControl(skill, stopping) {
   carAxes();
   const sp = car.speed;
   // Stanley controller at the front axle: heading error + cross-track error + curvature feed-forward.
-  _tmp.set(0, 0, 1.4).applyQuaternion(car.q).add(car.pos);
+  _tmp.set(0, 0, CAR.wheels[0].z).applyQuaternion(car.q).add(car.pos);
   locateNear(_tmp.x, _tmp.z, car.i, 12, LQ2);
   const fi = clamp(Math.round((LQ2.s + sp * 0.25) / DS), 0, TR.N - 1);
   const fx = AZ.x, fzz = AZ.z, fl = Math.hypot(fx, fzz) || 1;
@@ -5935,7 +6283,7 @@ function aiControl(skill, stopping) {
   const line = lerp(dL, cl.d, cl.w), angP = ang - Math.atan(dL1) * rw - Math.atan(cl.d1) * cl.w, kP = TR.kap[fi] - dL2 * rw - cl.d2 * cl.w;
   const mu = SURF_INFO[TR.surf[fi]].mu;
   const cross = Math.atan(2.2 * (1 + 0.6 * cl.w) * clamp(mu / 0.8, 0.45, 1) * (LQ2.d - line) / (sp + 3)) * (0.2 + 0.8 * settled);
-  const ff = Math.atan(2.68 * kP);
+  const ff = Math.atan(CAR.wb * kP);
   const damping = -0.06 * (car.w.y - kP * sp);
   const delta = angP + cross + ff + damping;
   const vlA = car.vel.dot(AZ), betaA = Math.atan2(car.vel.dot(AX), Math.abs(vlA) + 2);
@@ -6085,13 +6433,10 @@ function updateCarVisual(dt, ctl) {
     wm.pivot.position.y = CAR.mountY - ext;
     poseShock(wm.shock, wm.pivot.position.y);
     if (cw.front) wm.pivot.rotation.y = car.steerAngle;
-    let spin = w.grounded ? w.vLong / CAR.radius : w.spinV * Math.exp(-0.4 * dt);
-    if ((ctl.handbrake && !cw.front) || (w.grounded && w.locked)) spin = 0; else if (w.spinning) spin += 14;
-    w.spinV = spin; w.spinAngle = (w.spinAngle + spin * dt) % TAU;
+    w.spinAngle = (w.spinAngle + w.om * dt) % TAU;           // each wheel turns at its own solved speed: wheelspin, lock-ups and all
     wm.spin.rotation.x = w.spinAngle;
-    if (wm.discMat) {                                        // brake discs heat with braking power and cool off slowly
-      const pwr = w.grounded && ctl.brake > 0 ? ctl.brake * Math.abs(w.vLong) * (cw.front ? 1.25 : 0.8) : 0;
-      wm.heat = clamp(wm.heat + (pwr * 0.012 - wm.heat * 0.35) * dt, 0, 1);
+    if (wm.discMat) {                                        // brake discs heat with the power they soak up and cool off slowly
+      wm.heat = clamp(wm.heat + (w.brakeP * 5e-6 - wm.heat * 0.35) * dt, 0, 1);
       wm.discMat.emissiveIntensity = Math.max(0, wm.heat - 0.25) * 2.2;
     }
   }
@@ -6814,6 +7159,7 @@ const Garage = {
     if (b[k] === v) return;
     b[k] = v; Store.save();
     rebuildCarModel();
+    if ((k === 'body' || k === 'wheels') && Game.state === 'garage') placeCar(TR.startS + 2, 0, 0);   // new ride height and wheelbase
     AudioSys.unlock();
     this.render();
   },
@@ -6845,7 +7191,12 @@ const Garage = {
     if (k === 'body') {
       const sp = CAR_SPECS[b.body];
       desc += `<div class="gar-spec"><span class="wide"><i>ENGINE</i>${sp.engine}</span><span><i>POWER</i>${sp.hp} hp · ${sp.hpAt} rpm</span><span><i>TORQUE</i>${sp.nm} N·m · ${sp.nmAt} rpm</span>` +
-        `<span><i>REDLINE</i>${sp.redline} rpm</span><span class="wide"><i>DRIVETRAIN</i>${drivetrainText(sp)}</span><span class="wide"><i>AERO</i>${aeroText(CAR_AERO[b.body])}</span></div>`;
+        `<span><i>REDLINE</i>${sp.redline} rpm</span><span><i>WEIGHT</i>${sp.kg} kg · ${Math.round(sp.wf * 100)}% front</span>` +
+        `<span class="wide"><i>GEARBOX</i>${sp.box}: ${sp.gears.map((q) => q.toFixed(2)).join(' · ')}, final ${sp.final.toFixed(2)}</span>` +
+        `<span class="wide"><i>DRIVETRAIN</i>${drivetrainText(sp)}</span>` +
+        `<span class="wide"><i>CHASSIS</i>${sp.dims[0].toFixed(2)} × ${sp.dims[1].toFixed(2)} × ${sp.dims[2].toFixed(2)} m, wheelbase ${sp.wb.toFixed(2)} m, ${Math.round(sp.travel * 1000)} mm travel</span>` +
+        `<span class="wide"><i>TYRES</i>${sp.tyre.size}, brakes ${sp.disc[0]}/${sp.disc[1]} mm</span>` +
+        `<span class="wide"><i>AERO</i>${aeroText(CAR_AERO[b.body])}</span></div>`;
     }
     document.getElementById('garDesc').innerHTML = desc;
     this.renderStats();
