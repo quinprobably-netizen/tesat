@@ -912,7 +912,7 @@ const STAGES = [
     features: ['crest', 'ramp', 'chasm', 'crest', 'ramp', 'chasm', 'crest'],
     ramp: { H: 1.3, L: 16, landing: 120 }, chasm: { H: 1.6, L: 16, gap: 18, landing: 144, depth: 60 }, crest: { h: 2.4, L: 55, landing: 110 },
     craterClusters: 5, meteorZones: 1, chicanes: 2, dontCut: 0.3,
-    checkpoints: 8, rocks: 800, targetFactor: 1.10,
+    checkpoints: 8, rocks: 800, targetFactor: 1.2,
     sky: {
       sunDir: [-0.72, 0.42, 0.18], sunColor: 0xfff0d6, sunIntensity: 3.0, sunSize: 0.8,
       nebA: [0.05, 0.22, 0.30], nebB: [0.10, 0.08, 0.30], nebStrength: 0.45, band: [0.7, 0.4, -0.3], stars: 0.9,
@@ -936,7 +936,7 @@ const STAGES = [
     features: ['ramp', 'chasm', 'crest', 'ramp', 'chasm'],
     ramp: { H: 1.2, L: 14, landing: 80 }, chasm: { H: 1.4, L: 14, gap: 16, landing: 91, depth: 70 }, crest: { h: 1.6, L: 40, landing: 70 },
     craterClusters: 3, meteorZones: 1, chicanes: 4, dontCut: 0.4,
-    checkpoints: 8, rocks: 500, targetFactor: 0.96,
+    checkpoints: 8, rocks: 500, targetFactor: 1.14,
     sky: {
       sunDir: [0.35, 0.36, 0.86], sunColor: 0xffb48a, sunIntensity: 3.0, sunSize: 2.2,
       nebA: [0.42, 0.06, 0.16], nebB: [0.20, 0.04, 0.34], nebStrength: 0.8, band: [-0.3, 0.9, 0.2], stars: 0.8,
@@ -1008,7 +1008,7 @@ const STAGES = [
     features: ['ramp', 'crest', 'chasm', 'ramp', 'crest'],
     ramp: { H: 1.1, L: 13, landing: 80 }, chasm: { H: 1.3, L: 13, gap: 15, landing: 90, depth: 70 }, crest: { h: 1.4, L: 36, landing: 70 },
     craterClusters: 3, meteorZones: 2, chicanes: 4, dontCut: 0.4,
-    checkpoints: 8, rocks: 450, targetFactor: 0.98,
+    checkpoints: 8, rocks: 450, targetFactor: 1.1,
     sky: {
       sunDir: [-0.4, 0.34, 0.8], sunColor: 0xffc890, sunIntensity: 3.1, sunSize: 1.6,
       nebA: [0.5, 0.2, 0.04], nebB: [0.3, 0.05, 0.1], nebStrength: 0.75, band: [0.2, 0.9, -0.3], stars: 0.7,
@@ -1161,71 +1161,82 @@ const FUEL_KG = 45, REF_PILOT_KG = 75;
 const DIFF_TYPES = {
   open: { name: 'open' },
   lsd: { name: 'limited-slip', lf: 0.4, lfCoast: 0.25, pre: 80 },     // plated (ZF type): holds up to 40% of its input torque across its sides on power
+  lsdF: { name: 'limited-slip', lf: 0.25, lfCoast: 0.1, pre: 30 },     // the lighter 25% setting the works cars ran at the front, so they still steer
   torsen: { name: 'Torsen', lf: 0.5, lfCoast: 0.5, pre: 0 },          // torque-sensing worm gears, bias ratio 3:1
   viscous: { name: 'viscous', kv: 60, kvCentre: 450 },                  // silicone coupling: torque grows with the speed difference (N·m per rad/s at the wheels)
   locking: { name: 'locking', lock: true },                             // locked solid
 };
 const CAR_SPECS = [
-  // Lancia Delta S4 (1985-86 works car)
-  { engine: '1.8 L inline-4, supercharger + turbo', pitch: 1, hp: 480, hpAt: 8000, nm: 490, nmAt: 5000, redline: 8500, idle: 1000, lag: 0.25, offBoost: 0.8,
-    curve: [[1000, 210], [2000, 310], [3000, 400], [4000, 455], [5000, 490], [6000, 480], [7000, 455], [8000, 427], [8500, 385]],
-    disp: 1.76, launch: 5000, Ie: 0.1, enginePos: 'mid',
-    box: '5-speed Hewland dog box', gears: [2.92, 2.06, 1.6, 1.29, 1.06], final: 4.36, rev: 3.0, shift: 0.1,
-    kg: 890, front: 0.3, centre: 'viscous', fdiff: 'open', rdiff: 'lsd',
-    wb: 2.44, track: [1.5, 1.52], wf: 0.42, cgH: 0.46, dims: [4.0, 1.8, 1.34], travel: 0.25,
-    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: '215/65 R16 gravel' }, disc: [330, 330] },
-  // Audi Sport quattro S1 E2 (1985-86)
-  { engine: '2.1 L inline-5, turbo', pitch: 1.09, hp: 470, hpAt: 8000, nm: 480, nmAt: 5500, redline: 8300, idle: 1000, lag: 0.7, offBoost: 0.5,
-    curve: [[1000, 170], [2000, 200], [3000, 250], [4000, 370], [5000, 462], [5500, 480], [6500, 470], [7500, 445], [8000, 418], [8300, 385]],
+  // Lancia Delta S4, 1986 works car: 480 CV at 8,400 rpm, 490 N·m at 5,000; 1986 Hewland ratios with the 2.643 axle
+  // and a 2.1 transfer (5.55 overall); Ferguson viscous centre at 30/70 (gravel), ZF plated diffs; 3.99 m long,
+  // 2.44 m wheelbase, 43/57 front/rear, 250 mm travel, 300 mm discs, 0.66 m gravel tyres
+  { engine: '1.8 L inline-4, supercharger + turbo', pitch: 1, hp: 473, hpAt: 8400, nm: 490, nmAt: 5000, redline: 8500, idle: 1000, lag: 0.25, offBoost: 0.8,
+    curve: [[1000, 210], [2000, 310], [3000, 400], [4000, 455], [5000, 490], [6000, 480], [7000, 455], [8000, 420], [8500, 400]],
+    disp: 1.759, launch: 5000, Ie: 0.1, enginePos: 'mid',
+    box: '5-speed Hewland dog box', gears: [2.538, 1.706, 1.25, 1.0, 0.84], final: 5.55, rev: 2.8, shift: 0.1,
+    kg: 950, front: 0.3, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+    wb: 2.44, track: [1.51, 1.535], wf: 0.43, cgH: 0.46, dims: [3.99, 1.88, 1.36], travel: 0.25,
+    tyre: { r: 0.33, w: 0.195, rim: 16, kg: 20, size: 'Pirelli 660-16 gravel' }, disc: [300, 300] },
+  // Audi Sport quattro S1 E2, 1985-86: Audi's 476 PS at 7,500 rpm and 480 N·m at 5,500, safe to 8,400; 5-speed
+  // with the 4.571 axle; Torsen-type centre (from mid-1985) at 50/50; 4.24 m long on a 2.224 m wheelbase, 52/48
+  { engine: '2.1 L inline-5, turbo', pitch: 1.09, hp: 469, hpAt: 7500, nm: 480, nmAt: 5500, redline: 8400, idle: 1000, lag: 0.7, offBoost: 0.5,
+    curve: [[1000, 170], [2000, 200], [3000, 250], [4000, 370], [5000, 462], [5500, 480], [6500, 470], [7500, 445], [8000, 418], [8400, 385]],
     disp: 2.11, launch: 5500, Ie: 0.13, enginePos: 'front',
-    box: '6-speed manual', gears: [3.17, 2.13, 1.6, 1.29, 1.06, 0.89], final: 4.11, rev: 3.5, shift: 0.14,
-    kg: 1090, front: 0.5, centre: 'locking', fdiff: 'open', rdiff: 'locking',
-    wb: 2.224, track: [1.52, 1.5], wf: 0.56, cgH: 0.5, dims: [4.16, 1.86, 1.34], travel: 0.24,
-    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: '215/65 R16 gravel' }, disc: [330, 300] },
-  // Peugeot 205 Turbo 16 Evolution 2 (1985-86)
-  { engine: '1.8 L inline-4, turbo', pitch: 1, hp: 450, hpAt: 8000, nm: 460, nmAt: 5000, redline: 8300, idle: 1000, lag: 0.55, offBoost: 0.55,
-    curve: [[1000, 150], [2000, 190], [3000, 280], [4000, 405], [5000, 460], [6000, 450], [7000, 425], [8000, 400], [8300, 370]],
-    disp: 1.78, launch: 5000, Ie: 0.1, enginePos: 'mid',
-    box: '5-speed manual', gears: [2.92, 2.06, 1.6, 1.29, 1.06], final: 4.2, rev: 3.0, shift: 0.12,
-    kg: 910, front: 0.33, centre: 'viscous', fdiff: 'open', rdiff: 'lsd',
-    wb: 2.54, track: [1.43, 1.43], wf: 0.42, cgH: 0.46, dims: [3.83, 1.7, 1.35], travel: 0.26,
-    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: '215/65 R16 gravel' }, disc: [300, 300] },
-  // Lancia 037 Rally Evolution 2 (1984), with a bigger supercharger and a four-wheel-drive conversion the real car
-  // never had (Q's call: so it can put the power down like the rest of the field)
+    box: '5-speed manual', gears: [3.111, 2.273, 1.706, 1.318, 0.962], final: 4.571, rev: 3.5, shift: 0.14,
+    kg: 1090, front: 0.5, centre: 'torsen', fdiff: 'lsdF', rdiff: 'lsd',
+    wb: 2.224, track: [1.465, 1.502], wf: 0.52, cgH: 0.5, dims: [4.24, 1.86, 1.344], travel: 0.24,
+    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: 'Michelin 16 in gravel' }, disc: [295, 295] },
+  // Peugeot 205 Turbo 16 Evolution 2, 1985-86: 460 hp at 7,600 rpm, 490 N·m at 5,500; the 1986 six-speed with the
+  // 3.889 axle and a 1.526 transfer (5.94 overall); Ferguson viscous centre at 34/66, ZF diffs; 2.54 m wheelbase,
+  // 1.43 m tracks, about 45/55; Michelin TRX gravel tyres (0.632 m rolling diameter)
+  { engine: '1.8 L inline-4, turbo', pitch: 1, hp: 460, hpAt: 7600, nm: 490, nmAt: 5500, redline: 8300, idle: 1000, lag: 0.55, offBoost: 0.55,
+    curve: [[1000, 150], [2000, 200], [3000, 300], [4000, 420], [5000, 480], [5500, 490], [6500, 470], [7600, 431], [8000, 405], [8300, 375]],
+    disp: 1.775, launch: 5000, Ie: 0.1, enginePos: 'mid',
+    box: '6-speed manual (1986)', gears: [2.533, 1.789, 1.357, 1.129, 0.961, 0.806], final: 5.936, rev: 2.8, shift: 0.12,
+    kg: 950, front: 0.34, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+    wb: 2.54, track: [1.43, 1.43], wf: 0.45, cgH: 0.46, dims: [3.825, 1.7, 1.353], travel: 0.26,
+    tyre: { r: 0.316, w: 0.16, rim: 16, kg: 19, size: 'Michelin TRX 16/66-390' }, disc: [300, 300] },
+  // Lancia 037 Rally Evolution 2, 1984 chassis, ZF dog box and 5.25 axle, 3.89 m long, 1.24 m tall; with a bigger
+  // supercharger and a four-wheel-drive conversion the real car never had (Q's call: the real 325 CV and rear drive
+  // rate well below the rest of the field)
   { engine: '2.1 L inline-4, supercharged (Evo tune)', pitch: 0.97, hp: 385, hpAt: 8000, nm: 400, nmAt: 5500, redline: 8500, idle: 1000, lag: 0, offBoost: 1,
     curve: [[1000, 228], [2000, 288], [3000, 336], [4000, 372], [5000, 394], [5500, 400], [6500, 386], [7500, 360], [8000, 342], [8500, 314]],
-    disp: 2.11, launch: 4500, Ie: 0.11, enginePos: 'mid',
-    box: '5-speed ZF', gears: [2.92, 2.06, 1.6, 1.29, 1.06], final: 4.0, rev: 3.0, shift: 0.14,
+    disp: 2.111, launch: 4500, Ie: 0.11, enginePos: 'mid',
+    box: '5-speed ZF dog box', gears: [2.308, 1.611, 1.3, 1.125, 1.0], final: 5.25, rev: 2.8, shift: 0.14,
     kg: 960, front: 0.35, centre: 'viscous', fdiff: 'open', rdiff: 'lsd',
-    wb: 2.44, track: [1.51, 1.49], wf: 0.42, cgH: 0.44, dims: [3.92, 1.85, 1.25], travel: 0.22,
-    tyre: { r: 0.315, w: 0.225, rim: 16, kg: 20, size: '225/60 R16' }, disc: [300, 300] },
-  // Ford RS200 (1986 works car)
-  { engine: '1.8 L inline-4, turbo (Cosworth BDT)', pitch: 1, hp: 450, hpAt: 8000, nm: 420, nmAt: 6000, redline: 8500, idle: 1000, lag: 0.6, offBoost: 0.55,
-    curve: [[1000, 140], [2000, 180], [3000, 250], [4000, 350], [5000, 410], [6000, 420], [7000, 412], [8000, 400], [8500, 370]],
-    disp: 1.8, launch: 5500, Ie: 0.1, enginePos: 'mid',
-    box: '5-speed FF Developments', gears: [2.92, 2.06, 1.6, 1.29, 1.06], final: 4.3, rev: 3.0, shift: 0.12,
+    wb: 2.44, track: [1.508, 1.49], wf: 0.42, cgH: 0.43, dims: [3.89, 1.85, 1.24], travel: 0.22,
+    tyre: { r: 0.316, w: 0.205, rim: 16, kg: 19, size: '205/55-16 gravel' }, disc: [300, 300] },
+  // Ford RS200, 1986 works car: Cosworth BDT 444 bhp at 8,000 rpm, 489 N·m at 5,500; rally ratios with the 4.375 axle
+  // and the 1.043 transfer (4.565 overall); 37/63 through three viscous diffs; 4.0 m long, 2.53 m wheelbase, 50/50
+  { engine: '1.8 L inline-4, turbo (Cosworth BDT)', pitch: 1, hp: 444, hpAt: 8000, nm: 489, nmAt: 5500, redline: 8500, idle: 1000, lag: 0.6, offBoost: 0.55,
+    curve: [[1000, 140], [2000, 190], [3000, 270], [4000, 390], [5000, 470], [5500, 489], [6500, 460], [7500, 420], [8000, 395], [8500, 355]],
+    disp: 1.803, launch: 5500, Ie: 0.1, enginePos: 'mid',
+    box: '5-speed FF Developments', gears: [3.091, 2.143, 1.688, 1.368, 1.143], final: 4.565, rev: 3.0, shift: 0.12,
     kg: 1050, front: 0.37, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous',
-    wb: 2.53, track: [1.5, 1.5], wf: 0.46, cgH: 0.46, dims: [4.0, 1.76, 1.32], travel: 0.25,
-    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: '215/65 R16 gravel' }, disc: [300, 300] },
-  // MG Metro 6R4 (1986), with the twin-turbo V64V Austin Rover developed for it (the engine family later went into the
-  // Jaguar XJ220): lower redline than the atmospheric version, much more mid-range
+    wb: 2.53, track: [1.502, 1.497], wf: 0.5, cgH: 0.46, dims: [4.0, 1.764, 1.321], travel: 0.25,
+    tyre: { r: 0.325, w: 0.215, rim: 16, kg: 20, size: 'Pirelli 16 in gravel' }, disc: [300, 300] },
+  // MG Metro 6R4, 1986: real gearbox (5.09 overall top), Ferguson viscous centre at 35/65, 3.66 m long on a 2.41 m
+  // wheelbase, 1.88 m wide; with the twin-turbo V64V Austin Rover developed for it (the engine family later went
+  // into the Jaguar XJ220): lower redline than the 410 bhp atmospheric version, much more mid-range
   { engine: '3.0 L V6, twin-turbo (V64V)', pitch: 1.2, hp: 480, hpAt: 8000, nm: 450, nmAt: 6000, redline: 8500, idle: 1100, lag: 0.45, offBoost: 0.6,
     curve: [[1000, 200], [2000, 250], [3000, 300], [4000, 370], [5000, 425], [6000, 450], [7000, 440], [8000, 427], [8500, 395]],
-    disp: 2.99, launch: 5000, Ie: 0.12, enginePos: 'mid',
-    box: '5-speed manual', gears: [2.92, 2.06, 1.6, 1.29, 1.06], final: 4.2, rev: 3.0, shift: 0.12,
-    kg: 1030, front: 0.38, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous',
-    wb: 2.41, track: [1.53, 1.52], wf: 0.45, cgH: 0.48, dims: [3.66, 1.89, 1.49], travel: 0.25,
-    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: '215/65 R16 gravel' }, disc: [300, 300] },
-  // first-gen Tacoma (1995-2004): its 3.4 L 5VZ-FE V6 (190 hp and 298 N·m stock) built for racing with a
-  // twin-screw supercharger, in a stripped truck with composite panels and long-travel suspension. The tune
-  // is sized so the heavier, draggier pickup rates in the same class as the Group B cars.
-  { engine: '3.4 L V6, twin-screw supercharged (built 5VZ-FE)', pitch: 0.9, hp: 515, hpAt: 6800, nm: 600, nmAt: 4500, redline: 7200, idle: 900, lag: 0, offBoost: 1,
-    curve: [[900, 312], [2000, 432], [3000, 516], [4000, 582], [4500, 600], [5500, 588], [6500, 554], [6800, 540], [7200, 498]],
-    disp: 3.38, launch: 3800, Ie: 0.2, enginePos: 'front',
-    box: '5-speed R150F', gears: [3.83, 2.06, 1.34, 1.0, 0.84], final: 4.1, rev: 4.22, shift: 0.22,
-    kg: 1200, front: 0.4, centre: 'viscous', fdiff: 'open', rdiff: 'locking',
-    wb: 2.62, track: [1.62, 1.62], wf: 0.53, cgH: 0.6, dims: [4.71, 1.83, 1.62], travel: 0.32,
-    tyre: { r: 0.385, w: 0.265, rim: 15, kg: 32, size: '265/75 R15' }, disc: [300, 290] },
+    disp: 2.991, launch: 5000, Ie: 0.12, enginePos: 'mid',
+    box: '5-speed manual', gears: [2.938, 2.263, 1.696, 1.3, 1.091], final: 4.668, rev: 3.0, shift: 0.12,
+    kg: 1040, front: 0.35, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+    wb: 2.412, track: [1.51, 1.515], wf: 0.45, cgH: 0.48, dims: [3.657, 1.88, 1.5], travel: 0.25,
+    tyre: { r: 0.32, w: 0.215, rim: 16, kg: 20, size: 'Michelin 16 in gravel' }, disc: [304, 304] },
+  // first-gen Tacoma (1995-2004) regular cab 4x4: real R150F gearbox and TRD 4.10 axle with its rear locker, the
+  // part-time transfer case locked in 4H, 2.624 m wheelbase, 4.59 m long, the TRD 31x10.50R15 tyres, long-travel
+  // arms widening the 1.46 m tracks. Its 3.4 L 5VZ-FE V6 (190 hp and 298 N·m stock) is built for racing with a
+  // twin-screw supercharger, in a stripped truck with composite panels (1,472 kg stock), sized so the heavier,
+  // draggier pickup rates in the same class as the Group B cars.
+  { engine: '3.4 L V6, twin-screw supercharged (built 5VZ-FE)', pitch: 0.9, hp: 515, hpAt: 6800, nm: 600, nmAt: 4500, redline: 7200, idle: 800, lag: 0, offBoost: 1,
+    curve: [[800, 300], [2000, 432], [3000, 516], [4000, 582], [4500, 600], [5500, 588], [6500, 554], [6800, 540], [7200, 498]],
+    disp: 3.378, launch: 3800, Ie: 0.2, enginePos: 'front',
+    box: '5-speed R150F', gears: [3.83, 2.062, 1.436, 1.0, 0.838], final: 4.1, rev: 4.22, shift: 0.22,
+    kg: 1200, front: 0.5, centre: 'locking', fdiff: 'open', rdiff: 'locking',
+    wb: 2.624, track: [1.61, 1.6], wf: 0.53, cgH: 0.6, dims: [4.585, 1.83, 1.715], travel: 0.32,
+    tyre: { r: 0.39, w: 0.267, rim: 15, kg: 30, size: '31x10.50 R15' }, disc: [297, 295] },
 ];
 // derived: driveline efficiency (four-wheel drive loses a little more through the extra diffs), clutch capacity, and
 // the revs the engine settles at on a full-throttle standing start while the launch clutch slips
@@ -1235,26 +1246,27 @@ for (const sp of CAR_SPECS) {
   for (let rpm = sp.idle * 1.05; rpm < sp.launch; rpm += 25) if (sp.clutchT * smoothstep(sp.idle * 1.05, sp.launch, rpm) >= engineTorque(sp, rpm)) { sp.launchEq = rpm; break; }
 }
 /* ---- aero: each car's full aerodynamic package, as it ran in the rallies (indexed like GARAGE.body).
-   cda: drag area head-on (m²); cdaSide: drag area side-on, blended in by the slip angle, so a sliding car
+   cda: drag area head-on (m²): the real drag coefficient where one is published (S1 0.42, 205 T16 0.35, RS200 0.40,
+   6R4 0.50, on the road cars; a little more with the rally aero) times the frontal area from the real width and height; cdaSide: drag area side-on, blended in by the slip angle, so a sliding car
    scrubs speed; claF / claR: downforce areas at the front and rear axles (m²), which set the aero balance;
    pitch: how much the front gains (and the rear loses) as the nose dips under braking, per 10 cm of dive;
    ge: the share of the downforce made by the underbody (splitter and diffuser), which grows as the car sits lower
    and fades away off the ground.
    `parts` lists what the model draws for it, and `text` describes it in the garage. */
 const CAR_AERO = [
-  { cda: 0.85, cdaSide: 2.4, claF: 0.15, claR: 0.32, pitch: 0.06, ge: 0.35, parts: { skirts: true, strakes: 3, gurney: true },
+  { cda: 0.88, cdaSide: 2.4, claF: 0.15, claR: 0.32, pitch: 0.06, ge: 0.35, parts: { skirts: true, strakes: 3, gurney: true },
     text: 'Front splitter, hatch spoiler with a gurney flap, side skirts, roof intake, rear diffuser' },
-  { cda: 1.0, cdaSide: 2.6, claF: 0.36, claR: 0.46, pitch: 0.1, ge: 0.2, parts: { canards: 2, strakes: 4 },
+  { cda: 0.98, cdaSide: 2.6, claF: 0.36, claR: 0.46, pitch: 0.1, ge: 0.2, parts: { canards: 2, strakes: 4 },
     text: 'Shovel-nose splitter with dive planes, huge tail wing on endplates, roof-edge spoiler, rear diffuser' },
-  { cda: 0.8, cdaSide: 2.2, claF: 0.12, claR: 0.28, pitch: 0.05, ge: 0.3, parts: { splitter: [1.9, 0.24, -0.585, 2.21], finsT16: true },
+  { cda: 0.72, cdaSide: 2.2, claF: 0.12, claR: 0.28, pitch: 0.05, ge: 0.3, parts: { splitter: [1.9, 0.24, -0.585, 2.21], finsT16: true },
     text: 'Chin splitter, tailgate spoiler with end fins, rear-brake cooling scoops' },
-  { cda: 0.75, cdaSide: 2.3, claF: 0.15, claR: 0.3, pitch: 0.05, ge: 0.35, parts: { splitter: [1.86, 0.28, -0.56, 2.3], strakes: 3 },
+  { cda: 0.71, cdaSide: 2.2, claF: 0.15, claR: 0.3, pitch: 0.05, ge: 0.35, parts: { splitter: [1.86, 0.28, -0.56, 2.3], strakes: 3 },
     text: 'Deep chin splitter, rear wing on endplates, rear diffuser' },
-  { cda: 0.85, cdaSide: 2.4, claF: 0.2, claR: 0.42, pitch: 0.07, ge: 0.3, parts: { canards: 1, strakes: 3 },
+  { cda: 0.76, cdaSide: 2.3, claF: 0.2, claR: 0.42, pitch: 0.07, ge: 0.3, parts: { canards: 1, strakes: 3 },
     text: 'Chin splitter with dive planes, roof-height rear wing with a gurney lip, rear diffuser' },
-  { cda: 0.95, cdaSide: 2.5, claF: 0.22, claR: 0.32, pitch: 0.08, ge: 0.3, parts: { skirts: true, strakes: 3 },
+  { cda: 1.16, cdaSide: 2.6, claF: 0.22, claR: 0.32, pitch: 0.08, ge: 0.3, parts: { skirts: true, strakes: 3 },
     text: 'Full-width front air dam, flat roof spoiler on stanchions, side skirts, rear diffuser' },
-  { cda: 1.05, cdaSide: 2.9, claF: 0.16, claR: 0.38, pitch: 0.06, ge: 0.15, parts: { strakes: 3 },
+  { cda: 1.39, cdaSide: 3.2, claF: 0.16, claR: 0.38, pitch: 0.06, ge: 0.15, parts: { strakes: 3 },
     text: 'Steel bumper with a splitter lip, cab-roof spoiler, wing on the bed cage, bed diffuser' },
 ];
 const aeroText = (a) => `${a.text}. Drag ${a.cda.toFixed(2)} m², downforce ${(a.claF + a.claR).toFixed(2)} m² (${Math.round(a.claF / (a.claF + a.claR) * 100)}% front)`;
@@ -1414,7 +1426,8 @@ function corneringG(tn, surf, v) {
    tyres' grip with the downforce; offroad from the grip on loose surfaces and the drivetrain. ---- */
 const PI_CLASSES = [[998, 'X', '#5ef08c'], [900, 'S2', '#3d8bff'], [800, 'S1', '#b06bff'], [700, 'A', '#ff4d5e'], [600, 'B', '#ff8a3a'], [500, 'C', '#ffd23d'], [0, 'D', '#58f0ff']];
 function piClass(pi) { for (const c of PI_CLASSES) if (pi > c[0] || c[0] === 0) return { cls: c[1], color: c[2] }; return { cls: 'D', color: '#58f0ff' }; }
-const PI_SCALE = { speed: [170, 250], t160: [11, 6], t100: [5.5, 2.8], corner: [0.62, 0.86], brake: [64, 50], offroad: [0.5, 0.78] };
+const PI_SCALE = { speed: [150, 260], t160: [12, 5], t100: [6, 2.5], corner: [0.5, 0.85], brake: [80, 45], offroad: [0.4, 0.8] };
+const PI_BASE = 240;                              // the standard cars, with their real figures, all land in A class
 function perfRatings(build, setup) {
   const tn = tuneFor(setup || DEFAULT_SETUP, build), sp = tn.spec, m = tn.mass, gG = 9.81;
   const run = straightRun(tn, SURF.TARMAC, 40);
@@ -1433,7 +1446,7 @@ function perfRatings(build, setup) {
     t100: run.t100, t160: run.t160, vmax: vTop, brakeDist, mass: m, corner,
   };
   const score = R.speed * 0.16 + R.accel * 0.22 + R.launch * 0.14 + R.handling * 0.24 + R.braking * 0.12 + R.offroad * 0.12;
-  R.pi = Math.round(clamp(200 + score * 84, 100, 999));
+  R.pi = Math.round(clamp(PI_BASE + score * 84, 100, 999));
   Object.assign(R, piClass(R.pi));
   return R;
 }
@@ -2266,9 +2279,9 @@ function generateTrack(def) {
    Each row blocks the road from one edge to just past the centreline (and on into the verge), so
    the car has to weave: left of the first row, right of the next, and so on. */
 const CHICANE = {
-  over: 1.0, ext: 3.2,           // a row runs from `ext` m past its road edge to `over` m past the centreline
+  over: 0.4, ext: 3.2,           // a row runs from `ext` m past its road edge to `over` m past the centreline
   gapL: 32, lead: 48, tail: 30,  // m between rows; the AI line eases in and out over lead / tail
-  clear: 1.5,                    // AI line: car centre this far outside a row's tip (half a real car's width and a margin)
+  clear: 1.75,                   // AI line: car centre this far outside a row's tip
   blockW: 1.2, blockH: 0.9, blockD: 0.6, mass: 300, penalty: 5,
 };
 /** Put a chicane in (or just around) each hazard zone, on the straightest stretch whose run-up is clear of crests, gates and craters. */
@@ -2380,7 +2393,7 @@ function computeSpeedProfile() {
     const kk = Math.max(Math.abs(TR.kap[i]), 1e-5);
     // Wide roads let a racing line open the corner up: effective radius grows by ~hw.
     const Reff = 1 / kk + def.hw * 0.6;
-    v[i] = Math.min(vmax, Math.sqrt(mu * def.gripG * 0.68 * Reff));
+    v[i] = Math.min(vmax, Math.sqrt(mu * def.gripG * 0.62 * Reff));   // the cars hold about 0.75 μ on the limit
   }
   // don't arrive at crests so fast that the landing is wild
   for (const f of TR.feats) if (f.type === 'crest') {
@@ -2395,7 +2408,7 @@ function computeSpeedProfile() {
       arr[i] = Math.min(arr[i], Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * f / kk));
     }
   };
-  chicaneCap(v, 0.68);
+  chicaneCap(v, 0.62);
   const grade = (i) => (TR.cy[Math.min(i + 1, N - 1)] - TR.cy[Math.max(i - 1, 0)]) / (2 * DS);   // rise over run
   v[0] = 0;
   for (let i = 1; i < N; i++) {
@@ -2414,7 +2427,11 @@ function computeSpeedProfile() {
     const kv = -(TR.cy[i + 4] - 2 * TR.cy[i] + TR.cy[i - 4]) / (16 * DS * DS);
     if (kv > 1e-4 && Math.abs(TR.kap[i]) > 1 / 220) ai[i] = Math.min(ai[i], Math.max(12, Math.sqrt(gEff * 0.9 / kv)));
   }
-  chicaneCap(ai, 0.58);   // the AI threads chicanes with a margin
+  chicaneCap(ai, 0.54);   // the AI threads chicanes with a margin
+  for (let i = 0; i < N; i++) {   // and keeps a little grip in hand in every corner, for the bumps and its own corrections
+    const kk = Math.max(Math.abs(TR.kap[i]), 1e-5);
+    ai[i] = Math.min(ai[i], Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * 0.56 * (1 / kk + def.hw * 0.6)));
+  }
   for (let i = N - 2; i >= 0; i--) ai[i] = Math.min(ai[i], Math.sqrt(ai[i + 1] * ai[i + 1] + 2 * brakeAt(i) * DS));
   TR.aiV = ai;
   const i0 = Math.round(TR.startS / DS), i1 = Math.round(TR.finishS / DS);
@@ -2482,7 +2499,7 @@ function computeLineProfile() {
     kap[i] = dh / (0.5 * (seg[i - 1] + seg[i] + seg[i + 1] + seg[i + 2]));
   }
   const vmax = REF_VMAX() * 0.97;
-  for (let i = 0; i < N; i++) v[i] = Math.min(vmax, Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * 0.72 / Math.max(Math.abs(kap[i]), 1e-5)));
+  for (let i = 0; i < N; i++) v[i] = Math.min(vmax, Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * 0.66 / Math.max(Math.abs(kap[i]), 1e-5)));
   for (const f of TR.feats) if (f.type === 'crest') {
     const vc = Math.sqrt((def.gravity + def.clampG) * def.crest.L * def.crest.L / (2 * Math.PI * Math.PI * def.crest.h)) * 0.95;
     for (let i = Math.max(0, Math.floor((f.s0 - 10) / DS)); i < Math.min(N, (f.sc + 10) / DS); i++) v[i] = Math.min(v[i], vc);
@@ -2496,6 +2513,10 @@ function computeLineProfile() {
     v[i] = Math.min(v[i], Math.sqrt(v[i - 1] * v[i - 1] + 2 * a * seg[i]));
   }
   for (let i = N - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * brake[i] * seg[i + 1]));
+  // the AI drives this line, so its speeds respect the line's own bends too (an S through the width can be tighter than the road)
+  const ai = TR.aiV, kS = boxBlur(kap, Math.round(10 / DS));   // over about 20 m: small wiggles inside the road width don't count
+  for (let i = 0; i < N; i++) ai[i] = Math.min(ai[i], Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * 0.58 / Math.max(Math.abs(kS[i]), 1e-5)));
+  for (let i = N - 2; i >= 0; i--) ai[i] = Math.min(ai[i], Math.sqrt(ai[i + 1] * ai[i + 1] + 2 * brake[i] * seg[i + 1]));
   // braking points: where the line's speed starts to fall by a real margin into a corner (or a crest)
   const marks = [], i0 = Math.round(TR.startS / DS) + 4, i1 = Math.round(TR.finishS / DS);
   for (let i = i0; i < i1; i++) {
@@ -3751,7 +3772,7 @@ const SUSP = {
   bumpKnee: 0.7, bumpHi: 0.4,          // m/s knee and high-speed slope (blow-off) in bump
   rebKnee: 0.5, rebHi: 0.35,           // and in rebound
   stopLen: 0.05, stopK: 3, stopC: 0.5, // bump stop: engages this far before full travel; force ≈ k·stopK·x²/stopLen, plus hydraulic damping
-  arbF: 1.1, arbR: 0.7,                // anti-roll bar rate as a share of the axle's spring rate (front, rear)
+  arbF: 0.8, arbR: 0.8,                // anti-roll bar rate as a share of the axle's spring rate (front, rear)
 };
 function damperForce(v, cB, cR) {      // v > 0: compressing (bump); v < 0: extending (rebound)
   if (v >= 0) return cB * (v < SUSP.bumpKnee ? v : SUSP.bumpKnee + (v - SUSP.bumpKnee) * SUSP.bumpHi);
@@ -6285,17 +6306,30 @@ function aiControl(skill, stopping) {
   const cross = Math.atan(2.2 * (1 + 0.6 * cl.w) * clamp(mu / 0.8, 0.45, 1) * (LQ2.d - line) / (sp + 3)) * (0.2 + 0.8 * settled);
   const ff = Math.atan(CAR.wb * kP);
   const damping = -0.06 * (car.w.y - kP * sp);
-  const delta = angP + cross + ff + damping;
+  let delta = angP + cross + ff + damping;
+  // don't ask the front tyres for more slip angle than the surface gives grip for (ice and steel peak at a few
+  // degrees, gravel and dust much later): past the peak they only plough on
+  if (sp > 5 && car.nGround >= 2) {
+    _tmp.copy(AZ).multiplyScalar(CAR.wheels[0].z);
+    _tmp2.crossVectors(car.w, _tmp).add(car.vel);
+    const th = Math.atan2(_tmp2.dot(AX), Math.abs(_tmp2.dot(AZ)) + 1);
+    const aMax = 1.6 * 0.5 * ((car.wheels[0].ts || TYRE_SURF[3]).ap + (car.wheels[1].ts || TYRE_SURF[3]).ap);
+    delta = clamp(delta, th - aMax, th + aMax);
+  }
   const vlA = car.vel.dot(AZ), betaA = Math.atan2(car.vel.dot(AX), Math.abs(vlA) + 2);
   c.steer = clamp(-delta / steerLimit(vlA, betaA, delta), -1, 1);
   c.handbrake = false;
   if (stopping) { c.throttle = 0; c.brake = sp > 1 ? 0.7 : 0; return c; }
-  let vt = TR.aiV[clamp(Math.round((car.s + 6 + sp * 0.35) / DS), 0, TR.N - 1)] * skill;
+  // target speed: the slowest point of the plan from here to a little way ahead, so the AI doesn't power out of a
+  // corner before it's over
+  let vt = Infinity;
+  for (let k = clamp(Math.round(car.s / DS), 0, TR.N - 1), k1 = clamp(Math.round((car.s + 6 + sp * 0.35) / DS), 0, TR.N - 1); k <= k1; k++) vt = Math.min(vt, TR.aiV[k]);
+  vt *= skill;
   // pointing the wrong way or far off the road: slow down so the tyres can turn us back
   const herr = Math.abs(angP);
   if (herr > 0.25) vt = Math.min(vt, lerp(26, 7, clamp((herr - 0.25) / 0.9, 0, 1)));
   if (Math.abs(car.d) > TR.hw + 4) vt = Math.min(vt, 18);
-  c.throttle = clamp((vt - sp) * 0.6 + 0.15, 0, 1);
+  c.throttle = clamp((vt - sp) * 0.6 + 0.15, 0, 1) * (1 - 0.8 * smoothstep(0.08, 0.3, Math.abs(car.slip || 0)));   // ease off in a big slide
   const slack = chicaneAt(car.s, 40) ? 0.8 : 2.5;   // chicanes want their entry speed
   c.brake = sp > vt + slack ? clamp((sp - vt - slack) * 0.5, 0.3, 1) : 0;
   if (c.brake > 0) c.throttle = 0;

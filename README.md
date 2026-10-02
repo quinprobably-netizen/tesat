@@ -8,6 +8,8 @@ A point-to-point rally game in a single self-contained HTML file. You drive a Gr
 
 The first six stages are generated from a fixed seed, so the layout is the same every time. Pikes Peak is laid out from the real road instead. Every stage runs at Earth gravity (9.81 m/s²), wherever it is set.
 
+The stages are sized for real-size cars: the space roads are 12 to 16 m wide (wide by Earth standards, so there is room to slide) and Pikes Peak is 9 m, its real two lanes and gutters. Each surface has a realistic grip and rolling resistance: tarmac 1.05, regolith dust 0.74, metal deck plating 0.72, gravel 0.66 and ice 0.30, with loose surfaces dragging more. Chicane rows leave a wider gap, and the jumps and crests are checked against the real cars' 22 to 32 cm of wheel travel.
+
 | Stage | Character |
 |---|---|
 | Lunar Dust Run | Wide and forgiving regolith roads, crests and kickers, one chasm |
@@ -33,10 +35,11 @@ Rules and scoring:
 - Passing a chicane row on its barrier side, through the blocks or round the end, costs +5 s.
 - Damage builds up from hard landings and impacts and lowers your top speed until the stage ends.
 - Best times, splits and a ghost replay of your best run are stored in `localStorage`.
-- When the physics changes enough to make old times unfair (Earth gravity, then the real engines), saved times are moved to an archive and the boards start fresh. Setups and the garage are kept.
+- When the physics changes enough to make old times unfair (Earth gravity, then the real engines, then the real drivetrains and chassis), saved times are moved to an archive and the boards start fresh. Setups and the garage are kept.
 
 Handling:
-- The tyres use a progressive grip curve. Grip builds smoothly up to the limit, then drops slightly while sliding, so you can feel the limit before you cross it.
+- Each car is built from its real chassis: wheelbase, front and rear tracks, weight split, wheel travel, tyre size and brake discs. The same numbers place the wheels, set the springs (1.6 Hz on the medium setting, a gravel rally set-up), the brakes, the body's inertia and the collision hull, and size the 3D model.
+- The tyres use Pacejka's magic formula on combined slip, with its shape per surface: loose surfaces peak late and keep most of their grip as the tyre ploughs; tarmac, metal and ice peak early and fall away. A spinning or locked tyre has little left for cornering.
 - Grip is load-sensitive: weight transfer and bumps shift grip less abruptly.
 - Countersteer assist gives up to 70% more steering lock when you steer into a slide, so drifts are easy to catch.
 - At speed, yaw stability bleeds off rotation beyond what your steering asks for. It never adds rotation, and it switches off while you're deliberately drifting or on the handbrake.
@@ -45,7 +48,7 @@ Handling:
 Suspension:
 - Each corner is a coil-over: a linear coil spring and a two-stage damper. Bump and rebound are valved separately, with rebound the firmer side as on a real damper. Each side has a low-speed slope and a softer high-speed blow-off above its knee, so sharp ripples don't launch the body.
 - A progressive urethane bump stop takes over in the last 6 cm of travel before the hard stop.
-- Anti-roll bars link the left and right wheels on each axle, so the body rolls less in corners. Soft bars roll about twice as much as stiff ones but let each wheel follow rough ground on its own; stiff bars keep the car flat and quick to change direction, at the cost of skipping over bumps. The front bar is stiffer than the rear, for a stable, slightly understeering balance on the limit. The bars are modelled under the car and twist as it rolls.
+- Anti-roll bars link the left and right wheels on each axle, so the body rolls less in corners. Soft bars roll about twice as much as stiff ones but let each wheel follow rough ground on its own; stiff bars keep the car flat and quick to change direction, at the cost of skipping over bumps. The front and rear bars are matched; the differentials set the balance on the limit. The bars are modelled under the car and twist as it rolls.
 - The HUD shows each corner's travel: amber on the bump stop, red when bottomed out. The shocks are modelled on the car and move with the wheels.
 
 Racing line:
@@ -55,34 +58,36 @@ Racing line:
 
 Brakes:
 - Brake pressure is progressive. The gamepad trigger is analogue, and on keyboard or touch the pedal builds from 15% to full over about 0.4 s of holding, so a tap only scrubs speed.
-- Brake force is split 61% front, 39% rear.
+- Brake force is split by each car's weight on the front axle under braking (from its real weight split, centre of mass height and wheelbase): about 60/40 for the mid-engined cars, more to the front for the FIVE-POT and the PRERUNNER.
 - With ABS on (the default), the wheels stop just short of locking and you can still steer. With ABS off, anything past about 80% pressure locks the wheels: the tyres slide, the car takes longer to stop and it won't turn. Switch ABS off in SETTINGS. The AI always brakes with ABS.
 - The brake bar under the rev bar shows pressure. It turns amber while ABS is working and white when a wheel locks.
 
 Engines and drivetrains:
-- Each car has the engine of the Group B car it is modelled on: its real torque curve, peak power, redline and homologation weight (plus 120 kg for crew and fuel). Turbo engines have lag: boost builds as the revs rise and bleeds away when you lift, and anti-lag pops flames from the tailpipes on flat-out upshifts. There is no boost button.
+- Each car has the engine, gearbox, differentials and weight of the Group B works car it is modelled on (plus 120 kg for crew and fuel), from period homologation data, factory figures and road tests. Turbo engines have lag: boost builds as the revs rise and bleeds away when you lift, and anti-lag pops flames from the tailpipes on flat-out upshifts. There is no boost button.
 
-| Car | Engine | Power | Torque | Weight | Drivetrain |
-|---|---|---|---|---|---|
-| TWINCHARGER (Delta S4) | 1.8 L I4, supercharger + turbo | 480 hp @ 8,000 | 490 N·m @ 5,000 | 890 kg | 4WD 30/70, viscous centre, open front, limited-slip rear |
-| FIVE-POT (Sport quattro S1 E2) | 2.1 L I5 turbo | 470 hp @ 8,000 | 480 N·m @ 5,500 | 1,090 kg | 4WD 50/50, locking centre and rear, open front |
-| T16 (205 T16) | 1.8 L I4 turbo | 450 hp @ 8,000 | 460 N·m @ 5,000 | 910 kg | 4WD 33/67, viscous centre, open front, limited-slip rear |
-| STRADALE (037) | 2.1 L I4 supercharged (Evo tune) | 385 hp @ 8,000 | 400 N·m @ 5,500 | 960 kg | 4WD 35/65, viscous centre, open front, limited-slip rear |
-| RS WEDGE (RS200) | 1.8 L I4 turbo (Cosworth BDT) | 450 hp @ 8,000 | 420 N·m @ 6,000 | 1,050 kg | 4WD 37/63, viscous centre, front and rear |
-| SIX-R (Metro 6R4) | 3.0 L V6, twin-turbo (V64V) | 480 hp @ 8,000 | 450 N·m @ 6,000 | 1,030 kg | 4WD 38/62, viscous centre, front and rear |
-| PRERUNNER (first-gen Tacoma) | 3.4 L V6, twin-screw supercharged (built 5VZ-FE) | 515 hp @ 6,800 | 600 N·m @ 4,500 | 1,200 kg | 4WD 40/60, viscous centre, open front, locking rear |
+| Car | Engine | Power | Torque | Weight | Gearbox (overall top) | Drivetrain |
+|---|---|---|---|---|---|---|
+| TWINCHARGER (Delta S4) | 1.8 L I4, supercharger + turbo | 473 hp @ 8,400 | 490 N·m @ 5,000 | 950 kg | 5-speed Hewland, 2.54 to 0.84, final 5.55 | 4WD 30/70, viscous centre, limited-slip front and rear |
+| FIVE-POT (Sport quattro S1 E2) | 2.1 L I5 turbo | 469 hp @ 7,500 | 480 N·m @ 5,500 | 1,090 kg | 5-speed, 3.11 to 0.96, final 4.57 | 4WD 50/50, Torsen centre, limited-slip front and rear |
+| T16 (205 T16 E2) | 1.8 L I4 turbo | 460 hp @ 7,600 | 490 N·m @ 5,500 | 950 kg | 1986 6-speed, 2.53 to 0.81, final 5.94 | 4WD 34/66, viscous centre, limited-slip front and rear |
+| STRADALE (037 Evo 2) | 2.1 L I4 supercharged (Evo tune) | 385 hp @ 8,000 | 400 N·m @ 5,500 | 960 kg | 5-speed ZF, 2.31 to 1.00, final 5.25 | 4WD 35/65 conversion, viscous centre, open front, limited-slip rear |
+| RS WEDGE (RS200) | 1.8 L I4 turbo (Cosworth BDT) | 444 hp @ 8,000 | 489 N·m @ 5,500 | 1,050 kg | 5-speed FF, 3.09 to 1.14, final 4.57 | 4WD 37/63, three viscous diffs |
+| SIX-R (Metro 6R4) | 3.0 L V6, twin-turbo (V64V) | 480 hp @ 8,000 | 450 N·m @ 6,000 | 1,040 kg | 5-speed, 2.94 to 1.09, final 4.67 | 4WD 35/65, viscous centre, limited-slip front and rear |
+| PRERUNNER (first-gen Tacoma) | 3.4 L V6, twin-screw supercharged (built 5VZ-FE) | 515 hp @ 6,800 | 600 N·m @ 4,500 | 1,200 kg | R150F 5-speed, 3.83 to 0.84, TRD 4.10 axle | 4WD locked in 4H, open front, locking rear |
 
-Two cars are built past their real specs so every car rates in A class (A 718 to A 733). The STRADALE gets a bigger supercharger and a four-wheel-drive conversion the real 037 never had: rear-drive, no amount of power lifted it out of C class, because it couldn't put the power down. The SIX-R gets the twin-turbo version of its V64V, the engine family that later went into the Jaguar XJ220.
+The chassis figures are real too: lengths, widths, heights, wheelbases and tracks (the S4 is 3.99 m long on a 2.44 m wheelbase, the S1 4.24 m on 2.22 m, the 205 T16 3.83 m on 2.54 m), weight splits where published (S4 43/57, S1 52/48, RS200 50/50), the S4's 250 mm of wheel travel, brake discs and tyre sizes. Drag areas use the published drag coefficients (S1 0.42, 205 T16 0.35, RS200 0.40, 6R4 0.50) times the frontal area from the real width and height. No centre of mass heights are published for any of these cars, so those are estimates; the garage CAR tab shows every figure. Sources: homologation data as transcribed by tech-racingcars, the Motor Sport archive, Peugeot's own T16 gearbox manual, Audi's official S1 E2 figures, Toyota's Tacoma brochures and period road tests (Autocar).
 
-The PRERUNNER is the odd one out: a rally-built first-gen Toyota Tacoma pickup rather than a Group B car. Its engine is the Tacoma's own 3.4 L V6 (190 hp stock), built and supercharged to a figure chosen so the heavier, draggier truck rates in the same class as the Group B cars (A 720).
+Three cars keep engines built past their real specs so every car stays in A class (A 707 to A 773). The STRADALE gets a bigger supercharger (the real Evo 2 made 325 CV) and a four-wheel-drive conversion the real 037 never had. The SIX-R gets the twin-turbo version of its V64V (the rally car made 410 bhp without turbos), the engine family that later went into the Jaguar XJ220.
 
-- The pull at the wheels is engine torque × gear ratio × driveline efficiency, less aerodynamic drag, so each car accelerates and tops out as its engine and weight dictate.
+The PRERUNNER is the odd one out: a rally-built first-gen Toyota Tacoma pickup rather than a Group B car. Its gearbox, axle, locker, tyres and wheelbase are the real truck's; its engine is the Tacoma's own 3.4 L V6 (190 hp stock), built and supercharged to a figure chosen so the heavier, draggier truck rates in the same class as the Group B cars, in a stripped truck with composite panels (1,472 kg stock) and long-travel arms that widen its tracks.
+
+- The engine, clutch, gearbox, differentials and all four wheels are solved together, implicitly, every step: the engine has its own inertia and speed, the clutch slips on a standing start and while shifting, each differential holds or slips against the torque it can carry, and each wheel spins up or slows down against its tyre. So wheelspin, engine braking, a locked rear axle scrubbing in a hairpin and the revs flaring when a tyre lets go all come out of the same model.
 - The differentials split that torque between the axles and wheels. An open diff gives both wheels only what the weaker one can take; limited-slip, viscous and locking diffs pass progressively more to the wheel with grip. Torque a tyre can't take spins it up and costs it cornering grip, so a car with less drive at the front steps its tail out under power, and the four-wheel-drive cars slide all four.
 - TRACTION CONTROL (on by default, in SETTINGS) trims the engine to what the drivetrain can put down, so nothing spins. The TC light on the speedo turns amber while it works. The AI always drives with it.
 - Target times are set by the TWINCHARGER, so other cars can be quicker or slower on a stage.
 
 Transmission:
-- Six-speed sequential gearbox with a rev limiter at each engine's redline and a short torque cut on each shift. In first the clutch slips on a standing start.
+- Each car has its real gearbox: its own number of gears, ratios and final drive, so top speed and the gaps between gears differ from car to car (the T16 has six speeds, the rest five). A rev limiter cuts in at each engine's redline, upshifts cut the ignition for a moment and downshifts blip the throttle. The automatic shifts up where the next gear pulls harder. Hold the brake at a standstill to engage reverse.
 - Lifting off gives engine braking, which is stronger in low gears.
 - Manual gears are the default on keyboard and gamepad. Shift with E/Q or the controller bumpers (RB up, LB down); the rev bar flashes when it's time to shift up, and a downshift that would over-rev the engine is refused. Touch devices default to automatic, and the MANUAL GEARS switch in SETTINGS changes between the two. The AI always uses the automatic.
 
@@ -116,17 +121,17 @@ Every car carries its own full aero package, modelled on the car: splitters, div
 
 | Car | Aero | Drag | Downforce (front share) |
 |---|---|---|---|
-| TWINCHARGER | Front splitter, hatch spoiler with a gurney flap, side skirts, roof intake, rear diffuser | 0.85 m² | 0.47 m² (32%) |
-| FIVE-POT | Shovel-nose splitter with dive planes, huge tail wing on endplates, roof-edge spoiler, rear diffuser | 1.00 m² | 0.82 m² (44%) |
-| T16 | Chin splitter, tailgate spoiler with end fins, rear-brake cooling scoops | 0.80 m² | 0.40 m² (30%) |
-| STRADALE | Deep chin splitter, rear wing on endplates, rear diffuser | 0.75 m² | 0.45 m² (33%) |
-| RS WEDGE | Chin splitter with dive planes, roof-height rear wing with a gurney lip, rear diffuser | 0.85 m² | 0.62 m² (32%) |
-| SIX-R | Full-width front air dam, flat roof spoiler on stanchions, side skirts, rear diffuser | 0.95 m² | 0.54 m² (41%) |
-| PRERUNNER | Steel bumper with a splitter lip, cab-roof spoiler, wing on the bed cage, bed diffuser | 1.05 m² | 0.54 m² (30%) |
+| TWINCHARGER | Front splitter, hatch spoiler with a gurney flap, side skirts, roof intake, rear diffuser | 0.88 m² | 0.47 m² (32%) |
+| FIVE-POT | Shovel-nose splitter with dive planes, huge tail wing on endplates, roof-edge spoiler, rear diffuser | 0.98 m² | 0.82 m² (44%) |
+| T16 | Chin splitter, tailgate spoiler with end fins, rear-brake cooling scoops | 0.72 m² | 0.40 m² (30%) |
+| STRADALE | Deep chin splitter, rear wing on endplates, rear diffuser | 0.71 m² | 0.45 m² (33%) |
+| RS WEDGE | Chin splitter with dive planes, roof-height rear wing with a gurney lip, rear diffuser | 0.76 m² | 0.62 m² (32%) |
+| SIX-R | Full-width front air dam, flat roof spoiler on stanchions, side skirts, rear diffuser | 1.16 m² | 0.54 m² (41%) |
+| PRERUNNER | Steel bumper with a splitter lip, cab-roof spoiler, wing on the bed cage, bed diffuser | 1.39 m² | 0.54 m² (30%) |
 
 Parts change the car's real physics; the pilot is looks only and has no effect on performance. Wheels change grip on each surface, weight and rolling drag. Each car's aero package is fixed: downforce presses each axle's tyres harder as speed rises, and it shifts with pitch, so the nose gains grip when the car dives under braking.
 
-Every build gets a **PI** (performance index, 100 to 999) and a class: D, C (501+), B (601+), A (701+), S1 (801+), S2 (901+) and X (999). Six ratings out of 10 make up the PI: speed, handling, acceleration, launch, braking and offroad. They are worked out from the build's physics: a full-throttle run on regolith with the drivetrain's traction limit for top speed, 0-100 and 0-160 km/h, tyre grip with downforce for cornering and braking, and loose-surface grip for offroad. Every tile shows the PI the build would have with that part, and hovering one previews the rating changes. The service park shows the PI with the chosen setup. As standard every car rates in A class: TWINCHARGER A 731, FIVE-POT A 720, T16 A 733, STRADALE A 730, RS WEDGE A 718, SIX-R A 724 and PRERUNNER A 720.
+Every build gets a **PI** (performance index, 100 to 999) and a class: D, C (501+), B (601+), A (701+), S1 (801+), S2 (901+) and X (999). Six ratings out of 10 make up the PI: speed, handling, acceleration, launch, braking and offroad. They are worked out from the build's physics: a full-throttle run on tarmac (where the real cars' figures were measured) with the drivetrain's traction limit for top speed, 0-100 and 0-160 km/h, tyre grip with downforce for cornering and braking, and loose-surface grip for offroad. Every tile shows the PI the build would have with that part, and hovering one previews the rating changes. The service park shows the PI with the chosen setup. As standard every car rates in A class: TWINCHARGER A 773, FIVE-POT A 713, T16 A 734, STRADALE A 707, RS WEDGE A 719, SIX-R A 718 and PRERUNNER A 730.
 
 ## Modes and sharing
 
