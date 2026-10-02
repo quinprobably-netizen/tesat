@@ -124,6 +124,8 @@ In the **garage** you build your ride Mario Kart style, with a live 3D preview t
 | Decal | CLEAN, STRIPES, FLAMES, CHECKER, BOLT, STARS |
 | Glow | Underglow in 5 colours, or off |
 
+Each body is modelled on the real car in metres: its real length, width, height, wheelbase and overhangs, a smooth body lofted from cross-sections with the wheel arches cut around the real tyres, and its own glasshouse, pillars, lamps, grille, intakes, vents, mirrors and aero parts. Each body is a few thousand triangles, light enough for phones.
+
 Each car is drawn on its own rally wheels: multi-spoke or five-spoke rims, with a brake disc and caliper behind the spokes. The discs glow orange after hard braking and cool off again. The coil-overs, anti-roll bars and tailpipes are modelled too, and the tailpipes spit flame on anti-lag pops.
 
 Every car carries its own full aero package, modelled on the car: splitters, dive planes, side skirts, wings and spoilers, gurney flaps, end fins and diffuser strakes. There is no wing to swap. Each package sets the car's drag, side drag (more drag when sliding sideways), and front and rear downforce:
@@ -135,10 +137,10 @@ Every car carries its own full aero package, modelled on the car: splitters, div
 | T16 | Chin splitter, Evolution 2 rear wing on tall endplates, rear-brake cooling scoops | 0.76 m² | 0.51 m² (25%) |
 | STRADALE | Deep chin splitter, rear wing on endplates, rear diffuser | 0.71 m² | 0.45 m² (33%) |
 | RS WEDGE | Chin splitter with dive planes, roof-top intake, roof-height rear wing with a gurney lip, rear diffuser | 0.78 m² | 0.62 m² (32%) |
-| SIX-R | Full-width front air dam, flat roof spoiler on stanchions, side skirts, rear diffuser | 1.16 m² | 0.54 m² (41%) |
+| SIX-R | Full-width front air dam, roof-height rear wing on stanchions, side skirts, rear diffuser | 1.20 m² | 0.60 m² (40%) |
 | PRERUNNER | Steel bumper with a skid plate and splitter lip, roof light bar; no wing, like the real desert trucks | 1.30 m² | 0.08 m² (75%) |
 | GR YARIS | Rally1 package: deep splitter with dive planes, louvred front arches, side skirts, swan-neck rear wing, diffuser | 1.00 m² | 0.66 m² (39%) |
-| I20 N | Rally1 package with the rear wing carried off the roof | 0.98 m² | 0.66 m² (39%) |
+| I20 N | Rally1 package with the rear wing carried off the roof | 0.99 m² | 0.66 m² (38%) |
 | PUMA | Rally1 package over the crossover shell's sloping tailgate | 1.05 m² | 0.65 m² (38%) |
 | FOCUS WRC | Front splitter with dive planes, side skirts, big tailgate wing, diffuser | 0.86 m² | 0.54 m² (33%) |
 | MINI | None: an upright 1959 box (Cd about 0.48) | 0.78 m² | none |
