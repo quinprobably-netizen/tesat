@@ -5642,6 +5642,8 @@ const SUSP = {
   rebKnee: 0.5, rebHi: 0.35,           // and in rebound
   stopLen: 0.06, stopK: 6, stopC: 12,  // bump stop over the last stopLen: spring k·stopK·x²/stopLen (12k at full), damping up to stopC × the damper's
   stopR: 0.4,                          // its damping coming back out (rebound), as a share of that in bump
+  deepAt: 0.4, deepR: 3,               // rebound firms up deep in the stroke (past deepAt of the way from ride height to full
+                                       // travel), up to deepR × more by the bump stop, as a long-travel shock's does past its bypass tubes
   hardK: 10,                           // hard stop past full travel: hardK × the spring rate, critically damped
   arbF: 0.8, arbR: 0.8,                // anti-roll bar rate as a share of the axle's spring rate (front, rear)
 };
@@ -5651,7 +5653,13 @@ const SF = { f: 0, kx: 0, kc: 0 }, _comp0 = new Float64Array(4);
 function coilover(x, v, kS, cB, cR, cD, mS) {
   let f = kS * x, kx = kS, kc;
   if (v >= 0) { const hi = v > SUSP.bumpKnee; f += cB * (hi ? SUSP.bumpKnee + (v - SUSP.bumpKnee) * SUSP.bumpHi : v); kc = cB * (hi ? SUSP.bumpHi : 1); }
-  else { const a = -v, hi = a > SUSP.rebKnee; f -= cR * (hi ? SUSP.rebKnee + (a - SUSP.rebKnee) * SUSP.rebHi : a); kc = cR * (hi ? SUSP.rebHi : 1); }
+  else {
+    const a = -v, hi = a > SUSP.rebKnee; f -= cR * (hi ? SUSP.rebKnee + (a - SUSP.rebKnee) * SUSP.rebHi : a); kc = cR * (hi ? SUSP.rebHi : 1);
+    // coming back out from deep in the stroke the rebound is firmer still (and doesn't blow off), so what a big landing
+    // packed into the springs bleeds out instead of throwing the car back up off its wheels. Ride and roll stay short of it
+    const x0 = CAR.sag + SUSP.deepAt * (CAR.travel - CAR.sag), e = clamp((x - x0) / (CAR.travel - x0), 0, 1);
+    if (e > 0) { f -= cR * SUSP.deepR * e * a; kc += cR * SUSP.deepR * e; }
+  }
   // hydraulic bump stop over the last few cm: a rising-rate spring, and damping in bump that grows as it engages
   const on = x - (CAR.travel - SUSP.stopLen);
   if (on > 0) {
