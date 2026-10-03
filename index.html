@@ -2386,7 +2386,7 @@ function carGeometry(body, wh, mass) {
   const mUF = us[0] + wkg, mUR = us[1] + wkg, defl = 0.11 * (r - sp.tyre.rim * 0.0127);
   // each corner's sprung mass rides at SUSP.freq on its coil spring and tyre in series
   const corner = (N0, mU) => { const ms = N0 / g - mU, kT = N0 / defl, kr = ms * w2, kS = kr * kT / (kT - kr);
-    return { ms, kT, kS, cT: 2 * 0.05 * Math.sqrt(kT * mU), sag: ms * g / kS }; };
+    return { ms, kT, kS, cT: 2 * 0.1 * Math.sqrt(kT * mU), sag: ms * g / kS }; };
   const cF = corner(N0F, mUF), cR = corner(N0R, mUR), sag = (cF.sag + cR.sag) / 2;
   // model space → car space (origin at the centre of mass)
   const sx = (tF + tR) / 2 / MODEL.X, sy = sp.dims[2] / (box[0] - MODEL.GY), sz = wb / (MODEL.FZ - MODEL.RZ);
@@ -5519,35 +5519,50 @@ const Draw = {
 };
 
 /* ---- suspension: coil-over per corner ----
-   Linear coil spring (rate set per axle from the corner's weight, so every car rides at the same natural
-   frequency on the same setting), a two-stage damper (separate bump and rebound valving, each with a
-   low-speed slope and a softer high-speed blow-off above its knee), a progressive urethane bump stop over
-   the last few cm of travel, then a hard stop. Anti-roll bars are stiffer at the front than the rear,
-   which keeps the car stable (mild understeer) on the limit. */
+   Linear coil spring (rate set per corner from its sprung weight and tyre, so every car rides at the same
+   natural frequency on the same setting), a two-stage damper (separate bump and rebound valving, each with a
+   low-speed slope and a softer high-speed blow-off above its knee), and over the last few cm of travel a
+   hydraulic bump stop: a rising-rate spring with damping that grows as it engages, which soaks up a big landing
+   instead of handing it back. Past full travel the hard stop is stiff and critically damped, so it doesn't
+   bounce. The anti-roll bars are matched front and rear (as a share of each axle's spring rate); the
+   differentials set the balance on the limit. */
 const SUSP = {
   freq: 1.6,                           // natural frequency of each corner on the medium springs (Hz): a gravel rally set-up
   bump: 0.85, rebound: 1.2,            // share of critical damping, bump vs rebound (rebound is the firmer side, as on real dampers)
   bumpKnee: 0.7, bumpHi: 0.4,          // m/s knee and high-speed slope (blow-off) in bump
   rebKnee: 0.5, rebHi: 0.35,           // and in rebound
-  stopLen: 0.05, stopK: 3, stopC: 0.5, // bump stop: engages this far before full travel; force ≈ k·stopK·x²/stopLen, plus hydraulic damping
+  stopLen: 0.06, stopK: 6, stopC: 12,  // bump stop over the last stopLen: spring k·stopK·x²/stopLen (12k at full), damping up to stopC × the damper's
+  hardK: 10,                           // hard stop past full travel: hardK × the spring rate, critically damped
   arbF: 0.8, arbR: 0.8,                // anti-roll bar rate as a share of the axle's spring rate (front, rear)
 };
 /** Coil-over force (N, pushing the car up and the wheel down) at compression x (m) and compression speed v (m/s;
  *  > 0 bump, < 0 rebound), with its slopes for the implicit wheel step: SF.f, SF.kx = ∂f/∂x, SF.kc = ∂f/∂v. */
 const SF = { f: 0, kx: 0, kc: 0 }, _comp0 = new Float64Array(4);
-function coilover(x, v, kS, cB, cR, cD) {
+function coilover(x, v, kS, cB, cR, cD, mS) {
   let f = kS * x, kx = kS, kc;
   if (v >= 0) { const hi = v > SUSP.bumpKnee; f += cB * (hi ? SUSP.bumpKnee + (v - SUSP.bumpKnee) * SUSP.bumpHi : v); kc = cB * (hi ? SUSP.bumpHi : 1); }
   else { const a = -v, hi = a > SUSP.rebKnee; f -= cR * (hi ? SUSP.rebKnee + (a - SUSP.rebKnee) * SUSP.rebHi : a); kc = cR * (hi ? SUSP.rebHi : 1); }
-  // progressive urethane bump stop over the last few cm, then the hard stop at full travel
+  // hydraulic bump stop over the last few cm: a rising-rate spring, and damping in bump that grows as it engages
   const on = x - (CAR.travel - SUSP.stopLen);
   if (on > 0) {
-    f += kS * SUSP.stopK * on * on / SUSP.stopLen; kx += 2 * kS * SUSP.stopK * on / SUSP.stopLen;
-    if (v > 0) { f += cB * SUSP.stopC * v * on / SUSP.stopLen; kx += cB * SUSP.stopC * v / SUSP.stopLen; kc += cB * SUSP.stopC * on / SUSP.stopLen; }
+    const e = on / SUSP.stopLen, cS = cD * SUSP.stopC;
+    f += kS * SUSP.stopK * on * e; kx += 2 * kS * SUSP.stopK * e;
+    if (v > 0) { f += cS * e * v; kx += cS * v / SUSP.stopLen; kc += cS * e; }
   }
+  // hard stop: stiff and critically damped both ways while it's in contact, and it only ever pushes
   const past = x - CAR.travel;
-  if (past > 0) { f += kS * 10 * past; kx += kS * 10; if (v > 0) { f += cD * 2 * v; kc += cD * 2; } }
+  if (past > 0) {
+    const kH = kS * SUSP.hardK, cH = 2 * Math.sqrt(kH * mS), fh = kH * past + cH * v;
+    if (fh > 0) { f += fh; kx += kH; kc += cH; }
+  }
   SF.f = f; SF.kx = kx; SF.kc = kc;
+}
+/** Tyre's vertical force (N) at deflection d (m), with its rate in SF.kx: linear around its static squash `ds`,
+ *  then stiffening as the sidewall closes on the rim (7.5× the static load at 3× the squash). */
+function tyreSpring(d, kT, ds) {
+  const p = d - 1.5 * ds;
+  if (p <= 0) { SF.f = kT * d; SF.kx = kT; } else { SF.f = kT * (d + 2 * p * p / ds); SF.kx = kT * (1 + 4 * p / ds); }
+  return SF.f;
 }
 
 /* ---- tyres: one combined-slip curve per surface ----
@@ -5935,17 +5950,17 @@ function stepVehicle(dt, ctl) {
     const cB = cD * SUSP.bump * tn.db, cR = cD * SUSP.rebound * tn.dr;
     const karb = CAR.kS[k] * tn.k * (k < 2 ? SUSP.arbF : SUSP.arbR) * tn.arb, J = w.J || 0;
     // the coil-over linearised about now: force F0, stiffness Kx, damping Kc
-    coilover(comp0[k], cv0, kS, cB, cR, cD);
+    coilover(comp0[k], cv0, kS, cB, cR, cD, CAR.ms[k]);
     const F0 = SF.f + karb * (comp0[k] - comp0[k ^ 1]), Kx = SF.kx + karb, Kc = SF.kc;
     // wheel: mU·(u1 − u0)/dt = tyre − coil-over − link load + weight, in terms of the new compression speed cv1
     const A0 = mU / dt + Kx * dt + Kc, B0 = mU * cv0 / dt - F0 + Kc * cv0 - J + mU * gUp;
     let cv1 = B0 / A0, Nt = 0;
     if (w.reach) {
       const cgd = -_vp.dot(w.n) / w.nAY, cgN = w.cg + cgd * dt;   // how fast the ground closes on the mount; where it'll be
-      if (cgN - comp0[k] - dt * cv1 > 0) {                         // the tyre touches: solve again with it
-        const kT = CAR.kT[k], cT = CAR.cT[k];
-        const A = A0 + kT * dt + cT, B = B0 + kT * (cgN - comp0[k]) + cT * cgd, c = B / A;
-        const n = kT * (cgN - comp0[k] - dt * c) + cT * (cgd - c);
+      if (cgN - comp0[k] - dt * cv1 > 0) {                         // the tyre touches: solve again with it, its spring linearised
+        const da = Math.max(0, w.cg - comp0[k]), Fa = tyreSpring(da, CAR.kT[k], CAR.defl), Kt = SF.kx, cT = CAR.cT[k];
+        const A = A0 + Kt * dt + cT, B = B0 + Fa + Kt * (cgN - comp0[k] - da) + cT * cgd, c = B / A;
+        const n = Fa + Kt * (cgN - comp0[k] - dt * c - da) + cT * (cgd - c);
         if (n > 0) { cv1 = c; Nt = n; }
       }
     }
