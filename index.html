@@ -1016,6 +1016,50 @@ td.good{color:var(--neon-grn)!important} td.bad{color:var(--neon-red)!important}
 body.touch #delta:empty,body.touch #penalty:empty{display:none}
 
 /* =========================================================================
+   ONE SYSTEM: the rules every screen shares, so menus and HUD read as one cabinet.
+   Colour roles: cyan = frames and idle controls, yellow = the focused or chosen thing (and primary
+   buttons), pink = small section labels and the title shadow, green = values and ON.
+   Frames: panels get one cyan double frame; cards, rows, tiles, tabs and options get a 2px dim cyan
+   edge, a cyan edge on hover and a 3px yellow edge with a yellow tint when focused.
+   Chosen option in any tab or segment group: solid yellow with dark text.
+   Headers: back button on the left, screen title beside it, on every screen.
+   ========================================================================= */
+:root{--edge:rgba(0,240,255,.3);--focus-bg:rgba(255,230,0,.1);--title-shadow:3px 3px 0 var(--neon-pink),0 0 14px rgba(255,230,0,.4)}
+/* panels: one cyan double frame (the pink inner line competed with the focus colour) */
+.panel{box-shadow:inset 0 0 0 3px var(--neon-cyan),inset 0 0 0 7px #000,inset 0 0 0 8px rgba(0,240,255,.4),inset 0 0 40px rgba(0,240,255,.1)}
+/* screen titles: one treatment; the pixel face is always upper case */
+.panel h2,.sel-title,.gar-top h2,.sd-main h3{color:var(--neon-yel);text-shadow:var(--title-shadow)}
+.sd-main h3{text-transform:uppercase}
+@media (min-width:761px) and (min-height:501px){.panel h2,.sel-title,.gar-top h2{font-size:22px}}
+/* headers: settings and service match stage select and garage */
+.set-top{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.set-top h2{margin:0;text-align:left}
+#service .sub#svcStage,.svc-ride{text-align:left!important;justify-content:flex-start}
+/* small section labels: pink everywhere */
+.ride h4,.set-group,.lb h4,.sd-pane .lb h4,.sd-stats div,.ctl-table th,.gar-tg>span,.gar-spec i,#timerBox::before{color:var(--neon-pink)}
+.ride h4,.set-group,.lb h4{text-shadow:0 0 8px rgba(255,43,214,.5)}
+/* idle edge for every card, row, tile, tab and option */
+.hbtn,.srow,.opt{box-shadow:inset 0 0 0 2px var(--edge)}
+.gtile,.tabs button,.gar-tabs button,.seg button{border-color:var(--edge)}
+.sd-stats div{box-shadow:inset 0 0 0 2px var(--edge)}
+.hbtn:hover,.srow:hover,.opt:hover{background:rgba(0,240,255,.06);box-shadow:inset 0 0 0 2px var(--neon-cyan)}
+.gtile:hover,.tabs button:hover,.gar-tabs button:hover,.seg button:hover{border-color:var(--neon-cyan)}
+/* focus: yellow edge, yellow tint, yellow title */
+.hbtn.sel,.srow.sel,.opt.sel,.srow.sel:hover,.opt.sel:hover,.hbtn.sel:hover{background:var(--focus-bg);box-shadow:inset 0 0 0 3px var(--neon-yel),inset 0 0 24px rgba(255,230,0,.18)}
+.hbtn.sel b,.hbtn:hover b{color:var(--neon-yel);text-shadow:var(--title-shadow)}
+.srow.sel .sn b,.opt.sel b,.gtile.sel b{color:var(--neon-yel)}
+.vlist .btn.alt.sel{background:var(--focus-bg);color:var(--neon-yel);box-shadow:inset 0 0 0 3px var(--neon-yel);text-shadow:0 0 8px rgba(255,230,0,.6)}
+/* chosen option in a tab or segment group: solid yellow */
+.tabs button.on,.gar-tabs button.on,.seg button.on{background:var(--neon-yel);border-color:var(--neon-yel);color:var(--ink);text-shadow:none}
+/* secondary buttons share the primary's weight: a cyan outline, yellow when focused or hovered */
+.btn.alt:hover{background:var(--focus-bg);color:var(--neon-yel);box-shadow:inset 0 0 0 3px var(--neon-yel);text-shadow:0 0 8px rgba(255,230,0,.6)}
+/* hints and footers: one dim cyan line */
+.home-foot,.sel-foot,.gar-hint{color:var(--neon-cyan);opacity:.85}
+/* race HUD plates use the same cyan frame as the menus (MINIMAL HUD below still strips them) */
+#timerBox,#gearNum,#surfBox,#bestBox{box-shadow:inset 0 0 0 3px var(--neon-cyan)}
+#surfBox{color:var(--neon-pink)}
+
+/* =========================================================================
    MINIMAL HUD (default; Settings > HUD or key H switches to FULL)
    Keeps the road clear: a slim progress line, a small clock, one pace note
    and a compact dash. Everything else waits for the FULL HUD.
