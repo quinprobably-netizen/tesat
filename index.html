@@ -10894,7 +10894,7 @@ const Garage = {
 /* ---- settings: every switch in one list, opened from home, stage select or the pause menu ---- */
 const Settings = {
   from: null, idx: 0, view: 'list',
-  rows() { return [...document.querySelectorAll('#setList .opt')]; },
+  rows() { const t = document.body.classList.contains('touch'); return [...document.querySelectorAll('#setList .opt')].filter((r) => t || !r.classList.contains('touch-only')); },
   open(from) {
     this.from = from; this.idx = 0; this.view = 'list';
     for (const id of ['home', 'menu', 'pause']) document.getElementById(id).classList.add('hidden');
