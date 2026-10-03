@@ -2173,7 +2173,8 @@ function cleanBuild(b) {
    is open, limited-slip (lsd), Torsen, viscous or locking (see DIFF_TYPES). Chassis: wheelbase `wb`,
    `track` front and rear, `wf` the share of weight on the front axle, `cgH` the centre of mass height,
    `dims` length, width and height, `travel` the wheel travel (all metres); `unsprung` the mass at each front and rear
-   corner (kg) where it isn't the usual wheel and tyre plus 22 kg of hub, brake and arms. `kg` is the homologation weight;
+   corner (kg) where it isn't the usual wheel and tyre plus 22 kg of hub, brake and arms; `rc` the front and rear roll
+   centre heights and `pc` the pitch centre height (m, 0.1 where not given). `kg` is the homologation weight;
    the pilot and FUEL_KG of fuel ride on top. `cyl` and `layout` are the engine's cylinder count and layout (inline or V). `tyre`: rolling radius r, width w, rim size and the gravel
    tyre's size; `disc`: brake disc diameters front and rear (mm). `pitch` is the engine note. */
 const FUEL_KG = 45, REF_PILOT_KG = 75;
@@ -2406,7 +2407,7 @@ function carGeometry(body, wh, mass) {
   const pt = (p) => [map.x(p[0]), map.y(p[1]), map.z(p[2])];
   const dup = (f, rr) => [f, f, rr, rr];
   return {
-    r, wb, a, b, rest, travel, sag, defl, mountY: r - defl - h + rest - sag, rcH: 0.1, map,
+    r, wb, a, b, rest, travel, sag, defl, mountY: r - defl - h + rest - sag, rc: sp.rc || [0.1, 0.1], pc: sp.pc || 0.1, map,
     wheels: [{ x: tF, z: a, front: true }, { x: -tF, z: a, front: true }, { x: tR, z: -b, front: false }, { x: -tR, z: -b, front: false }],
     // whole-car yaw inertia; the wheels' vertical motion is their own (unsprung), so pitch and roll leave them out
     inertia: new THREE.Vector3(0.95 * Iy - 2 * (mUF * a * a + mUR * b * b), Iy, m * (0.1 * sp.dims[1] ** 2 + 0.045 * sp.dims[2] ** 2) - 2 * (mUF * tF * tF + mUR * tR * tR)),
@@ -2508,7 +2509,7 @@ function corneringG(tn, surf, v) {
   let ay = mu * g;
   for (let it = 0; it < 20; it++) {
     const NF = m * g * sp.wf + q * tn.aero.claF, NR = m * g * (1 - sp.wf) + q * tn.aero.claR;
-    const dF = m * ay * sp.wf * (sp.cgH - geo.rcH) / sp.track[0], dR = m * ay * (1 - sp.wf) * (sp.cgH - geo.rcH) / sp.track[1];
+    const dF = m * ay * sp.wf * sp.cgH / sp.track[0], dR = m * ay * (1 - sp.wf) * sp.cgH / sp.track[1];
     // the axle that saturates first sets the limit (it carries its share of the cornering force)
     const lim = Math.min(pair(NF, geo.N0[0], dF) / (m * sp.wf), pair(NR, geo.N0[2], dR) / (m * (1 - sp.wf)));
     ay = 0.5 * ay + 0.5 * lim;
@@ -5500,7 +5501,7 @@ const CAR = {
     { x: 0.75, z: 1.39, front: true }, { x: -0.75, z: 1.39, front: true },
     { x: 0.76, z: -1.05, front: false }, { x: -0.76, z: -1.05, front: false },
   ],
-  wb: 2.44, mountY: 0.12, rest: 0.27, travel: 0.24, radius: 0.32, rcH: 0.1, Iw: 1.2,
+  wb: 2.44, mountY: 0.12, rest: 0.27, travel: 0.24, radius: 0.32, rc: [0.1, 0.1], pc: 0.1, Iw: 1.2,
   kS: [24000, 24000, 32000, 32000], N0: [2100, 2100, 2850, 2850], brakeT: [2300, 1450], hbT: 2500,
   vmax: 60, reverseVmax: 12, maxSteer: 0.55,
   hull: [], spheres: [],
@@ -5624,7 +5625,7 @@ function setCarTune(tune) {
   CAR.mass = tune.mass;
   CAR.inertia.copy(G.inertia);
   CAR.wheels.forEach((cw, k) => Object.assign(cw, G.wheels[k]));
-  Object.assign(CAR, { wb: G.wb, cgH: sp.cgH, mountY: G.mountY, rest: G.rest, travel: G.travel, radius: G.r, rcH: G.rcH, Iw: G.Iw,
+  Object.assign(CAR, { wb: G.wb, cgH: sp.cgH, mountY: G.mountY, rest: G.rest, travel: G.travel, radius: G.r, rc: G.rc, pc: G.pc, Iw: G.Iw,
     kS: G.kS, N0: G.N0, brakeT: G.brakeT, hbT: G.hbT, hull: G.hull, spheres: G.spheres, vmax: tune.vmax,
     mU: G.mU, mSprung: G.mSprung, cgS: G.cgS, ms: G.ms, kT: G.kT, cT: G.cT, sag: G.sag, defl: G.defl });
   GEARBOX.redline = sp.redline; GEARBOX.idle = sp.idle / sp.redline; GEARBOX.rpmMax = Math.round(sp.redline / 0.914 / 100) * 100;
@@ -6028,16 +6029,20 @@ function stepVehicle(dt, ctl) {
   if (car.tc) th0 *= car.tcF;
   drivelineStep(dt, ctl, gearRatio(), th0);
   car.limiter = car.cut && (rev ? ctl.brake : ctl.throttle) > 0;
-  // 5) tyre forces on the body, at the roll-centre height above each contact patch
+  // 5) tyre forces on the body at each contact patch. The suspension links carry part of each tyre's force
+  //    straight into the body (the roll and pitch centres): a vertical link load J that loads the tyre without
+  //    compressing the spring, so the tyres see the whole weight transfer while the body rolls and dives only on
+  //    the rest. It goes into the next step's wheel and body balance (stepVehicle step 2).
   for (let k = 0; k < 4; k++) {
-    const w = car.wheels[k];
-    if (!w.grounded) continue;
+    const w = car.wheels[k], cw = CAR.wheels[k];
+    if (!w.grounded) { w.J = 0; continue; }
     w.sliding = w.slip > 1.15;
     w.locked = pedal > 0.02 && Math.abs(w.vLong) > 2 && Math.abs(w.om * CAR.radius) < 0.15 * Math.abs(w.vLong);
     w.spinning = k >= drv0 && k < drv1 && w.kap > 1.6 * w.ts.kp && Math.abs(w.om * CAR.radius) > 2;
     w.slipLat = w.vLat;
-    _cp.copy(w.cp).addScaledVector(AY, CAR.rcH);
-    addForceAt(_ft.copy(w.fw).multiplyScalar(w.Fx).addScaledVector(w.lt, w.Fy), _cp);
+    _ft.copy(w.fw).multiplyScalar(w.Fx).addScaledVector(w.lt, w.Fy);
+    addForceAt(_ft, w.cp);
+    w.J = -_ft.dot(AX) * CAR.rc[k >> 1] / cw.x - _ft.dot(AZ) * CAR.pc / cw.z;
   }
   // stability assist (Settings > STABILITY; the AI always drives on FULL): gently yaw the nose toward the
   // direction of travel when the body slip angle grows, so drifts are catchable on a keyboard. Disabled while
