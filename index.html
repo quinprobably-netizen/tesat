@@ -1497,7 +1497,7 @@ const SURF_INFO = [
 
 // Every stage runs at standard Earth gravity. Tyre load (gripG) stays a separate knob for the speed plans,
 // so a stage could still be tuned apart if it ever needs to be. damping: the dampers' share of critical damping.
-const EARTH = { gravity: 9.81, clampG: 0, gripG: 9.81, damping: 0.55, hardLanding: 11 };
+const EARTH = { gravity: 9.81, gripG: 9.81, damping: 0.55, hardLanding: 11 };
 
 /* Pikes Peak: a 5.6 km cut of the real 20 km hill climb, built from its named sections in order, with a grade per
    section (the real road averages 7.2%). The road turns to gravel after Glen Cove, near the treeline.
@@ -3673,7 +3673,7 @@ function computeSpeedProfile() {
   // don't arrive at crests so fast that the landing is wild
   for (const f of TR.feats) if (f.type === 'crest') {
     const Rv = def.crest.L * def.crest.L / (2 * Math.PI * Math.PI * def.crest.h);
-    const vc = Math.sqrt((def.gravity + def.clampG) * Rv) * 0.95;   // stays (mostly) planted
+    const vc = Math.sqrt(def.gravity * Rv) * 0.95;   // stays (mostly) planted
     for (let i = Math.max(0, Math.floor((f.s0 - 10) / DS)); i < Math.min(N, (f.sc + 10) / DS); i++) v[i] = Math.min(v[i], vc);
   }
   // chicanes: the weave through the rows sets its own corner speeds
@@ -3697,7 +3697,7 @@ function computeSpeedProfile() {
   TR.vprof = v; TR.simTime = cum;
   // The AI also eases off where a crest falls inside a corner, so the car doesn't go light mid-turn
   // and sail off the outside. (AI only: the target times above keep using the plain profile.)
-  const ai = Float32Array.from(v), gEff = def.gravity + def.clampG;
+  const ai = Float32Array.from(v), gEff = def.gravity;
   for (let i = 4; i < N - 4; i++) {
     const kv = -(TR.cy[i + 4] - 2 * TR.cy[i] + TR.cy[i - 4]) / (16 * DS * DS);
     if (kv > 1e-4 && Math.abs(TR.kap[i]) > 1 / 220) ai[i] = Math.min(ai[i], Math.max(12, Math.sqrt(gEff * 0.9 / kv)));
@@ -3776,7 +3776,7 @@ function computeLineProfile() {
   const vmax = REF_VMAX() * 0.97;
   for (let i = 0; i < N; i++) v[i] = Math.min(vmax, Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * 0.66 / Math.max(Math.abs(kap[i]), 1e-5)));
   for (const f of TR.feats) if (f.type === 'crest') {
-    const vc = Math.sqrt((def.gravity + def.clampG) * def.crest.L * def.crest.L / (2 * Math.PI * Math.PI * def.crest.h)) * 0.95;
+    const vc = Math.sqrt(def.gravity * def.crest.L * def.crest.L / (2 * Math.PI * Math.PI * def.crest.h)) * 0.95;
     for (let i = Math.max(0, Math.floor((f.s0 - 10) / DS)); i < Math.min(N, (f.sc + 10) / DS); i++) v[i] = Math.min(v[i], vc);
   }
   const grade = (i) => (TR.cy[Math.min(i + 1, N - 1)] - TR.cy[Math.max(i - 1, 0)]) / (2 * DS);
@@ -3940,11 +3940,9 @@ function sampleGround(x, z, hint, out) {
   out.s = LQ.s; out.d = LQ.d; out.i = LQ.i;
   if (h <= VOID_H + 1) { out.void = true; out.h = VOID_H; out.nx = 0; out.ny = 1; out.nz = 0; return out; }
   out.void = false; out.h = h;
-  const e = 0.6;
-  locateFrom(x + e, z, LQ.i, LQ2); let hx = heightSD(LQ2.s, LQ2.d, x + e, z);
-  locateFrom(x, z + e, LQ.i, LQ2); let hz = heightSD(LQ2.s, LQ2.d, x, z + e);
-  if (hx <= VOID_H + 1) hx = h; if (hz <= VOID_H + 1) hz = h;
-  let nx = -(hx - h) / e, nz = -(hz - h) / e;
+  // the slope from heights 0.3 m either side, centred on the point (a one-sided difference leans 0.3 m off it)
+  const e = 0.3, hAt = (px, pz) => { locateFrom(px, pz, LQ.i, LQ2); const v = heightSD(LQ2.s, LQ2.d, px, pz); return v <= VOID_H + 1 ? h : v; };
+  const nx = -(hAt(x + e, z) - hAt(x - e, z)) / (2 * e), nz = -(hAt(x, z + e) - hAt(x, z - e)) / (2 * e);
   const l = Math.sqrt(nx * nx + 1 + nz * nz);
   out.nx = nx / l; out.ny = 1 / l; out.nz = nz / l;
   const ad = Math.abs(LQ.d);
@@ -5660,7 +5658,8 @@ function engineAir(sp, sig) { return sp.lag > 0 ? 1 - 0.3 * (1 - sig) : sig; }
  *  boost and by the air, air = engineAir) blended with the closed-throttle friction and pumping drag, which grows with revs. */
 function engineNet(sp, rpm, th, spool, air) {
   const wot = engineTorque(sp, rpm) * (sp.lag > 0 ? sp.offBoost + (1 - sp.offBoost) * spool : 1) * (air || 1);
-  return th * wot * sp.eta - (1 - th) * sp.disp * (9 + 21 * rpm / sp.redline);
+  // on the overrun the wheels turn the engine and the driveline's own losses too, so its drag reaches them as drag / eta
+  return th * wot * sp.eta - (1 - th) * sp.disp * (9 + 21 * rpm / sp.redline) / sp.eta;
 }
 /** Point the shared car constants at the chosen car's real figures (geometry, mass, inertia, springs, brakes, gearing). */
 function setCarTune(tune) {
@@ -5986,13 +5985,15 @@ function stepVehicle(dt, ctl) {
   for (let k = 0; k < 4; k++) {
     const w = car.wheels[k], cw = CAR.wheels[k];
     w.mount.set(cw.x, CAR.mountY, cw.z).applyQuaternion(car.q).add(car.pos);
-    const gs = sampleGround(w.mount.x, w.mount.z, car.i, w.gs);
+    // the ground is sampled where the ray met it last step (straight below the mount is off it once the car leans)
+    const t0 = w.reach ? clamp(w.dist, 0, maxLen) : maxLen * 0.8, px = w.mount.x - AY.x * t0, pz = w.mount.z - AY.z * t0;
+    const gs = sampleGround(px, pz, car.i, w.gs);
     w.reach = false;
     if (!gs.void) {
       _n.set(gs.nx, gs.ny, gs.nz);
       const denom = AY.dot(_n);
       if (denom > 0.25) {
-        const t = (w.mount.y - gs.h) * gs.ny / denom;          // distance along -up to the ground plane
+        const t = ((w.mount.x - px) * gs.nx + (w.mount.y - gs.h) * gs.ny + (w.mount.z - pz) * gs.nz) / denom;   // along -up to the ground plane
         if (t < maxLen && t > -0.8) { w.reach = true; w.dist = t; w.cg = maxLen - t; w.nAY = denom; w.n.copy(_n); }
       }
     }
