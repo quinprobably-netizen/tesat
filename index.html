@@ -5611,16 +5611,20 @@ const Draw = {
   p0: new THREE.Vector3(), q0: new THREE.Quaternion(), v0: new THREE.Vector3(),
   // the wheels too (travel, and the tyre's squash against the ground), or on a landing they'd be a step ahead of the
   // body they hang from, and the tyres would float or sink into the ground for a frame as they touch
-  comp: new Float64Array(4), sq: new Float64Array(4), c0: new Float64Array(4), s0: new Float64Array(4),
+  comp: new Float64Array(4), sq: new Float64Array(4), c0: new Float64Array(4), g0: new Float64Array(4),
   keep() {                                                                              // before each physics step
     this.p0.copy(car.pos); this.q0.copy(car.q); this.v0.copy(car.vel);
-    for (let k = 0; k < 4; k++) { const w = car.wheels[k]; this.c0[k] = w.comp; this.s0[k] = w.grounded ? Math.max(0, w.cg - w.comp) : 0; }
+    for (let k = 0; k < 4; k++) { const w = car.wheels[k]; this.c0[k] = w.comp; this.g0[k] = w.reach ? w.cg : NaN; }
   },
   blend(a) {
     this.pos.lerpVectors(this.p0, car.pos, a); this.q.copy(this.q0).slerp(car.q, a); this.vel.lerpVectors(this.v0, car.vel, a);
+    // (the ground is found at the start of each step, so w.cg goes with the pose before it; one step on, it's run on as it was going)
     for (let k = 0; k < 4; k++) {
-      const w = car.wheels[k], s1 = w.grounded ? Math.max(0, w.cg - w.comp) : 0;
-      this.comp[k] = this.c0[k] + (w.comp - this.c0[k]) * a; this.sq[k] = this.s0[k] + (s1 - this.s0[k]) * a;
+      const w = car.wheels[k], c0 = this.c0[k];
+      this.comp[k] = c0 + (w.comp - c0) * a;
+      if (!w.reach) { this.sq[k] = 0; continue; }
+      const g1 = Number.isNaN(this.g0[k]) ? w.cg : 2 * w.cg - this.g0[k];
+      this.sq[k] = Math.max(0, (w.cg - c0) * (1 - a) + (g1 - w.comp) * a);
     }
   },
   snap() { this.keep(); this.blend(1); },                                               // after a teleport
