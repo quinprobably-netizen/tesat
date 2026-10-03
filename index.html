@@ -4887,6 +4887,7 @@ function buildMountainDecor(rng) {
     const ctr = new THREE.Vector3(ax / list.length, ay / list.length, az / list.length);
     let rad = 0; for (const t of list) rad = Math.max(rad, Math.hypot(t.x - ctr.x, t.y - ctr.y, t.z - ctr.z) + t.h);
     g.boundingSphere = new THREE.Sphere(ctr, rad);                 // instances, not the unit tree: lets the whole square be culled
+    mesh.frustumCulled = true;                                     // (r128's InstancedMesh turns culling off by default)
     mesh.castShadow = true; mesh.receiveShadow = true;
     stageGroup.add(mesh);
   }
@@ -9395,7 +9396,7 @@ const AudioSys = {
     const t = this.ctx.currentTime, sp = st.speed;
     const on = st.active ? 1 : 0;
     EngineSound.update(dt, st);
-    const surfF = [650, 3800, 2400, 1300, 520][st.surf] || 800, surfG = [0.10, 0.05, 0.05, 0.16, 0.05][st.surf] || 0.08;
+    const surfF = [650, 3800, 2400, 1300, 520, 900][st.surf] || 800, surfG = [0.10, 0.05, 0.05, 0.16, 0.05, 0.09][st.surf] || 0.08;   // per surface (SURF order)
     this.road.fl.frequency.setTargetAtTime(surfF, t, 0.1);
     this.road.gn.gain.setTargetAtTime(on * st.grounded * surfG * Math.min(1, sp / 30), t, 0.08);
     this.skid.fl.frequency.setTargetAtTime(st.surf === 1 ? 5200 : st.surf === 2 ? 3000 : st.surf === 4 ? 2300 : 1600, t, 0.1);
