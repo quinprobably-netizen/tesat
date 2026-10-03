@@ -1053,6 +1053,11 @@ body.hud-min:not(.touch) #toast{top:auto;bottom:18px}
 body.hud-min #tSteer,body.hud-min .tb,body.hud-min .ts{opacity:.45}
 body.hud-min .tb.on{opacity:.85}
 body.hud-min #tSteer span,body.hud-min #tSteer::before{display:none}
+/* tilt steering: the phone is the wheel, so the steering pad gives way to a recentre button */
+.opt.touch-only,#tCentre{display:none}
+body.touch .opt.touch-only{display:flex}
+body.tilt #tSteer{display:none}
+body.tilt #tCentre{display:flex}
 @media (orientation:portrait) and (max-width:600px){
   body.touch.hud-min #timerBox{top:calc(max(8px,env(safe-area-inset-top)) + 52px)}
   body.touch.hud-min #timer{font-size:18px}
@@ -1123,6 +1128,7 @@ body.hud-min #tSteer span,body.hud-min #tSteer::before{display:none}
     <div id="tGears"><div class="ts" id="tGearUp">&#9650;</div><div class="ts" id="tGearDn">&#9660;</div></div>
     <div id="tTop">
       <div class="ts" id="tMute">&#9835;</div>
+      <div class="ts" id="tCentre">&#9678;</div>
       <div class="ts" id="tCam">CAM</div>
       <div class="ts" id="tReset">R</div>
       <div class="ts" id="tPause">II</div>
@@ -1250,6 +1256,8 @@ body.hud-min #tSteer span,body.hud-min #tSteer::before{display:none}
         <button class="opt" data-set="manual"><span><b>MANUAL GEARS</b><small>Shift yourself with E / Q or the bumpers (RB up, LB down). Off: automatic gearbox.</small></span><i class="switch"></i></button>
         <button class="opt" data-set="abs"><span><b>ABS</b><small>Stops the wheels locking under hard braking. Off: squeeze the brakes.</small></span><i class="switch"></i></button>
         <button class="opt" data-set="tc"><span><b>TRACTION CONTROL</b><small>Trims the engine so the driven wheels never spin. Off: feed the throttle in, or spin up and slide.</small></span><i class="switch"></i></button>
+        <button class="opt touch-only" data-set="tilt"><span><b>TILT STEERING</b><small>Steer by turning the phone like a wheel. Gas and brake stay on the buttons; &#9678; recentres.</small></span><i class="switch"></i></button>
+        <button class="opt touch-only" data-set="tiltSens"><span><b>TILT SENSITIVITY</b><small>How far you turn the phone for full lock: LOW 30&deg;, MEDIUM 20&deg;, HIGH 12&deg;.</small></span><i class="mode" id="tiltMode">MEDIUM</i></button>
         <div class="set-group">VIEW</div>
         <button class="opt" data-set="cam"><span><b>BUMPER CAM</b><small>Drive from the front bumper instead of behind the car. Key: C</small></span><i class="switch"></i></button>
         <button class="opt" data-set="ghost"><span><b>GHOST</b><small>Race against a replay of your best run. Key: G</small></span><i class="switch"></i></button>
@@ -1267,7 +1275,7 @@ body.hud-min #tSteer span,body.hud-min #tSteer::before{display:none}
         <table class="ctl-table">
           <tr><th></th><th>KEYBOARD</th><th>GAMEPAD</th><th>TOUCH</th></tr>
           <tr><td>Throttle / brake, reverse</td><td><kbd>W</kbd><kbd>S</kbd> or <kbd>&uarr;</kbd><kbd>&darr;</kbd></td><td>RT / LT</td><td>GAS / BRAKE</td></tr>
-          <tr><td>Steer (in the air: yaw)</td><td><kbd>A</kbd><kbd>D</kbd> or <kbd>&larr;</kbd><kbd>&rarr;</kbd></td><td>Left stick</td><td>Steering pad</td></tr>
+          <tr><td>Steer (in the air: yaw)</td><td><kbd>A</kbd><kbd>D</kbd> or <kbd>&larr;</kbd><kbd>&rarr;</kbd></td><td>Left stick</td><td>Steering pad, or tilt (Settings)</td></tr>
           <tr><td>Handbrake</td><td><kbd>Space</kbd></td><td>A</td><td>HAND BRAKE</td></tr>
           <tr><td>Gear up / down</td><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>RB / LB</td><td>&#9650; / &#9660;</td></tr>
           <tr><td>Reset to checkpoint</td><td><kbd>R</kbd></td><td>Back</td><td>R</td></tr>
@@ -8930,6 +8938,7 @@ const Input = {
     };
     bindHold('tGas', 'gas'); bindHold('tBrake', 'brake'); bindHold('tHB', 'hb');
     const tap = (id, action) => document.getElementById(id).addEventListener('pointerdown', (e) => { e.preventDefault(); AudioSys.unlock(); this.actions.push(action); });
+    document.getElementById('tCentre').addEventListener('pointerdown', (e) => { e.preventDefault(); Tilt.recentre(true); });
     tap('tPause', 'pause'); tap('tCam', 'camera'); tap('tReset', 'reset'); tap('tMute', 'mute'); tap('tGearUp', 'gearUp'); tap('tGearDn', 'gearDown');
     const pad = document.getElementById('tSteer'), knob = document.getElementById('tKnob');
     let pid = null;
@@ -8963,6 +8972,7 @@ const Input = {
     // touch
     const t = this.touch;
     if (Math.abs(t.steer) > 0.02) steer = t.steer;
+    else if (Tilt.active()) steer = Tilt.steer;
     if (t.gas) throttle = 1; if (t.hb) handbrake = true;
     // gamepad (standard mapping)
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -8992,6 +9002,81 @@ const Input = {
     const c = this.ctl;
     c.steer = clamp(steer, -1, 1); c.throttle = throttle; c.brake = brake; c.handbrake = handbrake;
     return c;
+  },
+};
+
+/* ---- tilt steering: the phone held like a wheel. The angle is gravity's direction in the
+   screen plane, so it reads the same in portrait and either landscape, however far the phone
+   is tipped back. Opt-in from Settings on touch devices; off by default. ---- */
+const TILT_SENS = [{ name: 'LOW', deg: 30 }, { name: 'MEDIUM', deg: 20 }, { name: 'HIGH', deg: 12 }];
+const Tilt = {
+  steer: 0, angle: 0, zero: 0, seen: false, wantCentre: true, listening: false,
+  // live only once readings arrive, so the steering pad stays until the sensor actually answers
+  active() { return !!Store.data.settings.tilt && this.seen && document.body.classList.contains('touch'); },
+  sensIdx() { const i = Store.data.settings.tiltSens; return i >= 0 && i < TILT_SENS.length ? i : 1; },
+  listen() {
+    if (this.listening) return;
+    this.listening = true;
+    window.addEventListener('deviceorientation', (e) => this.onOrient(e));
+    const reorient = () => { this.wantCentre = true; };
+    if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', reorient);
+    window.addEventListener('orientationchange', reorient);
+  },
+  screenAngle() {
+    const a = screen.orientation && typeof screen.orientation.angle === 'number' ? screen.orientation.angle : (window.orientation || 0);
+    return a * Math.PI / 180;
+  },
+  onOrient(e) {
+    if (e.beta == null || e.gamma == null) return;
+    if (!this.seen) { this.seen = true; document.body.classList.toggle('tilt', this.active()); }
+    // world "up" in the device frame (x right, y to the top edge, z out of the screen)
+    const b = e.beta * Math.PI / 180, g = e.gamma * Math.PI / 180;
+    const ux = -Math.cos(b) * Math.sin(g), uy = Math.sin(b);
+    // ...turned into the screen frame the game is drawn in
+    const th = this.screenAngle(), c = Math.cos(th), sn = Math.sin(th);
+    const sx = ux * c - uy * sn, sy = ux * sn + uy * c;
+    const len = Math.hypot(sx, sy);
+    if (len < 0.08) return;                       // lying flat: no wheel angle to read, keep the last one
+    this.angle = Math.atan2(-sx, sy);             // turning the phone clockwise steers right
+    if (this.wantCentre) { this.zero = this.angle; this.wantCentre = false; }
+    let d = this.angle - this.zero;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    const full = TILT_SENS[this.sensIdx()].deg * Math.PI / 180, dead = 1.5 * Math.PI / 180;
+    const v = Math.abs(d) < dead ? 0 : Math.sign(d) * (Math.abs(d) - dead) / (full - dead);
+    // nearly flat the reading gets noisy, so it fades out; a light filter takes off the hand shake
+    const trust = clamp((len - 0.08) / 0.25, 0, 1);
+    this.steer += (clamp(v, -1, 1) * trust - this.steer) * 0.5;
+  },
+  recentre(toast) { this.wantCentre = true; this.steer = 0; if (toast) HUD.toast('TILT CENTRED'); },
+  async toggle() {
+    const s = Store.data.settings;
+    if (s.tilt) { s.tilt = false; this.steer = 0; HUD.toast('TILT STEERING OFF'); Store.save(); Menu.refresh(); return; }
+    // iOS asks for motion access, and only from a tap
+    const DOE = window.DeviceOrientationEvent;
+    if (DOE && typeof DOE.requestPermission === 'function') {
+      let r = 'denied';
+      try { r = await DOE.requestPermission(); } catch (err) { /* not from a gesture, or refused */ }
+      if (r !== 'granted') { HUD.toast('TILT NEEDS MOTION ACCESS'); return; }
+    }
+    if (!DOE) { HUD.toast('NO TILT SENSOR ON THIS DEVICE'); return; }
+    s.tilt = true; this.listen(); this.recentre(false);
+    HUD.toast('TILT STEERING ON · TURN THE PHONE TO STEER');
+    Store.save(); Menu.refresh();
+    setTimeout(() => { if (Store.data.settings.tilt && !this.seen) HUD.toast('NO TILT READINGS · CHECK MOTION ACCESS'); }, 1500);
+  },
+  cycleSens() {
+    const s = Store.data.settings;
+    s.tiltSens = (this.sensIdx() + 1) % TILT_SENS.length;
+    HUD.toast('TILT SENSITIVITY ' + TILT_SENS[s.tiltSens].name); Store.save(); Menu.refresh();
+  },
+  init() {
+    if (!Store.data.settings.tilt) return;
+    this.listen();
+    // iOS forgets motion access between visits: ask again on the first tap
+    const DOE = window.DeviceOrientationEvent;
+    if (DOE && typeof DOE.requestPermission === 'function') {
+      window.addEventListener('pointerdown', () => { if (!this.seen) DOE.requestPermission().catch(() => {}); }, { once: true });
+    }
   },
 };
 
@@ -10316,6 +10401,7 @@ function startRace() {
   placeCar(TR.startS - 6, 0, 0);
   AI.line = 0;
   Game.state = 'countdown'; Game.countdown = 3.2; Game.lastCount = 4;
+  Tilt.recentre(false);
   HUD.show(true);
   HUD.el.countdown.textContent = '';
   HUD.message(TR.def.name.toUpperCase(), (TR.gates.length - 1) + ' CHECKPOINTS  ·  ' + (TR.finishS - TR.startS > 0 ? ((TR.finishS - TR.startS) / 1000).toFixed(2) : '0') + ' KM', '#ffffff', 2.8);
@@ -10855,7 +10941,7 @@ const Garage = {
 /* ---- settings: every switch in one list, opened from home, stage select or the pause menu ---- */
 const Settings = {
   from: null, idx: 0, view: 'list',
-  rows() { return [...document.querySelectorAll('#setList .opt')]; },
+  rows() { const t = document.body.classList.contains('touch'); return [...document.querySelectorAll('#setList .opt')].filter((r) => t || !r.classList.contains('touch-only')); },
   open(from) {
     this.from = from; this.idx = 0; this.view = 'list';
     for (const id of ['home', 'menu', 'pause']) document.getElementById(id).classList.add('hidden');
@@ -10879,13 +10965,15 @@ const Settings = {
     if (k === 'line') { cycleLine(); return; }
     if (k === 'hud') { toggleHud(); return; }
     if (k === 'vol') { cycleVolume(); return; }
+    if (k === 'tilt') { Tilt.toggle(); return; }
+    if (k === 'tiltSens') { Tilt.cycleSens(); return; }
     if (k === 'cam') toggleCamera(); else toggleSetting(k === 'sound' ? 'muted' : k);
   },
   nav(d) { if (this.view !== 'list') return; const n = this.rows().length; this.idx = (this.idx + d + n) % n; this.refresh(); },
   activate(sideways) { if (this.view !== 'list') { if (!sideways) this.back(); return; } const r = this.rows()[this.idx]; if (r) this.toggle(r.dataset.set, sideways); },
   refresh() {
     const s = Store.data.settings;
-    const on = { manual: !!s.manual, abs: s.abs !== false, tc: s.tc !== false, cam: Cam.mode === 'bumper', ghost: !!s.ghost, sound: !s.muted, voice: !!s.voice };
+    const on = { manual: !!s.manual, abs: s.abs !== false, tc: s.tc !== false, cam: Cam.mode === 'bumper', ghost: !!s.ghost, sound: !s.muted, voice: !!s.voice, tilt: !!s.tilt };
     this.rows().forEach((r, i) => { r.classList.toggle('on', !!on[r.dataset.set]); r.classList.toggle('sel', i === this.idx); });
     document.getElementById('setList').classList.toggle('hidden', this.view !== 'list');
     document.getElementById('setControls').classList.toggle('hidden', this.view !== 'controls');
@@ -10894,6 +10982,7 @@ const Settings = {
     if (document.activeElement !== nameIn) nameIn.value = s.name || 'DRIVER';
     document.getElementById('lineMode').textContent = LINE_NAMES[s.line || 'full'];
     document.getElementById('hudMode').textContent = s.hud === 'full' ? 'FULL' : 'MINIMAL';
+    document.getElementById('tiltMode').textContent = TILT_SENS[Tilt.sensIdx()].name;
     document.getElementById('volMode').textContent = Math.round((s.vol == null ? 1 : s.vol) * 100) + '%';
   },
   init() {
@@ -11049,6 +11138,7 @@ const Menu = {
     document.getElementById('sdShare').classList.toggle('hidden', this.sdTab !== 'share');
     this.pauseItems().forEach((b, i) => b.classList.toggle('sel', i === this.pauseIdx));
     document.body.classList.toggle('manual', !!s.manual);
+    document.body.classList.toggle('tilt', Tilt.active());
     Settings.refresh();
     // home screen + garage shortcut
     const gb = Store.data.garage, gp = GARAGE.pilot.opts[gb.pilot];
@@ -11145,7 +11235,7 @@ function init() {
   Cam.mode = s.cam === 'bumper' ? 'bumper' : 'chase';
   if (IS_TOUCH) document.body.classList.add('touch');
   applyHud();
-  HUD.init(); Input.init(); Sky.init(); FX.init(); Ghost.init(); Rival.init(); Menu.init();
+  HUD.init(); Input.init(); Tilt.init(); Sky.init(); FX.init(); Ghost.init(); Rival.init(); Menu.init();
   rebuildCarModel();
   linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
   // Small debugging / automation surface (autopilot lets you watch the AI drive a full stage).
@@ -11153,7 +11243,7 @@ function init() {
     AudioSys, EngineSound, Game, car, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; },
-    openService, leaveService, startRally, Rally, Garage, Menu, Settings, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
+    openService, leaveService, startRally, Rally, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
   };
