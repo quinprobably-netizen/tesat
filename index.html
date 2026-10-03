@@ -1420,10 +1420,11 @@ function fmtDelta(d) { return (d < 0 ? '-' : '+') + Math.abs(d).toFixed(2); }
    ============================================================================= */
 const Store = {
   key: 'regolithRally.v1',
-  era: 5,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost,
-            // 4 = coupled driveline, real gearboxes, chassis and tyres per car, 5 = new layouts for the space stages (Pikes Peak unchanged)
+  era: 6,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost,
+            // 4 = coupled driveline, real gearboxes, chassis and tyres per car, 5 = new layouts for the space stages (Pikes Peak unchanged),
+            // 6 = Dyson Swarm without its ice (every other stage unchanged)
   data: { best: {}, settings: { muted: false, voice: true, ghost: true, cam: 'chase', name: 'DRIVER' },
-    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 5 },
+    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 6 },
   load() {
     try {
       const raw = window.localStorage.getItem(this.key);
@@ -1445,11 +1446,14 @@ const Store = {
    *  times (not the replays) under `archive` and start the boards fresh. Setups and the garage stay. */
   archiveEra(era) {
     const D = this.data, times = {}, boards = {};
-    const keep = (k) => era >= 4 && k === 'pikes';      // era 4 → 5 changed the layouts only: Pikes Peak's times and ghosts still count
+    // era 4 → 5 relaid the space stages (Pikes Peak's times and ghosts still count); 5 → 6 changed only the Dyson Swarm
+    const keep = (k) => (era >= 5 && k !== 'dyson') || (era === 4 && k === 'pikes');
     for (const k in D.best) if (!keep(k)) times[k] = { time: D.best[k].time, splits: D.best[k].splits };
     for (const k in D.boards) if (!keep(k)) boards[k] = D.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own, d: e.d }));
     if (Object.keys(times).length || Object.keys(boards).length || D.rallyBest) {     // the newest era's times replace an older archive
+      const older = era >= 5 ? D.archive : null;                                        // (one stage's times go on top of it)
       D.archive = { era, best: times, boards, rallyBest: D.rallyBest, rallyBestClassic: D.rallyBestClassic || null };
+      if (older) D.archive.older = older;
     }
     const kept = (o) => { const r = {}; for (const k in o) if (keep(k)) r[k] = o[k]; return r; };
     Object.assign(D, { best: kept(D.best), boards: kept(D.boards), rival: kept(D.rival), targets: kept(D.targets), rallyBest: null, era: this.era });
@@ -1639,12 +1643,13 @@ const HORIZON_COURSE = [
   { name: 'ESCAPE VELOCITY', grade: 0, path: 'R140:-190 S70 C S50 K' },
   { name: 'FINISH', grade: 0, path: 'S190' },
 ];
-// The decks of a Dyson swarm: collector arrays, a mirror field glazed with ice, a jump between two statites
+// The decks of a Dyson swarm: collector arrays, a mirror field, a jump between two statites. Deck plating all the
+// way (no ice: on a narrow deck with drops either side it was barely drivable).
 const DYSON_COURSE = [
   { name: 'COLLECTOR ARRAY', grade: 0, path: 'S100 R70:-60 S40' },
   { name: 'SPOKE TRANSFER', grade: 0.02, path: 'L45:50 S30 R45:-40 S60 J S30' },
-  { name: 'MIRROR FIELD', grade: 0, path: '@I L90:80 S40 K R60:-30 S40' },
-  { name: 'STATITE GAP', grade: -0.02, path: '@M L50:60 S40 X S60 R55:-100 S40' },
+  { name: 'MIRROR FIELD', grade: 0, path: 'L90:80 S40 K R60:-30 S40' },
+  { name: 'STATITE GAP', grade: -0.02, path: 'L50:60 S40 X S60 R55:-100 S40' },
   { name: 'CORONA HAIRPINS', grade: 0.02, path: 'L32:80 S50 R34:-100 S40 L40:40 S30' },
   { name: 'HEAT SINKS', grade: 0, path: 'R80:-20 S30 C L60:70 S40 K' },
   { name: 'FINISH', grade: 0, path: 'S190' },
@@ -1814,12 +1819,17 @@ const STAGES = [
     },
     planet: null,
     hemi: { sky: 0xa8c8f0, ground: 0x5a4c3c, intensity: 0.65 },
+    // The mountain is Pikes Peak granite, coarse and pink-orange, which weathers to a reddish gravel (grus): it's in
+    // the asphalt's chips, the road's shoulders, the old gravel road above Glen Cove and the ground under the trees.
     colors: {
-      road: 0x5a5c60, roadDark: 0x46484c, off: 0x4a5a32, offB: 0x7d6a5c, offC: 0x8a8a52,
-      surf: [0x9c978d, 0xbfe3f5, 0x9aa2ab, 0xa4846c, 0x5a5c60], rock: 0x9a8478, marker: [0xff8a1a, 0xf4f4f0], accent: 0xffb21a,
-      forest: 0x3a4a2a, tundra: 0x6c6a44, granite: 0x84746e, snow: 0xeef2f6,
+      road: 0x504e4c, roadDark: 0x3e3c3b, off: 0x4a5a32, offB: 0x7d6a5c, offC: 0x74704c,
+      surf: [0x9c978d, 0xbfe3f5, 0x9aa2ab, 0x9e7c64, 0x504e4c], rock: 0x9e8474, marker: [0xff8a1a, 0xf4f4f0], accent: 0xffb21a,
+      forest: 0x3a4a2a, tundra: 0x5c5e3a, granite: 0xa8866f, snow: 0xeef2f6,
+      floor: 0x5e4c3a, grass: 0x52633a, grus: 0x9e7c64,
     },
-    earth: { fall: 1, ridges: 1, trees: ['spruce'], density: 10000, treeline: 0.46, snowLine: 0.8, ground: 'alpine',
+    // grus: the gravel shoulders' width (m); talus: boulder fields above the treeline; boulders: loose ones on them
+    earth: { fall: 1, ridges: 1, trees: ['spruce', 'spruce', 'spruce', 'aspen', 'bristlecone'], density: 10000, treeline: 0.46, snowLine: 0.8, ground: 'alpine',
+      grus: 1.4, talus: true, boulders: 1400,
       signs: [{ at: 'start', lines: [['PIKES PEAK', 70], ['HIGHWAY', 58], ['ELEV 9,390 FT', 40]] }, { at: 'finish', lines: [['PIKES PEAK', 70], ['SUMMIT', 58], ['ELEV 14,115 FT', 40]] }],
       summitHouse: true },
   },
@@ -1958,13 +1968,13 @@ const STAGES = [
   },
   {
     id: 'dyson', name: 'Dyson Swarm', region: "KIC 8462852 · TABBY'S STAR · STAGE 13", seed: 1960, letter: 'D',
-    blurb: "On the decks of a Dyson swarm wrapped around Tabby's Star, the real star whose strange dimming made astronomers wonder if someone was building one. Metal collector decks, a mirror field glazed with ice, a jump across the gap between two statites and tight hairpins in the glare of the corona.",
+    blurb: "On the decks of a Dyson swarm wrapped around Tabby's Star, the real star whose strange dimming made astronomers wonder if someone was building one. Grippy metal decks all the way: the collector arrays, the mirror field, a jump across the gap between two statites and tight hairpins in the glare of the corona.",
     length: 3150, ...EARTH, course: DYSON_COURSE, follow: 0.5,
     hw: 6.6, ribbon: 46, shoulder: 10, style: 'platform', offRR: 0.18,
     corner: { rMin: 32, rMax: 140, angMin: 30, angMax: 120, compound: 0.4 },
     straight: [28, 100], maxHeading: 80,
     roadRough: 0.03, terrainAmp: 5, terrainScale: 260,
-    surf: { base: SURF.METAL, off: SURF.GRAVEL, patches: [SURF.GRAVEL, SURF.ICE], patchChance: 0.35, patchLen: [40, 90] },
+    surf: { base: SURF.METAL, off: SURF.GRAVEL, patches: [SURF.GRAVEL], patchChance: 0.35, patchLen: [40, 90] },   // grit only, never ice
     features: ['ramp', 'chasm', 'crest', 'ramp'],
     ramp: { H: 1.2, L: 14, landing: 85 }, chasm: { H: 1.4, L: 14, gap: 17, landing: 95, depth: 70 }, crest: { h: 1.6, L: 40, landing: 75 },
     craterClusters: 2, meteorZones: 1, chicanes: 3, dontCut: 0.4,
@@ -4074,12 +4084,30 @@ float aGround = mix(0.84 + 0.3 * (mott - 0.5) + 0.3 * smoothstep(0.35, 0.8, A1.r
 aGround = mix(aGround, aSnow + 0.17 * pack, wSn);
 float hGround = mix(mix(0.02 * smoothstep(0.35, 0.8, A1.r) + 0.005 * grain * bCm, 0.012 * blades * bCm, wGr), 0.014 * rip + 0.004 * grain * bCm, wSn);
 float rGround = mix(0.95, 0.72, wSn);
+// --- boulder field (Pikes Peak above the treeline): rounded granite boulders at two sizes packed together, dark voids
+// between them, lichen on their tops
+#ifdef RR_TALUS
+vec2 bA = rrBoulders(wp / 1.5), bB = rrBoulders(rrRot * wp / 0.6 + 3.7);
+float hBld = max(bA.x * 1.5, bB.x * 0.6);                                // metres, over two sizes of boulder
+float bld = clamp(hBld / 0.6, 0.0, 1.0), bid = bA.x * 1.5 >= bB.x * 0.6 ? bA.y : bB.y;
+float gwT = sx4.z + sx4.w, cov = sx4.w / max(gwT, 0.001);
+float tw = gwT * smoothstep(0.0, 0.12, (cov - 0.6) * 4.0 + bld * 2.0);   // toward a field's edge only the biggest boulders show
+sx4.z = gwT - tw; sx4.w = tw;
+float voids = 1.0 - smoothstep(0.0, 0.06, hBld);
+float lichen = smoothstep(0.55, 0.8, fract(bid * 23.1) * 0.5 + B1.a * 0.6) * smoothstep(0.05, 0.2, hBld);
+float aTal = (0.5 + 0.3 * bid + 0.1 * (A2.a - 0.5) + hf * 0.18 * (grain - 0.5) + 0.05 * lichen) * (1.0 - 0.7 * voids);
+float hTal = 0.004 * grain * bCm;
+float rTal = 0.92 - 0.12 * bld;
+#else
+float aTal = 1.0, hTal = 0.0, rTal = 0.9, lichen = 0.0;
+#endif
 // mix the materials by the surface weights
-float rrAlb = dot(sw4, vec4(aReg, aIce, aMetal, aGrav)) + dot(sx4, vec4(aTar, aSnow, aGround, 0.0));
+float rrAlb = dot(sw4, vec4(aReg, aIce, aMetal, aGrav)) + dot(sx4, vec4(aTar, aSnow, aGround, aTal));
 diffuseColor.rgb *= rrAlb;
 diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.95, 1.02, 1.06) + vec3(0.0, 0.01, 0.025), sx4.y * pack);   // glazed tracks pick up the sky
 diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.08, 1.0, 0.72), wGr * dry * sx4.z * 0.6);                  // straw-coloured dry grass
-float rrH = dot(sw4, vec4(hReg, hIce, hMetal, hGrav)) + dot(sx4, vec4(hTar, hSnow, hGround, 0.0));
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.31, 0.24), lichen * sx4.w * 0.55);                                         // grey-green lichen
+float rrH = dot(sw4, vec4(hReg, hIce, hMetal, hGrav)) + dot(sx4, vec4(hTar, hSnow, hGround, hTal));
 // rock faces on a mountain: bands of strata cut by cracks, the stone detail on top
 float rockF = (1.0 - smoothstep(0.5, 0.82, vNrmY)) * uRock * (1.0 - wSn * sx4.z);   // (snowbanks are steep too, but they are snow)
 float strata = rrNoise(vec2((wp.x + wp.y) * 0.03, vWPos.y * 0.45)), crack = 1.0 - smoothstep(0.0, 0.07, abs(rrNoise(wp * 0.11 + vWPos.y * 0.05) - 0.5));
@@ -4098,13 +4126,33 @@ float edgeD = abs(ax - (uHW - 0.6));
 float stripeZone = (1.0 - smoothstep(0.26, 0.32, edgeD)) * uStripe * sw4.z;
 float stripe = step(0.5, fract((vTrk.y + ax) * 0.22));
 diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.015), vec3(0.8, 0.5, 0.03), stripe), stripeZone);
-float rrRough = clamp(dot(sw4, vec4(0.95 - 0.1 * rStones, rIce, rMetal, 0.9)) + dot(sx4, vec4(rTar - 0.2 * (yl + wl + dash), rSnow, rGround, 0.0)), 0.04, 1.0);
+float rrRough = clamp(dot(sw4, vec4(0.95 - 0.1 * rStones, rIce, rMetal, 0.9)) + dot(sx4, vec4(rTar - 0.2 * (yl + wl + dash), rSnow, rGround, rTal)), 0.04, 1.0);
 rrRough = mix(rrRough, 0.85, rockF);
 float rrMetal = sw4.z * 0.5 * (1.0 - grime * 0.5);
 vec2 rrDH = vec2(dFdx(rrH), dFdy(rrH)) * (1.0 - smoothstep(0.01, 0.04, fp)) * hf * uBump;
+#ifdef RR_TALUS
+rrDH += vec2(dFdx(hBld), dFdy(hBld)) * 0.6 * sx4.w * (1.0 - smoothstep(0.04, 0.14, fp)) * hf * uBump;   // the boulders' own bump reaches further out
+#endif
 `;
 // bump from a height in metres (three's perturbNormalArb, which only exists when a material has a bumpMap)
 const TERRAIN_BUMP = `
+#ifdef RR_TALUS
+// a boulder field on a grid of unit cells, one jittered boulder per cell with its size, height and shade from the cell's
+// hash; neighbours overlap and stack. x = height in cells (0 in the gaps), y = the tallest boulder's random value
+vec2 rrBoulders(vec2 p) {
+  vec2 ip = floor(p), fq = fract(p);
+  float best = 0.0, id = 0.0;
+  for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+    vec2 g = vec2(float(i), float(j));
+    float h = rrHash12(ip + g), r = 0.42 + 0.3 * fract(h * 13.7), a = h * 6.2832;
+    vec2 v = mat2(cos(a), sin(a), -sin(a), cos(a)) * (g + vec2(h, fract(h * 47.31)) * 0.6 + 0.2 - fq);
+    float q = mix(length(v), max(abs(v.x), abs(v.y)), 0.4) / r;          // rounded but blocky, each turned its own way
+    float dome = r * (0.5 + 0.25 * fract(h * 7.9)) * sqrt(max(0.0, 1.0 - q * q));
+    if (dome > best) { best = dome; id = h; }
+  }
+  return vec2(best, id);
+}
+#endif
 vec3 rrPerturb(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy, float faceDirection) {
   vec3 vSigmaX = dFdx(surf_pos), vSigmaY = dFdy(surf_pos), vN = surf_norm;
   vec3 R1 = cross(vSigmaY, vN), R2 = cross(vN, vSigmaX);
@@ -4117,6 +4165,7 @@ function makeTerrainMaterial(def) {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0.0, envMapIntensity: def.sky.day ? 0.3 : 0.7 });
   const stripe = def.style === 'platform' ? 1 : 0, det = detailTextures();
   mat.extensions = { derivatives: true };        // dFdx/dFdy for the bump on WebGL1
+  if (def.earth && def.earth.talus) mat.defines = { RR_TALUS: 1 };   // (defines are part of three's program cache key)
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uHW = { value: def.hw };
     sh.uniforms.uStripe = { value: stripe };
@@ -4142,7 +4191,7 @@ function lateralOffsets(def) {
   const hw = def.hw, W = def.ribbon, pos = [];
   const nRoad = Math.ceil(hw / 0.95);
   for (let j = 0; j <= nRoad; j++) pos.push(hw * j / nRoad);
-  let d = hw, step = 0.9;
+  let d = hw, step = def.earth && def.earth.grus ? 0.6 : 0.9;      // (finer at the edge where gravel shoulders are drawn)
   const maxStep = def.style === 'mountain' ? 10 : Infinity;   // a mountainside keeps its detail (and the W's their seams) out to the edge
   while (d < W - 0.5) { d = Math.min(W, d + step); pos.push(d); step = Math.min(maxStep, step * 1.36); }
   if (pos[pos.length - 1] < W) pos.push(W);
@@ -4162,7 +4211,8 @@ function buildPalette(def) {
   PAL = {
     surf: [0, 1, 2, 3, 4, 5].map((k) => srgb(c.surf[k] !== undefined ? c.surf[k] : 0x55575a)), off: srgb(c.off), offB: srgb(c.offB), offC: srgb(c.offC),
     cliff: srgb(def.style === 'ring' ? 0x3d6a8c : 0x2b2522),
-    mtn: def.style === 'mountain' ? { forest: srgb(c.forest), tundra: srgb(c.tundra), granite: srgb(c.granite), snow: srgb(c.snow) } : null,
+    mtn: def.style === 'mountain' ? { forest: srgb(c.forest), tundra: srgb(c.tundra), granite: srgb(c.granite), snow: srgb(c.snow),
+      floor: c.floor !== undefined ? srgb(c.floor) : null, grass: c.grass !== undefined ? srgb(c.grass) : null, grus: c.grus !== undefined ? srgb(c.grus) : null } : null,
   };
 }
 const _c1 = new THREE.Color(), _c2 = new THREE.Color();
@@ -4171,18 +4221,39 @@ function forestAt(x, z, y) {
   const q = (y - TR.yLo) / (TR.yHi - TR.yLo), tl = TR.earth ? TR.earth.treeline : 0.46;
   return 1 - smoothstep(tl - 0.06, tl + 0.06, q + 0.06 * TR.noiseC(x / 90 + 7, z / 90));
 }
+/** Pikes Peak: the share of open ground that is boulder field (talus), from a few patches near the treeline to nearly
+ *  all of it at Devils Playground, Boulder Park and the summit. */
+function talusAt(x, z, y) {
+  const q = (y - TR.yLo) / (TR.yHi - TR.yLo), n3 = TR.noiseC(x / 140 - 30, z / 140), n4 = TR.noiseC(x / 60 + 11, z / 60 - 7);
+  return smoothstep(0.2, 0.6, n4 * 0.45 + n3 * 0.3 + (q - 0.56) * 2.2);
+}
+let MTN_TALUS = 0;   // set by mountainColor: the boulder-field share of the ground it just coloured (0 without talus)
+const _c3 = new THREE.Color();
 /** Mountain ground by altitude: forest floor below the treeline, alpine tundra above it, then pink granite scree
  *  and lingering snow near the summit. Steep faces are bare rock at any height. */
 function mountainColor(x, z, ny, y, out) {
   const P = PAL.mtn, q = (y - TR.yLo) / (TR.yHi - TR.yLo);         // only broad noise here: far vertices are tens of metres apart
   const n1 = TR.noiseC(x / 23, z / 23), n3 = TR.noiseC(x / 140 - 30, z / 140), n4 = TR.noiseC(x / 60 + 11, z / 60 - 7);
-  out.copy(P.tundra).lerp(PAL.offC, clamp(0.3 + n1 * 0.7, 0, 0.65));
-  out.lerp(P.forest, forestAt(x, z, y) * clamp(0.9 + n1 * 0.3, 0, 1));
   const E = TR.earth, tl = E ? E.treeline : 0.46, sl = E ? E.snowLine : 0.8;
-  out.lerp(P.granite, smoothstep(0.15, 0.55, n4 * 0.5 + n3 * 0.3 + (q - tl - 0.26) * 1.4) * 0.9);   // boulder fields up high
+  MTN_TALUS = 0;
+  if (P.floor) {
+    // Pikes Peak: under the spruce, grus and needle litter with grass in the clearings; above the treeline short
+    // tundra (sedges and grass) with grus showing through, then granite boulder fields taking over toward the top
+    const n2 = TR.noiseC(x / 38 - 17, z / 38 + 5);
+    out.copy(P.tundra).lerp(PAL.offC, clamp(0.25 + n1 * 0.6, 0, 0.6)).lerp(P.grus, clamp(0.3 - n2 * 0.7, 0, 0.65));
+    _c3.copy(P.floor).lerp(P.grass, smoothstep(-0.25, 0.3, n2 + 0.3 * n1) * 0.85);
+    out.lerp(_c3, forestAt(x, z, y));
+    if (E.talus) { MTN_TALUS = talusAt(x, z, y) * smoothstep(0.6, 0.84, ny); out.lerp(P.granite, MTN_TALUS * 0.85); }   // (steep faces are bare rock)
+  } else {
+    out.copy(P.tundra).lerp(PAL.offC, clamp(0.3 + n1 * 0.7, 0, 0.65));
+    out.lerp(P.forest, forestAt(x, z, y) * clamp(0.9 + n1 * 0.3, 0, 1));
+    out.lerp(P.granite, smoothstep(0.15, 0.55, n4 * 0.5 + n3 * 0.3 + (q - tl - 0.26) * 1.4) * 0.9);   // boulder fields up high
+  }
   out.lerp(P.granite, 1 - smoothstep(0.6, 0.84, ny));
   if (sl < 0) return out.lerp(P.snow, (0.9 + 0.08 * n1) * smoothstep(0.45, 0.7, ny));        // a winter stage: snow over everything but cliffs
-  const snow = smoothstep(sl, sl + 0.18, q + 0.25 * n3) * smoothstep(0.2, 0.45, n4 + 0.4 * n1) * smoothstep(0.6, 0.82, ny);
+  const lee = P.floor ? -n4 - 0.35 : n4;                            // (on Pikes Peak, in early summer, a few patches in the hollows between the boulder fields)
+  const snow = smoothstep(sl, sl + 0.18, q + 0.25 * n3) * smoothstep(0.2, 0.45, lee + 0.4 * n1) * smoothstep(0.6, 0.82, ny);
+  MTN_TALUS *= 1 - snow;
   return out.lerp(P.snow, snow * 0.85);
 }
 function offroadColor(x, z, ny, out, y) {
@@ -4294,8 +4365,8 @@ function colorRibbon(i0, i1) {
   for (let i = i0; i <= i1; i++) for (let j = 0; j < M; j++) {
     const v = i * M + j;
     const x = R.pos[v * 3], y = R.pos[v * 3 + 1], z = R.pos[v * 3 + 2];
-    let sw0 = 0, sw1 = 0, sw2 = 0, sw3 = 0, sw4 = 0, sw5 = 0, sw6 = 0;   // regolith, ice, metal, gravel, tarmac, snow, Earth ground
-    const put = (idx, w) => { if (idx === 0) sw0 += w; else if (idx === 1) sw1 += w; else if (idx === 2) sw2 += w; else if (idx === 3) sw3 += w; else if (idx === 4) sw4 += w; else if (idx === 5) sw5 += w; else sw6 += w; };
+    let sw0 = 0, sw1 = 0, sw2 = 0, sw3 = 0, sw4 = 0, sw5 = 0, sw6 = 0, sw7 = 0;   // regolith, ice, metal, gravel, tarmac, snow, Earth ground, boulder field
+    const put = (idx, w) => { if (idx === 0) sw0 += w; else if (idx === 1) sw1 += w; else if (idx === 2) sw2 += w; else if (idx === 3) sw3 += w; else if (idx === 4) sw4 += w; else if (idx === 5) sw5 += w; else if (idx === 6) sw6 += w; else sw7 += w; };
     if (R.kind[j] === 1) {
       _c1.copy(PAL.cliff);
       put(offS, 1);
@@ -4305,6 +4376,9 @@ function colorRibbon(i0, i1) {
       const rw = 1 - smoothstep(hw - 0.3, hw + 1.1, ad);
       const si = TR.surf[ni];
       offroadColor(x, z, R.nrm[v * 3 + 1], _c1, y);
+      const talus = MTN_TALUS;
+      const grus = PAL.mtn && PAL.mtn.grus && TR.earth.grus ? 1 - smoothstep(hw + TR.earth.grus, hw + TR.earth.grus + 1.2, ad) : 0;   // gravel shoulders
+      if (grus > 0) _c1.lerp(PAL.mtn.grus, grus);
       if (TR.snowbank && PAL.mtn && ad > hw) {                        // ploughed banks are clean snow
         const bk = smoothstep(hw + 0.1, hw + 1.2, ad) * (1 - smoothstep(hw + 4.5, hw + 8, ad)) * (TR.bankW ? TR.bankW[ni] : 1);
         _c1.lerp(PAL.mtn.snow, bk * 0.92);
@@ -4328,11 +4402,13 @@ function colorRibbon(i0, i1) {
       }
       const depth = baseY(s) - y;                                      // chasm walls / floors fade into darkness
       if (depth > 1.5 && !PAL.mtn) _c1.multiplyScalar(Math.max(0.1, 1 - depth / 30));
-      put(si, rw); put(PAL.mtn ? 6 : offS, 1 - rw);
+      put(si, rw);
+      if (PAL.mtn) { put(SURF.GRAVEL, (1 - rw) * grus); put(6, (1 - rw) * (1 - grus) * (1 - talus)); put(7, (1 - rw) * (1 - grus) * talus); }
+      else put(offS, 1 - rw);
     }
     R.col[v * 3] = _c1.r; R.col[v * 3 + 1] = _c1.g; R.col[v * 3 + 2] = _c1.b;
     R.sw[v * 4] = sw0; R.sw[v * 4 + 1] = sw1; R.sw[v * 4 + 2] = sw2; R.sw[v * 4 + 3] = sw3;
-    R.sx[v * 4] = sw4; R.sx[v * 4 + 1] = sw5; R.sx[v * 4 + 2] = sw6;
+    R.sx[v * 4] = sw4; R.sx[v * 4 + 1] = sw5; R.sx[v * 4 + 2] = sw6; R.sx[v * 4 + 3] = sw7;
   }
 }
 
@@ -4378,6 +4454,7 @@ function buildFarTerrain(mat) {
       ny = 1 / Math.sqrt(1 + (hx * hx) / (4 * stepX * stepX) + (hz * hz) / (4 * stepZ * stepZ));
     }
     offroadColor(x, z, ny, _c1, pos[k * 3 + 1]);
+    if (mtn) { sx[k * 4 + 2] = 1 - MTN_TALUS; sx[k * 4 + 3] = MTN_TALUS; }
     if (!mtn) _c1.multiplyScalar(1 - 0.25 * smoothstep(800, 2400, Math.min(dist[k], 3000)));
     col[k * 3] = _c1.r; col[k * 3 + 1] = _c1.g; col[k * 3 + 2] = _c1.b;
   }
@@ -4460,18 +4537,19 @@ function buildRocks(rng) {
   const def = TR.def, hw = def.hw, W = def.ribbon, icy = def.style === 'ring', mtn = def.style === 'mountain';
   const geo = makeRockGeometry(def.seed + 5, 1);
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: icy ? 0.28 : 0.95, metalness: icy ? 0.05 : 0, flatShading: true, envMapIntensity: icy ? 1.3 : 0.5 });
-  const mesh = new THREE.InstancedMesh(geo, mat, def.rocks + TR.extraRocks.length);
+  const nBoulders = (mtn && def.earth && def.earth.boulders) || 0;
+  const mesh = new THREE.InstancedMesh(geo, mat, def.rocks + TR.extraRocks.length + nBoulders);
   mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
   const base = srgb(def.colors.rock);
   let n = 0;
-  const place = (s, d, scale, collide) => {
+  const place = (s, d, scale, collide, R = rng) => {
     if (Math.abs(d) < hw + rockClear(scale)) d = Math.sign(d) * (hw + rockClear(scale));   // never into the road's edge
     worldAt(s, d, WP);
     if (WP.h <= VOID_H + 1 || (WP.h < baseY(s) - 4 && !mtn)) return;   // (not down in a chasm; a mountain just falls away)
-    _e.set(rng.range(-0.3, 0.3), rng.range(0, TAU), rng.range(-0.3, 0.3));
+    _e.set(R.range(-0.3, 0.3), R.range(0, TAU), R.range(-0.3, 0.3));
     _q.setFromEuler(_e);
-    _s.set(scale * rng.range(0.8, 1.25), scale * rng.range(0.7, 1.15), scale * rng.range(0.8, 1.25));
-    const shade = rng.range(0.7, 1.15);
+    _s.set(scale * R.range(0.8, 1.25), scale * R.range(0.7, 1.15), scale * R.range(0.8, 1.25));
+    const shade = R.range(0.7, 1.15);
     // a rock meant for open ground can land beside another stretch of road (a switchback, the far side of a
     // hairpin): leave it out there. The random draws come first so every other rock stays where it was.
     const j = locateGlobal(WP.x, WP.z), dj = Math.abs((WP.x - TR.cx[j]) * TR.rx[j] + (WP.z - TR.cz[j]) * TR.rz[j]);
@@ -4489,6 +4567,15 @@ function buildRocks(rng) {
     const scale = near ? 0.18 + Math.pow(rng.next(), 2) * 1.2 : 0.3 + Math.pow(rng.next(), 3) * 3.4;
     if (Math.abs(d) < hw + 6 && (TR.gates.some((g) => Math.abs(g.s - s) < 10) || s < TR.startS + 25)) continue;
     place(s, d, scale, Math.abs(d) < hw + 14 && scale > 0.6);
+  }
+  // Pikes Peak: loose granite boulders lying on the boulder fields, from their own random stream so nothing else moves
+  const br = new RNG(def.seed + 811);
+  for (let k = 0; k < nBoulders; k++) {
+    const s = br.range(5, TR.total - 5), d = br.sign() * (hw + 9 + Math.pow(br.next(), 0.7) * (W - hw - 12));
+    const scale = 0.35 + Math.pow(br.next(), 2.4) * 2.4, keep = br.next();
+    worldAt(s, d, WP);
+    if (keep > talusAt(WP.x, WP.z, WP.h) * 0.9 || s < TR.startS + 25) continue;
+    place(s, d, scale, Math.abs(d) < hw + 14 && scale > 0.6, br);
   }
   mesh.count = n;
   mesh.instanceMatrix.needsUpdate = true;
@@ -4732,6 +4819,12 @@ const TREE_KINDS = {
   // silver birch: white trunk, a rounded light-green crown
   birch: { h: [7, 13], w: [0.45, 0.6], parts: (s) => treeGeometry([[new THREE.CylinderGeometry(0.025, 0.04, 0.62, 5), 0.31, 0xe6e2d8], [new THREE.IcosahedronGeometry(0.3, 1), 0.66, 0x5a7a34, [1, 1.15, 1]],
     [new THREE.IcosahedronGeometry(0.2, 0), 0.86, 0x6a8a3c]], s) },
+  // quaking aspen (the lower slopes of Pikes Peak, below about 10,500 ft): a white trunk and a narrow crown of bright leaves
+  aspen: { h: [8, 15], w: [0.36, 0.48], qMax: 0.25, parts: (s) => treeGeometry([[new THREE.CylinderGeometry(0.022, 0.036, 0.7, 5), 0.35, 0xd8d4c8], [new THREE.IcosahedronGeometry(0.3, 0), 0.66, 0x55793a, [0.9, 1.3, 0.9]],
+    [new THREE.IcosahedronGeometry(0.2, 0), 0.88, 0x60843e], [new THREE.IcosahedronGeometry(0.17, 0), 0.5, 0x4e7036, [1.1, 0.8, 0.9]]], s) },
+  // Rocky Mountain bristlecone and limber pine near the treeline: short and gnarled, a thick trunk and a few tufted crowns
+  bristlecone: { h: [4, 8], w: [0.55, 0.8], qMin: 0.28, parts: (s) => treeGeometry([[new THREE.CylinderGeometry(0.05, 0.09, 0.56, 5), 0.28, 0x6a5a48], [new THREE.IcosahedronGeometry(0.3, 0), 0.62, 0x2c3e26, [1.1, 0.55, 0.9]],
+    [new THREE.IcosahedronGeometry(0.22, 0), 0.86, 0x34472c, [0.8, 0.5, 1.1]], [new THREE.IcosahedronGeometry(0.18, 0), 0.48, 0x2a3a22, [0.9, 0.5, 0.8]]], s) },
   // Corsican maquis: dense evergreen scrub (holm oak, strawberry tree, heather) in low dark clumps
   maquis: { h: [1.0, 2.6], w: [1.1, 1.6], low: true, parts: (s) => treeGeometry([[new THREE.IcosahedronGeometry(0.42, 0), 0.42, 0x3a4a26, [1, 0.9, 1]], [new THREE.IcosahedronGeometry(0.3, 0), 0.62, 0x46562c, [1, 0.8, 1]],
     [new THREE.IcosahedronGeometry(0.28, 0), 0.4, 0x4e5a2e, [1.4, 0.7, 0.8]]], s) },
@@ -4763,10 +4856,11 @@ function buildMountainDecor(rng) {
     const r1 = rng.next(), r2 = rng.next(), r3 = rng.next();
     const i = clamp(Math.round(s / DS), 0, TR.N - 1), x = TR.cx[i] + TR.rx[i] * d, z = TR.cz[i] + TR.rz[i] * d;
     locateFrom(x, z, locateGlobal(x, z), LQ2);                     // clear of every part of the road
-    const kindName = kinds[Math.floor((r3 * 7.31 % 1) * kinds.length)], K = TREE_KINDS[kindName];
+    let kindName = kinds[Math.floor((r3 * 7.31 % 1) * kinds.length)], K = TREE_KINDS[kindName];
     const clearD = K.low ? hw + 2.5 : hw + 5;
     if (Math.abs(LQ2.d) < clearD || (Math.abs(LQ2.d) < hw + 9 && TR.gates.some((g) => Math.abs(g.s - LQ2.s) < 10))) continue;
-    const y = heightSD(LQ2.s, LQ2.d, x, z), f = forestAt(x, z, y);
+    const y = heightSD(LQ2.s, LQ2.d, x, z), f = forestAt(x, z, y), qy = (y - TR.yLo) / (TR.yHi - TR.yLo);
+    if ((K.qMax !== undefined && qy > K.qMax) || (K.qMin !== undefined && qy < K.qMin)) { kindName = kinds[0]; K = TREE_KINDS[kindName]; }   // out of its altitude band
     if (r1 > f * 0.95) continue;
     if (TR.lakeY !== null && TR.lakeY !== undefined && y < TR.lakeY + 0.6) continue;    // not in the lake
     const e = 1.5, sl = Math.hypot(TR.terrain.T(x + e, z) - TR.terrain.T(x - e, z), TR.terrain.T(x, z + e) - TR.terrain.T(x, z - e)) / (2 * e);
