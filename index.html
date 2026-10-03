@@ -2042,9 +2042,8 @@ const RECOMMENDED = [{ susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 1, 
   { susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 }];
 const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
 const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
-/* ---- garage: pilot + vehicle parts (chosen in the garage, kept for every stage) ----
-   Parts change the car's real physics: the tyres' grip on each surface (mu: regolith, ice, metal, gravel,
-   tarmac), their weight and rolling drag. Each car keeps its own aero package (CAR_AERO). The pilot (a real
+/* ---- garage: pilot + car (chosen in the garage, kept for every stage) ----
+   The car sets the physics, on its own real tyres and its own aero package (CAR_AERO). The pilot (a real
    rally driver), paint, decal and glow are looks only: every pilot weighs the same. Each build
    is rated from what those physics give it (see perfRatings): six ratings and a PI with a class. */
 const GARAGE = {
@@ -2132,13 +2131,6 @@ const GARAGE = {
     { name: 'FOCUS WRC', blurb: 'Ford Focus RS WRC 06, double manufacturers\' champion. 2.0 turbo with huge mid-range torque and an active centre diff.' },
     { name: 'MINI', blurb: 'Mini Cooper S, 1964 Monte Carlo winner. 1071 cc, front-wheel drive, ten-inch wheels and a quarter of the power: pure momentum.' },
   ] },
-  wheels: { label: 'WHEELS', opts: [
-    { name: 'STANDARD', blurb: 'All-round rally tyres.', mu: [1, 1, 1, 1, 1, 1], kg: 0, steer: 1, rr: 0 },
-    { name: 'CRAWLER', blurb: 'Big knobbly tyres. Dig into loose ground, heavy and slow to turn.', mu: [1.08, 1.04, 1.02, 1.1, 0.96, 1.08], kg: 24, steer: 0.965, rr: 0.012, rScale: 1.04 },
-    { name: 'SLICK ROLLER', blurb: 'Low-profile slicks. Sharp on tarmac and metal, slide on anything loose.', mu: [0.94, 0.86, 1.06, 0.9, 1.08, 0.86], kg: -12, steer: 1.035, rr: -0.003, rScale: 0.98 },
-    { name: 'HOVER PADS', blurb: 'Grav pads instead of wheels. Light and nimble, a touch less grip.', mu: [0.97, 0.97, 0.97, 0.97, 0.97, 0.97], kg: -20, steer: 1.07, rr: 0 },
-    { name: 'SPIKE RIMS', blurb: 'Studded tyres. Bite on ice and metal, a bit of drag, worse on tarmac.', mu: [1.02, 1.25, 1.08, 1.02, 0.94, 1.2], kg: 8, steer: 1, rr: 0.008 },
-  ] },
   color: { label: 'PAINT', opts: [
     { name: 'BLAZE', hex: 0xff7a1a }, { name: 'NEBULA', hex: 0x8b5cff }, { name: 'COMET', hex: 0x19c8e6 }, { name: 'SOLAR', hex: 0xffd21f },
     { name: 'MARS', hex: 0xe8322e }, { name: 'AURORA', hex: 0x2ee07a }, { name: 'VOID', hex: 0x2a2d36 }, { name: 'LUNAR', hex: 0xe9edf2 },
@@ -2153,9 +2145,9 @@ const GARAGE = {
     { name: 'AMBER', css: '255,180,60', hex: 0xffb43c }, { name: 'WHITE', css: '235,240,255', hex: 0xebf0ff }, { name: 'OFF', css: null, hex: 0x000000 },
   ] },
 };
-const GARAGE_KEYS = ['pilot', 'body', 'wheels', 'color', 'decal', 'glow'];
-const BUILD_PARTS = ['body', 'wheels'];
-const DEFAULT_BUILD = { pilot: 0, body: 0, wheels: 0, color: GARAGE.color.opts.findIndex((o) => o.works), decal: 0, glow: 0 };
+const GARAGE_KEYS = ['pilot', 'body', 'color', 'decal', 'glow'];
+const BUILD_PARTS = ['body'];
+const DEFAULT_BUILD = { pilot: 0, body: 0, color: GARAGE.color.opts.findIndex((o) => o.works), decal: 0, glow: 0 };
 function cleanBuild(b) {
   const out = Object.assign({}, DEFAULT_BUILD);
   if (b && typeof b === 'object') for (const k of GARAGE_KEYS) { const v = b[k]; if (Number.isInteger(v) && v >= 0 && v < GARAGE[k].opts.length) out[k] = v; }
@@ -2315,7 +2307,8 @@ for (const sp of CAR_SPECS) {
 /* ---- aero: each car's full aerodynamic package, as it ran in the rallies (indexed like GARAGE.body).
    cda: drag area head-on (m²): the real drag coefficient where one is published (S1 0.42, 205 T16 0.35, RS200 0.40,
    6R4 0.50, on the road cars; a little more with the rally aero) times the frontal area from the real width and height; cdaSide: drag area side-on, blended in by the slip angle, so a sliding car
-   scrubs speed; claF / claR: downforce areas at the front and rear axles (m²), which set the aero balance;
+   scrubs speed and pushes it sideways; claF / claR: downforce areas at the front and rear axles (m², negative for lift),
+   which set the aero balance; a rear wing also moves the side force back, so the car weathervanes (see applyAero);
    pitch: how much the front gains (and the rear loses) as the nose dips under braking, per 10 cm of dive;
    ge: the share of the downforce made by the underbody (splitter and diffuser), which grows as the car sits lower
    and fades away off the ground.
@@ -2344,11 +2337,12 @@ const CAR_AERO = [
     text: 'Rally1 package: deep front splitter with dive planes, louvred front arches, side skirts, rear wing over the sloping tailgate, full-width rear diffuser' },
   { cda: 0.86, cdaSide: 2.4, claF: 0.18, claR: 0.36, pitch: 0.07, ge: 0.25,
     text: 'Front splitter with corner dive planes, side skirts, big rear wing on the tailgate top, rear diffuser' },
-  // Mini: Cd about 0.48 and a small frontal area; the upright box lifts a little at speed, which the model leaves out
-  { cda: 0.78, cdaSide: 1.9, claF: 0, claR: 0, pitch: 0, ge: 0,
+  // Mini: Cd about 0.48 and a small frontal area; the upright box lifts at speed, mostly at the nose
+  { cda: 0.78, cdaSide: 1.9, claF: -0.12, claR: -0.06, pitch: 0, ge: 0,
     text: 'No aero devices: an upright 1959 box with a Cd of about 0.48' },
 ];
-const aeroText = (a) => `${a.text}. Drag ${a.cda.toFixed(2)} m², ` + (a.claF + a.claR > 0 ? `downforce ${(a.claF + a.claR).toFixed(2)} m² (${Math.round(a.claF / (a.claF + a.claR) * 100)}% front)` : 'no downforce');
+const aeroText = (a) => { const c = a.claF + a.claR, f = Math.round(a.claF / c * 100);
+  return `${a.text}. Drag ${a.cda.toFixed(2)} m², ` + (c > 0 ? `downforce ${c.toFixed(2)} m² (${f}% front)` : c < 0 ? `lift ${(-c).toFixed(2)} m² (${f}% front)` : 'no downforce'); };
 function engineTorque(spec, rpm) {
   const c = spec.curve;
   if (rpm <= c[0][0]) return c[0][1];
@@ -2372,9 +2366,9 @@ const MODEL = { FZ: 1.38, RZ: -1.30, X: 1.02, GY: -0.87, ARCH: 0.55, archR: 0.52
 const MODEL_BOX = [[0.75, 2.218, -2.172], [0.65, 2.636, -2.318], [0.76, 2.088, -1.948], [0.44, 2.2403, -2.0381], [0.67, 2.265, -2.232], [0.8, 2.1356, -1.928], [0.88, 2.616, -2.74], [0.62, 2.32, -1.975], [0.62, 2.23, -1.94], [0.63, 2.286, -2.046], [0.55, 2.338, -2.08], [0.55, 2.098, -2.061]];
 const MODEL_HULL = [[0.95, -0.08, 1.9], [-0.95, -0.08, 1.9], [0.95, -0.08, -1.9], [-0.95, -0.08, -1.9],   // roof corners (y relative to the roof)
   [0.95, -0.32, 2.15], [-0.95, -0.32, 2.15], [0.95, -0.32, -2.0], [-0.95, -0.32, -2.0]];
-function carGeometry(body, wh, mass) {
+function carGeometry(body, mass) {
   const sp = CAR_SPECS[body], box = MODEL_BOX[body], g = 9.81;
-  const r = sp.tyre.r * ((wh && wh.rScale) || 1), wb = sp.wb, a = wb * (1 - sp.wf), b = wb * sp.wf, h = sp.cgH;
+  const r = sp.tyre.r, wb = sp.wb, a = wb * (1 - sp.wf), b = wb * sp.wf, h = sp.cgH;
   const travel = sp.travel, rest = travel + 0.03, sag = g / (TAU * SUSP.freq) ** 2;
   const tF = sp.track[0] / 2, tR = sp.track[1] / 2;
   // model space → car space (origin at the centre of mass)
@@ -2407,13 +2401,13 @@ function carGeometry(body, wh, mass) {
 function tuneFor(setup, build) {
   const su = TUNE.susp[setup.susp], dp = TUNE.damp[setup.damp] || TUNE.damp[1], gr = TUNE.gear[setup.gear];
   build = cleanBuild(build || DEFAULT_BUILD);
-  const sp = CAR_SPECS[build.body] || CAR_SPECS[0], Wh = GARAGE.wheels.opts[build.wheels], aero = CAR_AERO[build.body] || CAR_AERO[0];
-  const mass = sp.kg + REF_PILOT_KG + FUEL_KG + Wh.kg, dm = mass - (CAR_SPECS[0].kg + REF_PILOT_KG + FUEL_KG);
+  const sp = CAR_SPECS[build.body] || CAR_SPECS[0], aero = CAR_AERO[build.body] || CAR_AERO[0];
+  const mass = sp.kg + REF_PILOT_KG + FUEL_KG, dm = mass - (CAR_SPECS[0].kg + REF_PILOT_KG + FUEL_KG);
   const tn = { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land - dm * 0.003, v: gr.v,
     gears: sp.gears, final: sp.final / gr.v,
-    mu: TUNE.tyre[setup.tyre].map((m, i) => m * Wh.mu[i]), steer: sp.steer * Wh.steer, rr: Wh.rr,
-    dmg: clamp(1 - dm * 0.0012, 0.7, 1.3), spec: sp, mass, aero, cda: aero.cda, cla: aero.claF + aero.claR,
-    geo: carGeometry(build.body, Wh, mass) };
+    mu: TUNE.tyre[setup.tyre], steer: sp.steer,
+    dmg: clamp(1 - dm * 0.0012, 0.7, 1.3), spec: sp, mass, aero,
+    geo: carGeometry(build.body, mass) };
   tn.r = tn.geo.r;
   // automatic upshift points: where the next gear already pulls harder (or near the limiter); downshift below the torque band
   tn.upRpm = sp.gears.map((gq, k) => {
@@ -2433,7 +2427,15 @@ function gearPull(tn, k, v) {
   if (rpmW >= sp.redline) return 0;
   return engineTorque(sp, Math.max(rpmW, k === 0 ? sp.launchEq : sp.idle)) * sp.eta * G / tn.r;
 }
-const rollingRes = (tn, surf) => SURF_INFO[surf].rr + tn.rr;
+const rollingRes = (tn, surf) => SURF_INFO[surf].rr;
+/** Aero on a level car at its static ride height in still reference air: the steady case of applyAero, which
+ *  topSpeed, straightRun, corneringG, the PI and refAccel all use. Returns a shared object. */
+const _aeroLv = { q: 0, drag: 0, dfF: 0, dfR: 0, df: 0 };
+function aeroLevel(tn, v) {
+  const q = 0.5 * AIR_RHO * v * v, a = tn.aero;
+  _aeroLv.q = q; _aeroLv.drag = q * a.cda; _aeroLv.dfF = q * a.claF; _aeroLv.dfR = q * a.claR; _aeroLv.df = q * (a.claF + a.claR);
+  return _aeroLv;
+}
 /** Top speed on flat tarmac: where the best gear's pull meets drag and rolling resistance (or the limiter in top). */
 function topSpeed(tn) {
   const m = tn.mass, crr = rollingRes(tn, SURF.TARMAC);
@@ -2441,8 +2443,8 @@ function topSpeed(tn) {
   for (let v = 15; v < 120; v += 0.25) {
     let f = 0;
     for (let k = 0; k < tn.gears.length; k++) f = Math.max(f, gearPull(tn, k, v));
-    const q = 0.5 * AIR_RHO * v * v;
-    if (f >= q * tn.cda + crr * (m * 9.81 + q * tn.cla)) best = v;
+    const A = aeroLevel(tn, v);
+    if (f >= A.drag + crr * (m * 9.81 + A.df)) best = v;
   }
   return best;
 }
@@ -2452,15 +2454,15 @@ function topSpeed(tn) {
  *  sensitive, as in stepVehicle) and by how the centre differential splits it. Rotating parts add to the
  *  inertia. Feeds the PI and, through refAccel, the AI's speed plan and the target times. */
 function straightRun(tn, surf, tMax) {
-  const sp = tn.spec, geo = tn.geo, m = tn.mass, g = 9.81, r = tn.r, n = tn.gears.length, ae = tn.aero;
+  const sp = tn.spec, geo = tn.geo, m = tn.mass, g = 9.81, r = tn.r, n = tn.gears.length;
   const mu = SURF_INFO[surf].mu * tn.mu[surf], crr = rollingRes(tn, surf), h = sp.cgH, wb = sp.wb;
   const grip = (N, N0) => N > 0 ? 2 * mu * N0 * Math.pow(N / (2 * N0), 0.85) : 0;
   const s = sp.front, cen = DIFF_TYPES[sp.centre];
   let v = 0, t = 0, k = 0, shift = 0, acc = 0, x = 0, t100 = 99, t160 = 99, x400 = 0;
   const dt = 0.005;
   while (t < (tMax || 60)) {
-    const q = 0.5 * AIR_RHO * v * v, dw = m * acc * h / wb;
-    const gF = grip(m * g * sp.wf - dw + q * ae.claF, geo.N0[0]), gR = grip(m * g * (1 - sp.wf) + dw + q * ae.claR, geo.N0[2]);
+    const A = aeroLevel(tn, v), dw = m * acc * h / wb;
+    const gF = grip(m * g * sp.wf - dw + A.dfF, geo.N0[0]), gR = grip(m * g * (1 - sp.wf) + dw + A.dfR, geo.N0[2]);
     let trac = gR;
     if (s) {
       const open = Math.min(gF / s, gR / Math.max(1 - s, 1e-6)), full = gF + gR;
@@ -2476,7 +2478,7 @@ function straightRun(tn, surf, tMax) {
         if (rpmW >= sp.launchEq) rot += sp.Ie * G * G;
       }
     }
-    const F = Math.min(Fd, trac), res = q * tn.cda + crr * (m * g + q * tn.cla);
+    const F = Math.min(Fd, trac), res = A.drag + crr * (m * g + A.df);
     acc = (F - res) / (m + rot / (r * r));
     v = Math.max(0, v + acc * dt); x += v * dt; t += dt;
     if (t100 > 98 && v >= 100 / 3.6) t100 = t;
@@ -2488,11 +2490,11 @@ function straightRun(tn, surf, tMax) {
 /** Steady cornering limit (g) on surface `surf` at speed v: each axle's pair of tyres with the lateral weight
  *  transfer across it (load sensitive, so a wide, low car keeps more grip) and the downforce at that speed. */
 function corneringG(tn, surf, v) {
-  const sp = tn.spec, geo = tn.geo, m = tn.mass, g = 9.81, mu = SURF_INFO[surf].mu * tn.mu[surf], q = 0.5 * AIR_RHO * v * v;
+  const sp = tn.spec, geo = tn.geo, m = tn.mass, g = 9.81, mu = SURF_INFO[surf].mu * tn.mu[surf], A = aeroLevel(tn, v), dfF = A.dfF, dfR = A.dfR;
   const pair = (N, N0, dN) => mu * N0 * (Math.pow(Math.max(0, N / 2 + dN) / N0, 0.85) + Math.pow(Math.max(0, N / 2 - dN) / N0, 0.85));
   let ay = mu * g;
   for (let it = 0; it < 20; it++) {
-    const NF = m * g * sp.wf + q * tn.aero.claF, NR = m * g * (1 - sp.wf) + q * tn.aero.claR;
+    const NF = m * g * sp.wf + dfF, NR = m * g * (1 - sp.wf) + dfR;
     const dF = m * ay * sp.wf * (sp.cgH - geo.rcH) / sp.track[0], dR = m * ay * (1 - sp.wf) * (sp.cgH - geo.rcH) / sp.track[1];
     // the axle that saturates first sets the limit (it carries its share of the cornering force)
     const lim = Math.min(pair(NF, geo.N0[0], dF) / (m * sp.wf), pair(NR, geo.N0[2], dR) / (m * (1 - sp.wf)));
@@ -2513,11 +2515,10 @@ function perfRatings(build, setup) {
   const tn = tuneFor(setup || DEFAULT_SETUP, build), sp = tn.spec, m = tn.mass, gG = 9.81;
   const run = straightRun(tn, SURF.TARMAC, 40);
   const surfMu = (i) => SURF_INFO[i].mu * tn.mu[i];
-  const df = (v) => 0.5 * AIR_RHO * tn.cla * v * v;
   // cornering on gravel at a medium and a fast corner's speed; turn-in (yaw inertia against the wheelbase) sharpens it
   const agility = Math.sqrt(m * tn.geo.a * tn.geo.b / tn.geo.inertia.y);
   const corner = (corneringG(tn, SURF.GRAVEL, 15) * 0.5 + corneringG(tn, SURF.GRAVEL, 30) * 0.5) * Math.sqrt(tn.steer) * agility;
-  const brakeDist = (100 / 3.6) ** 2 / (2 * gG * 0.92 * surfMu(SURF.GRAVEL) * (1 + df(18) / (m * gG)));
+  const brakeDist = (100 / 3.6) ** 2 / (2 * gG * 0.92 * surfMu(SURF.GRAVEL) * (1 + aeroLevel(tn, 18).df / (m * gG)));
   const offroad = ((surfMu(SURF.GRAVEL) + surfMu(SURF.REGOLITH) + surfMu(SURF.ICE)) / 3) * (!sp.front ? 0.86 : sp.front >= 1 ? 0.93 : 1);
   const vTop = Math.min(run.v, tn.vmax) * 3.6;
   const r = (x, [a, b]) => clamp((x - a) / (b - a) * 10, 0, 10);
@@ -3623,17 +3624,18 @@ function refAccel(v, surf) {
     const tn = refTune(), m = tn.mass;
     _refAcc = new Float32Array(141);
     for (let k = 0; k <= 140; k++) {
-      const u = k * 0.5, q = 0.5 * AIR_RHO * u * u;
+      const u = k * 0.5, drag = aeroLevel(tn, u).drag;
       let best = 0;
       for (let g = 0; g < tn.gears.length; g++) {
         const f = gearPull(tn, g, u), G = tn.gears[g] * tn.final;
-        if (f > 0) best = Math.max(best, (f - q * tn.cda) / (m + (4 * tn.geo.Iw + tn.spec.Ie * G * G) / (tn.r * tn.r)));
+        if (f > 0) best = Math.max(best, (f - drag) / (m + (4 * tn.geo.Iw + tn.spec.Ie * G * G) / (tn.r * tn.r)));
       }
       _refAcc[k] = best;
     }
   }
   const t = clamp(v / 0.5, 0, 140), k = Math.min(139, Math.floor(t));
-  return _refAcc[k] + (_refAcc[k + 1] - _refAcc[k]) * (t - k) - SURF_INFO[surf].rr * 9.81;
+  const tn = refTune();     // rolling resistance grows with the downforce
+  return _refAcc[k] + (_refAcc[k + 1] - _refAcc[k]) * (t - k) - SURF_INFO[surf].rr * (9.81 + aeroLevel(tn, v).df / tn.mass);
 }
 const REF_VMAX = () => refTune().vmax;
 /** Lap-time style speed profile (curvature-limited, then accel/brake passes). Drives the AI and target times. */
@@ -5547,7 +5549,25 @@ const DRIVE = {
   shaftDrag: 0.3,      // bearing and gear drag at each wheel (N·m per rad/s)
 };
 const GEARBOX = { idle: 0.12, redline: 8500, rpmMax: 9300 };   // follow the car (setCarTune), for the rev counter
-const AIR_RHO = 1.2;
+const AIR_RHO = 1.2;     // reference air density (kg/m³, about 20 °C at sea level): the space stages and the ratings use it
+/* ---- the air each stage runs in: density thins with the real road's altitude (Pikes Peak has 30% less drag
+   and downforce at the start line, 40% less at the summit); a steady wind from the stage's seed, gusting along the road the same
+   way every run so target times stay fair. */
+const Air = { rho: AIR_RHO, wind: new THREE.Vector3(), ph: 0 };
+/** Altitude at height y on a real road, in the stage's own unit (m or ft), mapped start line to top; null if none. */
+function stageAltitude(def, y) {
+  const a = def.altitude;
+  return a ? a[0] + (y - 0.9 - TR.yLo) / (TR.yHi - TR.yLo) * (a[1] - a[0]) : null;
+}
+function setStageAir(def) {
+  const rng = new RNG(def.seed + 77), dir = rng.next() * TAU, spd = rng.range(1, 5);
+  Air.wind.set(Math.sin(dir) * spd, 0, Math.cos(dir) * spd); Air.ph = rng.next() * TAU;
+}
+function updateAir(def, y, s) {
+  const alt = stageAltitude(def, y);
+  Air.rho = alt === null ? AIR_RHO : AIR_RHO * Math.exp(-Math.max(0, alt * (def.altUnit === 'M' ? 1 : 0.3048)) / 8500);
+  return 1 + 0.4 * Math.sin(s / 47 + Air.ph) * Math.sin(s / 151 + 2 * Air.ph);     // gust factor on the wind
+}
 /** Net crank torque (N·m) at `rpm` for throttle th (0-1): the full-throttle curve (scaled by the turbo's
  *  boost) blended with the closed-throttle friction and pumping drag, which grows with revs. */
 function engineNet(sp, rpm, th, spool) {
@@ -5812,6 +5832,49 @@ function drivelineStep(dt, ctl, G, th0) {
   }
 }
 
+/* ---- aerodynamics: each car's package as a few elements, each working on the air at its own point (the car's
+   velocity plus its spin, less the wind), so wind, yaw and pitch rates all reach it.
+   Body: drag is head-on (cda) along the car and side-on (cdaSide) across and up through it, so a slide scrubs
+   speed and makes a side force. It acts at the body's centre of pressure, high on the car and, with a rear wing's
+   endplates, behind the centre of mass, so the car weathervanes into the airflow at speed.
+   Front and rear axles: downforce from the forward flow (none in reverse), part from the wings and part
+   (ge) from the underbody. The share shifts forward as the nose dives (pitch); the underbody's part grows as
+   that axle sits lower, stalls as it nears the bump stops and is lost off the ground. The local angle of attack
+   (the air rising or falling across that point) changes it too, stalling past about 20°: a car falling or
+   pitching loses downforce as it goes, which damps it, and a car nose-up off a jump makes lift. */
+const _av = new THREE.Vector3();
+function airAt(point, gust) {                      // the car's velocity through the air at a point on the body
+  _r.subVectors(point, car.pos);
+  return _av.crossVectors(car.w, _r).add(car.vel).addScaledVector(Air.wind, -gust);
+}
+function applyAero(tn, nG) {
+  const ae = tn.aero, sp = tn.spec, gust = updateAir(TR.def, car.pos.y, car.s), rho = Air.rho;
+  // body: centre of pressure at 45% of the roof height, and behind the centre of mass as the rear wing grows
+  _cp.copy(car.pos).addScaledVector(AY, sp.dims[2] * 0.45 - sp.cgH).addScaledVector(AZ, sp.dims[0] * (0.04 - 0.12 * clamp(ae.claR / 0.4, 0, 1)));
+  const v = airAt(_cp, gust), vv = v.length();
+  if (vv > 1) {
+    const k = -0.5 * rho * vv;
+    _ft.copy(AZ).multiplyScalar(k * ae.cda * v.dot(AZ)).addScaledVector(AX, k * ae.cdaSide * v.dot(AX)).addScaledVector(AY, k * ae.cdaSide * v.dot(AY));
+    addForceAt(_ft, _cp);
+  }
+  const cla = ae.claF + ae.claR;
+  if (!cla) return;
+  // each axle's drop below its static ride height, per 10 cm (−2: off the ground)
+  const wh = car.wheels, sag = 9.81 / (TAU * SUSP.freq) ** 2 / tn.k;
+  const axleH = (a) => wh[a].grounded || wh[a + 1].grounded ? clamp(((wh[a].comp + wh[a + 1].comp) / 2 - sag) / 0.1, -1.5, 1.5) : -2;
+  const hF = axleH(0), hR = axleH(2), dive = nG > 0 ? clamp(hF - hR, -1.5, 1.5) * ae.pitch * cla : 0;
+  for (let a = 0; a < 4; a += 2) {
+    _cp.copy(car.pos).addScaledVector(AZ, CAR.wheels[a].z);
+    const va = airAt(_cp, gust), u = va.dot(AZ);
+    if (u < 1) continue;
+    const h = a ? hR : hF, base = a ? ae.claR - dive : ae.claF + dive;
+    const under = h < -1.9 ? 0 : h > 1 ? 1.5 - (h - 1) * 1.2 : 1 + 0.5 * h;           // underbody: ground effect, then stall
+    const aoa = clamp(Math.atan2(va.dot(AY), u), -0.35, 0.35);
+    const c = base * (1 - ae.ge + ae.ge * under) + 3 * Math.abs(base) * aoa;
+    addForceAt(_ft.copy(AY).multiplyScalar(-0.5 * rho * u * u * c), _cp);
+  }
+}
+
 function stepVehicle(dt, ctl) {
   const def = TR.def, m = CAR.mass, g = def.gravity, tn = car.tune, sp = tn.spec;
   carAxes();
@@ -5892,7 +5955,7 @@ function stepVehicle(dt, ctl) {
     const gs = w.gs, N = Fs * Math.max(0, AY.dot(w.n)), N0 = CAR.N0[k];
     w.N = N; w.mu = gs.mu * tn.mu[gs.surf]; w.ts = TYRE_SURF[gs.surf];
     w.Fmax = w.mu * N0 * Math.pow(Math.min(N / N0, 3), 0.85);
-    w.rr = (gs.rr + tn.rr) * N * CAR.radius;                      // rolling resistance torque (N·m)
+    w.rr = gs.rr * N * CAR.radius;                      // rolling resistance torque (N·m)
   }
   car.nGround = nG;
   // 4) gearbox, brakes and driver aids, then the coupled powertrain solve
@@ -5954,26 +6017,7 @@ function stepVehicle(dt, ctl) {
       T.addScaledVector(AY, -excess * yd);
     }
   }
-  // aerodynamics: drag grows from the head-on area to the side-on area as the car slides. Downforce needs
-  // air flowing front to back, presses on each axle (the front's share rising as the nose dives) and,
-  // from the underbody (splitter and diffuser), grows as that axle gets closer to the ground and fades
-  // away in the air, so a winged car still pitches nose-up off a jump.
-  const vv = car.vel.length(), ae = tn.aero;
-  if (vv > 1) {
-    const sb = car.vel.dot(AX) / vv, cd = ae.cda + (ae.cdaSide - ae.cda) * sb * sb;
-    F.addScaledVector(car.vel, -0.5 * AIR_RHO * cd * vv);
-    const vf = Math.max(0, vLongBody), q = 0.5 * AIR_RHO * vf * vf, wh = car.wheels;
-    if (q > 1) {
-      // each axle's drop below its static ride height, per 10 cm (−2: off the ground)
-      const sag = 9.81 / (TAU * SUSP.freq) ** 2 / tn.k, axleH = (a) => wh[a].grounded || wh[a + 1].grounded ? clamp(((wh[a].comp + wh[a + 1].comp) / 2 - sag) / 0.1, -1.5, 1.5) : -2;
-      const hF = axleH(0), hR = axleH(2), ge = ae.ge;
-      const dive = nG > 0 ? clamp(hF - hR, -1.5, 1.5) * ae.pitch : 0;
-      const cF = Math.max(0, ae.claF + dive * (ae.claF + ae.claR)) * (1 + ge * clamp(hF * 0.5, -1, 0.5));
-      const cR = Math.max(0, ae.claR - dive * (ae.claF + ae.claR)) * (1 + ge * clamp(hR * 0.5, -1, 0.5));
-      addForceAt(_ft.copy(AY).multiplyScalar(-q * cF), _cp.copy(car.pos).addScaledVector(AZ, CAR.wheels[0].z));
-      addForceAt(_ft.copy(AY).multiplyScalar(-q * cR), _cp.copy(car.pos).addScaledVector(AZ, CAR.wheels[2].z));
-    }
-  }
+  applyAero(tn, nG);
   // 5) air control + landing detection
   if (nG === 0) {
     car.airTime += dt;
@@ -8617,11 +8661,11 @@ LIVERIES.forEach((l, i) => { if (l.num == null) l.num = [4, 1, 5, 3, 2, 6, 8][i]
 function buildCarModel(build) {
   build = cleanBuild(build);
   const accentHex = GARAGE.color.opts[build.color].hex, pilot = GARAGE.pilot.opts[build.pilot];
-  const body = build.body, wheelKind = build.wheels;
+  const body = build.body;
   const g = new THREE.Group();
   // the car's real chassis (carGeometry): the shell is drawn in the shared model space, then mapped onto the real
   // car; wheels, brakes, coil-overs and anti-roll bars go straight in at the real positions
-  const geo = carGeometry(body, GARAGE.wheels.opts[wheelKind], CAR_SPECS[body].kg), map = geo.map, sp = CAR_SPECS[body];
+  const geo = carGeometry(body, CAR_SPECS[body].kg), map = geo.map, sp = CAR_SPECS[body];
   const shell = new THREE.Group(); g.add(shell);
   const paintOpt = GARAGE.color.opts[build.color], metal = paintOpt.metal || 0.45, rough = paintOpt.rough || 0.32;
   const works = !!paintOpt.works;
@@ -8698,69 +8742,49 @@ function buildCarModel(build) {
   if (works) for (const o of shell.children) if (o.isMesh && o.material === paint) liveryUV(o, liveryFrameF);   // the livery wraps the whole body
   warpShell(shell, map, P);                                 // onto the real car's length, width, height and wheelbase
   // ---- wheels: pivot (steer + suspension) → spin group (tyre, rim, brake disc). The caliper rides on the
-  // pivot, so it steers and moves with the hub but doesn't spin. Hover pads sit in the pivot. ----
+  // pivot, so it steers and moves with the hub but doesn't spin. ----
   const wheels = [];
-  const R = geo.r, W = sp.tyre.w * [1, 1.3, 0.92, 0, 1][wheelKind];   // the car's real tyre (crawlers a size up, slicks a touch lower)
+  const R = geo.r, W = sp.tyre.w;   // the car's real tyre
   const rimSpec = RIM_STYLES[body];
-  const plainPaint = works ? new THREE.MeshStandardMaterial({ color: LIVERIES[body].rim, metalness: 0.5, roughness: 0.4 }) : paint;   // the textured livery stays off the wheels
-  const rimMat = wheelKind === 2 ? plainPaint : new THREE.MeshStandardMaterial({ color: works ? LIVERIES[body].rim : rimSpec.color, metalness: 0.75, roughness: 0.3 });
+  const rimMat = new THREE.MeshStandardMaterial({ color: works ? LIVERIES[body].rim : rimSpec.color, metalness: 0.75, roughness: 0.3 });
   const discMats = [], rubberDS = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.92, side: THREE.DoubleSide });
   const caliperMat = new THREE.MeshStandardMaterial({ color: rimSpec.caliper, metalness: 0.3, roughness: 0.45 });
-  let tireGeo = null, wallGeo = null, dishGeo = null, spokeGeo = null, nutGeo = null, discGeo = null, hatGeo = null, calGeo = null, treadGeo = null, padGeo = null, padGlow = null;
-  const rimR = Math.min(sp.tyre.rim * 0.0127, R - 0.07), pr = R / 0.43;
-  if (wheelKind !== 3) {
-    tireGeo = new THREE.CylinderGeometry(R, R, W, wheelKind === 1 ? 10 : 20, 1, true); tireGeo.rotateZ(Math.PI / 2);   // tread band
-    wallGeo = new THREE.RingGeometry(rimR, R, 20, 1); wallGeo.rotateY(Math.PI / 2);                  // sidewalls, open to the rim
-    dishGeo = new THREE.CylinderGeometry(rimR, rimR, W * 0.92, 20, 1, true); dishGeo.rotateZ(Math.PI / 2);
-    spokeGeo = new THREE.BoxGeometry(0.03, rimSpec.spokeW * 0.7, rimR - 0.035); spokeGeo.translate(0, 0, (rimR - 0.035) / 2 + 0.025);
-    nutGeo = new THREE.CylinderGeometry(0.045, 0.052, 0.04, rimSpec.spokes > 5 ? 8 : 5); nutGeo.rotateZ(Math.PI / 2);
-    // brake disc: the car's real disc size where it fits inside the rim
-    discGeo = new THREE.CylinderGeometry(Math.min(sp.disc[0] / 2000, rimR - 0.03), Math.min(sp.disc[0] / 2000, rimR - 0.03), 0.028, 22); discGeo.rotateZ(Math.PI / 2);
-    hatGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.05, 10); hatGeo.rotateZ(Math.PI / 2);
-    calGeo = new THREE.BoxGeometry(0.07, 0.1, 0.16);
-    if (wheelKind === 1) treadGeo = new THREE.BoxGeometry(W + 0.03, 0.07, 0.1);
-    if (wheelKind === 4) treadGeo = new THREE.ConeGeometry(0.026, 0.075, 5);
-  } else {
-    padGeo = new THREE.CylinderGeometry(0.46 * pr, 0.36 * pr, 0.16 * pr, 20);
-    padGlow = new THREE.Mesh(new THREE.RingGeometry(0.12 * pr, 0.34 * pr, 24), new THREE.MeshBasicMaterial({ color: glowOpt.css ? glowOpt.hex : 0x78f0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
-  }
+  const rimR = Math.min(sp.tyre.rim * 0.0127, R - 0.07);
+  const tireGeo = new THREE.CylinderGeometry(R, R, W, 20, 1, true); tireGeo.rotateZ(Math.PI / 2);   // tread band
+  const wallGeo = new THREE.RingGeometry(rimR, R, 20, 1); wallGeo.rotateY(Math.PI / 2);                  // sidewalls, open to the rim
+  const dishGeo = new THREE.CylinderGeometry(rimR, rimR, W * 0.92, 20, 1, true); dishGeo.rotateZ(Math.PI / 2);
+  const spokeGeo = new THREE.BoxGeometry(0.03, rimSpec.spokeW * 0.7, rimR - 0.035); spokeGeo.translate(0, 0, (rimR - 0.035) / 2 + 0.025);
+  const nutGeo = new THREE.CylinderGeometry(0.045, 0.052, 0.04, rimSpec.spokes > 5 ? 8 : 5); nutGeo.rotateZ(Math.PI / 2);
+  // brake disc: the car's real disc size where it fits inside the rim
+  const discR = Math.min(sp.disc[0] / 2000, rimR - 0.03), discGeo = new THREE.CylinderGeometry(discR, discR, 0.028, 22); discGeo.rotateZ(Math.PI / 2);
+  const hatGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.05, 10); hatGeo.rotateZ(Math.PI / 2);
+  const calGeo = new THREE.BoxGeometry(0.07, 0.1, 0.16);
   for (const cw of geo.wheels) {
     const pivot = new THREE.Group(); pivot.position.set(cw.x, geo.mountY - geo.rest, cw.z); g.add(pivot);
     const spin = new THREE.Group(); pivot.add(spin);
-    let disc = null;
-    if (tireGeo) {
-      const out = cw.x > 0 ? 1 : -1;                         // +x is the car's left: the outer face points away from the centre
-      spin.position.y = R - geo.r;                          // keep the contact patch where the physics has it
-      const tire = new THREE.Mesh(tireGeo, rubber); tire.castShadow = true; spin.add(tire);
-      for (const f of [-1, 1]) { const wl = new THREE.Mesh(wallGeo, rubberDS); wl.position.x = f * W / 2; spin.add(wl); }
-      spin.add(new THREE.Mesh(dishGeo, rimMat));
-      const face = out * (W / 2 - 0.05);
-      for (let k = 0; k < rimSpec.spokes; k++) {
-        const sk = new THREE.Mesh(spokeGeo, rimMat); sk.position.x = face; sk.rotation.x = k / rimSpec.spokes * TAU; spin.add(sk);
-      }
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(rimR - 0.012, 0.014, 4, 22), rimMat); ring.rotation.y = Math.PI / 2; ring.position.x = face; spin.add(ring);
-      const nut = new THREE.Mesh(nutGeo, trim); nut.position.x = face + out * 0.01; spin.add(nut);
-      // brake: vented disc behind the spokes (glows as it heats up under braking), caliper on the hub carrier
-      const dm = new THREE.MeshStandardMaterial({ color: 0x6c7078, metalness: 0.85, roughness: 0.35, emissive: 0xff5a10, emissiveIntensity: 0 });
-      discMats.push(dm);
-      disc = new THREE.Mesh(discGeo, dm); disc.position.x = -out * 0.03; spin.add(disc);
-      const hat = new THREE.Mesh(hatGeo, dark); hat.position.x = -out * 0.01; spin.add(hat);
-      const cal = new THREE.Mesh(calGeo, caliperMat); cal.position.set(-out * 0.03, spin.position.y + rimR * 0.55, cw.front ? -rimR * 0.45 : rimR * 0.45);
-      cal.rotation.x = cw.front ? 0.6 : -0.6; pivot.add(cal);
-      if (wheelKind === 1) for (let k = 0; k < 10; k++) { const t = new THREE.Mesh(treadGeo, rubber); const a = k / 10 * TAU; t.position.set(0, Math.cos(a) * R, Math.sin(a) * R); t.rotation.x = -a; spin.add(t); }
-      if (wheelKind === 4) for (let k = 0; k < 24; k++) { const t = new THREE.Mesh(treadGeo, trim); const a = k / 12 * TAU; t.position.set(k % 2 ? W * 0.28 : -W * 0.28, Math.cos(a) * R, Math.sin(a) * R); t.rotation.x = a; spin.add(t); }
-    } else {
-      const pad = new THREE.Mesh(padGeo, dark); pad.position.y = -R * 0.3; pad.castShadow = true; pivot.add(pad);
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.44 * pr, 0.04 * pr, 6, 20), plainPaint); rim.rotation.x = Math.PI / 2; rim.position.y = pad.position.y + 0.05 * pr; pivot.add(rim);
-      const glow = padGlow.clone(); glow.rotation.x = Math.PI / 2; glow.position.y = pad.position.y - 0.09 * pr; pivot.add(glow);
-      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.05 * pr, 0.05 * pr, 0.4 * pr, 6), trim); strut.position.y = pad.position.y + 0.25 * pr; pivot.add(strut);
+    const out = cw.x > 0 ? 1 : -1;                         // +x is the car's left: the outer face points away from the centre
+    const tire = new THREE.Mesh(tireGeo, rubber); tire.castShadow = true; spin.add(tire);
+    for (const f of [-1, 1]) { const wl = new THREE.Mesh(wallGeo, rubberDS); wl.position.x = f * W / 2; spin.add(wl); }
+    spin.add(new THREE.Mesh(dishGeo, rimMat));
+    const face = out * (W / 2 - 0.05);
+    for (let k = 0; k < rimSpec.spokes; k++) {
+      const sk = new THREE.Mesh(spokeGeo, rimMat); sk.position.x = face; sk.rotation.x = k / rimSpec.spokes * TAU; spin.add(sk);
     }
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(rimR - 0.012, 0.014, 4, 22), rimMat); ring.rotation.y = Math.PI / 2; ring.position.x = face; spin.add(ring);
+    const nut = new THREE.Mesh(nutGeo, trim); nut.position.x = face + out * 0.01; spin.add(nut);
+    // brake: vented disc behind the spokes (glows as it heats up under braking), caliper on the hub carrier
+    const dm = new THREE.MeshStandardMaterial({ color: 0x6c7078, metalness: 0.85, roughness: 0.35, emissive: 0xff5a10, emissiveIntensity: 0 });
+    discMats.push(dm);
+    const disc = new THREE.Mesh(discGeo, dm); disc.position.x = -out * 0.03; spin.add(disc);
+    const hat = new THREE.Mesh(hatGeo, dark); hat.position.x = -out * 0.01; spin.add(hat);
+    const cal = new THREE.Mesh(calGeo, caliperMat); cal.position.set(-out * 0.03, spin.position.y + rimR * 0.55, cw.front ? -rimR * 0.45 : rimR * 0.45);
+    cal.rotation.x = cw.front ? 0.6 : -0.6; pivot.add(cal);
     // coil-over top mount on the strut tower under the bodywork
     const top = new THREE.Vector3(cw.x * 0.72, map.y(spec.shockTop), cw.z + (cw.front ? -0.3 : 0.3) * map.sz);
-    wheels.push({ pivot, spin, discMat: discMats[discMats.length - 1] || null, heat: 0, shock: makeShock(g, cw, trim, dark, wheelKind === 3 ? -R * 0.3 + 0.45 * pr : R - geo.r, top) });
+    wheels.push({ pivot, spin, discMat: discMats[discMats.length - 1] || null, heat: 0, shock: makeShock(g, cw, trim, dark, 0, top) });
     poseShock(wheels[wheels.length - 1].shock, pivot.position.y);
   }
-  const arbVis = wheelKind === 3 ? null : makeArb(g, trim, geo);
+  const arbVis = makeArb(g, trim, geo);
   // headlight
   const spot = new THREE.SpotLight(0xe0f4ff, 2.2, 75, 0.5, 0.55, 1.2);
   spot.position.set(0, map.y(0.5), map.z(1.9));
@@ -9858,7 +9882,7 @@ const HUD = {
     const surfName = w0.road ? SURF_INFO[w0.surf].name : 'OFF-ROAD';
     this.set('surfName', surfName);
     if (def.altitude) {                    // the climb mapped onto the real one: start line to the top (9,390 to 14,115 ft on Pikes Peak)
-      const a = def.altitude, alt = a[0] + (car.pos.y - 0.9 - TR.yLo) / (TR.yHi - TR.yLo) * (a[1] - a[0]), ft = def.altUnit !== 'M';
+      const alt = stageAltitude(def, car.pos.y), ft = def.altUnit !== 'M';
       this.set('altVal', String(Math.max(0, ft ? Math.round(alt / 10) * 10 : Math.round(alt))).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (ft ? ' FT' : ' M'));
     }
     this.el.gripFill.style.width = clamp(w0.mu / 0.9 * 100, 5, 100).toFixed(0) + '%';
@@ -10529,6 +10553,7 @@ function buildStage(def) {
   stageGroup = new THREE.Group(); scene.add(stageGroup);
   Object.assign(Scenery, { gateAll: [], chicaneMesh: null, chicaneBoards: null, beacons: null, beaconPhase: [], floaters: null, floaterData: [], skyStruct: null });
   generateTrack(def);
+  setStageAir(def);
   buildPalette(def);
   Sky.configure(def);
   const mat = makeTerrainMaterial(def);
@@ -11009,15 +11034,11 @@ function ratingsHTML(R, cmp) {
 /** What a part does, as short chips. */
 function partChips(k, o) {
   const out = [];
-  if (k === 'wheels') {
-    ['REGOLITH', 'ICE', 'METAL', 'GRAVEL', 'TARMAC', 'SNOW'].forEach((n, i) => { const d = Math.round((o.mu[i] - 1) * 100); if (Math.abs(d) >= 3) out.push([d > 0, `${n} ${d > 0 ? '+' : '−'}${Math.abs(d)}%`]); });
-    if (o.kg) out.push([o.kg < 0, `${o.kg > 0 ? '+' : '−'}${Math.abs(o.kg)} KG`]);
-  }
   if (o.steer && o.steer !== 1) out.push([o.steer > 1, `TURN-IN ${o.steer > 1 ? '+' : '−'}${Math.round(Math.abs(o.steer - 1) * 100)}%`]);
   return out.length ? out.map(([up, t]) => `<em class="${up ? 'up' : 'dn'}">${t}</em>`).join('') : '<em>BASELINE</em>';
 }
 function rideSummary(b) {
-  return [GARAGE.body.opts[b.body].name, GARAGE.wheels.opts[b.wheels].name].join(' · ');
+  return GARAGE.body.opts[b.body].name;
 }
 const _decalPrev = new Map();
 function decalPreview(decal, color) {
@@ -11058,7 +11079,7 @@ const Garage = {
     if (b[k] === v) return;
     b[k] = v; Store.save();
     rebuildCarModel();
-    if ((k === 'body' || k === 'wheels') && Game.state === 'garage') placeCar(TR.startS + 2, 0, 0);   // new ride height and wheelbase
+    if (k === 'body' && Game.state === 'garage') placeCar(TR.startS + 2, 0, 0);   // new ride height and wheelbase
     AudioSys.unlock();
     this.render();
   },
