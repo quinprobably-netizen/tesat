@@ -5567,19 +5567,28 @@ function tyreSpring(d, kT, ds) {
 }
 
 /* ---- tyres: one combined-slip curve per surface ----
-   Slip ratio κ = (ωr − v)/v and slip angle tan α = v_side/v (v floored at TYRE.v0, so a tyre at a standstill
-   still grips smoothly) are each divided by the surface's peak slip, and the combined slip s = |(κ/κp, tanα/αp)|
-   goes through Pacejka's magic formula sin(C·atan(B·s)), with B putting the peak at s = 1. The force points
+   Slip ratio κ and slip angle tan α (see the contact patch below) are each divided by the surface's peak slip,
+   and the combined slip s = |(κ/κp, tanα/αp)| goes through Pacejka's magic formula sin(C·atan(B·s)), with B
+   putting the peak at s = 1. The force points
    along the slip, so a spinning or locked tyre has little left for cornering (power oversteer, locked fronts
    that won't turn). C sets how much grip is left once the tyre slides: loose surfaces peak late and keep
    most of it (the tyre ploughs); tarmac, metal and ice peak early and fall away. Peak force is the surface's
    grip × the tyre's grip on it × load, rising less than linearly with load. */
-/* Relaxation length: a real tyre doesn't make its cornering force the instant it meets a slip angle; the tread
-   has to wind up over a short distance of rolling first (sigma, longer for the softer gravel and snow
-   construction and on loose ground). So the slip angle each tyre works with chases the geometric one at
-   rate v/sigma: grip builds progressively on turn-in, a flick loads the car up and lets go a beat later, and
-   a quick wobble is soaked up instead of passed straight into the body. Near a standstill it fades out. */
-const TYRE = { v0: 3.5, sigma: [0.55, 0.45, 0.35, 0.5, 0.3, 0.5] };   // m, per surface (SURF order)
+/* The contact patch (Pacejka's transient tyre): a tyre doesn't make its force the instant it meets a slip; the
+   tread deflects first and has to wind up over a short distance of rolling, its relaxation length (sigma,
+   longer for the softer gravel and snow construction and on loose ground; half that lengthwise). So each tyre
+   carries its deflection as two states, sideways (w.ta, as tan α) and lengthwise (w.kt, as κ), each obeying
+   σ·d/dt + |v|·state = slip velocity. Rolling, they settle on v_side/v and (ωr − v)/v: grip builds
+   progressively on turn-in, a flick loads the car up and lets go a beat later, and a quick wobble is soaked up.
+   Standing still they hold whatever deflection the car has pushed into them, a spring: so a parked car holds on
+   a slope and a locked wheel holds the car, which a slip simply floored at low speed can't (it creeps). Below
+   TYRE.vLo the deflection's rate is damped (zero in a steady state, so it changes no steady grip), and a
+   deflection can't build past where the tread slides. */
+const TYRE = {
+  sigma: [0.55, 0.45, 0.35, 0.5, 0.3, 0.5],   // lateral relaxation length (m), per surface (SURF order)
+  sigmaX: 0.5,                                // longitudinal relaxation length, as a share of the lateral
+  vd: 3.5, vLo: [4, 12],                      // low-speed damping (m/s scale), faded out between these speeds
+};
 const TYRE_SURF = [
   { kp: 0.17, ap: 0.2, C: 1.22 },      // REGOLITH: loose dust
   { kp: 0.1, ap: 0.1, C: 1.5 },        // ICE
@@ -5589,19 +5598,27 @@ const TYRE_SURF = [
   { kp: 0.13, ap: 0.16, C: 1.3 },      // SNOW: packed snow peaks later than ice and keeps more once it slides
 ];
 for (const t of TYRE_SURF) { t.B = Math.tan(Math.PI / (2 * t.C)); t.BC = t.B * t.C; }
-/** Tyre forces for wheel w spinning at om (rad/s): out.Fx along the wheel, out.Fy across it (to the car's
- *  left), out.dFx = dFx/dω for the implicit drivetrain solve, out.kap the slip ratio, out.s the combined slip. */
-function tyreForce(w, om, out) {
-  const ts = w.ts, r = CAR.radius, vx = w.vLong, den = Math.max(Math.abs(vx), TYRE.v0);
-  const kap = (om * r - vx) / den, sx = kap / ts.kp, sy = w.ta / ts.ap, s = Math.hypot(sx, sy), Fm = w.Fmax;
+/** Tyre forces for wheel w at effective slip ratio kap (its lateral slip is w.taE): out.Fx along the wheel, out.Fy
+ *  across it (to the car's left), out.dFx = dFx/dω for the implicit drivetrain solve (dkdw = dκ/dω), out.s the
+ *  combined slip. */
+function tyreForce(w, kap, dkdw, out) {
+  const ts = w.ts, Fm = w.Fmax, sx = kap / ts.kp, sy = w.taE / ts.ap, s = Math.hypot(sx, sy);
   out.kap = kap; out.s = s;
-  if (s < 1e-6) { out.Fx = 0; out.Fy = 0; out.dFx = Fm * ts.BC / ts.kp * r / den; return out; }
+  if (s < 1e-6) { out.Fx = 0; out.Fy = 0; out.dFx = Fm * ts.BC / ts.kp * dkdw; return out; }
   const at = Math.atan(ts.B * s), f = Math.sin(ts.C * at), fp = Math.cos(ts.C * at) * ts.BC / (1 + ts.B * ts.B * s * s);
   const cx = sx / s, cy = sy / s;
   out.Fx = Fm * f * cx; out.Fy = -Fm * f * cy;
   // dFx/dsx holding the slip angle, floored past the peak so the solve stays well posed on a spinning wheel
-  out.dFx = Fm * Math.max(fp * cx * cx + f / s * cy * cy, 0.04 * ts.BC) / ts.kp * r / den;
+  out.dFx = Fm * Math.max(fp * cx * cx + f / s * cy * cy, 0.04 * ts.BC) / ts.kp * dkdw;
   return out;
+}
+/** One step h of a contact-patch deflection state x under slip velocity vs at rolling speed |v| = ax and relaxation
+ *  length sig: x' = x·(1 − k) + vs·g. k and g are written to RLX (exact for constant inputs, and fine at v = 0). */
+const RLX = { k: 0, g: 0 };
+function relaxCoeffs(ax, h, sig) {
+  const lam = ax * h / sig;
+  if (lam > 1e-6) { RLX.k = -Math.expm1(-lam); RLX.g = RLX.k / ax; } else { RLX.k = lam; RLX.g = h / sig; }
+  return RLX;
 }
 
 /* ---- powertrain constants ---- */
@@ -5637,7 +5654,7 @@ const car = {
   wheels: CAR.wheels.map(() => ({ mount: new THREE.Vector3(), n: new THREE.Vector3(0, 1, 0), gs: newGroundSample(), grounded: false, prevGround: true,
     comp: 0, dist: 0, load: 0, arb: 0, slipLat: 0, vLong: 0, vLat: 0, ta: 0, sliding: false, spinning: false, locked: false, absOn: false, absP: 1, bottomed: false,
     om: 0, spinAngle: 0, emit: 0, fw: new THREE.Vector3(), lt: new THREE.Vector3(), cp: new THREE.Vector3(),
-    N: 0, Fmax: 0, mu: 1, ts: TYRE_SURF[0], rr: 0, Fx: 0, Fy: 0, kap: 0, slip: 0, Tb: 0, brakeP: 0 })),
+    N: 0, Fmax: 0, mu: 1, ts: TYRE_SURF[0], rr: 0, Fx: 0, Fy: 0, kap: 0, slip: 0, Tb: 0, brakeP: 0, taE: 0, kt: 0, wl: 1, u: 0, J: 0, Nt: 0, cg: 0, nAY: 1, reach: false, bAng: 0 })),
   nGround: 0, airTime: 0, wasAirborne: false, pitchLatch: false, steerLatch: false,
   damage: 0, drifting: false, slip: 0, hullContact: false, spool: 1, tc: true, tcF: 1, tcCut: false, abs: true, backfire: 0,
   events: [], flipTimer: 0, offTimer: 0, globalTimer: 0, tune: null,
@@ -5784,8 +5801,9 @@ function gearboxStep(dt, ctl, vFwd, nG) {
    are re-solved. */
 const DL = {
   A: new Float64Array(25), b: new Float64Array(5), x: new Float64Array(5), M: new Float64Array(5), om: new Float64Array(5),
-  cpl: Array.from({ length: 8 }, () => ({ on: false, u: new Float64Array(5), K: 0, cap: Infinity, lin: true, sgn: 1 })),
+  cpl: Array.from({ length: 8 }, () => ({ on: false, u: new Float64Array(5), K: 0, cap: Infinity, lin: true, sgn: 1, tgt: 0 })),
   F: Array.from({ length: 4 }, () => ({ Fx: 0, Fy: 0, dFx: 0, kap: 0, s: 0 })),
+  tk: new Float64Array(16),            // per wheel: contact-patch relaxation over a substep (1 − k, g), low-speed damping, |v|
 };
 DL.cpl[1].u.set([0, 0.5, 0.5, -0.5, -0.5]);                 // centre: front axle against rear axle
 DL.cpl[2].u.set([0, 1, -1, 0, 0]); DL.cpl[3].u.set([0, 0, 0, 1, -1]);   // front and rear axles: left against right
@@ -5839,8 +5857,19 @@ function drivelineStep(dt, ctl, G, th0) {
   if (s && !ctl.handbrake) diffCpl(C[1], sp.centre, Tin, power, true); else C[1].on = false;
   if (s) diffCpl(C[2], sp.fdiff, Tin * s, power); else C[2].on = false;
   diffCpl(C[3], sp.rdiff, Tin * (1 - s), power);
-  for (let k = 0; k < 4; k++) setCpl(C[4 + k], W[k].Tb > 1, DRIVE.Kc, W[k].Tb);
+  // a brake that holds its wheel holds it where it stopped: the coupling aims to wind back any creep since it locked
+  for (let k = 0; k < 4; k++) { const c = C[4 + k]; setCpl(c, W[k].Tb > 1, DRIVE.Kc, W[k].Tb); c.tgt = c.on ? -W[k].bAng * 30 : 0; }
   const dmg = 1 - 0.25 * car.damage;
+  // each tyre's lengthwise contact-patch deflection κ' (see TYRE) over a substep, linear in the wheel's new speed ω:
+  // κ' = kt·(1 − k) + (ωr − v)·g, and the effective slip κe = κ' + c·(ωr − v − |v|·κ') adds the low-speed damping
+  const TK = DL.tk;
+  for (let k = 0; k < 4; k++) {
+    const w = W[k];
+    if (!w.grounded) { w.kt = 0; continue; }
+    const ax = Math.abs(w.vLong);
+    relaxCoeffs(ax, h, TYRE.sigma[w.gs.surf] * TYRE.sigmaX);
+    TK[k * 4] = 1 - RLX.k; TK[k * 4 + 1] = RLX.g; TK[k * 4 + 2] = w.wl / TYRE.vd; TK[k * 4 + 3] = ax;
+  }
   let Tcl = 0;
   for (let st = 0; st < DRIVE.sub; st++) {
     // engine: driver's throttle (ignition cut on an upshift, a blip to match revs on a downshift), idle control, rev limiter
@@ -5851,8 +5880,12 @@ function drivelineStep(dt, ctl, G, th0) {
     const Te = engineNet(sp, rpm, th, car.spool) * (th > 0 ? dmg : 1);
     const dTe = Math.min(0, (engineNet(sp, rpm + 60, th, car.spool) - engineNet(sp, rpm - 60, th, car.spool)) / (120 * TAU / 60));
     for (let k = 0; k < 4; k++) {
-      const f = TF[k];
-      if (W[k].grounded) tyreForce(W[k], om[k + 1], f); else { f.Fx = 0; f.Fy = 0; f.dFx = 0; }
+      const w = W[k], f = TF[k];
+      if (!w.grounded) { f.Fx = 0; f.Fy = 0; f.dFx = 0; continue; }
+      const vx = w.vLong, g1 = TK[k * 4 + 1], c = TK[k * 4 + 2], ax = TK[k * 4 + 3];
+      const P1 = w.kt * TK[k * 4] - vx * g1, Q1 = r * g1;                   // κ'(ω) = P1 + Q1·ω
+      const P = P1 + c * (-vx - ax * P1), Q = Q1 + c * (r - ax * Q1);       // κe(ω) = P + Q·ω
+      tyreForce(w, P + Q * om[k + 1], Q, f);
     }
     for (let it = 0; it < 8; it++) {
       A.fill(0);
@@ -5868,7 +5901,7 @@ function drivelineStep(dt, ctl, G, th0) {
         const c = C[ci]; if (!c.on) continue;
         const u = c.u;
         if (c.lin) {
-          const du = dot5(u, om), hk = h * c.K;
+          const du = dot5(u, om) - c.tgt, hk = h * c.K;
           for (let i = 0; i < 5; i++) {
             if (!u[i]) continue;
             b[i] -= hk * du * u[i];
@@ -5880,7 +5913,7 @@ function drivelineStep(dt, ctl, G, th0) {
       let changed = false;
       for (let ci = 0; ci < 8; ci++) {
         const c = C[ci]; if (!c.on || c.cap === Infinity) continue;
-        const dn = dot5(c.u, om) + dot5(c.u, x);
+        const dn = dot5(c.u, om) + dot5(c.u, x) - c.tgt;
         if (c.lin) { const tq = c.K * dn; if (Math.abs(tq) > c.cap) { c.lin = false; c.sgn = Math.sign(tq); changed = true; } }
         else if (dn * c.sgn < 0) { c.lin = true; changed = true; }
       }
@@ -5888,6 +5921,11 @@ function drivelineStep(dt, ctl, G, th0) {
     }
     for (let i = 0; i < 5; i++) om[i] += x[i];
     if (om[0] < 0) om[0] = 0;
+    for (let k = 0; k < 4; k++) {                                          // the deflection moves on with the new wheel speed
+      const w = W[k]; if (!w.grounded) continue;
+      const sv = om[k + 1] * r - w.vLong, lim = Math.max(1.5 * w.ts.kp, Math.abs(sv) / Math.max(TK[k * 4 + 3], 1));
+      w.kt = clamp(w.kt * TK[k * 4] + sv * TK[k * 4 + 1], -lim, lim);
+    }
     Tcl = !cl.on ? 0 : cl.lin ? cl.K * dot5(cl.u, om) : cl.sgn * cl.cap;
   }
   car.we = om[0]; car.Tcl = Tcl; car.clutchSlip = cl.on && !cl.lin;
@@ -5896,8 +5934,9 @@ function drivelineStep(dt, ctl, G, th0) {
     const w = W[k], c = C[4 + k];
     w.om = om[k + 1];
     w.brakeP = c.on ? Math.abs((c.lin ? c.K * om[k + 1] : c.cap) * om[k + 1]) : 0;    // brake power (W), heats the disc
+    w.bAng = c.on && c.lin && Math.abs(w.om) < 0.5 ? w.bAng + w.om * dt : 0;            // creep since the brake took hold
     if (!w.grounded) { w.Fx = 0; w.Fy = 0; continue; }
-    const f = tyreForce(w, w.om, TF[k]);
+    const f = tyreForce(w, w.kt + TK[k * 4 + 2] * (w.om * r - w.vLong - TK[k * 4 + 3] * w.kt), 0, TF[k]);
     w.Fx = f.Fx; w.Fy = f.Fy; w.kap = f.kap; w.slip = f.s;
   }
 }
@@ -5994,12 +6033,18 @@ function stepVehicle(dt, ctl) {
     _vp.crossVectors(car.w, _r).add(car.vel);
     w.fw.copy(_fw); w.lt.copy(_lt); w.cp.copy(_cp);
     w.vLong = _vp.dot(_fw); w.vLat = _vp.dot(_lt);
-    // the slip angle the tyre works with relaxes toward the geometric one over its relaxation length
-    const vAbs = Math.abs(w.vLong), ta = w.vLat / Math.max(vAbs, TYRE.v0), sig = TYRE.sigma[w.gs.surf] * smoothstep(3, 10, vAbs);
-    w.ta = sig > 0.02 && wasGround ? w.ta + (ta - w.ta) * (1 - Math.exp(-Math.max(vAbs, TYRE.v0) / sig * dt)) : ta;
+    // the contact patch's sideways deflection (see TYRE): it relaxes toward v_side/v as the tyre rolls and holds when
+    // it stops; a fresh contact carries none. taE adds the low-speed damping on its rate.
+    const gs = w.gs, ts = w.ts = TYRE_SURF[gs.surf], ax = Math.abs(w.vLong);
+    if (!wasGround) { w.ta = 0; w.kt = 0; }
+    relaxCoeffs(ax, dt, TYRE.sigma[gs.surf]);
+    const lim = Math.max(1.5 * ts.ap, Math.abs(w.vLat) / Math.max(ax, 1));     // no deflection past where the tread slides
+    w.ta = clamp(w.ta * (1 - RLX.k) + w.vLat * RLX.g, -lim, lim);
+    w.wl = 1 - smoothstep(TYRE.vLo[0], TYRE.vLo[1], ax);
+    w.taE = w.ta + w.wl * (w.vLat - ax * w.ta) / TYRE.vd;
     // load sensitivity: grip grows less than linearly with load, so weight transfer and bumps don't snap the car around
-    const gs = w.gs, N = w.Nt * Math.max(0, AY.dot(w.n)), N0 = CAR.N0[k];
-    w.N = N; w.mu = gs.mu * tn.mu[gs.surf]; w.ts = TYRE_SURF[gs.surf];
+    const N = w.Nt * Math.max(0, AY.dot(w.n)), N0 = CAR.N0[k];
+    w.N = N; w.mu = gs.mu * tn.mu[gs.surf];
     w.Fmax = w.mu * N0 * Math.pow(Math.min(N / N0, 3), 0.85);
     w.rr = (gs.rr + tn.rr) * N * CAR.radius;                      // rolling resistance torque (N·m)
   }
@@ -6275,7 +6320,7 @@ function resetCarMotion(speed) {
   car.steerAngle = 0; car.airTime = 0; car.wasAirborne = false; car.flipTimer = 0; car.offTimer = 0;
   car.spool = 1; car.backfire = 0; car.events.length = 0;
   car.wheels.forEach((w, k) => {
-    w.prevGround = true; w.om = v / CAR.radius; w.absP = 1; w.kap = 0; w.ta = 0; w.grounded = false;
+    w.prevGround = true; w.om = v / CAR.radius; w.absP = 1; w.kap = 0; w.ta = 0; w.taE = 0; w.kt = 0; w.wl = 1; w.bAng = 0; w.grounded = false;
     w.comp = CAR.ms[k] * 9.81 / (CAR.kS[k] * tn.k); w.u = 0; w.J = 0; w.Nt = 0;     // each wheel at its static compression, at rest
   });
 }
@@ -6326,6 +6371,7 @@ const PhysicsRig = {
     o = o || {};
     Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4 });
     car.q.set(0, 0, 0, 1); if (o.yaw) car.q.setFromAxisAngle(UP, o.yaw);
+    if (o.sx || o.sz) car.q.premultiply(_qiw.setFromUnitVectors(UP, _tmp.set(-(o.sx || 0), 1, -(o.sz || 0)).normalize()));   // sitting on the slope
     car.pos.set(0, CAR.cgH + (o.drop || 0), 0);
     car.vel.set(0, 0, v).applyQuaternion(car.q);
     car.i = 0; car.s = 0; car.d = 0; car.damage = 0;
