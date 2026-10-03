@@ -2024,7 +2024,6 @@ const SETUP_OPTS = {
   damp: { label: 'DAMPERS', names: ['SOFT', 'MEDIUM', 'FIRM'], desc: ['Low bump and rebound damping: wheels follow rough ground, but the body floats and wallows.', 'Balanced bump and rebound.', 'High damping: tied down over crests and quick direction changes; skips over ripples.'] },
   arb: { label: 'ANTI-ROLL BARS', names: ['SOFT', 'MEDIUM', 'STIFF'], desc: ['Soft bars: each wheel moves on its own; more body roll, more grip over rough ground.', 'Balanced roll stiffness.', 'Stiff bars: flat and quick to change direction; wheels lift and skip on rough ground.'] },
   gear: { label: 'FINAL DRIVE', names: ['SHORT', 'STANDARD', 'LONG'], desc: ['Shorter final drive: +11% pull in every gear, -10% top speed. Twisty stages.', 'Balanced.', 'Longer final drive: +10% top speed, -9% pull. Fast open stages.'] },
-  tyre: { label: 'TYRES', names: ['ALL-TERRAIN', 'STUDDED', 'SLICK'], desc: ['Consistent grip on every surface.', 'Tungsten studs: +60% grip on ice and +40% on snow; they skate a little on steel (-15%) and tarmac (-14%).', 'Soft slicks: +18% grip on tarmac and +12% on metal plating; poor on anything loose (-20% or worse).'] },
 };
 const TUNE = {
   susp: [{ k: 0.8, c: 1, land: 1.5 }, { k: 1, c: 1, land: 0 }, { k: 1.3, c: 1, land: -1.2 }],
@@ -2032,16 +2031,15 @@ const TUNE = {
   damp: [{ b: 0.8, r: 0.82 }, { b: 1, r: 1 }, { b: 1.25, r: 1.2 }],
   arb: [0.55, 1, 1.6],                  // multiplier on both bars (the front/rear split lives in SUSP)
   gear: [{ v: 0.9 }, { v: 1 }, { v: 1.1 }],           // the final drive is the car's own divided by v: road speed per rpm scales with v, pull the other way
-  tyre: [[1, 1, 1, 1, 1, 1], [0.97, 1.6, 0.85, 0.98, 0.86, 1.4], [0.8, 0.7, 1.12, 0.78, 1.18, 0.6]],   // per surface: regolith, ice, metal, gravel, tarmac, snow
 };
-const RECOMMENDED = [{ susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 1, damp: 1, arb: 0, gear: 0, tyre: 1 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 },
-  { susp: 1, damp: 1, arb: 1, gear: 2, tyre: 0 }, { susp: 0, damp: 0, arb: 0, gear: 1, tyre: 1 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 },
-  { susp: 1, damp: 1, arb: 1, gear: 0, tyre: 0 },
-  { susp: 1, damp: 1, arb: 1, gear: 0, tyre: 1 }, { susp: 1, damp: 1, arb: 0, gear: 1, tyre: 1 }, { susp: 0, damp: 1, arb: 0, gear: 2, tyre: 0 },
-  { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 },
-  { susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 }];
-const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
-const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
+const RECOMMENDED = [{ susp: 0, damp: 0, arb: 0, gear: 2 }, { susp: 1, damp: 1, arb: 0, gear: 0 }, { susp: 2, damp: 2, arb: 2, gear: 0 },
+  { susp: 1, damp: 1, arb: 1, gear: 2 }, { susp: 0, damp: 0, arb: 0, gear: 1 }, { susp: 2, damp: 2, arb: 2, gear: 0 },
+  { susp: 1, damp: 1, arb: 1, gear: 0 },
+  { susp: 1, damp: 1, arb: 1, gear: 0 }, { susp: 1, damp: 1, arb: 0, gear: 1 }, { susp: 0, damp: 1, arb: 0, gear: 2 },
+  { susp: 2, damp: 2, arb: 2, gear: 0 },
+  { susp: 0, damp: 0, arb: 0, gear: 2 }, { susp: 2, damp: 2, arb: 2, gear: 0 }];
+const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1 };
+const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear'];
 /* ---- garage: pilot + vehicle parts (chosen in the garage, kept for every stage) ----
    Parts change the car's real physics: the tyres' grip on each surface (mu: regolith, ice, metal, gravel,
    tarmac), their weight and rolling drag. Each car keeps its own aero package (CAR_AERO). The pilot (a real
@@ -2411,7 +2409,7 @@ function tuneFor(setup, build) {
   const mass = sp.kg + REF_PILOT_KG + FUEL_KG + Wh.kg, dm = mass - (CAR_SPECS[0].kg + REF_PILOT_KG + FUEL_KG);
   const tn = { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land - dm * 0.003, v: gr.v,
     gears: sp.gears, final: sp.final / gr.v,
-    mu: TUNE.tyre[setup.tyre].map((m, i) => m * Wh.mu[i]), steer: sp.steer * Wh.steer, rr: Wh.rr,
+    mu: Wh.mu, steer: sp.steer * Wh.steer, rr: Wh.rr,
     dmg: clamp(1 - dm * 0.0012, 0.7, 1.3), spec: sp, mass, aero, cda: aero.cda, cla: aero.claF + aero.claR,
     geo: carGeometry(build.body, Wh, mass) };
   tn.r = tn.geo.r;
