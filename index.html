@@ -1256,6 +1256,7 @@ body.tilt #tCentre{display:flex}
         <button class="opt" data-set="manual"><span><b>MANUAL GEARS</b><small>Shift yourself with E / Q or the bumpers (RB up, LB down). Off: automatic gearbox.</small></span><i class="switch"></i></button>
         <button class="opt" data-set="abs"><span><b>ABS</b><small>Stops the wheels locking under hard braking. Off: squeeze the brakes.</small></span><i class="switch"></i></button>
         <button class="opt" data-set="tc"><span><b>TRACTION CONTROL</b><small>Trims the engine so the driven wheels never spin. Off: feed the throttle in, or spin up and slide.</small></span><i class="switch"></i></button>
+        <button class="opt" data-set="stab"><span><b>STABILITY</b><small>FULL: the car helps straighten every slide. SPORT: only steps in on a big slide, and gently. OFF: no help, catch every slide yourself.</small></span><i class="mode" id="stabMode">SPORT</i></button>
         <button class="opt touch-only" data-set="tilt"><span><b>TILT STEERING</b><small>Steer by turning the phone like a wheel. Gas and brake stay on the buttons; &#9678; recentres.</small></span><i class="switch"></i></button>
         <button class="opt touch-only" data-set="tiltSens"><span><b>TILT SENSITIVITY</b><small>How far you turn the phone for full lock: LOW 30&deg;, MEDIUM 20&deg;, HIGH 12&deg;.</small></span><i class="mode" id="tiltMode">MEDIUM</i></button>
         <div class="set-group">VIEW</div>
@@ -1420,10 +1421,11 @@ function fmtDelta(d) { return (d < 0 ? '-' : '+') + Math.abs(d).toFixed(2); }
    ============================================================================= */
 const Store = {
   key: 'regolithRally.v1',
-  era: 5,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost,
-            // 4 = coupled driveline, real gearboxes, chassis and tyres per car, 5 = new layouts for the space stages (Pikes Peak unchanged)
+  era: 6,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost,
+            // 4 = coupled driveline, real gearboxes, chassis and tyres per car, 5 = new layouts for the space stages (Pikes Peak unchanged),
+            // 6 = tyre relaxation length, slip-angle steering and the STABILITY setting
   data: { best: {}, settings: { muted: false, voice: true, ghost: true, cam: 'chase', name: 'DRIVER' },
-    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 5 },
+    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 6 },
   load() {
     try {
       const raw = window.localStorage.getItem(this.key);
@@ -1445,7 +1447,7 @@ const Store = {
    *  times (not the replays) under `archive` and start the boards fresh. Setups and the garage stay. */
   archiveEra(era) {
     const D = this.data, times = {}, boards = {};
-    const keep = (k) => era >= 4 && k === 'pikes';      // era 4 → 5 changed the layouts only: Pikes Peak's times and ghosts still count
+    const keep = (k) => false && k;      // era 4 → 5 kept Pikes Peak (layouts only); 6 changed the handling, so nothing carries over
     for (const k in D.best) if (!keep(k)) times[k] = { time: D.best[k].time, splits: D.best[k].splits };
     for (const k in D.boards) if (!keep(k)) boards[k] = D.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own, d: e.d }));
     if (Object.keys(times).length || Object.keys(boards).length || D.rallyBest) {     // the newest era's times replace an older archive
@@ -5215,6 +5217,21 @@ function toggleHud() {
   Store.save(); Menu.refresh();
 }
 const VOLUMES = [1, 0.75, 0.5, 0.25];
+/* Stability assist levels: k and b0-b1 for the slip-angle assist (strength, and the body slip angles in
+   radians over which it comes in), yd for the yaw damper. Default FULL on touch screens, SPORT elsewhere. */
+const STAB = {
+  full:  { name: 'FULL',  k: 2.0, b0: 0.12, b1: 0.45, yd: 1.5 },
+  sport: { name: 'SPORT', k: 0.6, b0: 0.3,  b1: 0.75, yd: 0.4 },
+  off:   { name: 'OFF',   k: 0,   b0: 0,    b1: 1,    yd: 0 },
+};
+const STAB_ORDER = ['full', 'sport', 'off'];
+function stabMode() { const v = Store.data.settings.stab; return STAB[v] ? v : IS_TOUCH ? 'full' : 'sport'; }
+function cycleStab() {
+  const s = Store.data.settings;
+  s.stab = STAB_ORDER[(STAB_ORDER.indexOf(stabMode()) + 1) % STAB_ORDER.length];
+  HUD.toast('STABILITY ' + STAB[s.stab].name + (s.stab === 'off' ? ' · CATCH YOUR OWN SLIDES' : ''));
+  Store.save(); Menu.refresh();
+}
 function cycleVolume() {
   const s = Store.data.settings, cur = s.vol == null ? 1 : s.vol;
   let i = VOLUMES.findIndex((v) => Math.abs(v - cur) < 0.01); i = i < 0 ? 0 : (i + 1) % VOLUMES.length;
@@ -5356,10 +5373,21 @@ const CAR = {
   ],
   wb: 2.44, mountY: 0.12, rest: 0.27, travel: 0.24, radius: 0.32, rcH: 0.1, Iw: 1.2,
   kS: [24000, 24000, 32000, 32000], N0: [2100, 2100, 2850, 2850], brakeT: [2300, 1450], hbT: 2500,
-  vmax: 60, reverseVmax: 12, maxSteer: 0.55, steerFalloff: 0.06,
+  vmax: 60, reverseVmax: 12, maxSteer: 0.55,
   hull: [], spheres: [],
 };
 const PHYS_DT = 1 / 120;
+/* What the screen shows: the physics runs at a fixed 120 Hz, the display at whatever the screen refreshes at,
+   so the car is drawn between its last two physics states (by how far the clock has run into the next step)
+   instead of jumping from one to the next. Without it a 90 or 144 Hz screen shows a step every few frames. */
+const Draw = {
+  pos: new THREE.Vector3(), q: new THREE.Quaternion(), vel: new THREE.Vector3(),
+  p0: new THREE.Vector3(), q0: new THREE.Quaternion(), v0: new THREE.Vector3(),
+  keep() { this.p0.copy(car.pos); this.q0.copy(car.q); this.v0.copy(car.vel); },     // before each physics step
+  blend(a) { this.pos.lerpVectors(this.p0, car.pos, a); this.q.copy(this.q0).slerp(car.q, a); this.vel.lerpVectors(this.v0, car.vel, a); },
+  snap() { this.keep(); this.blend(1); },                                               // after a teleport
+  axes() { AX.set(1, 0, 0).applyQuaternion(this.q); AY.set(0, 1, 0).applyQuaternion(this.q); AZ.set(0, 0, 1).applyQuaternion(this.q); },
+};
 
 /* ---- suspension: coil-over per corner ----
    Linear coil spring (rate set per axle from the corner's weight, so every car rides at the same natural
@@ -5389,7 +5417,12 @@ function damperForce(v, cB, cR) {      // v > 0: compressing (bump); v < 0: exte
    that won't turn). C sets how much grip is left once the tyre slides: loose surfaces peak late and keep
    most of it (the tyre ploughs); tarmac, metal and ice peak early and fall away. Peak force is the surface's
    grip × the tyre's grip on it × load, rising less than linearly with load. */
-const TYRE = { v0: 3.5 };
+/* Relaxation length: a real tyre doesn't make its cornering force the instant it meets a slip angle; the tread
+   has to wind up over a short distance of rolling first (sigma, longer for the softer gravel and snow
+   construction and on loose ground). So the slip angle each tyre works with chases the geometric one at
+   rate v/sigma: grip builds progressively on turn-in, a flick loads the car up and lets go a beat later, and
+   a quick wobble is soaked up instead of passed straight into the body. Near a standstill it fades out. */
+const TYRE = { v0: 3.5, sigma: [0.55, 0.45, 0.35, 0.5, 0.3, 0.5] };   // m, per surface (SURF order)
 const TYRE_SURF = [
   { kp: 0.17, ap: 0.2, C: 1.22 },      // REGOLITH: loose dust
   { kp: 0.1, ap: 0.1, C: 1.5 },        // ICE
@@ -5403,7 +5436,7 @@ for (const t of TYRE_SURF) { t.B = Math.tan(Math.PI / (2 * t.C)); t.BC = t.B * t
  *  left), out.dFx = dFx/dω for the implicit drivetrain solve, out.kap the slip ratio, out.s the combined slip. */
 function tyreForce(w, om, out) {
   const ts = w.ts, r = CAR.radius, vx = w.vLong, den = Math.max(Math.abs(vx), TYRE.v0);
-  const kap = (om * r - vx) / den, sx = kap / ts.kp, sy = w.vLat / den / ts.ap, s = Math.hypot(sx, sy), Fm = w.Fmax;
+  const kap = (om * r - vx) / den, sx = kap / ts.kp, sy = w.ta / ts.ap, s = Math.hypot(sx, sy), Fm = w.Fmax;
   out.kap = kap; out.s = s;
   if (s < 1e-6) { out.Fx = 0; out.Fy = 0; out.dFx = Fm * ts.BC / ts.kp * r / den; return out; }
   const at = Math.atan(ts.B * s), f = Math.sin(ts.C * at), fp = Math.cos(ts.C * at) * ts.BC / (1 + ts.B * ts.B * s * s);
@@ -5444,7 +5477,7 @@ const car = {
   pos: new THREE.Vector3(), vel: new THREE.Vector3(), q: new THREE.Quaternion(), w: new THREE.Vector3(),
   steerAngle: 0, i: 0, s: 0, d: 0, speed: 0, reach: 0,     // reach: furthest point along the stage driven to without a short cut
   wheels: CAR.wheels.map(() => ({ mount: new THREE.Vector3(), n: new THREE.Vector3(0, 1, 0), gs: newGroundSample(), grounded: false, prevGround: true,
-    comp: 0, dist: 0, load: 0, arb: 0, slipLat: 0, vLong: 0, vLat: 0, sliding: false, spinning: false, locked: false, absOn: false, absP: 1, bottomed: false,
+    comp: 0, dist: 0, load: 0, arb: 0, slipLat: 0, vLong: 0, vLat: 0, ta: 0, sliding: false, spinning: false, locked: false, absOn: false, absP: 1, bottomed: false,
     om: 0, spinAngle: 0, emit: 0, fw: new THREE.Vector3(), lt: new THREE.Vector3(), cp: new THREE.Vector3(),
     N: 0, Fmax: 0, mu: 1, ts: TYRE_SURF[0], rr: 0, Fx: 0, Fy: 0, kap: 0, slip: 0, Tb: 0, brakeP: 0 })),
   nGround: 0, airTime: 0, wasAirborne: false, pitchLatch: false, steerLatch: false,
@@ -5470,12 +5503,22 @@ function addForceAt(f, point) {
   T.add(_tmp2.crossVectors(_r, f));
 }
 
-/** Front-wheel lock for a steering request `dir` (+ = left). Less lock at speed; steering into
- *  a slide (countersteer) gets up to +70% extra, so drifts are easy to catch. */
-function steerLimit(vLong, beta, dir) {
-  let m = CAR.maxSteer * car.tune.steer / (1 + Math.abs(vLong) * CAR.steerFalloff);
-  if (car.nGround >= 2 && dir * beta > 0) m *= 1 + 0.7 * smoothstep(0.06, 0.4, Math.abs(beta));
-  return m;
+/** Front-wheel lock for a steering request `dir` (+ = left). Full lock at low speed; at speed, full input puts
+ *  the front tyres just past their peak slip angle on this surface, measured from the way the front axle is
+ *  actually travelling. So the steering never asks the fronts for more than they can give, and in a slide the
+ *  same rule leaves room to countersteer as far as the slide needs. */
+const _sv = new THREE.Vector3(), _sr = new THREE.Vector3(), _sf = new THREE.Vector3(), _sl = new THREE.Vector3();
+function steerLimit(dir) {
+  const lock = CAR.maxSteer * car.tune.steer;
+  _sf.set(0, 0, 1).applyQuaternion(car.q); _sl.set(1, 0, 0).applyQuaternion(car.q);
+  _sr.copy(_sf).multiplyScalar(CAR.wheels[0].z);
+  _sv.crossVectors(car.w, _sr).add(car.vel);                     // velocity of the front axle
+  const vx = _sv.dot(_sf);
+  if (car.nGround < 2 || vx < 4) return lock;
+  const W = car.wheels, aMax = 1.6 * 0.5 * ((W[0].ts || TYRE_SURF[3]).ap + (W[1].ts || TYRE_SURF[3]).ap);
+  const th = Math.atan2(_sv.dot(_sl), vx + 1);                   // + = the front axle is travelling to the left of the nose
+  const grip = clamp(dir * th + aMax, 0.5 * aMax, lock);
+  return lerp(lock, grip, smoothstep(5, 14, vx));
 }
 function gearboxAuto() {
   const st = Game.state;
@@ -5682,7 +5725,7 @@ function stepVehicle(dt, ctl) {
   F.set(0, -m * g, 0); T.set(0, 0, 0);
   const vLongBody = car.vel.dot(AZ);
   const betaB = Math.atan2(car.vel.dot(AX), Math.abs(vLongBody) + 2);
-  const steerMax = steerLimit(vLongBody, betaB, -ctl.steer);
+  const steerMax = steerLimit(Math.sign(-ctl.steer) || 1);
   car.steerAngle = damp(car.steerAngle, -ctl.steer * steerMax, 12, dt);
   const maxLen = CAR.rest + CAR.radius;
 
@@ -5718,6 +5761,7 @@ function stepVehicle(dt, ctl) {
   for (let k = 0; k < 4; k++) {
     const w = car.wheels[k], cw = CAR.wheels[k];
     if (!w.grounded) { w.load = 0; w.N = 0; w.Fmax = 0; w.sliding = false; w.spinning = false; w.locked = false; w.slipLat = 0; w.prevGround = false; continue; }
+    const wasGround = w.prevGround;
     w.prevGround = true;
     _r.subVectors(w.mount, car.pos);
     _vp.crossVectors(car.w, _r).add(car.vel);
@@ -5748,6 +5792,9 @@ function stepVehicle(dt, ctl) {
     _vp.crossVectors(car.w, _r).add(car.vel);
     w.fw.copy(_fw); w.lt.copy(_lt); w.cp.copy(_cp);
     w.vLong = _vp.dot(_fw); w.vLat = _vp.dot(_lt);
+    // the slip angle the tyre works with relaxes toward the geometric one over its relaxation length
+    const vAbs = Math.abs(w.vLong), ta = w.vLat / Math.max(vAbs, TYRE.v0), sig = TYRE.sigma[w.gs.surf] * smoothstep(3, 10, vAbs);
+    w.ta = sig > 0.02 && wasGround ? w.ta + (ta - w.ta) * (1 - Math.exp(-Math.max(vAbs, TYRE.v0) / sig * dt)) : ta;
     // load sensitivity: grip grows less than linearly with load, so weight transfer and bumps don't snap the car around
     const gs = w.gs, N = Fs * Math.max(0, AY.dot(w.n)), N0 = CAR.N0[k];
     w.N = N; w.mu = gs.mu * tn.mu[gs.surf]; w.ts = TYRE_SURF[gs.surf];
@@ -5791,23 +5838,26 @@ function stepVehicle(dt, ctl) {
     _cp.copy(w.cp).addScaledVector(AY, CAR.rcH);
     addForceAt(_ft.copy(w.fw).multiplyScalar(w.Fx).addScaledVector(w.lt, w.Fy), _cp);
   }
-  // stability assist: gently yaw the nose toward the direction of travel when the body slip
-  // angle grows, so drifts are catchable on a keyboard. Disabled while the handbrake is held.
+  // stability assist (Settings > STABILITY; the AI always drives on FULL): gently yaw the nose toward the
+  // direction of travel when the body slip angle grows, so drifts are catchable on a keyboard. Disabled while
+  // the handbrake is held. SPORT only steps in on a big slide and far more gently; OFF leaves it all to the driver.
+  const sm = fc && fc.stab ? fc.stab : Game.autopilot || Game.state !== 'racing' ? 'full' : stabMode();
+  const SA = car.stab = STAB[sm] || STAB.full;
   if (ctl.handbrake) car.hbTimer = 0.35; else car.hbTimer = Math.max(0, (car.hbTimer || 0) - dt);
-  if (nG >= 2 && car.hbTimer <= 0) {
+  if (SA.k > 0 && nG >= 2 && car.hbTimer <= 0) {
     const vl = car.vel.dot(AZ), vs = car.vel.dot(AX), spd = Math.hypot(vl, vs);
     if (spd > 4 && vl > 0) {
       const beta = Math.atan2(vs, vl);
-      const k = CAR.inertia.y * 2.0 * smoothstep(0.12, 0.45, Math.abs(beta)) * Math.min(1, spd / 12) * nG / 4;
+      const k = CAR.inertia.y * SA.k * smoothstep(SA.b0, SA.b1, Math.abs(beta)) * Math.min(1, spd / 12) * nG / 4;
       T.addScaledVector(AY, k * beta);
     }
   }
   // yaw stability: at speed, bleed off yaw rate beyond what the steering asks for (kinematic
   // wheelbase model), so snap oversteer settles. Never adds yaw; fades out while drifting on purpose.
-  if (nG >= 2 && !ctl.handbrake && vLongBody > 8) {
+  if (SA.yd > 0 && nG >= 2 && !ctl.handbrake && vLongBody > 8) {
     const wyB = car.w.dot(AY), wAsk = vLongBody * Math.tan(car.steerAngle) / CAR.wb, excess = wyB - wAsk;
     if (Math.abs(wyB) > Math.abs(wAsk) && excess * wyB > 0) {
-      const yd = CAR.inertia.y * 1.5 * smoothstep(8, 30, vLongBody) * (1 - smoothstep(0.12, 0.35, Math.abs(betaB)));
+      const yd = CAR.inertia.y * SA.yd * smoothstep(8, 30, vLongBody) * (1 - smoothstep(0.12, 0.35, Math.abs(betaB)));
       T.addScaledVector(AY, -excess * yd);
     }
   }
@@ -5999,7 +6049,8 @@ function placeCar(s, d, speed) {
   for (const c of DL.cpl) c.lin = true;
   car.steerAngle = 0; car.airTime = 0; car.wasAirborne = false; car.flipTimer = 0; car.offTimer = 0;
   car.spool = 1; car.backfire = 0; car.events.length = 0;
-  for (const w of car.wheels) { w.prevGround = true; w.om = v / CAR.radius; w.absP = 1; w.kap = 0; w.comp = 0; w.grounded = false; }
+  for (const w of car.wheels) { w.prevGround = true; w.om = v / CAR.radius; w.absP = 1; w.kap = 0; w.ta = 0; w.comp = 0; w.grounded = false; }
+  Draw.snap();
 }
 
 /* ---- vehicle model ---- */
@@ -9086,49 +9137,80 @@ const Tilt = {
 const Cam = {
   mode: 'chase', yawDir: new THREE.Vector3(0, 0, 1), offset: new THREE.Vector3(0, 3, -8), carY: 0, fov: 65, shake: 0,
   look: new THREE.Vector3(), bq: new THREE.Quaternion(), flipQ: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI),
+  // g-force lag: the camera hangs off the car on a damped spring that the car's acceleration pulls on, so it drops
+  // back as the car pulls away, closes in under braking, swings to the outside of a corner and dips on a landing
+  lag: new THREE.Vector3(), lagV: new THREE.Vector3(), lastVel: new THREE.Vector3(), acc: new THREE.Vector3(), rough: 0, t: 0,
   snap() {
-    carAxes();
+    Draw.axes();
     this.yawDir.set(AZ.x, 0, AZ.z).normalize();
-    this.carY = car.pos.y;
+    this.carY = Draw.pos.y;
     this.offset.copy(this.yawDir).multiplyScalar(-7.4).setY(2.7);
-    this.bq.copy(car.q).multiply(this.flipQ);
+    this.bq.copy(Draw.q).multiply(this.flipQ);
     this.update(0.016, true);
   },
+  /** Spring the g-force lag on by dt (frozen while paused) and measure how rough the ground is under the tyres. */
+  spring(dt, instant) {
+    if (instant || !(dt > 0)) { this.lag.set(0, 0, 0); this.lagV.set(0, 0, 0); this.lastVel.copy(Draw.vel); this.rough = 0; return; }
+    if (Game.state === 'paused') return;
+    const a = this.acc.subVectors(Draw.vel, this.lastVel).divideScalar(dt);
+    this.lastVel.copy(Draw.vel);
+    if (a.lengthSq() > 1600) a.setLength(40);                     // a crash jolts the camera, but only so far
+    const w = 6.5, z = 0.75, L = this.lag, V = this.lagV;
+    V.x += (-w * w * L.x - 2 * z * w * V.x - 1.6 * a.x) * dt;
+    V.y += (-w * w * L.y - 2 * z * w * V.y - 0.6 * a.y) * dt;
+    V.z += (-w * w * L.z - 2 * z * w * V.z - 1.6 * a.z) * dt;
+    L.addScaledVector(V, dt);
+    const hl = Math.hypot(L.x, L.z);
+    if (hl > 1.1) { L.x *= 1.1 / hl; L.z *= 1.1 / hl; }
+    L.y = clamp(L.y, -0.45, 0.3);
+    // road rumble: how hard the dampers are working, on loose ground more than on smooth tarmac
+    let r = 0, n = 0;
+    for (const wh of car.wheels) if (wh.grounded) { r += Math.abs(wh.compVel || 0) * Cam.RUMBLE[wh.gs.surf]; n++; }
+    this.rough = damp(this.rough, n ? r / n : 0, 8, dt);
+    this.t += dt;
+  },
+  RUMBLE: [1, 0.3, 0.45, 1, 0.35, 0.7],                         // per surface (SURF order)
   update(dt, instant) {
-    carAxes();
-    const sp = car.speed;
+    this.spring(dt, instant);
+    Draw.axes();
+    const sp = car.speed, P = Draw.pos;
     const fwd = _tmp.set(AZ.x, 0, AZ.z);
     if (fwd.lengthSq() < 0.01) fwd.copy(this.yawDir); else fwd.normalize();
-    if (car.nGround === 0 && sp > 8) { _tmp2.set(car.vel.x, 0, car.vel.z).normalize(); fwd.lerp(_tmp2, 0.6).normalize(); }
-    const rev = car.vel.dot(AZ) < -3;
+    if (car.nGround === 0 && sp > 8) { _tmp2.set(Draw.vel.x, 0, Draw.vel.z).normalize(); fwd.lerp(_tmp2, 0.6).normalize(); }
+    const rev = Draw.vel.dot(AZ) < -3;
     if (!rev) this.yawDir.lerp(fwd, instant ? 1 : 1 - Math.exp(-4.5 * dt)).normalize();
-    this.carY = instant ? car.pos.y : damp(this.carY, car.pos.y, 9, dt);
+    this.carY = instant ? P.y : damp(this.carY, P.y, 9, dt);
     let fovT;
     if (this.mode === 'chase') {
       const dist = 7.2 + Math.min(sp, 65) * 0.035, height = 2.5 + Math.min(sp, 65) * 0.01;
       const desired = _tmp2.copy(this.yawDir).multiplyScalar(-dist).setY(height);
       if (instant) this.offset.copy(desired); else this.offset.lerp(desired, 1 - Math.exp(-6 * dt));
-      camera.position.set(car.pos.x + this.offset.x, this.carY + this.offset.y, car.pos.z + this.offset.z);
+      camera.position.set(P.x + this.offset.x, this.carY + this.offset.y, P.z + this.offset.z).add(this.lag);
       const gh = TR ? heightNear(camera.position.x, camera.position.z, car.i) : -1e9;
       if (gh > VOID_H + 1 && camera.position.y < gh + 1.2) camera.position.y = gh + 1.2;
-      this.look.set(car.pos.x + this.yawDir.x * 3.5, this.carY + 1.1, car.pos.z + this.yawDir.z * 3.5);
+      this.look.set(P.x + this.yawDir.x * 3.5, this.carY + 1.1, P.z + this.yawDir.z * 3.5);
       camera.lookAt(this.look);
       fovT = 62 + Math.min(sp, 70) * 0.3;
     } else {
-      _tmp2.set(0, 0.78, 1.25).applyQuaternion(car.q).add(car.pos);
+      _tmp2.set(0, 0.78, 1.25).applyQuaternion(Draw.q).add(P).addScaledVector(this.lag, 0.12);   // the driver's head moves a little with the g-forces
       camera.position.copy(_tmp2);
-      _q.copy(car.q).multiply(this.flipQ);
+      _q.copy(Draw.q).multiply(this.flipQ);
       if (instant) this.bq.copy(_q); else this.bq.slerp(_q, 1 - Math.exp(-18 * dt));
       camera.quaternion.copy(this.bq);
       fovT = 72 + Math.min(sp, 70) * 0.22;
     }
     this.fov = instant ? fovT : damp(this.fov, fovT, 3, dt);
     camera.fov = this.fov;
-    if (this.shake > 0.001) {
-      const s = this.shake * 0.35;
-      camera.position.x += (Math.random() - 0.5) * s; camera.position.y += (Math.random() - 0.5) * s; camera.position.z += (Math.random() - 0.5) * s;
-      this.shake *= Math.exp(-5 * dt);
+    // shake: smooth noise (a few sine waves at unrelated rates) rather than a random jump every frame, so it
+    // reads the same at any frame rate: a decaying jolt from landings and hits, plus a fine rumble from the road
+    const jolt = this.shake * 0.3, hum = Math.min(0.05, this.rough * 0.06 * Math.min(1, sp / 15));
+    if (jolt + hum > 0.001) {
+      const t = this.t, n = (f, p) => Math.sin(t * f + p) * 0.6 + Math.sin(t * f * 2.31 + p * 1.7) * 0.4;
+      camera.position.x += n(31, 0) * jolt + n(41, 1.3) * hum;
+      camera.position.y += n(37, 2.1) * jolt + n(47, 0.4) * hum;
+      camera.position.z += n(29, 4.2) * jolt + n(37, 2.9) * hum;
     }
+    if (this.shake > 0.001) this.shake *= Math.exp(-5 * dt);
     camera.updateProjectionMatrix();
   },
 };
@@ -9138,7 +9220,7 @@ function updateSunShadow() {
   const texel = (2 * SHADOW_EXTENT) / SHADOW_SIZE;
   _lr.crossVectors(SUN_DIR, UP).normalize();
   _lu.crossVectors(_lr, SUN_DIR).normalize();
-  _tmp.copy(car.pos).addScaledVector(Cam.yawDir, 18);
+  _tmp.copy(Draw.pos).addScaledVector(Cam.yawDir, 18);
   const a = Math.round(_tmp.dot(_lr) / texel) * texel, b = Math.round(_tmp.dot(_lu) / texel) * texel, c = _tmp.dot(SUN_DIR);
   _tmp2.copy(_lr).multiplyScalar(a).addScaledVector(_lu, b).addScaledVector(SUN_DIR, c);
   sunLight.target.position.copy(_tmp2);
@@ -9946,8 +10028,7 @@ function aiControl(skill, stopping) {
     const aMax = 1.6 * 0.5 * ((car.wheels[0].ts || TYRE_SURF[3]).ap + (car.wheels[1].ts || TYRE_SURF[3]).ap);
     delta = clamp(delta, th - aMax, th + aMax);
   }
-  const vlA = car.vel.dot(AZ), betaA = Math.atan2(car.vel.dot(AX), Math.abs(vlA) + 2);
-  c.steer = clamp(-delta / steerLimit(vlA, betaA, delta), -1, 1);
+  c.steer = clamp(-delta / steerLimit(Math.sign(delta) || 1), -1, 1);
   c.handbrake = false;
   if (stopping) { c.throttle = 0; c.brake = sp > 1 ? 0.7 : 0; return c; }
   // target speed: the slowest point of the plan from here to a little way ahead, so the AI doesn't power out of a
@@ -10074,7 +10155,7 @@ function emitCarParticles(dt, ctl) {
     Game.popEmit += dt * 90;
     while (Game.popEmit >= 1) {
       Game.popEmit -= 1;
-      _tmp.set(0.42, 0.3, -2.2).applyQuaternion(car.q).add(car.pos);
+      _tmp.set(0.42, 0.3, -2.2).applyQuaternion(Draw.q).add(Draw.pos);
       const v = 6 + Math.random() * 6;
       FX.glow.emit(_tmp.x, _tmp.y, _tmp.z, car.vel.x - AZ.x * v + (Math.random() - 0.5), car.vel.y - AZ.y * v + Math.random() * 0.8, car.vel.z - AZ.z * v + (Math.random() - 0.5),
         0.12 + Math.random() * 0.08, 0.3, -1.2, 1.0, 0.55, 0.2, 0.9, 0, 3);
@@ -10085,7 +10166,7 @@ function emitCarParticles(dt, ctl) {
     Game.smokeEmit += dt * (car.damage - 0.3) * 30;
     while (Game.smokeEmit >= 1) {
       Game.smokeEmit -= 1;
-      _tmp.set((Math.random() - 0.5) * 0.6, 0.6, -1.5).applyQuaternion(car.q).add(car.pos);
+      _tmp.set((Math.random() - 0.5) * 0.6, 0.6, -1.5).applyQuaternion(Draw.q).add(Draw.pos);
       const g = 0.1 + Math.random() * 0.08;
       FX.dust.emit(_tmp.x, _tmp.y, _tmp.z, car.vel.x * 0.85, car.vel.y * 0.85 + 1.2, car.vel.z * 0.85, 1.4, 0.45, 1.5, g, g, g, 0.5, -0.05, 0.9);
     }
@@ -10094,7 +10175,7 @@ function emitCarParticles(dt, ctl) {
 
 function updateCarVisual(dt, ctl) {
   const M = Game.carModel;
-  M.group.position.copy(car.pos); M.group.quaternion.copy(car.q);
+  M.group.position.copy(Draw.pos); M.group.quaternion.copy(Draw.q);
   for (let k = 0; k < 4; k++) {
     const w = car.wheels[k], cw = CAR.wheels[k], wm = M.wheels[k];
     const ext = w.grounded ? clamp(w.dist - CAR.radius, CAR.rest - CAR.travel - 0.05, CAR.rest) : CAR.rest;
@@ -10965,6 +11046,7 @@ const Settings = {
     if (k === 'line') { cycleLine(); return; }
     if (k === 'hud') { toggleHud(); return; }
     if (k === 'vol') { cycleVolume(); return; }
+    if (k === 'stab') { cycleStab(); return; }
     if (k === 'tilt') { Tilt.toggle(); return; }
     if (k === 'tiltSens') { Tilt.cycleSens(); return; }
     if (k === 'cam') toggleCamera(); else toggleSetting(k === 'sound' ? 'muted' : k);
@@ -10983,6 +11065,7 @@ const Settings = {
     document.getElementById('lineMode').textContent = LINE_NAMES[s.line || 'full'];
     document.getElementById('hudMode').textContent = s.hud === 'full' ? 'FULL' : 'MINIMAL';
     document.getElementById('tiltMode').textContent = TILT_SENS[Tilt.sensIdx()].name;
+    document.getElementById('stabMode').textContent = STAB[stabMode()].name;
     document.getElementById('volMode').textContent = Math.round((s.vol == null ? 1 : s.vol) * 100) + '%';
   },
   init() {
@@ -11192,8 +11275,9 @@ function update(dt) {
     ctl = chooseControls();
     Game.acc += dt;
     let steps = 0;
-    while (Game.acc >= PHYS_DT && steps < 8) { stepVehicle(PHYS_DT, ctl); Game.acc -= PHYS_DT; steps++; }
+    while (Game.acc >= PHYS_DT && steps < 8) { Draw.keep(); stepVehicle(PHYS_DT, ctl); Game.acc -= PHYS_DT; steps++; }
     if (steps >= 8) Game.acc = 0;
+    Draw.blend(Game.acc / PHYS_DT);
     processCarEvents();
     updateCarVisual(dt, ctl);
     emitCarParticles(dt, ctl);
