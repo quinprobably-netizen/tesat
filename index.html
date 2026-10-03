@@ -3653,6 +3653,11 @@ function refAccel(v, surf) {
   return _refAcc[k] + (_refAcc[k + 1] - _refAcc[k]) * (t - k) - SURF_INFO[surf].rr * 9.81;
 }
 const REF_VMAX = () => refTune().vmax;
+/** The reference car's engine in the stage's air: its power halfway up a real climb (1 at sea level). */
+function stageAirF() {
+  const a = TR.def.altitude;
+  return a ? engineAir(refTune().spec, airSigma((a[0] + a[1]) / 2 * (TR.def.altUnit === 'M' ? 1 : 0.3048))) : 1;
+}
 /** Lap-time style speed profile (curvature-limited, then accel/brake passes). Drives the AI and target times. */
 function computeSpeedProfile() {
   const N = TR.N, def = TR.def;
@@ -3683,7 +3688,7 @@ function computeSpeedProfile() {
   v[0] = 0;
   for (let i = 1; i < N; i++) {
     const mu = SURF_INFO[TR.surf[i]].mu;
-    const a = Math.max(0.4, Math.min(refAccel(v[i - 1], TR.surf[i]), mu * def.gripG * 0.9) - def.gravity * grade(i));
+    const a = Math.max(0.4, Math.min(refAccel(v[i - 1], TR.surf[i]) * stageAirF(), mu * def.gripG * 0.9) - def.gravity * grade(i));
     v[i] = Math.min(v[i], Math.sqrt(v[i - 1] * v[i - 1] + 2 * a * DS));
   }
   const brakeAt = (i) => Math.max(1, SURF_INFO[TR.surf[i]].mu * def.gripG * 0.75 + def.gravity * grade(i));   // uphill helps the brakes
@@ -3779,7 +3784,7 @@ function computeLineProfile() {
   for (let i = 0; i < N; i++) brake[i] = Math.max(1, SURF_INFO[TR.surf[i]].mu * def.gripG * 0.75 + def.gravity * grade(i));
   v[0] = 0;
   for (let i = 1; i < N; i++) {
-    const a = Math.max(0.4, Math.min(refAccel(v[i - 1], TR.surf[i]), SURF_INFO[TR.surf[i]].mu * def.gripG * 0.9) - def.gravity * grade(i));
+    const a = Math.max(0.4, Math.min(refAccel(v[i - 1], TR.surf[i]) * stageAirF(), SURF_INFO[TR.surf[i]].mu * def.gripG * 0.9) - def.gravity * grade(i));
     v[i] = Math.min(v[i], Math.sqrt(v[i - 1] * v[i - 1] + 2 * a * seg[i]));
   }
   for (let i = N - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * brake[i] * seg[i + 1]));
@@ -5635,11 +5640,26 @@ const DRIVE = {
   shaftDrag: 0.3,      // bearing and gear drag at each wheel (N·m per rad/s)
 };
 const GEARBOX = { idle: 0.12, redline: 8500, rpmMax: 9300 };   // follow the car (setCarTune), for the rev counter
-const AIR_RHO = 1.2;
+const AIR_RHO = 1.2;   // at sea level (the space stages breathe it too)
+/* Thin air: the three real mountain stages run at their real altitudes (Pikes Peak from 2,860 m to 4,300 m, where
+   the air is a third thinner). Drag and downforce fall with the density; an engine breathing through a throttle or
+   a supercharger (a fixed pressure ratio) loses power with it, while a turbo's wastegate holds most of its boost,
+   though it takes longer to spool. */
+/** Density of the air at altitude h (m) as a share of sea level's (the standard atmosphere). */
+function airSigma(h) { return Math.pow(Math.max(0.3, 1 - 2.25577e-5 * h), 4.2559); }
+/** The car's real altitude (m) on a stage mapped onto a real climb (as the HUD altimeter reads it); 0 elsewhere. */
+function carAltitudeM() {
+  const def = !RIG_GROUND.on && TR && TR.def;
+  if (!def || !def.altitude) return 0;
+  const a = def.altitude, alt = a[0] + (car.pos.y - 0.9 - TR.yLo) / (TR.yHi - TR.yLo) * (a[1] - a[0]);
+  return def.altUnit === 'M' ? alt : alt * 0.3048;
+}
+/** Engine power left at air density share sig: all of the loss without a turbo, about a third of it with one. */
+function engineAir(sp, sig) { return sp.lag > 0 ? 1 - 0.3 * (1 - sig) : sig; }
 /** Net crank torque (N·m) at `rpm` for throttle th (0-1): the full-throttle curve (scaled by the turbo's
- *  boost) blended with the closed-throttle friction and pumping drag, which grows with revs. */
-function engineNet(sp, rpm, th, spool) {
-  const wot = engineTorque(sp, rpm) * (sp.lag > 0 ? sp.offBoost + (1 - sp.offBoost) * spool : 1);
+ *  boost and by the air, air = engineAir) blended with the closed-throttle friction and pumping drag, which grows with revs. */
+function engineNet(sp, rpm, th, spool, air) {
+  const wot = engineTorque(sp, rpm) * (sp.lag > 0 ? sp.offBoost + (1 - sp.offBoost) * spool : 1) * (air || 1);
   return th * wot * sp.eta - (1 - th) * sp.disp * (9 + 21 * rpm / sp.redline);
 }
 /** Point the shared car constants at the chosen car's real figures (geometry, mass, inertia, springs, brakes, gearing). */
@@ -5666,7 +5686,7 @@ const car = {
   damage: 0, drifting: false, slip: 0, hullContact: false, spool: 1, tc: true, tcF: 1, tcCut: false, abs: true, backfire: 0,
   events: [], flipTimer: 0, offTimer: 0, globalTimer: 0, tune: null,
   gear: 1, rpm: 0.12, we: 105, shiftT: 0, shiftDir: 0, blipRpm: 0, shiftReq: 0, limiter: false, cut: false, autoBox: true, revHold: 0,
-  Tcl: 0, clutchSlip: false,
+  Tcl: 0, clutchSlip: false, sigma: 1,
 };
 const AX = new THREE.Vector3(), AY = new THREE.Vector3(), AZ = new THREE.Vector3();
 const F = new THREE.Vector3(), T = new THREE.Vector3();
@@ -5787,7 +5807,7 @@ function gearboxStep(dt, ctl, vFwd, nG) {
   const thr = car.gear < 0 ? ctl.brake : ctl.throttle;
   if (sp.lag > 0) {
     const want = car.shiftT > 0 ? Math.max(car.spool, 0.7) : thr;
-    car.spool = want > car.spool ? Math.min(want, car.spool + dt * (0.35 + car.rpm) / sp.lag) : Math.max(want, car.spool - dt * 1.2);
+    car.spool = want > car.spool ? Math.min(want, car.spool + dt * (0.35 + car.rpm) / sp.lag * Math.sqrt(car.sigma)) : Math.max(want, car.spool - dt * 1.2);
     if (thr < 0.1 && car.rpm > 0.75 && car.spool > 0.6 && !car.backfire && Math.random() < dt * 6) car.backfire = 0.08;
   } else car.spool = 1;
   if (car.backfire > 0) car.backfire = Math.max(0, car.backfire - dt);
@@ -5884,8 +5904,8 @@ function drivelineStep(dt, ctl, G, th0) {
     if (rpm > sp.redline) car.cut = true; else if (rpm < sp.redline - 180) car.cut = false;
     let th = car.shiftT > 0 ? (car.shiftDir < 0 && rpm < car.blipRpm ? 1 : 0) : th0;
     th = car.cut ? 0 : Math.max(th, clamp((sp.idle * 1.1 - rpm) / 400, 0, 0.35));
-    const Te = engineNet(sp, rpm, th, car.spool) * (th > 0 ? dmg : 1);
-    const dTe = Math.min(0, (engineNet(sp, rpm + 60, th, car.spool) - engineNet(sp, rpm - 60, th, car.spool)) / (120 * TAU / 60));
+    const air = engineAir(sp, car.sigma), Te = engineNet(sp, rpm, th, car.spool, air) * (th > 0 ? dmg : 1);
+    const dTe = Math.min(0, (engineNet(sp, rpm + 60, th, car.spool, air) - engineNet(sp, rpm - 60, th, car.spool, air)) / (120 * TAU / 60));
     for (let k = 0; k < 4; k++) {
       const w = W[k], f = TF[k];
       if (!w.grounded) { f.Fx = 0; f.Fy = 0; f.dFx = 0; continue; }
@@ -5950,6 +5970,7 @@ function drivelineStep(dt, ctl, G, th0) {
 
 function stepVehicle(dt, ctl) {
   const def = RIG_GROUND.on ? EARTH : TR.def, m = CAR.mass, g = def.gravity, tn = car.tune, sp = tn.spec;
+  const rho = AIR_RHO * (car.sigma = airSigma(carAltitudeM()));
   carAxes();
   // gravity: the body carries its own weight, the wheels theirs along the car's up axis (across it they ride with the body)
   F.set(0, -m * g, 0).addScaledVector(AY, (m - CAR.mSprung) * g * AY.y); T.set(0, 0, 0);
@@ -6148,8 +6169,8 @@ function stepVehicle(dt, ctl) {
   const vv = car.vel.length(), ae = tn.aero;
   if (vv > 1) {
     const sb = car.vel.dot(AX) / vv, cd = ae.cda + (ae.cdaSide - ae.cda) * sb * sb;
-    F.addScaledVector(car.vel, -0.5 * AIR_RHO * cd * vv);
-    const vf = Math.max(0, vLongBody), q = 0.5 * AIR_RHO * vf * vf, wh = car.wheels;
+    F.addScaledVector(car.vel, -0.5 * rho * cd * vv);
+    const vf = Math.max(0, vLongBody), q = 0.5 * rho * vf * vf, wh = car.wheels;
     if (q > 1) {
       // each axle's drop below its static ride height, per 10 cm (−2: off the ground)
       const sag = CAR.sag / tn.k, axleH = (a) => wh[a].grounded || wh[a + 1].grounded ? clamp(((wh[a].comp + wh[a + 1].comp) / 2 - sag) / 0.1, -1.5, 1.5) : -2;
