@@ -6938,9 +6938,11 @@ function gbBody_stradale(K) {
   };
 }
 // Ford RS200, 1986 works car. Drawn in real metres: 3.998 m long, 1.764 m wide, 1.321 m tall on the 2.53 m
-// wheelbase (1.502 / 1.497 m tracks); about 0.73 m front and 0.74 m rear overhang. Filippo Sapino's Ghia wedge:
-// low rounded nose with twin round lamps each side, the Sierra windscreen and cut-down Sierra doors, mid-engine
-// haunches, the roof-top engine air scoop and the big dished wing at roof height.
+// wheelbase (1.502 / 1.497 m tracks); about 0.73 m front and 0.74 m rear overhang. Filippo Sapino's Ghia
+// "bubble coupe": a low rounded nose with twin round lamps each side and fog lamps in the bumper, the Sierra
+// RS Cosworth windscreen and cut-down Sierra doors under a rounded bubble cabin, the roof scoop with its two
+// "ears", sail panels sweeping down from the roof to the tail around an upright rear window, the waistline
+// rising into the wraparound rear wing, and full-width wraparound tail lamps.
 function gbBody_rswedge(K) {
   const wb = K.wb, r = K.tyreR;
   const NOSE = 0.73, TAIL = -wb - 0.74;
@@ -6957,137 +6959,164 @@ function gbBody_rswedge(K) {
   };
   // x on a loft's upper side (tumblehome curve) at (z, y)
   const sideX = (st, z, y) => { const s = secAt(st, z), yeT = s.yt - s.crown; const t = K.clamp((y - s.ys) / Math.max(0.01, yeT - s.ys), 0, 1); return s.w + (s.wt - s.w) * t * t; };
-  /** A flat outline [[z, y], ...] wrapped onto a loft's upper side, both sides, standing off by `off`. */
-  const sidePatch = (pts, st, mat, off = 0.008) => K.both((sx) => {
+  /** A flat outline [[z, y], ...] wrapped onto a loft's upper side, both sides, standing off by `off`;
+   *  cx: the loft's centre (for the side lofts, which sit at ±cx). */
+  const sidePatch = (pts, st, mat, off = 0.008, cx = 0) => K.both((sx) => {
     const g = new THREE.ShapeGeometry(new THREE.Shape(pts.map(([z, y]) => new THREE.Vector2(z, y))));
     const p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) { const z = p.getX(i), y = p.getY(i); p.setXYZ(i, sx * (sideX(st, z, y) + off), y, z); }
+    for (let i = 0; i < p.count; i++) { const z = p.getX(i), y = p.getY(i); p.setXYZ(i, sx * (cx + sideX(st, z, y) + off), y, z); }
     if (sx > 0) { const ix = g.index; for (let i = 0; i < ix.count; i += 3) { const t = ix.getX(i + 1); ix.setX(i + 1, ix.getX(i + 2)); ix.setX(i + 2, t); } }
     g.computeVertexNormals();
     K.radd(g, mat);
   });
+  /** A loft drawn about the centre line, then moved out to x = ±cx (one each side). */
+  const sideLoft = (st, o, cx) => K.both((sx) => {
+    const n0 = K.g.children.length;
+    K.loft(st, o);
+    for (let i = n0; i < K.g.children.length; i++) K.g.children[i].geometry.translate(K.RX(sx * cx), 0, 0);
+  });
 
   const arch = (z, yb) => K.archY(z, yb, r + 0.07);
-  // ---- lower body: low rounded Ghia nose rising to the Sierra screen, door sides, engine bay, high square tail ----
+  // ---- lower body: rounded nose rising in a curve to the screen, Sierra door sides, engine deck between the
+  // rear haunches, rounded tail ----
   const body = [
-    { z: NOSE, yb: 0.2, ys: 0.34, yt: 0.54, w: 0.74, wt: 0.64, r: 0.06, crown: 0.03 },
-    { z: NOSE - 0.07, yb: 0.18, ys: 0.38, yt: 0.6, w: 0.8, wt: 0.72, r: 0.05, crown: 0.04 },
-    { z: 0.35, yb: 0.2, ys: 0.44, yt: 0.67, w: 0.83, wt: 0.76, crown: 0.05 },
-    { z: -0.28, yb: 0.2, ys: 0.5, yt: 0.83, w: 0.83, wt: 0.76, crown: 0.04 },
-    { z: -1.6, yb: 0.2, ys: 0.55, yt: 0.9, w: 0.83, wt: 0.77, crown: 0.03 },
-    { z: -1.72, yb: 0.2, ys: 0.55, yt: 0.98, w: 0.83, wt: 0.74, crown: 0.03 },
-    { z: -2.7, yb: 0.2, ys: 0.55, yt: 0.99, w: 0.83, wt: 0.74, crown: 0.03 },
-    { z: TAIL + 0.06, yb: 0.26, ys: 0.55, yt: 0.97, w: 0.82, wt: 0.73, r: 0.05, crown: 0.03 },
-    { z: TAIL, yb: 0.3, ys: 0.55, yt: 0.93, w: 0.79, wt: 0.7, r: 0.06, crown: 0.03 },
+    { z: NOSE, yb: 0.24, ys: 0.36, yt: 0.54, w: 0.74, wt: 0.6, r: 0.08, crown: 0.05 },
+    { z: NOSE - 0.05, yb: 0.2, ys: 0.38, yt: 0.59, w: 0.79, wt: 0.67, r: 0.06, crown: 0.07 },
+    { z: NOSE - 0.15, yb: 0.19, ys: 0.4, yt: 0.62, w: 0.815, wt: 0.71, crown: 0.08 },
+    { z: 0.3, yb: 0.19, ys: 0.44, yt: 0.68, w: 0.83, wt: 0.73, crown: 0.08 },
+    { z: -0.05, yb: 0.2, ys: 0.47, yt: 0.75, w: 0.83, wt: 0.74, crown: 0.07 },
+    { z: -0.3, yb: 0.2, ys: 0.5, yt: 0.84, w: 0.83, wt: 0.75, crown: 0.05 },
+    { z: -1.55, yb: 0.2, ys: 0.55, yt: 0.9, w: 0.83, wt: 0.77, crown: 0.03 },
+    { z: -1.7, yb: 0.2, ys: 0.56, yt: 0.99, w: 0.83, wt: 0.77, crown: 0.02 },
+    { z: -2.95, yb: 0.2, ys: 0.58, yt: 1.0, w: 0.83, wt: 0.77, crown: 0.02 },
+    { z: TAIL + 0.08, yb: 0.26, ys: 0.6, yt: 0.98, w: 0.815, wt: 0.75, r: 0.06, crown: 0.02 },
+    { z: TAIL, yb: 0.32, ys: 0.6, yt: 0.93, w: 0.775, wt: 0.71, r: 0.08, crown: 0.02 },
   ];
-  K.loft(body, { zs: uniq([NOSE, NOSE - 0.07, ...lin(0.5, -0.5, 14), -0.8, -1.1, -1.4, -1.6, -1.72, -1.9,
-    ...lin(-wb + 0.5, -wb - 0.5, 14), TAIL + 0.06, TAIL]), bottom: (z, yb) => arch(z, yb), side: 4, top: 3 });
+  K.loft(body, { zs: uniq([NOSE, NOSE - 0.05, NOSE - 0.15, ...lin(0.5, -0.5, 14), -0.8, -1.1, -1.3, -1.55, -1.7, -1.85,
+    ...lin(-wb + 0.5, -wb - 0.5, 14), -2.95, -3.12, TAIL + 0.08, TAIL]), bottom: (z, yb) => arch(z, yb), side: 4, top: 4 });
 
-  // ---- fat blistered arches: rounded flares, the rear ones run into the high engine-bay haunches ----
-  const flare = (fz, rz, top, wOut, zs, mid) => {
+  // ---- blistered arches: rounded flares, the rear ones running into the haunches under the sail panels ----
+  const flare = (fz, rz, top, wOut, zs, topF = top - 0.08) => {
     const st = [
-      { z: fz, yb: 0.24, ys: 0.44, yt: top - 0.08, w: 0.81, wt: 0.77, r: 0.03, crown: 0.0 },
-      { z: fz - 0.14, yb: 0.24, ys: 0.46, yt: top, w: wOut, wt: wOut - 0.07, r: 0.03, crown: 0.0 },
-      ...(mid || []),
-      { z: rz + 0.14, yb: 0.24, ys: 0.46, yt: top, w: wOut, wt: wOut - 0.07, r: 0.03, crown: 0.0 },
+      { z: fz, yb: 0.24, ys: 0.44, yt: topF, w: 0.81, wt: 0.77, r: 0.03, crown: 0.0 },
+      { z: fz - 0.14, yb: 0.24, ys: 0.46, yt: top, w: wOut, wt: wOut - 0.08, r: 0.03, crown: 0.0 },
+      { z: rz + 0.14, yb: 0.24, ys: 0.46, yt: top, w: wOut, wt: wOut - 0.08, r: 0.03, crown: 0.0 },
       { z: rz, yb: 0.24, ys: 0.44, yt: top - 0.06, w: 0.81, wt: 0.77, r: 0.03, crown: 0.0 },
     ];
-    const C = 0.7, s2 = st.map((q) => Object.assign({}, q, { w: q.w - C, wt: q.wt - C }));
-    K.both((sx) => {
-      const n0 = K.g.children.length;
-      K.loft(s2, { zs: uniq([fz, fz - 0.14, ...zs, rz + 0.14, rz]), bottom: (z, yb) => arch(z, yb), under: null, side: 4, top: 2 });
-      for (let i = n0; i < K.g.children.length; i++) K.g.children[i].geometry.translate(K.RX(sx * C), 0, 0);
-    });
+    const C = 0.7;
+    sideLoft(st.map((q) => Object.assign({}, q, { w: q.w - C, wt: q.wt - C })),
+      { zs: uniq([fz, fz - 0.14, ...zs, rz + 0.14, rz]), bottom: (z, yb) => arch(z, yb), under: null, side: 4, top: 2 }, C);
   };
-  flare(NOSE - 0.03, -0.58, 0.74, 0.882, lin(0.5, -0.5, 12));
-  flare(-1.62, TAIL + 0.02, 1.07, 0.882, [-1.9, -2.2, ...lin(-wb + 0.5, -wb - 0.5, 12), -3.15]);
+  flare(NOSE - 0.12, -0.56, 0.74, 0.882, lin(0.45, -0.45, 12), 0.58);
+  flare(-1.66, TAIL + 0.05, 0.99, 0.882, [-1.9, -2.2, ...lin(-wb + 0.5, -wb - 0.5, 12), -3.15]);
 
-  // ---- cabin: Sierra windscreen, cut-down Sierra doors, short flat roof, near-upright rear window ----
+  // ---- bubble cabin: Sierra RS Cosworth screen, cut-down Sierra door glass curving in to a rounded roof ----
   const cab = [
-    { z: -0.26, yb: 0.82, ys: 0.84, yt: 0.86, w: 0.78, wt: 0.74, r: 0.0, crown: 0.01 },
-    { z: -0.98, yb: 0.86, ys: 0.88, yt: 1.31, w: 0.78, wt: 0.62, r: 0.0, crown: 0.06 },
-    { z: -1.56, yb: 0.89, ys: 0.91, yt: 1.31, w: 0.78, wt: 0.62, r: 0.0, crown: 0.06 },
-    { z: -1.76, yb: 0.92, ys: 0.94, yt: 1.03, w: 0.76, wt: 0.66, r: 0.0, crown: 0.03 },
+    { z: -0.28, yb: 0.83, ys: 0.84, yt: 0.86, w: 0.77, wt: 0.75, r: 0.0, crown: 0.01 },
+    { z: -0.62, yb: 0.85, ys: 0.87, yt: 1.08, w: 0.77, wt: 0.68, r: 0.0, crown: 0.05 },
+    { z: -0.98, yb: 0.87, ys: 0.89, yt: 1.3, w: 0.77, wt: 0.6, r: 0.0, crown: 0.09 },
+    { z: -1.5, yb: 0.89, ys: 0.91, yt: 1.315, w: 0.77, wt: 0.6, r: 0.0, crown: 0.09 },
+    { z: -1.72, yb: 0.96, ys: 0.98, yt: 1.27, w: 0.72, wt: 0.57, r: 0.0, crown: 0.08 },
   ];
-  K.loft(cab, { zs: uniq([...lin(-0.26, -0.98, 4), ...lin(-0.98, -1.56, 3), -1.66, -1.76]), mat: K.glass, under: null, caps: [null, null], side: 3, top: 3 });
-  K.loft([
-    { z: -0.96, yb: 1.24, ys: 1.25, yt: 1.321, w: 0.645, wt: 0.615, r: 0.0, crown: 0.06 },
-    { z: -1.04, yb: 1.25, ys: 1.26, yt: 1.321, w: 0.645, wt: 0.615, r: 0.0, crown: 0.06 },
-    { z: -1.54, yb: 1.25, ys: 1.26, yt: 1.321, w: 0.645, wt: 0.615, r: 0.0, crown: 0.06 },
-    { z: -1.6, yb: 1.23, ys: 1.24, yt: 1.3, w: 0.66, wt: 0.62, r: 0.0, crown: 0.06 },
-  ], { under: K.dark, side: 2, top: 3 });
-  sidePatch([[-0.26, 0.82], [-0.2, 0.82], [-0.96, 1.29], [-1.03, 1.29], [-1.03, 1.25]], cab, K.paint);   // A pillar
-  sidePatch([[-1.5, 0.88], [-1.78, 0.9], [-1.78, 1.04], [-1.6, 1.29], [-1.5, 1.29]], cab, K.paint);         // wide B/C pillar (no rear side glass)
-  sidePatch([[-0.26, 0.82], [-1.78, 0.88], [-1.78, 0.93], [-0.26, 0.87]], cab, K.dark, 0.006);             // window seal
-  sidePatch([[-1.12, 0.88], [-1.15, 0.88], [-1.15, 1.28], [-1.12, 1.28]], cab, K.dark, 0.01);                // Sierra door-glass divider
+  K.loft(cab, { zs: uniq([...lin(-0.28, -0.98, 6), ...lin(-0.98, -1.5, 3), -1.62, -1.72]), mat: K.glass, under: null, caps: [null, K.glass], side: 4, top: 4 });
+  // painted roof over the glass, from the screen header back to the rear window
+  const roof = [-0.95, -1.05, -1.25, -1.45, -1.58, -1.67].map((z) => {
+    const s = secAt(cab, z), yb = s.yt - s.crown - 0.05, x = sideX(cab, z, yb) + 0.012;
+    return { z, yb, ys: yb + 0.005, yt: s.yt + 0.014, w: x, wb: x, wt: s.wt + 0.012, crown: s.crown, r: 0.0 };
+  });
+  K.loft(roof, { side: 2, top: 4, under: K.dark });
+  K.rbox(1.12, 0.018, 0.1, K.paint, 0, 1.305, -1.71, 0.25);                                                  // roof spoiler lip
+  sidePatch([[-0.3, 0.84], [-0.22, 0.84], [-0.95, 1.26], [-1.05, 1.26], [-1.05, 1.2]], cab, K.paint);        // A pillar
+  sidePatch([[-0.28, 0.83], [-1.5, 0.89], [-1.5, 0.93], [-0.28, 0.87]], cab, K.dark, 0.006);                // window seal
+  sidePatch([[-1.08, 0.88], [-1.105, 0.88], [-1.105, 1.24], [-1.08, 1.24]], cab, K.dark, 0.01);              // Sierra quarter-light divider
   // interior
   K.rbox(1.5, 0.04, 1.4, K.dark, 0, 0.84, -1.0);
   K.rbox(1.4, 0.12, 0.22, K.dark, 0, 0.88, -0.45);
-  K.rtube(0.6, 0.86, -1.45, 0.58, 1.26, -1.45, 0.022, K.dark); K.rtube(-0.6, 0.86, -1.45, -0.58, 1.26, -1.45, 0.022, K.dark);
-  K.rtube(-0.58, 1.26, -1.45, 0.58, 1.26, -1.45, 0.022, K.dark);
+  K.rtube(0.6, 0.86, -1.45, 0.56, 1.24, -1.45, 0.022, K.dark); K.rtube(-0.6, 0.86, -1.45, -0.56, 1.24, -1.45, 0.022, K.dark);
+  K.rtube(-0.56, 1.24, -1.45, 0.56, 1.24, -1.45, 0.022, K.dark);
 
-  // ---- roof scoop: the works cars' engine air intake on the back of the roof ----
+  // ---- sail panels: from the roof's rear corners down to the wing, the rear window upright between them ----
+  const sail = [
+    { z: -1.42, yb: 0.92, ys: 0.94, yt: 1.29, w: 0.135, wb: 0.135, wt: 0.06, crown: 0.02, r: 0.0 },
+    { z: -1.9, yb: 0.96, ys: 0.98, yt: 1.245, w: 0.135, wb: 0.135, wt: 0.07, crown: 0.02, r: 0.0 },
+    { z: -2.5, yb: 0.98, ys: 1.0, yt: 1.16, w: 0.125, wb: 0.125, wt: 0.07, crown: 0.02, r: 0.0 },
+    { z: -2.96, yb: 0.99, ys: 1.0, yt: 1.1, w: 0.115, wb: 0.115, wt: 0.07, crown: 0.02, r: 0.0 },
+  ];
+  sideLoft(sail, { zs: uniq([-1.42, -1.6, -1.75, -1.9, -2.1, -2.3, -2.5, -2.75, -2.96]), under: null, side: 3, top: 2 }, 0.64);
+  // quarter intakes in the sails behind the door glass (radiator and intercooler air on the works cars)
+  sidePatch([[-1.58, 1.0], [-2.02, 1.0], [-1.95, 1.17], [-1.66, 1.19]], sail, K.dark, 0.006, 0.64);
+  sidePatch([[-1.5, 0.88], [-1.52, 0.88], [-1.52, 1.24], [-1.5, 1.24]], cab, K.dark, 0.012);                // door shut line
+  // engine cover louvres between the sails
+  for (let i = 0; i < 6; i++) K.rbox(0.92, 0.012, 0.06, K.dark, 0, 1.0, -2.0 - i * 0.12, 0.1);
+
+  // ---- roof scoop and its two "ears" ----
   K.loft([
-    { z: -1.1, yb: 1.3, ys: 1.31, yt: 1.322, w: 0.2, wt: 0.18, r: 0.0, crown: 0.0 },
-    { z: -1.42, yb: 1.3, ys: 1.32, yt: 1.42, w: 0.24, wt: 0.2, r: 0.0, crown: 0.01 },
-    { z: -1.62, yb: 1.26, ys: 1.3, yt: 1.42, w: 0.25, wt: 0.21, r: 0.0, crown: 0.01 },
-    { z: -1.95, yb: 1.08, ys: 1.12, yt: 1.2, w: 0.25, wt: 0.21, r: 0.0, crown: 0.01 },
+    { z: -1.16, yb: 1.3, ys: 1.31, yt: 1.325, w: 0.22, wt: 0.2, r: 0.0, crown: 0.0 },
+    { z: -1.36, yb: 1.3, ys: 1.32, yt: 1.395, w: 0.24, wt: 0.21, r: 0.0, crown: 0.01 },
+    { z: -1.62, yb: 1.28, ys: 1.31, yt: 1.39, w: 0.25, wt: 0.22, r: 0.0, crown: 0.01 },
+    { z: -1.8, yb: 1.2, ys: 1.24, yt: 1.29, w: 0.25, wt: 0.22, r: 0.0, crown: 0.01 },
   ], { side: 2, top: 2, caps: [K.paint, K.paint] });
-  K.rpanel([[-0.2, 1.33], [0.2, 1.33], [0.2, 1.4], [-0.2, 1.4]], K.dark, 'front', -1.418);              // scoop mouth
-  // engine cover: louvres between the haunches, rear window
-  for (let i = 0; i < 5; i++) K.rbox(0.8, 0.012, 0.06, K.dark, 0, 0.995, -2.1 - i * 0.12, 0.1);
+  K.rpanel([[-0.19, 1.33], [0.19, 1.33], [0.19, 1.385], [-0.19, 1.385]], K.dark, 'front', -1.356);         // scoop mouth
+  sideLoft([
+    { z: -1.38, yb: 1.2, ys: 1.21, yt: 1.235, w: 0.05, wt: 0.045, r: 0.0, crown: 0.0 },
+    { z: -1.48, yb: 1.2, ys: 1.22, yt: 1.29, w: 0.06, wt: 0.05, r: 0.0, crown: 0.01 },
+    { z: -1.76, yb: 1.16, ys: 1.18, yt: 1.27, w: 0.065, wt: 0.055, r: 0.0, crown: 0.01 },
+  ], { side: 2, top: 2, under: null, caps: [K.paint, K.paint] }, 0.6);
+  K.both((sx) => K.rpanel([[sx * 0.555, 1.235], [sx * 0.645, 1.235], [sx * 0.645, 1.28], [sx * 0.555, 1.28]], K.dark, 'front', -1.476));
 
-  // ---- nose: twin round headlamps in black recesses at each corner, wide intake, splitter, lamp pod ----
+  // ---- nose: black band with twin round lamps each side, bumper with fog lamps and the intake, splitter ----
   const nz = NOSE + 0.004;
-  K.rpanel([[-0.5, 0.21], [0.5, 0.21], [0.48, 0.34], [-0.48, 0.34]], K.dark, 'front', nz);               // intake
-  K.rbox(0.96, 0.02, 0.02, K.trim, 0, 0.275, nz + 0.01);
+  K.rpanel([[-0.62, 0.35], [0.62, 0.35], [0.58, 0.49], [-0.58, 0.49]], K.dark, 'front', nz);
   K.both((sx) => {
-    K.rpanel([[sx * 0.3, 0.39], [sx * 0.68, 0.39], [sx * 0.7, 0.46], [sx * 0.68, 0.52], [sx * 0.3, 0.52], [sx * 0.28, 0.46]], K.dark, 'front', nz + 0.002);
-    K.rlamp(sx * 0.4, 0.455, nz + 0.022, 0.058);
-    K.rlamp(sx * 0.585, 0.455, nz + 0.022, 0.058);
-    K.rpanel([[sx * 0.55, 0.23], [sx * 0.7, 0.23], [sx * 0.7, 0.31], [sx * 0.55, 0.31]], K.dark, 'front', nz + 0.002);   // brake duct
-    K.rbox(0.04, 0.02, 0.04, K.trim, sx * 0.45, 0.66, 0.35);                                             // bonnet pins
+    K.rlamp(sx * 0.31, 0.42, nz + 0.022, 0.058);
+    K.rlamp(sx * 0.48, 0.42, nz + 0.022, 0.058);
+    K.rlamp(sx * 0.48, 0.28, nz + 0.012, 0.04);                                                             // fog lamps in the bumper
+    K.rpanel([[sx * 0.56, 0.24], [sx * 0.68, 0.24], [sx * 0.68, 0.31], [sx * 0.56, 0.31]], K.dark, 'front', nz);   // brake duct
+    K.rbox(0.04, 0.02, 0.04, K.trim, sx * 0.45, 0.665, 0.32);                                                // bonnet pins
   });
-  K.rbox(1.62, 0.035, 0.3, K.dark, 0, 0.17, NOSE - 0.08);                                                // chin splitter
-  K.both((sx) => K.rbox(0.2, 0.02, 0.16, K.dark, sx * 0.76, 0.32, NOSE - 0.1, 0, 0, -sx * 0.2));         // dive planes
-  K.rbox(0.6, 0.012, 0.25, K.dark, 0, 0.72, 0.05, -0.15);                                               // bonnet outlet
-  K.rtube(0.1, 0.86, -0.32, 0.55, 0.9, -0.4, 0.008, K.dark, 4);                                          // wiper
+  { const ov = new THREE.CircleGeometry(0.075, 18); ov.scale(1, 0.5, 1); K.radd(ov, K.trim, 0, 0.42, nz + 0.006); }   // Ford oval
+  K.rpanel([[-0.36, 0.22], [0.36, 0.22], [0.36, 0.32], [-0.36, 0.32]], K.dark, 'front', nz);                  // intake
+  K.rbox(0.72, 0.012, 0.02, K.trim, 0, 0.27, nz + 0.01);
+  K.rbox(1.58, 0.03, 0.26, K.dark, 0, 0.175, NOSE - 0.08);                                                 // chin splitter
+  K.both((sx) => K.rbox(0.18, 0.02, 0.14, K.dark, sx * 0.74, 0.3, NOSE - 0.1, 0, 0, -sx * 0.2));            // dive planes
+  K.rbox(0.56, 0.012, 0.22, K.dark, 0, 0.705, 0.06, -0.2);                                                 // radiator outlet in the bonnet
+  K.rtube(0.1, 0.86, -0.34, 0.55, 0.9, -0.42, 0.008, K.dark, 4);                                           // wiper
 
-  // ---- sides: quarter scoop behind the door glass, lower intake ahead of the rear wheel, sills, mirrors ----
+  // ---- sides: door shut line, lower intake ahead of the rear wheel, sills, mirrors, mud flaps ----
+  sidePatch([[-0.3, 0.32], [-0.32, 0.32], [-0.32, 0.84], [-0.3, 0.84]], body, K.dark, 0.006);
+  sidePatch([[-1.5, 0.32], [-1.52, 0.32], [-1.52, 0.89], [-1.5, 0.89]], body, K.dark, 0.006);
   K.both((sx) => {
-    K.rbox(0.1, 0.14, 0.34, K.dark, sx * 0.83, 0.96, -1.86);                                              // haunch intake
-    K.rpanel([[-1.7, 0.9], [-1.7, 1.03], [-1.72, 1.03], [-1.72, 0.9]], K.dark, 'side', sx * 0.885, sx);
-    K.rpanel([[-1.62, 0.32], [-1.85, 0.36], [-1.85, 0.62], [-1.62, 0.6]], K.dark, 'side', sx * 0.836, sx); // lower side intake
-    K.rbox(0.07, 0.1, 1.0, K.dark, sx * 0.83, 0.2, -1.1);                                                 // sill
-    K.rbox(0.04, 0.04, 0.08, K.dark, sx * 0.8, 0.92, -0.42);
-    K.rbox(0.13, 0.09, 0.12, K.paint, sx * 0.88, 0.94, -0.42);
-    K.rbox(0.26, 0.24, 0.015, K.dark, sx * 0.74, 0.16, -0.62);                                           // mud flaps
+    K.rpanel([[-1.6, 0.34], [-1.84, 0.38], [-1.84, 0.62], [-1.6, 0.6]], K.dark, 'side', sx * 0.836, sx);     // lower side intake
+    K.rbox(0.07, 0.1, 1.0, K.dark, sx * 0.83, 0.2, -1.1);                                                  // sill
+    K.rbox(0.04, 0.04, 0.08, K.dark, sx * 0.79, 0.92, -0.42);
+    K.rbox(0.13, 0.08, 0.12, K.paint, sx * 0.87, 0.94, -0.42);
+    K.rbox(0.26, 0.24, 0.015, K.dark, sx * 0.74, 0.16, -0.62);                                             // mud flaps
     K.rbox(0.26, 0.24, 0.015, K.dark, sx * 0.74, 0.16, -wb - 0.62);
   });
 
-  // ---- tail: black louvred panel, rectangular lamps in the corners, bumper ----
+  // ---- tail: full-width wraparound lamps, black bumper and diffuser ----
   const tz = TAIL - 0.004;
-  K.rpanel([[-0.76, 0.5], [0.76, 0.5], [0.72, 0.9], [-0.72, 0.9]], K.dark, 'front', tz, -1);
-  K.both((sx) => {
-    K.rpanel([[sx * 0.48, 0.66], [sx * 0.74, 0.66], [sx * 0.72, 0.82], [sx * 0.48, 0.82]], K.tailMat, 'front', tz - 0.004, -1);
-    K.rlamp(sx * 0.38, 0.74, tz - 0.004, 0.05, K.tailMat, -1, 10);
-  });
-  for (let i = 0; i < 4; i++) K.rbox(0.6, 0.012, 0.015, K.trim, 0, 0.6 + i * 0.07, tz - 0.01);
-  K.rbox(1.6, 0.14, 0.12, K.dark, 0, 0.33, TAIL + 0.03);
-  K.rbox(1.3, 0.06, 0.3, K.dark, 0, 0.24, TAIL + 0.2);
+  K.rpanel([[-0.74, 0.62], [0.74, 0.62], [0.72, 0.84], [-0.72, 0.84]], K.dark, 'front', tz, -1);
+  K.rpanel([[-0.73, 0.66], [0.73, 0.66], [0.71, 0.8], [-0.71, 0.8]], K.tailMat, 'front', tz - 0.004, -1);
+  sidePatch([[-3.1, 0.66], [-3.265, 0.66], [-3.265, 0.8], [-3.1, 0.8]], body, K.tailMat, 0.006);
+  K.both((sx) => K.rpanel([[sx * 0.1, 0.7], [sx * 0.17, 0.7], [sx * 0.17, 0.76], [sx * 0.1, 0.76]], K.headMat, 'front', tz - 0.008, -1));   // reversing lamps
+  K.rbox(1.58, 0.16, 0.12, K.dark, 0, 0.36, TAIL + 0.04);
+  K.rbox(1.3, 0.06, 0.3, K.dark, 0, 0.26, TAIL + 0.2);
+  for (let i = 0; i < 5; i++) K.rbox(0.015, 0.1, 0.28, K.dark, -0.5 + i * 0.25, 0.23, TAIL + 0.16);
 
-  // ---- the big dished wing at roof height, carried on the rear haunches ----
-  const wy = 1.3, wz = -3.06, ch = 0.42;
-  K.rbox(1.72, 0.04, ch, K.paint, 0, wy, wz, 0.06);
-  K.rbox(1.72, 0.06, 0.02, K.dark, 0, wy + 0.03, wz - ch / 2);                                              // gurney lip
+  // ---- the wraparound rear wing: a full-width plane on the sail ends, its tips sweeping down and forward into
+  // the waistline over the rear haunches ----
+  const wy = 1.115, wz = -3.08, ch = 0.38;
+  K.rbox(1.68, 0.04, ch, K.paint, 0, wy, wz, 0.07);
+  K.rbox(1.68, 0.05, 0.02, K.dark, 0, wy + 0.03, wz - ch / 2);                                              // gurney lip
   K.both((sx) => {
-    K.rprofile([[-2.5, 1.05], [-2.85, 1.28], [-3.3, 1.34], [-3.3, 1.02], [-3.0, 1.04]], 0.03, K.paint, { x: sx * 0.84, bevel: 0.006 });
+    K.rprofile([[-2.42, 0.95], [-2.8, 1.06], [-3.27, 1.15], [-3.27, 1.07], [-2.86, 1.0], [-2.5, 0.92]], 0.06, K.paint, { x: sx * 0.82, bevel: 0.012 });
   });
 
   return {
     seatX: K.RX(0.34), seatY: K.RY(0.8), seatZ: K.RZ(-1.25), pilotScale: 0.9,
     rearZ: K.RZ(TAIL), thrY: K.RY(0.3),
-    wing: [K.RY(1.02), K.RY(wy), K.RZ(wz), K.RX(1.72)], shockTop: K.RY(0.7), antenna: [K.RX(-0.4), K.RY(1.321), K.RZ(-1.25)],
+    wing: [K.RY(1.0), K.RY(wy), K.RZ(wz), K.RX(1.68)], shockTop: K.RY(0.7), antenna: [K.RX(-0.4), K.RY(1.335), K.RZ(-1.25)],
   };
 }
 // MG Metro 6R4 (1986 works "International", Computervision / Austin Rover livery).
