@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Regolith Rally: Rapier prototype</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #10131a; color: #e8ecf2;
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  .panel { position: fixed; padding: 10px 12px; background: rgba(10, 13, 20, .74); border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 8px; pointer-events: none; }
+  #hud { left: 12px; top: 12px; min-width: 270px; }
+  #hud h1 { margin: 0 0 6px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #ffb36b; }
+  #hud .row { display: flex; justify-content: space-between; gap: 18px; }
+  #hud .row b { color: #fff; font-weight: 600; }
+  #hud .dim { color: #8d97a8; }
+  #speed { font-size: 30px; font-weight: 700; line-height: 1.1; margin: 6px 0 4px; }
+  #speed small { font-size: 12px; font-weight: 400; color: #8d97a8; }
+  #susp { display: flex; gap: 5px; margin-top: 6px; align-items: flex-end; height: 34px; }
+  #susp i { position: relative; width: 14px; height: 34px; background: rgba(255, 255, 255, .1); border-radius: 2px; overflow: hidden; }
+  #susp b { position: absolute; left: 0; right: 0; bottom: 0; background: #6bd0ff; }
+  #help { left: 12px; bottom: 12px; right: 12px; text-align: center; color: #aeb7c6; }
+  kbd { color: #fff; background: rgba(255, 255, 255, .12); border-radius: 3px; padding: 0 5px; font: inherit; }
+  #hud kbd { font-size: 11px; margin-left: 4px; }
+  #err { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; padding: 24px;
+    background: #10131a; color: #ffb3a6; font-size: 15px; white-space: pre-wrap; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud" class="panel">
+  <h1>Rapier prototype <span class="dim" id="ver"></span></h1>
+  <div class="row"><span class="dim">MODE <kbd>M</kbd></span><b id="mode"></b></div>
+  <div class="row"><span class="dim">SURFACE <kbd>T</kbd></span><b id="surf"></b></div>
+  <div id="speed">0 <small>km/h</small></div>
+  <div class="row"><span class="dim">vehicle</span><b id="msVeh">-</b></div>
+  <div class="row"><span class="dim">world.step()</span><b id="msStep">-</b></div>
+  <div class="row"><span class="dim">bodies</span><b id="bodies">-</b></div>
+  <div class="row"><span class="dim">suspension</span><span id="susp"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></span></div>
+</div>
+<div id="help" class="panel"><kbd>W</kbd><kbd>S</kbd> throttle / brake / reverse &nbsp; <kbd>A</kbd><kbd>D</kbd> steer &nbsp; <kbd>Space</kbd> handbrake &nbsp;
+  <kbd>R</kbd> restart &nbsp; <kbd>G</kbd> skidpad &nbsp; <kbd>F</kbd> flip upright &nbsp; <kbd>B</kbd> reset props &nbsp; <kbd>M</kbd> drive mode &nbsp; <kbd>T</kbd> surface</div>
+<div id="err"></div>
+
+<script type="module">
+/* =============================================================================
+   RAPIER PROTOTYPE: can Rapier carry the rally car and the props it hits?
+   A standalone test bench (the game itself, ../index.html, is untouched). It reuses the game's real car
+   (CAR below is copied from index.html: mass, inertia, wheel positions, spring rates, tyre curves, surface
+   grip) on a procedural road with a kicker, and puts crates, barrels and tyre stacks beside and on it.
+   Terrain is a Rapier heightfield; props are dynamic bodies; the car is a dynamic body with a box chassis.
+
+   Two ways to drive that body, switch live with M:
+
+     A  RAPIER'S OWN RAYCAST VEHICLE   world.createVehicleController(chassis): a port of Bullet's btRaycastVehicle.
+        Springs, dampers, engine force, brake, steering and tyre friction all come from Rapier. Setting it up is
+        about forty lines. Limits seen while building this: its friction is a single Coulomb-style limit with no
+        slip curve (no peak and fall-off per surface, no combined slip, so a handbrake turn doesn't happen); the
+        brake is an impulse per step, not a force, and is not grip-limited (clamped here by wheel load); the
+        spring and damper rates are per kg of chassis; there is no driveline, so wheels never spin up.
+
+     B  THE GAME'S OWN MODEL ON A RAPIER BODY   the hybrid. Rapier owns the rigid body, the ground and prop
+        contacts, and answers the four wheel raycasts (world.castRay); the forces are the game's: coil-over
+        springs with two-stage dampers, bump stops and anti-roll bars, the combined-slip Pacejka tyre per
+        surface, and a wheel spin solved implicitly (one wheel at a time; the real game solves the whole
+        driveline at once, with engine inertia and gearing this simple model lacks, so traction control is
+        needed even on a light throttle). Applied with body.addForceAtPoint().
+
+   Both modes share the Rapier world: the same heightfield ground, the same chassis colliders (with CCD) and the
+   same ninety props, so the prop and wall behaviour is identical. Wheel rays are filtered to the ground, so the
+   car doesn't ride up on barrels. G teleports to a flat skidpad (rings at 10 and 20 m) for the handling.
+
+   Units follow the game: metres, kilograms, +z forward, +x left, +y up; fixed 120 Hz step.
+   ============================================================================= */
+const RAPIER_URL = 'https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs';
+
+const $ = (id) => document.getElementById(id);
+function fail(msg) { const e = $('err'); e.textContent = msg; e.style.display = 'flex'; }
+
+let RAPIER;
+try {
+  RAPIER = (await import(RAPIER_URL)).default;
+  await RAPIER.init();                                   // the -compat build embeds the WASM (about 3 MB) in the module
+} catch (e) {
+  fail('Could not load Rapier from the CDN.\n\n' + RAPIER_URL + '\n\n' + (e && e.message || e));
+  throw e;
+}
+if (typeof THREE === 'undefined') { fail('three.js did not load.'); throw new Error('no THREE'); }
+$('ver').textContent = RAPIER.version();
+
+/* ---- the game's car and tyres (index.html: CAR, SUSP, TYRE_SURF, SURF_INFO) ---- */
+const DT = 1 / 120, G = 9.81;
+const CAR = {
+  mass: 1010,
+  inertia: { x: 1250, y: 1330, z: 430 },                // pitch, yaw, roll about the centre of mass
+  wheels: [                                             // the origin is the centre of mass
+    { x: 0.75, z: 1.39, front: true }, { x: -0.75, z: 1.39, front: true },
+    { x: 0.76, z: -1.05, front: false }, { x: -0.76, z: -1.05, front: false },
+  ],
+  mountY: 0.12, rest: 0.27, travel: 0.24, radius: 0.32, Iw: 1.2,
+  kS: [24000, 24000, 32000, 32000], N0: [2100, 2100, 2850, 2850],   // spring rate (N/m) and static load (N) per corner
+  brakeT: [2300, 1450], hbT: 2500,                       // brake torque (N·m), front / rear; handbrake on the rears
+  maxSteer: 0.55, steerFalloff: 0.06,
+};
+const SUSP = { bump: 0.85, rebound: 1.2, bumpKnee: 0.7, bumpHi: 0.4, rebKnee: 0.5, rebHi: 0.35,
+  stopLen: 0.05, stopK: 3, stopC: 0.5, arbF: 0.8, arbR: 0.8, damping: 0.55 };
+const SURFACES = [                                        // mu and rr from SURF_INFO, curve from TYRE_SURF
+  { name: 'GRAVEL', mu: 0.66, rr: 0.035, kp: 0.16, ap: 0.19, C: 1.25 },
+  { name: 'TARMAC', mu: 1.05, rr: 0.014, kp: 0.10, ap: 0.12, C: 1.42 },
+  { name: 'SNOW',   mu: 0.42, rr: 0.03,  kp: 0.13, ap: 0.16, C: 1.3 },
+  { name: 'ICE',    mu: 0.30, rr: 0.012, kp: 0.10, ap: 0.10, C: 1.5 },
+];
+for (const s of SURFACES) { s.B = Math.tan(Math.PI / (2 * s.C)); s.BC = s.B * s.C; }
+const TYRE_V0 = 3.5;
+const ENGINE = { power: 150e3, fMax: 9000, reverseF: 3500, reverseMax: 12, awdFront: 0.4 };   // W, N at the wheels
+const AERO = { rho: 1.2, CdA: 0.9 };
+const TC = { start: 0.12, range: 0.2 };                   // traction control: engine cut fades out between these slip ratios
+const SHAFT_DRAG = 0.3, MAX_LEN = CAR.rest + CAR.radius;
+
+/* ---- the stage: a winding road with a kicker, over rolling hills ---- */
+const SIZE = 256, CELLS = 256, CELL = SIZE / CELLS;       // 1 m heightfield cells, centred on the origin
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const sstep = (x, a, b) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const roadX = (z) => 14 * Math.sin(z / 38) + 4 * Math.sin(z / 17 + 1);
+const roadSlope = (z) => 14 / 38 * Math.cos(z / 38) + 4 / 17 * Math.cos(z / 17 + 1);
+const KICK = { z0: 22, z1: 31, z2: 33, h: 1.4 };          // ramps up over 9 m, then drops away
+const roadY = (z) => 0.55 * Math.sin(z / 16) + 0.25 * Math.sin(z / 5.3) + KICK.h * sstep(z, KICK.z0, KICK.z1) * (1 - sstep(z, KICK.z1, KICK.z2));
+const PAD = { x: -78, z: 20, r: 30, h: 1.0 };            // a flat skidpad away from the road, to feel the tyres without terrain in the way
+function groundH(x, z) {
+  const d = Math.abs(x - roadX(z)), off = sstep(d, 6, 24);
+  const hills = 2.4 * Math.sin(x / 19 + 0.7) * Math.cos(z / 23) + 1.1 * Math.sin((x + z) / 8.5) + 0.6 * Math.sin(x / 5.1) * Math.sin(z / 4.7);
+  return lerp(PAD.h, roadY(z) + off * (3 + Math.max(hills, -2.5)), sstep(Math.hypot(x - PAD.x, z - PAD.z), PAD.r, PAD.r + 22));
+}
+
+/* ---- Rapier world ---- */
+const world = new RAPIER.World({ x: 0, y: -G, z: 0 });
+world.timestep = DT;
+
+const heights = new Float32Array((CELLS + 1) * (CELLS + 1));
+for (let i = 0; i <= CELLS; i++) for (let j = 0; j <= CELLS; j++)
+  heights[i * (CELLS + 1) + j] = groundH(-SIZE / 2 + i * CELL, -SIZE / 2 + j * CELL);   // column-major: i runs along x, j along z
+const terrain = world.createCollider(
+  RAPIER.ColliderDesc.heightfield(CELLS, CELLS, heights, { x: SIZE, y: 1, z: SIZE }).setFriction(0.9),
+  world.createRigidBody(RAPIER.RigidBodyDesc.fixed()));
+const onlyTerrain = (c) => c.handle === terrain.handle;     // wheel rays see the ground, not the props
+
+/* ---- three.js scene ---- */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9bb7d4);
+scene.fog = new THREE.Fog(0x9bb7d4, 90, 260);
+const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 400);
+scene.add(new THREE.HemisphereLight(0xdfeaff, 0x5a4a38, 0.85));
+const sun = new THREE.DirectionalLight(0xfff1d6, 0.9);
+sun.position.set(60, 90, 40);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 10, far: 260 });
+sun.shadow.bias = -0.0004;
+scene.add(sun, sun.target);
+
+{ // the ground mesh, from the same function as the heightfield collider
+  const n = CELLS + 1, pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3), idx = new Uint32Array(CELLS * CELLS * 6);
+  const white = new THREE.Color(0xe9e4d6), padCol = new THREE.Color(0x77736b), road = new THREE.Color(0xb59a74), dirt = new THREE.Color(0x7d6a4c), scrub = new THREE.Color(0x6f7a4a), c = new THREE.Color();
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const x = -SIZE / 2 + i * CELL, z = -SIZE / 2 + j * CELL, k = i * n + j, h = groundH(x, z), d = Math.abs(x - roadX(z));
+    pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z;
+    const grain = 0.5 + 0.5 * Math.sin(x * 1.7 + Math.sin(z * 1.3) * 2) * Math.sin(z * 1.9 + Math.cos(x * 1.1));
+    c.copy(dirt).lerp(scrub, sstep(Math.sin(x / 13) * Math.cos(z / 17), -0.3, 0.6)).multiplyScalar(0.88 + 0.2 * grain);
+    c.lerp(road.clone().multiplyScalar(0.92 + 0.14 * grain), 1 - sstep(d, 4.6, 6.4));
+    const dp = Math.hypot(x - PAD.x, z - PAD.z);
+    c.lerp(padCol.clone().multiplyScalar(0.94 + 0.1 * grain), 1 - sstep(dp, PAD.r - 1.5, PAD.r));
+    if (dp < PAD.r - 2) c.lerp(white, 0.5 * Math.max(1 - sstep(Math.abs(dp - 10), 0.3, 1.1), 1 - sstep(Math.abs(dp - 20), 0.3, 1.1)));   // rings 10 and 20 m out
+    col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
+  }
+  let t = 0;
+  for (let i = 0; i < CELLS; i++) for (let j = 0; j < CELLS; j++) {
+    const a = i * n + j, b = (i + 1) * n + j, d = i * n + j + 1, e = (i + 1) * n + j + 1;
+    idx[t++] = a; idx[t++] = d; idx[t++] = b; idx[t++] = b; idx[t++] = d; idx[t++] = e;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setIndex(new THREE.BufferAttribute(idx, 1));
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+}
+
+/* ---- props: crates, barrels, tyre stacks (all dynamic Rapier bodies) ---- */
+const props = [];
+function addProp(kind, x, z, lift, opts = {}) {
+  const half = opts.half, y = groundH(x, z) + lift + 0.04;
+  let desc, geo, mat;
+  if (kind === 'box') {
+    desc = RAPIER.ColliderDesc.cuboid(half, half, half).setDensity(70);
+    geo = new THREE.BoxGeometry(half * 2, half * 2, half * 2); mat = new THREE.MeshLambertMaterial({ color: opts.color || 0xb98a4e });
+  } else {
+    desc = RAPIER.ColliderDesc.cylinder(half, opts.radius).setDensity(opts.density);
+    geo = new THREE.CylinderGeometry(opts.radius, opts.radius, half * 2, 20); mat = new THREE.MeshLambertMaterial({ color: opts.color });
+  }
+  desc.setFriction(0.7).setRestitution(0.08);
+  const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z).setLinearDamping(0.05).setAngularDamping(0.15));
+  world.createCollider(desc, body);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = mesh.receiveShadow = true;
+  scene.add(mesh);
+  props.push({ body, mesh, home: { x, y, z } });
+}
+const CRATE = 0.4, BARREL = { half: 0.45, radius: 0.29, density: 100 }, TYRE = { half: 0.1, radius: 0.32, density: 140 };
+const crate = (x, z, lift, half = CRATE, color) => addProp('box', x, z, lift + half, { half, color });
+const barrel = (x, z, lift, color = 0xd9531e) => addProp('cyl', x, z, lift + BARREL.half, { ...BARREL, color });
+const tyreStack = (x, z, n) => { for (let i = 0; i < n; i++) addProp('cyl', x, z, TYRE.half + i * TYRE.half * 2 + 0.02 * i, { ...TYRE, color: 0x22252b }); };
+const onRoad = (z, off) => roadX(z) + off;
+function buildProps() {
+  for (const p of props) { scene.remove(p.mesh); world.removeRigidBody(p.body); p.mesh.geometry.dispose(); }
+  props.length = 0;
+  for (let c = 0; c < 6; c++) for (let r = 0; r < 3; r++) crate(onRoad(62, -1.4 + c * 0.82), 62, r * 0.8);                       // a crate wall across most of the road
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5 - r; c++) crate(onRoad(-6, 8 + (c + r * 0.5) * 0.62), -6, r * 0.6, 0.3, 0xc9a25e);   // a pyramid at the verge
+  for (let z = -96; z < -40; z += 3.5) { barrel(onRoad(z, 5.4), z, 0); barrel(onRoad(z, -5.4), z, 0, 0x2f6fb5); }              // barrel lines along both edges
+  [[-60, 2.2], [-50, -2.2], [-40, 2.2]].forEach(([z, o]) => tyreStack(onRoad(z, o), z, 4));                                  // a tyre slalom
+  [[88, 2.6], [95, -2.6], [102, 2.6]].forEach(([z, o]) => barrel(onRoad(z, o), z, 0));                                        // a barrel chicane
+  { const z0 = 112; for (let r = 0; r < 4; r++) for (let c = 0; c <= r; c++) barrel(onRoad(z0 + r * 0.9, (c - r / 2) * 0.72), z0 + r * 0.9, 0, 0xe8e2d0); }   // barrel "pins"
+}
+function resetProps() {
+  for (const p of props) { p.body.setTranslation(p.home, true); p.body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true); p.body.setLinvel({ x: 0, y: 0, z: 0 }, true); p.body.setAngvel({ x: 0, y: 0, z: 0 }, true); }
+}
+buildProps();
+
+/* ---- the car: one dynamic body, mass properties from the game; the wheels are only rays ---- */
+const chassis = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setCcdEnabled(true).setCanSleep(false)
+  .setAdditionalMassProperties(CAR.mass, { x: 0, y: 0, z: 0 }, CAR.inertia, { x: 0, y: 0, z: 0, w: 1 }));
+world.createCollider(RAPIER.ColliderDesc.cuboid(0.88, 0.31, 2.05).setTranslation(0, 0.11, 0).setDensity(0).setFriction(0.3).setRestitution(0.1), chassis);   // lower body
+world.createCollider(RAPIER.ColliderDesc.cuboid(0.7, 0.24, 0.9).setTranslation(0, 0.66, -0.2).setDensity(0).setFriction(0.3).setRestitution(0.1), chassis);   // cabin
+
+const vc = world.createVehicleController(chassis);        // mode A
+const SPRING_DAMP = CAR.kS.map((kS, k) => 2 * SUSP.damping * Math.sqrt(kS * CAR.N0[k] / G));   // critical-damping share, N·s/m
+CAR.wheels.forEach((w, k) => {
+  vc.addWheel({ x: w.x, y: CAR.mountY, z: w.z }, { x: 0, y: -1, z: 0 }, { x: -1, y: 0, z: 0 }, CAR.rest, CAR.radius);
+  vc.setWheelMaxSuspensionTravel(k, CAR.travel);
+  vc.setWheelSuspensionStiffness(k, CAR.kS[k] / CAR.mass);                       // Rapier's rate is per kg of chassis (as Bullet's)
+  vc.setWheelSuspensionCompression(k, SPRING_DAMP[k] * SUSP.bump / CAR.mass);    // and so are its damping coefficients
+  vc.setWheelSuspensionRelaxation(k, SPRING_DAMP[k] * SUSP.rebound / CAR.mass);
+  vc.setWheelMaxSuspensionForce(k, CAR.mass * 60);
+});
+
+/* ---- state ---- */
+const state = { mode: 'A', surface: 0, steerIn: 0, steerAngle: 0, speed: 0, airborne: 0, flips: 0 };
+const keys = { up: false, down: false, left: false, right: false, space: false };
+const wheels = CAR.wheels.map(() => ({ grounded: false, comp: 0, dist: MAX_LEN, om: 0, angle: 0, load: 0, vLong: 0, vLat: 0, Fx: 0, Fy: 0, kap: 0 }));
+const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+const q = new THREE.Quaternion(), pos = V(), vel = V(), AX = V(), AY = V(), AZ = V(), mount = V(), nrm = V(), fw = V(), lt = V(), cp = V(), fv = V(), tmp = V();
+
+function applyMode() {
+  $('mode').textContent = state.mode === 'A' ? 'A  Rapier raycast vehicle' : 'B  game tyres on Rapier body';
+  $('surf').textContent = SURFACES[state.surface].name;
+  const mu = SURFACES[state.surface].mu;
+  for (let k = 0; k < 4; k++) { vc.setWheelFrictionSlip(k, mu); vc.setWheelEngineForce(k, 0); vc.setWheelBrake(k, 0); vc.setWheelSteering(k, 0); }
+  for (const w of wheels) { w.om = 0; w.grounded = false; }
+}
+
+function placeCar(x, z, yaw, lift = 0.55) {
+  chassis.setTranslation({ x, y: groundH(x, z) + lift, z }, true);
+  chassis.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
+  chassis.setLinvel({ x: 0, y: 0, z: 0 }, true); chassis.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  for (const w of wheels) { w.om = 0; w.dist = MAX_LEN; w.comp = 0; }
+  state.steerIn = state.steerAngle = 0;
+}
+const START_Z = -110;
+function restart() { placeCar(roadX(START_Z), START_Z, Math.atan2(roadSlope(START_Z), 1)); }
+function toPad() { placeCar(PAD.x - 22, PAD.z, Math.PI / 2); camHead.set(1, 0, 0); }
+function flipUpright() {
+  readBody();
+  placeCar(pos.x, pos.z, Math.atan2(AZ.x, AZ.z), Math.max(0.55, pos.y - groundH(pos.x, pos.z) + 0.8));
+}
+
+function readBody() {
+  const t = chassis.translation(), r = chassis.rotation(), v = chassis.linvel();
+  pos.set(t.x, t.y, t.z); q.set(r.x, r.y, r.z, r.w); vel.set(v.x, v.y, v.z);
+  AX.set(1, 0, 0).applyQuaternion(q); AY.set(0, 1, 0).applyQuaternion(q); AZ.set(0, 0, 1).applyQuaternion(q);
+  state.speed = vel.dot(AZ);
+}
+
+/* ---- driver and forces shared by both modes ---- */
+function driver() {
+  const sp = state.speed;
+  let drive = 0, brake = 0;
+  if (keys.up) { if (sp < -1) brake = 1; else drive = 1; }
+  if (keys.down) { if (sp > 1) brake = 1; else drive = -1; }
+  return { drive, brake, hb: keys.space ? 1 : 0 };
+}
+function engineForce(drive, sp) {                         // total tractive force at the wheels (N): torque-limited, then power-limited
+  if (drive > 0) return Math.min(ENGINE.fMax, ENGINE.power / Math.max(sp, 4));
+  if (drive < 0) return sp > -ENGINE.reverseMax ? -ENGINE.reverseF : 0;
+  return 0;
+}
+function steerTarget(dt, sp) {
+  const want = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);                 // + is left, as in the game
+  const rate = want === 0 ? 7 : 3.6;
+  state.steerIn += clamp(want - state.steerIn, -rate * dt, rate * dt);
+  state.steerAngle = state.steerIn * CAR.maxSteer / (1 + CAR.steerFalloff * Math.abs(sp));
+}
+function bodyDrag(contact) {                              // aero drag, and rolling resistance while on the ground
+  const s = SURFACES[state.surface], sp = vel.length();
+  tmp.copy(vel).multiplyScalar(-0.5 * AERO.rho * AERO.CdA * sp);
+  if (contact && sp > 1e-3) tmp.addScaledVector(vel, -s.rr * CAR.mass * G / Math.max(sp, 0.1));
+  chassis.addForce(tmp, true);
+}
+
+/* ---- mode A: Rapier's raycast vehicle controller ---- */
+function stepA(dt) {
+  const ctl = driver(), s = SURFACES[state.surface], F = engineForce(ctl.drive, state.speed);
+  let contact = false;
+  for (let k = 0; k < 4; k++) {
+    const front = CAR.wheels[k].front, w = wheels[k];
+    vc.setWheelEngineForce(k, F * (front ? ENGINE.awdFront / 2 : (1 - ENGINE.awdFront) / 2));
+    let bf = ctl.brake * CAR.brakeT[front ? 0 : 1] / CAR.radius + (front ? 0 : ctl.hb * CAR.hbT / CAR.radius);
+    bf = Math.min(bf, s.mu * (vc.wheelSuspensionForce(k) || 0));             // Rapier's brake isn't grip-limited: cap it by the load
+    vc.setWheelBrake(k, bf * dt);                                           // an impulse per step
+    if (front) vc.setWheelSteering(k, state.steerAngle);
+    w.grounded = vc.wheelIsInContact(k); contact = contact || w.grounded;
+    w.dist = vc.wheelSuspensionLength(k) + CAR.radius; w.comp = MAX_LEN - w.dist; w.load = vc.wheelSuspensionForce(k) || 0;
+    w.om = state.speed / CAR.radius;                                       // rolling: no wheelspin without a driveline
+  }
+  bodyDrag(contact);
+  vc.updateVehicle(dt, undefined, undefined, onlyTerrain);                 // sets the chassis velocity from springs, engine, brake, friction
+}
+
+/* ---- mode B: the game's suspension and tyres, applied as forces on the Rapier body ---- */
+function damperForce(v, cB, cR) {                         // v > 0: compressing (bump); v < 0: extending (rebound)
+  if (v >= 0) return cB * (v < SUSP.bumpKnee ? v : SUSP.bumpKnee + (v - SUSP.bumpKnee) * SUSP.bumpHi);
+  const a = -v;
+  return -cR * (a < SUSP.rebKnee ? a : SUSP.rebKnee + (a - SUSP.rebKnee) * SUSP.rebHi);
+}
+const _ty = { Fx: 0, Fy: 0, dFx: 0, kap: 0 };
+function tyreForce(w, s, Fm, out) {                       // the game's combined-slip curve (tyreForce in index.html)
+  const r = CAR.radius, den = Math.max(Math.abs(w.vLong), TYRE_V0);
+  const kap = (w.om * r - w.vLong) / den, sx = kap / s.kp, sy = w.vLat / den / s.ap, sl = Math.hypot(sx, sy);
+  out.kap = kap;
+  if (sl < 1e-6) { out.Fx = 0; out.Fy = 0; out.dFx = Fm * s.BC / s.kp * r / den; return out; }
+  const at = Math.atan(s.B * sl), f = Math.sin(s.C * at), fp = Math.cos(s.C * at) * s.BC / (1 + s.B * s.B * sl * sl);
+  const cx = sx / sl, cy = sy / sl;
+  out.Fx = Fm * f * cx; out.Fy = -Fm * f * cy;
+  out.dFx = Fm * Math.max(fp * cx * cx + f / sl * cy * cy, 0.04 * s.BC) / s.kp * r / den;      // dFx/dω for the implicit wheel step
+  return out;
+}
+function stepB(dt) {
+  const ctl = driver(), s = SURFACES[state.surface], r = CAR.radius, m = CAR.mass;
+  const Fdrive = engineForce(ctl.drive, state.speed);
+  let contact = false;
+  // 1) one ray per wheel down the body's up axis, against the ground collider only
+  for (let k = 0; k < 4; k++) {
+    const w = wheels[k], cw = CAR.wheels[k];
+    mount.set(cw.x, CAR.mountY, cw.z).applyQuaternion(q).add(pos);
+    const hit = world.castRayAndGetNormal(new RAPIER.Ray(mount, { x: -AY.x, y: -AY.y, z: -AY.z }), MAX_LEN, true,
+      undefined, undefined, undefined, undefined, onlyTerrain);
+    w.grounded = false; w.comp = 0; w.dist = MAX_LEN;
+    if (hit) {
+      nrm.set(hit.normal.x, hit.normal.y, hit.normal.z);
+      if (AY.dot(nrm) > 0.25) { w.grounded = true; w.dist = hit.timeOfImpact; w.comp = MAX_LEN - w.dist; w.n = (w.n || V()).copy(nrm); contact = true; }
+    }
+  }
+  // 2) anti-roll bars, then springs, dampers and tyres at each corner
+  for (let a = 0; a < 4; a += 2) {
+    const wa = wheels[a], wb = wheels[a + 1], arb = (wa.comp - wb.comp) * CAR.kS[a] * (a ? SUSP.arbR : SUSP.arbF);
+    wa.arb = wa.grounded ? arb : 0; wb.arb = wb.grounded ? -arb : 0;
+  }
+  for (let k = 0; k < 4; k++) {
+    const w = wheels[k], cw = CAR.wheels[k], front = cw.front, Iw = CAR.Iw;
+    let Td = Fdrive * (front ? ENGINE.awdFront / 2 : (1 - ENGINE.awdFront) / 2) * r;                         // drive torque at this wheel
+    if (Td * w.kap > 0) Td *= clamp(1 - (Math.abs(w.kap) - TC.start) / TC.range, 0, 1);                      // traction control (the game's default): cut the engine on slip
+    const Tb = ctl.brake * CAR.brakeT[front ? 0 : 1] + (front ? 0 : ctl.hb * CAR.hbT);                       // brake torque at this wheel
+    w.load = 0; w.Fx = 0; w.Fy = 0; w.kap = 0;
+    if (!w.grounded) {                                       // in the air: the wheel spins free (no more than ground speed under power) and the brake stops it
+      if (w.om * r > Math.abs(state.speed)) Td = Math.min(Td, 0);
+      let om = w.om + dt * (Td - SHAFT_DRAG * w.om) / Iw;
+      const dbr = Tb * dt / Iw; om = Math.abs(om) <= dbr ? 0 : om - Math.sign(om) * dbr;
+      w.om = om; continue;
+    }
+    mount.set(cw.x, CAR.mountY, cw.z).applyQuaternion(q).add(pos);
+    const vp = chassis.velocityAtPoint(mount);
+    const compVel = -(vp.x * w.n.x + vp.y * w.n.y + vp.z * w.n.z);
+    const kS = CAR.kS[k], cD = SPRING_DAMP[k], cB = cD * SUSP.bump, cR = cD * SUSP.rebound;
+    let Fs = kS * w.comp + damperForce(compVel, cB, cR) + w.arb;
+    const onStop = w.comp - (CAR.travel - SUSP.stopLen);                                    // urethane bump stop, then the hard stop
+    if (onStop > 0) Fs += kS * SUSP.stopK * onStop * onStop / SUSP.stopLen + cB * SUSP.stopC * Math.max(0, compVel) * onStop / SUSP.stopLen;
+    if (w.comp > CAR.travel) Fs += kS * 10 * (w.comp - CAR.travel) + cD * 2 * Math.max(0, compVel);
+    Fs = clamp(Fs, 0, m * 60); w.load = Fs;
+    fv.copy(AY).multiplyScalar(Fs); chassis.addForceAtPoint(fv, mount, true);
+    // tyre frame on the ground plane, slip, load-sensitive peak force
+    fw.copy(AZ);
+    if (front) { const c = Math.cos(state.steerAngle), sn = Math.sin(state.steerAngle); fw.multiplyScalar(c).addScaledVector(AX, sn); }
+    fw.addScaledVector(w.n, -fw.dot(w.n)).normalize();
+    lt.crossVectors(w.n, fw);
+    cp.copy(mount).addScaledVector(AY, -w.dist);
+    const vc2 = chassis.velocityAtPoint(cp);
+    w.vLong = vc2.x * fw.x + vc2.y * fw.y + vc2.z * fw.z; w.vLat = vc2.x * lt.x + vc2.y * lt.y + vc2.z * lt.z;
+    const N = Fs * Math.max(0, AY.dot(w.n)), N0 = CAR.N0[k], Fm = s.mu * N0 * Math.pow(Math.min(N / N0, 3), 0.85);
+    tyreForce(w, s, Fm, _ty);
+    // wheel spin, linearised in ω so the stiff tyre doesn't blow up an explicit step
+    const dom = (Td - r * _ty.Fx - SHAFT_DRAG * w.om) / (Iw / dt + r * _ty.dFx + SHAFT_DRAG);
+    let om = w.om + dom;
+    const dbr = Tb * dt / Iw; om = Math.abs(om) <= dbr ? 0 : om - Math.sign(om) * dbr;       // the brake can stop the wheel, not reverse it
+    if (Tb > 0 && state.speed > 3) om = Math.max(om, 0.88 * w.vLong / r);                    // simple ABS: keep 12% slip at most
+    const Fx = clamp(_ty.Fx + _ty.dFx * (om - w.om), -Fm, Fm);
+    w.om = om; w.Fx = Fx; w.Fy = _ty.Fy; w.kap = _ty.kap;
+    fv.copy(fw).multiplyScalar(Fx).addScaledVector(lt, _ty.Fy);
+    chassis.addForceAtPoint(fv, cp, true);
+  }
+  bodyDrag(contact);
+}
+
+/* ---- the fixed-step loop ---- */
+const perf = { veh: 0, step: 0, steps: 0 };
+function physicsStep() {
+  chassis.resetForces(true); chassis.resetTorques(true);
+  readBody();
+  steerTarget(DT, state.speed);
+  const t0 = performance.now();
+  if (state.mode === 'A') stepA(DT); else stepB(DT);
+  const t1 = performance.now();
+  world.step();
+  const t2 = performance.now();
+  perf.veh = lerp(perf.veh, t1 - t0, 0.05); perf.step = lerp(perf.step, t2 - t1, 0.05); perf.steps++;
+  for (const w of wheels) w.angle += w.om * DT;
+  if (chassis.translation().y < -30 || Math.abs(chassis.translation().x) > SIZE / 2 - 2 || Math.abs(chassis.translation().z) > SIZE / 2 - 2) restart();
+  state.airborne = wheels.some((w) => w.grounded) ? 0 : state.airborne + 1;
+}
+
+/* ---- car and prop visuals ---- */
+const carGroup = new THREE.Group();
+scene.add(carGroup);
+{
+  const paint = new THREE.MeshLambertMaterial({ color: 0xe4572e }), white = new THREE.MeshLambertMaterial({ color: 0xf2efe8 }), dark = new THREE.MeshLambertMaterial({ color: 0x15171c });
+  const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; carGroup.add(m); return m; };
+  add(new THREE.BoxGeometry(1.76, 0.5, 4.1), paint, 0, 0.14, 0);
+  add(new THREE.BoxGeometry(1.5, 0.46, 1.7), white, 0, 0.6, -0.25);
+  add(new THREE.BoxGeometry(1.52, 0.3, 0.06), dark, 0, 0.6, 0.62).rotation.x = -0.5;                  // windscreen
+  add(new THREE.BoxGeometry(1.4, 0.14, 0.25), dark, 0, 0.55, -1.25 - 0.45).position.y = 0.95;        // rear wing
+  add(new THREE.BoxGeometry(1.6, 0.12, 0.3), dark, 0, -0.12, 2.0);                                   // splitter
+  CAR.wheels.forEach((cw) => {                              // wheels are positioned each frame from the suspension
+    const pivot = new THREE.Group(), spin = new THREE.Group();
+    const tyre = new THREE.Mesh(new THREE.CylinderGeometry(CAR.radius, CAR.radius, 0.22, 24), dark);
+    tyre.rotation.z = Math.PI / 2; tyre.castShadow = true;
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(CAR.radius * 0.62, CAR.radius * 0.62, 0.24, 8), new THREE.MeshLambertMaterial({ color: 0xc8ccd2 }));
+    rim.rotation.z = Math.PI / 2;
+    spin.add(tyre, rim); pivot.add(spin); carGroup.add(pivot);
+    cw.pivot = pivot; cw.spin = spin;
+  });
+}
+const camHead = V(0, 0, 1), camPos = V(), camLook = V();
+function syncVisuals(dt) {
+  readBody();
+  carGroup.position.copy(pos); carGroup.quaternion.copy(q);
+  CAR.wheels.forEach((cw, k) => {
+    const w = wheels[k];
+    cw.pivot.position.set(cw.x, CAR.mountY - (w.dist - CAR.radius), cw.z);
+    cw.pivot.rotation.y = cw.front ? state.steerAngle : 0;
+    cw.spin.rotation.x = w.angle;
+  });
+  for (const p of props) { const t = p.body.translation(), r = p.body.rotation(); p.mesh.position.set(t.x, t.y, t.z); p.mesh.quaternion.set(r.x, r.y, r.z, r.w); }
+  // chase camera
+  tmp.set(AZ.x, 0, AZ.z); if (tmp.lengthSq() > 1e-4) camHead.lerp(tmp.normalize(), 1 - Math.exp(-3.5 * dt)).normalize();
+  camPos.copy(pos).addScaledVector(camHead, -7.6); camPos.y = Math.max(pos.y + 2.9, groundH(camPos.x, camPos.z) + 1.2);
+  camera.position.lerp(camPos, 1 - Math.exp(-7 * dt));
+  camLook.copy(pos).addScaledVector(camHead, 5); camLook.y = pos.y + 0.7;
+  camera.lookAt(camLook);
+  sun.position.set(pos.x + 60, 90, pos.z + 40); sun.target.position.copy(pos);
+}
+
+/* ---- HUD ---- */
+const suspBars = [...document.querySelectorAll('#susp b')];
+function updateHud() {
+  const sp = chassis.linvel(), kmh = Math.hypot(sp.x, sp.y, sp.z) * 3.6;
+  $('speed').firstChild.nodeValue = Math.round(kmh) + ' ';
+  $('msVeh').textContent = perf.veh.toFixed(3) + ' ms';
+  $('msStep').textContent = perf.step.toFixed(3) + ' ms';
+  const awake = props.filter((p) => !p.body.isSleeping()).length;
+  $('bodies').textContent = (props.length + 1) + ' (' + awake + ' props awake)';
+  wheels.forEach((w, k) => { suspBars[k].style.height = clamp(w.comp / CAR.travel, 0, 1) * 100 + '%'; suspBars[k].style.background = w.comp > CAR.travel ? '#ff6b5e' : '#6bd0ff'; });
+}
+
+/* ---- input and main loop ---- */
+const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', Space: 'space' };
+addEventListener('keydown', (e) => {
+  if (KEYMAP[e.code]) { keys[KEYMAP[e.code]] = true; e.preventDefault(); return; }
+  if (e.repeat) return;
+  if (e.code === 'KeyR') restart();
+  else if (e.code === 'KeyF') flipUpright();
+  else if (e.code === 'KeyG') toPad();
+  else if (e.code === 'KeyB') resetProps();
+  else if (e.code === 'KeyM') { state.mode = state.mode === 'A' ? 'B' : 'A'; applyMode(); }
+  else if (e.code === 'KeyT') { state.surface = (state.surface + 1) % SURFACES.length; applyMode(); }
+});
+addEventListener('keyup', (e) => { if (KEYMAP[e.code]) { keys[KEYMAP[e.code]] = false; e.preventDefault(); } });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+applyMode();
+for (let i = 0; i < 360; i++) world.step();               // let the props settle and fall asleep before the car arrives
+restart();
+readBody(); camera.position.copy(pos).addScaledVector(V(Math.sin(Math.atan2(roadSlope(START_Z), 1)), 0, Math.cos(Math.atan2(roadSlope(START_Z), 1))), -7.6).add(V(0, 3, 0));
+
+let acc = 0, last = performance.now(), hudT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  acc += dt;
+  let n = 0;
+  while (!window.rapierProto.manual && acc >= DT && n < 8) { physicsStep(); acc -= DT; n++; }
+  if (n === 8) acc = 0;                                    // too slow to keep up: drop the backlog instead of spiralling
+  syncVisuals(dt);
+  hudT += dt; if (hudT > 0.1) { hudT = 0; updateHud(); }
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* a small handle for tests and for poking at it from the console */
+window.rapierProto = {
+  manual: false,                                           // true: the frame loop stops stepping, so a test can step()
+  RAPIER, world, chassis, vc, props, wheels, state, keys, perf, CAR, KICK, groundH, roadX, roadSlope,
+  step(n = 1) { for (let i = 0; i < n; i++) physicsStep(); readBody(); },
+  setMode(m) { state.mode = m; applyMode(); },
+  setSurface(i) { state.surface = i; applyMode(); },
+  restart, toPad, PAD, resetProps, placeCar, flipUpright, readBody,
+  get pos() { readBody(); return pos.clone(); }, get vel() { readBody(); return vel.clone(); },
+  get up() { readBody(); return AY.clone(); }, get fwd() { readBody(); return AZ.clone(); },
+};
+</script>
+</body>
+</html>
