@@ -2022,10 +2022,10 @@ function parseStageCode(str, fallbackTpl) {
 /* ---- car setup (chosen in the service park) ---- */
 const SETUP_OPTS = {
   susp: { label: 'SPRINGS', names: ['SOFT', 'MEDIUM', 'STIFF'], desc: ['Soft coil springs: soak up landings, craters and rough ground; more body roll and dive.', 'Balanced spring rates.', 'Stiff springs: crisp and flat on smooth decks; harsh on landings.'] },
-  damp: { label: 'DAMPERS', names: ['SOFT', 'MEDIUM', 'FIRM'], desc: ['Low bump and rebound damping: wheels follow rough ground, but the body floats and wallows.', 'Balanced bump and rebound.', 'High damping: tied down over crests and quick direction changes; skips over ripples.'] },
-  arb: { label: 'ANTI-ROLL BARS', names: ['SOFT', 'MEDIUM', 'STIFF'], desc: ['Soft bars: each wheel moves on its own; more body roll, more grip over rough ground.', 'Balanced roll stiffness.', 'Stiff bars: flat and quick to change direction; wheels lift and skip on rough ground.'] },
+  damp: { label: 'DAMPERS', names: ['SOFT', 'MEDIUM', 'FIRM'], desc: ['Low bump and rebound damping: the wheels follow rough ground, but the body floats and wallows after crests and landings.', 'Balanced bump and rebound.', 'High damping: tied down over crests and quick direction changes; the wheels skip over ripples.'] },
+  arb: { label: 'ANTI-ROLL BARS', names: ['SOFT', 'MEDIUM', 'STIFF'], desc: ['Soft bars: each wheel moves on its own, so a bump under one doesn\'t lift its partner; more body roll, more grip over rough ground.', 'Balanced roll stiffness.', 'Stiff bars: flat and quick to change direction; a bump under one wheel lifts the other, so the car skips on rough ground.'] },
   gear: { label: 'FINAL DRIVE', names: ['SHORT', 'STANDARD', 'LONG'], desc: ['Shorter final drive: +11% pull in every gear, -10% top speed. Twisty stages.', 'Balanced.', 'Longer final drive: +10% top speed, -9% pull. Fast open stages.'] },
-  tyre: { label: 'TYRES', names: ['ALL-TERRAIN', 'STUDDED', 'SLICK'], desc: ['Consistent grip on every surface.', 'Tungsten studs: +60% grip on ice and +40% on snow; they skate a little on steel (-15%) and tarmac (-14%).', 'Soft slicks: +18% grip on tarmac and +12% on metal plating; poor on anything loose (-20% or worse).'] },
+  tyre: { label: 'TYRES', names: ['ALL-TERRAIN', 'STUDDED', 'SLICK'], desc: ['Consistent grip on every surface.', 'Tungsten studs: +60% grip on ice and +40% on snow; they skate a little on steel (-15%) and tarmac (-14%), and the studded blocks bite a moment later.', 'Soft slicks: +18% grip on tarmac and +12% on metal plating, and they bite instantly; poor on anything loose (-20% or worse).'] },
 };
 const TUNE = {
   susp: [{ k: 0.8, c: 1, land: 1.5 }, { k: 1, c: 1, land: 0 }, { k: 1.3, c: 1, land: -1.2 }],
@@ -2034,6 +2034,7 @@ const TUNE = {
   arb: [0.55, 1, 1.6],                  // multiplier on both bars (the front/rear split lives in SUSP)
   gear: [{ v: 0.9 }, { v: 1 }, { v: 1.1 }],           // the final drive is the car's own divided by v: road speed per rpm scales with v, pull the other way
   tyre: [[1, 1, 1, 1, 1, 1], [0.97, 1.6, 0.85, 0.98, 0.86, 1.4], [0.8, 0.7, 1.12, 0.78, 1.18, 0.6]],   // per surface: regolith, ice, metal, gravel, tarmac, snow
+  tyreRelax: [1, 1.08, 0.8],            // relaxation length: studs' tall blocks wind up later, slicks' stiff construction sooner
 };
 const RECOMMENDED = [{ susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 1, damp: 1, arb: 0, gear: 0, tyre: 1 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 },
   { susp: 1, damp: 1, arb: 1, gear: 2, tyre: 0 }, { susp: 0, damp: 0, arb: 0, gear: 1, tyre: 1 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 },
@@ -2045,7 +2046,8 @@ const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
 const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
 /* ---- garage: pilot + vehicle parts (chosen in the garage, kept for every stage) ----
    Parts change the car's real physics: the tyres' grip on each surface (mu: regolith, ice, metal, gravel,
-   tarmac), their weight and rolling drag. Each car keeps its own aero package (CAR_AERO). The pilot (a real
+   tarmac), their weight (all of it unsprung), rolling drag, sidewall stiffness and how quickly they build grip
+   (relaxation length). Each car keeps its own aero package (CAR_AERO). The pilot (a real
    rally driver), paint, decal and glow are looks only: every pilot weighs the same. Each build
    is rated from what those physics give it (see perfRatings): six ratings and a PI with a class. */
 const GARAGE = {
@@ -2134,11 +2136,13 @@ const GARAGE = {
     { name: 'MINI', blurb: 'Mini Cooper S, 1964 Monte Carlo winner. 1071 cc, front-wheel drive, ten-inch wheels and a quarter of the power: pure momentum.' },
   ] },
   wheels: { label: 'WHEELS', opts: [
-    { name: 'STANDARD', blurb: 'All-round rally tyres.', mu: [1, 1, 1, 1, 1, 1], kg: 0, steer: 1, rr: 0 },
-    { name: 'CRAWLER', blurb: 'Big knobbly tyres. Dig into loose ground, heavy and slow to turn.', mu: [1.08, 1.04, 1.02, 1.1, 0.96, 1.08], kg: 24, steer: 0.965, rr: 0.012, rScale: 1.04 },
-    { name: 'SLICK ROLLER', blurb: 'Low-profile slicks. Sharp on tarmac and metal, slide on anything loose.', mu: [0.94, 0.86, 1.06, 0.9, 1.08, 0.86], kg: -12, steer: 1.035, rr: -0.003, rScale: 0.98 },
-    { name: 'HOVER PADS', blurb: 'Grav pads instead of wheels. Light and nimble, a touch less grip.', mu: [0.97, 0.97, 0.97, 0.97, 0.97, 0.97], kg: -20, steer: 1.07, rr: 0 },
-    { name: 'SPIKE RIMS', blurb: 'Studded tyres. Bite on ice and metal, a bit of drag, worse on tarmac.', mu: [1.02, 1.25, 1.08, 1.02, 0.94, 1.2], kg: 8, steer: 1, rr: 0.008 },
+    // side: sidewall softness (how far the tyre squashes under load, against a rally tyre's); relax: its relaxation
+    // length (how far it rolls to build its grip on turn-in); kg: the set's weight change, all of it unsprung
+    { name: 'STANDARD', blurb: 'All-round rally tyres.', mu: [1, 1, 1, 1, 1, 1], kg: 0, steer: 1, rr: 0, side: 1, relax: 1 },
+    { name: 'CRAWLER', blurb: 'Big knobbly tyres on tall, soft sidewalls. Dig into loose ground and soak up rough roads and landings; heavy, and slow to bite on turn-in.', mu: [1.08, 1.04, 1.02, 1.1, 0.96, 1.08], kg: 24, steer: 0.965, rr: 0.012, rScale: 1.04, side: 1.35, relax: 1.3 },
+    { name: 'SLICK ROLLER', blurb: 'Low-profile slicks on stiff sidewalls. Instant bite on tarmac and metal, slide on anything loose, and every ripple comes through.', mu: [0.94, 0.86, 1.06, 0.9, 1.08, 0.86], kg: -12, steer: 1.035, rr: -0.003, rScale: 0.98, side: 0.7, relax: 0.75 },
+    { name: 'HOVER PADS', blurb: 'Grav pads instead of wheels. Light, soft over bumps and quick to respond, a touch less grip.', mu: [0.97, 0.97, 0.97, 0.97, 0.97, 0.97], kg: -20, steer: 1.07, rr: 0, side: 1.2, relax: 0.8 },
+    { name: 'SPIKE RIMS', blurb: 'Studded tyres. Bite on ice and metal, a bit of drag, worse on tarmac; the studded blocks take a moment longer to bite.', mu: [1.02, 1.25, 1.08, 1.02, 0.94, 1.2], kg: 8, steer: 1, rr: 0.008, side: 1, relax: 1.05 },
   ] },
   color: { label: 'PAINT', opts: [
     { name: 'BLAZE', hex: 0xff7a1a }, { name: 'NEBULA', hex: 0x8b5cff }, { name: 'COMET', hex: 0x19c8e6 }, { name: 'SOLAR', hex: 0xffd21f },
@@ -2385,7 +2389,7 @@ function carGeometry(body, wh, mass) {
   // plus the garage wheels' weight. The tyre is a vertical spring rated to squash about 11% of its sidewall under
   // its static load, so a tall gravel sidewall is softer than a low-profile one.
   const wkg = ((wh && wh.kg) || 0) / 4, us = sp.unsprung || [sp.tyre.kg + 22, sp.tyre.kg + 22];
-  const mUF = us[0] + wkg, mUR = us[1] + wkg, defl = 0.11 * (r - sp.tyre.rim * 0.0127);
+  const mUF = us[0] + wkg, mUR = us[1] + wkg, defl = 0.11 * (r - sp.tyre.rim * 0.0127) * ((wh && wh.side) || 1);
   // each corner's sprung mass rides at SUSP.freq on its coil spring and tyre in series
   const corner = (N0, mU) => { const ms = N0 / g - mU, kT = N0 / defl, kr = ms * w2, kS = kr * kT / (kT - kr);
     return { ms, kT, kS, cT: 2 * 0.1 * Math.sqrt(kT * mU), sag: ms * g / kS }; };
@@ -2429,6 +2433,7 @@ function tuneFor(setup, build) {
   const tn = { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land - dm * 0.003, v: gr.v,
     gears: sp.gears, final: sp.final / gr.v,
     mu: TUNE.tyre[setup.tyre].map((m, i) => m * Wh.mu[i]), steer: sp.steer * Wh.steer, rr: Wh.rr,
+    relax: (Wh.relax || 1) * (TUNE.tyreRelax[setup.tyre] || 1),
     dmg: clamp(1 - dm * 0.0012, 0.7, 1.3), spec: sp, mass, aero, cda: aero.cda, cla: aero.claF + aero.claR,
     geo: carGeometry(build.body, Wh, mass) };
   tn.r = tn.geo.r;
@@ -3917,11 +3922,11 @@ function worldAt(s, d, out) {
 }
 /* The physics test rig's proving ground (PhysicsRig, section 10): while `on`, the ground everywhere is the plane
    y = h0 + sx·x + sz·z of one surface, so the car's real physics can be measured away from any stage. */
-const RIG_GROUND = { on: false, h0: 0, sx: 0, sz: 0, surf: 4, rA: 0, rL: 4 };   // rA, rL: amplitude and wavelength of ripples
+const RIG_GROUND = { on: false, h0: 0, sx: 0, sz: 0, surf: 4, rA: 0, rL: 4, rSide: false };   // ripples: amplitude, wavelength, left side only
 function rigHeight(x, z) {
   const G = RIG_GROUND;
   let h = G.h0 + G.sx * x + G.sz * z;
-  if (G.rA) h += G.rA * (Math.sin(TAU * z / G.rL) + 0.6 * Math.sin(TAU * (0.8 * z + 0.5 * x) / (0.73 * G.rL)));
+  if (G.rA) h += G.rA * (Math.sin(TAU * z / G.rL) + 0.6 * Math.sin(TAU * (0.8 * z + 0.5 * x) / (0.73 * G.rL))) * (G.rSide ? smoothstep(-0.3, 0.3, x) : 1);
   return h;
 }
 function rigGround(x, z, out) {
@@ -5893,7 +5898,7 @@ function drivelineStep(dt, ctl, G, th0) {
     const w = W[k];
     if (!w.grounded) { w.kt = 0; continue; }
     const ax = Math.abs(w.vLong);
-    relaxCoeffs(ax, h, TYRE.sigma[w.gs.surf] * TYRE.sigmaX);
+    relaxCoeffs(ax, h, TYRE.sigma[w.gs.surf] * TYRE.sigmaX * tn.relax);
     TK[k * 4] = 1 - RLX.k; TK[k * 4 + 1] = RLX.g; TK[k * 4 + 2] = w.wl / TYRE.vd; TK[k * 4 + 3] = ax;
   }
   let Tcl = 0;
@@ -6066,7 +6071,7 @@ function stepVehicle(dt, ctl) {
     // it stops; a fresh contact carries none. taE adds the low-speed damping on its rate.
     const gs = w.gs, ts = w.ts = TYRE_SURF[gs.surf], ax = Math.abs(w.vLong);
     if (!wasGround) { w.ta = 0; w.kt = 0; }
-    relaxCoeffs(ax, dt, TYRE.sigma[gs.surf]);
+    relaxCoeffs(ax, dt, TYRE.sigma[gs.surf] * tn.relax);
     const lim = Math.max(1.5 * ts.ap, Math.abs(w.vLat) / Math.max(ax, 1));     // no deflection past where the tread slides
     w.ta = clamp(w.ta * (1 - RLX.k) + w.vLat * RLX.g, -lim, lim);
     w.wl = 1 - smoothstep(TYRE.vLo[0], TYRE.vLo[1], ax);
@@ -6429,7 +6434,7 @@ const PhysicsRig = {
   /** Car at the origin heading +z (or `o.yaw`) at speed v on surface `surf`; o.sx/o.sz tilt the ground, o.drop lifts the car. */
   place(surf, v, o) {
     o = o || {};
-    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4 });
+    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4, rSide: !!o.rSide });
     car.q.set(0, 0, 0, 1); if (o.yaw) car.q.setFromAxisAngle(UP, o.yaw);
     if (o.sx || o.sz) car.q.premultiply(_qiw.setFromUnitVectors(UP, _tmp.set(-(o.sx || 0), 1, -(o.sz || 0)).normalize()));   // sitting on the slope
     car.pos.set(0, CAR.cgH + (o.drop || 0), 0);
@@ -11457,7 +11462,9 @@ function partChips(k, o) {
     ['REGOLITH', 'ICE', 'METAL', 'GRAVEL', 'TARMAC', 'SNOW'].forEach((n, i) => { const d = Math.round((o.mu[i] - 1) * 100); if (Math.abs(d) >= 3) out.push([d > 0, `${n} ${d > 0 ? '+' : '−'}${Math.abs(d)}%`]); });
     if (o.kg) out.push([o.kg < 0, `${o.kg > 0 ? '+' : '−'}${Math.abs(o.kg)} KG`]);
   }
-  if (o.steer && o.steer !== 1) out.push([o.steer > 1, `TURN-IN ${o.steer > 1 ? '+' : '−'}${Math.round(Math.abs(o.steer - 1) * 100)}%`]);
+  if (o.steer && o.steer !== 1) out.push([o.steer > 1, `LOCK ${o.steer > 1 ? '+' : '−'}${Math.round(Math.abs(o.steer - 1) * 100)}%`]);
+  if (o.relax && Math.abs(o.relax - 1) > 0.1) out.push([o.relax < 1, o.relax < 1 ? 'QUICK BITE' : 'SLOW BITE']);   // a few % in a quick flick
+  if (o.side && o.side !== 1) out.push([o.side > 1, o.side > 1 ? 'SOFT SIDEWALLS' : 'STIFF SIDEWALLS']);
   return out.length ? out.map(([up, t]) => `<em class="${up ? 'up' : 'dn'}">${t}</em>`).join('') : '<em>BASELINE</em>';
 }
 function rideSummary(b) {
@@ -11537,7 +11544,7 @@ const Garage = {
         `<span><i>REDLINE</i>${sp.redline} rpm</span><span><i>WEIGHT</i>${sp.kg} kg · ${Math.round(sp.wf * 100)}% front</span>` +
         `<span class="wide"><i>GEARBOX</i>${sp.box}: ${sp.gears.map((q) => q.toFixed(2)).join(' · ')}, final ${sp.final.toFixed(2)}</span>` +
         `<span class="wide"><i>DRIVETRAIN</i>${drivetrainText(sp)}</span>` +
-        `<span class="wide"><i>CHASSIS</i>${sp.dims[0].toFixed(2)} × ${sp.dims[1].toFixed(2)} × ${sp.dims[2].toFixed(2)} m, wheelbase ${sp.wb.toFixed(2)} m, ${Math.round(sp.travel * 1000)} mm travel</span>` +
+        `<span class="wide"><i>CHASSIS</i>${sp.dims[0].toFixed(2)} × ${sp.dims[1].toFixed(2)} × ${sp.dims[2].toFixed(2)} m, wheelbase ${sp.wb.toFixed(2)} m, ${Math.round(sp.travel * 1000)} mm travel, ${(sp.unsprung || [sp.tyre.kg + 22, sp.tyre.kg + 22]).map(Math.round).join('/')} kg unsprung a corner</span>` +
         `<span class="wide"><i>TYRES</i>${sp.tyre.size}, brakes ${sp.disc[0]}/${sp.disc[1]} mm</span>` +
         `<span class="wide"><i>AERO</i>${aeroText(CAR_AERO[b.body])}</span></div>`;
     }
