@@ -5609,6 +5609,25 @@ function addForceAt(f, point) {
   _r.subVectors(point, car.pos);
   T.add(_tmp2.crossVectors(_r, f));
 }
+/** World-space I⁻¹·v for the body (its inertia is diagonal in the car's own axes); out may be v. */
+const _qiw = new THREE.Quaternion();
+function invInertiaWorld(v, out) {
+  _qiw.copy(car.q).invert();
+  out.copy(v).applyQuaternion(_qiw);
+  out.x /= CAR.inertia.x; out.y /= CAR.inertia.y; out.z /= CAR.inertia.z;
+  return out.applyQuaternion(car.q);
+}
+/** World-space M⁻¹·v for the body's translation; out may be v. */
+function bodyInvMassApply(v, out) { return out.copy(v).multiplyScalar(1 / CAR.mass); }
+/** Translational inverse mass of the body along unit world direction d. */
+const _jm = new THREE.Vector3();
+function bodyInvMass(d) { return bodyInvMassApply(d, _jm).dot(d); }
+/** An impulse J (N·s, world) at offset r from the centre of mass: changes the velocity and the spin. */
+const _ji = new THREE.Vector3();
+function applyImpulseAt(J, r) {
+  car.vel.add(bodyInvMassApply(J, _ji));
+  car.w.add(invInertiaWorld(_ji.crossVectors(r, J), _ji));
+}
 
 /** Front-wheel lock for a steering request `dir` (+ = left). Full lock at low speed; at speed, full input puts
  *  the front tyres just past their peak slip angle on this surface, measured from the way the front axle is
@@ -6109,26 +6128,39 @@ function collideObstacles() {
   }
 }
 const BLOCK_HL = CHICANE.blockW / 2 - CHICANE.blockD / 2;
+/* A rigid-body impact at point p with normal n (pointing out of the obstacle, towards the car). The impulse
+   is sized for the car's effective mass at that point: its mass plus how easily the hit can spin it there,
+   (1/m + n·((I⁻¹(r×n))×r))⁻¹, so a knock on the nose corner turns the car without adding energy. Friction
+   at the contact is Coulomb (up to CONTACT.mu of the normal impulse, never reversing the slide). Static
+   scenery is immovable; a loose barrier block (obj) is a light point mass sliding on the ground, so the car
+   shoves it aside, and the overlap is shared between the two. */
+const CONTACT = { e: 0.25, mu: 0.4 };
+const _jr = new THREE.Vector3(), _jn = new THREE.Vector3(), _jt = new THREE.Vector3(), _jv = new THREE.Vector3(), _jx = new THREE.Vector3();
+/** Change in the contact point's velocity along unit vector d per unit impulse along d (the inverse effective mass). */
+function contactInvMass(r, d) {
+  _jx.crossVectors(r, d); invInertiaWorld(_jx, _jx);
+  return bodyInvMass(d) + _jx.cross(r).dot(d);
+}
 function resolveContact(nx, ny, nz, pen, kind, px, py, pz, obj) {
-  // Static scenery is immovable. A loose barrier block (obj) is light: the car shoves it aside and
-  // only loses part of its speed, and the overlap is shared between the two.
   const share = obj ? obj.mass / (obj.mass + CAR.mass) : 1;
   car.pos.x += nx * pen * share; car.pos.y += ny * pen * share; car.pos.z += nz * pen * share;
   if (obj) { obj.x -= nx * pen * (1 - share); obj.z -= nz * pen * (1 - share); obj.moving = true; obj.ch.moving = true; }
-  const rvx = car.vel.x - (obj ? obj.vx : 0), rvy = car.vel.y, rvz = car.vel.z - (obj ? obj.vz : 0);
-  const vn = rvx * nx + rvy * ny + rvz * nz;
+  // velocity of the car's contact point relative to the obstacle
+  _jr.set(px - car.pos.x, py - car.pos.y, pz - car.pos.z);
+  _jv.crossVectors(car.w, _jr).add(car.vel);
+  if (obj) { _jv.x -= obj.vx; _jv.z -= obj.vz; }
+  _jn.set(nx, ny, nz);
+  const vn = _jv.dot(_jn);
   if (vn >= 0) return;
-  const e = 0.25, j = -(1 + e) * vn * share;
-  if (obj) knockBlock(obj, nx, nz, (1 + e) * vn * (1 - share), px, pz);
-  car.vel.x += nx * j; car.vel.y += ny * j; car.vel.z += nz * j;
-  // scrub some tangential speed
-  const tvx = rvx - vn * nx, tvy = rvy - vn * ny, tvz = rvz - vn * nz;
-  car.vel.x -= tvx * 0.12; car.vel.y -= tvy * 0.12; car.vel.z -= tvz * 0.12;
-  // off-centre hits spin the car
-  _r.set(px - car.pos.x, py - car.pos.y, pz - car.pos.z);
-  _tmp.set(nx, ny, nz).multiplyScalar(j * CAR.mass);
-  _tmp2.crossVectors(_r, _tmp);
-  car.w.x += _tmp2.x / CAR.inertia.y * 0.5; car.w.y += _tmp2.y / CAR.inertia.y; car.w.z += _tmp2.z / CAR.inertia.y * 0.5;
+  const kObj = obj ? 1 / obj.mass : 0;
+  const jn = -(1 + CONTACT.e) * vn / (contactInvMass(_jr, _jn) + kObj);
+  // friction: against the sliding velocity across the contact, capped by μ·jn and by what would just stop the slide
+  _jt.copy(_jv).addScaledVector(_jn, -vn);
+  const vt = _jt.length();
+  let jt = 0;
+  if (vt > 1e-4) { _jt.multiplyScalar(1 / vt); jt = Math.min(CONTACT.mu * jn, vt / (contactInvMass(_jr, _jt) + kObj)); }
+  applyImpulseAt(_jx.copy(_jn).multiplyScalar(jn).addScaledVector(_jt, -jt), _jr);
+  if (obj) knockBlock(obj, nx, nz, -jn * kObj, px, pz);
   car.events.push({ type: 'hit', speed: -vn, x: px, y: py, z: pz, kind });
 }
 
