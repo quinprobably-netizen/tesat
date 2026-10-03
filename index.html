@@ -1264,6 +1264,9 @@ body.tilt #tCentre{display:flex}
         <button class="opt" data-set="ghost"><span><b>GHOST</b><small>Race against a replay of your best run. Key: G</small></span><i class="switch"></i></button>
         <button class="opt" data-set="line"><span><b>RACING LINE</b><small>The fastest line, green to go, amber to lift, red to brake, with a board at each braking point. BRAKING shows only the lift and brake zones. Key: L</small></span><i class="mode" id="lineMode">FULL</i></button>
         <button class="opt" data-set="hud"><span><b>HUD</b><small>MINIMAL keeps the road clear: time, pace note, speed, gear and revs. FULL adds best and target times, surface, altitude, camera, suspension and damage. Key: H</small></span><i class="mode" id="hudMode">MINIMAL</i></button>
+        <div class="set-group">GRAPHICS</div>
+        <button class="opt" data-set="res"><span><b>RESOLUTION</b><small>Pixels drawn on high-density screens. HIGH is sharpest; LOW keeps older phones smooth. It still drops by itself when frames run slow.</small></span><i class="mode" id="resMode">HIGH</i></button>
+        <button class="opt" data-set="tex"><span><b>TEXTURES</b><small>Ground detail, sharper liveries and signs, and variation on distant ground. LOW loads fastest and suits phones. The ground changes from the next stage.</small></span><i class="mode" id="texMode">HIGH</i></button>
         <div class="set-group">SOUND</div>
         <button class="opt" data-set="sound"><span><b>SOUND</b><small>Engine, effects and co-driver. Key: M</small></span><i class="switch"></i></button>
         <button class="opt" data-set="vol"><span><b>VOLUME</b><small>Master volume for the engine, exhaust and effects.</small></span><i class="mode" id="volMode">100%</i></button>
@@ -2661,14 +2664,24 @@ function warpShell(shell, map, P) {
     o.scale.x *= f(new THREE.Vector3(1, 0, 0)); o.scale.y *= f(new THREE.Vector3(0, 1, 0)); o.scale.z *= f(new THREE.Vector3(0, 0, 1));
   }
 }
-// Texture quality: the most anisotropic filtering the GPU offers (the ground and the road signs are seen at grazing
-// angles from the chase camera), and canvas textures drawn at twice their size on desktop so text, numbers and
-// livery edges stay crisp up close. Draw code works in the logical size; the context is scaled underneath it.
-const TEX_ANISO = Math.min(LOW_SPEC ? 8 : 16, renderer.capabilities.getMaxAnisotropy());
-const TEX_SCALE = LOW_SPEC ? 1 : 2;
-/** Small canvas helper for procedural textures. */
+// Graphics quality (Settings → GRAPHICS). Phones and tablets default to the light settings so they stay smooth.
+// RESOLUTION caps the pixel ratio (the adaptive scaler in the main loop still drops below it when frames run long).
+// TEXTURES sets the ground detail maps' size, how much larger than their logical size canvas textures are drawn (so
+// text, numbers and livery edges stay crisp up close), anisotropic filtering (the ground and signs are seen at
+// grazing angles from the chase camera) and the large-scale variation that keeps distant ground from going flat.
+const GFX_RES = { low: { name: 'LOW', pr: 1.0 }, medium: { name: 'MEDIUM', pr: LOW_SPEC ? 1.3 : 1.6 }, high: { name: 'HIGH', pr: 2.0 } };
+const GFX_TEX = {
+  low:    { name: 'LOW',    maps: 256,  scale: 1, aniso: 8,  far: false },
+  medium: { name: 'MEDIUM', maps: 512,  scale: 2, aniso: 16, far: true },
+  high:   { name: 'HIGH',   maps: 1024, scale: 2, aniso: 16, far: true },
+};
+const GFX_ORDER = ['low', 'medium', 'high'];
+function gfxRes() { const v = Store.data.settings.res; return GFX_RES[v] ? v : LOW_SPEC ? 'medium' : 'high'; }
+function gfxTex() { const v = Store.data.settings.tex; return GFX_TEX[v] ? GFX_TEX[v] : GFX_TEX[LOW_SPEC ? 'low' : 'high']; }
+const texAniso = () => Math.min(gfxTex().aniso, renderer.capabilities.getMaxAnisotropy());
+/** Small canvas helper for procedural textures. Draw code works in the logical size; the context is scaled underneath. */
 function makeCanvas(w, h, draw) {
-  const k = Math.max(1, Math.min(TEX_SCALE, Math.floor(renderer.capabilities.maxTextureSize / Math.max(w, h))));
+  const k = Math.max(1, Math.min(gfxTex().scale, Math.floor(renderer.capabilities.maxTextureSize / Math.max(w, h))));
   const c = document.createElement('canvas'); c.width = w * k; c.height = h * k;
   const g = c.getContext('2d');
   g.scale(k, k);
@@ -2676,7 +2689,7 @@ function makeCanvas(w, h, draw) {
   draw(g, w, h);
   const t = new THREE.CanvasTexture(c);
   t.encoding = THREE.sRGBEncoding;
-  t.anisotropy = TEX_ANISO;
+  t.anisotropy = texAniso();
   return t;
 }
 
@@ -3999,19 +4012,21 @@ function genDetailMaps(N) {
   }
   return { A, B };
 }
-let _detailTex = null;
+const _detailTex = new Map();   // by size, so a TEXTURES change takes effect on the next stage
 function detailTextures() {
-  if (_detailTex) return _detailTex;
-  const N = LOW_SPEC ? 256 : 512, m = genDetailMaps(N);
-  _detailTex = [m.A, m.B].map((data) => {
+  const N = gfxTex().maps;
+  if (_detailTex.has(N)) return _detailTex.get(N);
+  const m = genDetailMaps(N);
+  const pair = [m.A, m.B].map((data) => {
     const t = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true;
-    t.anisotropy = TEX_ANISO;
+    t.anisotropy = texAniso();
     t.needsUpdate = true;
     return t;
   });
-  return _detailTex;
+  _detailTex.set(N, pair);
+  return pair;
 }
 const TERRAIN_FRAG = `
 vec2 wp = vWPos.xz;
@@ -4113,6 +4128,14 @@ float aTal = 1.0, hTal = 0.0, rTal = 0.9, lichen = 0.0;
 #endif
 // mix the materials by the surface weights
 float rrAlb = dot(sw4, vec4(aReg, aIce, aMetal, aGrav)) + dot(sx4, vec4(aTar, aSnow, aGround, aTal));
+#ifdef RR_FAR
+// distant ground: the fine detail has faded and the tiles' mipmaps average to grey, so broad patches (about 140 m and
+// 50 m across, and the mottling read at a 90 m tile) fade in with distance and keep it from looking flat
+float farW = smoothstep(40.0, 220.0, camDist) * (1.0 - 0.5 * onRoad);
+float macro = 0.6 * rrNoise(wp * 0.0071) + 0.4 * rrNoise(rrRot * wp * 0.019 + 5.3);
+float farTex = texture2D(uDetA, rrRot * wp * 0.011 + 0.21).a;
+rrAlb *= mix(1.0, 0.86 + 0.28 * (0.55 * macro + 0.45 * farTex), farW);
+#endif
 diffuseColor.rgb *= rrAlb;
 diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.95, 1.02, 1.06) + vec3(0.0, 0.01, 0.025), sx4.y * pack);   // glazed tracks pick up the sky
 diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.08, 1.0, 0.72), wGr * dry * sx4.z * 0.6);                  // straw-coloured dry grass
@@ -4175,7 +4198,9 @@ function makeTerrainMaterial(def) {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0.0, envMapIntensity: def.sky.day ? 0.3 : 0.7 });
   const stripe = def.style === 'platform' ? 1 : 0, det = detailTextures();
   mat.extensions = { derivatives: true };        // dFdx/dFdy for the bump on WebGL1
-  if (def.earth && def.earth.talus) mat.defines = { RR_TALUS: 1 };   // (defines are part of three's program cache key)
+  mat.defines = {};                                  // (defines are part of three's program cache key)
+  if (def.earth && def.earth.talus) mat.defines.RR_TALUS = 1;
+  if (gfxTex().far) mat.defines.RR_FAR = 1;
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uHW = { value: def.hw };
     sh.uniforms.uStripe = { value: stripe };
@@ -5339,6 +5364,19 @@ function cycleVolume() {
   let i = VOLUMES.findIndex((v) => Math.abs(v - cur) < 0.01); i = i < 0 ? 0 : (i + 1) % VOLUMES.length;
   s.vol = VOLUMES[i]; AudioSys.unlock(); AudioSys.setVolume(s.vol);
   HUD.toast('VOLUME ' + Math.round(s.vol * 100) + '%'); Store.save(); Menu.refresh();
+}
+function cycleRes() {
+  const s = Store.data.settings;
+  s.res = GFX_ORDER[(GFX_ORDER.indexOf(gfxRes()) + 1) % GFX_ORDER.length];
+  applyResolution();
+  HUD.toast('RESOLUTION ' + GFX_RES[s.res].name); Store.save(); Menu.refresh();
+}
+function cycleTex() {
+  const s = Store.data.settings, cur = GFX_ORDER.find((k) => GFX_TEX[k] === gfxTex());
+  s.tex = GFX_ORDER[(GFX_ORDER.indexOf(cur) + 1) % GFX_ORDER.length];
+  LIV_CACHE.clear(); _helmetTex.clear();          // the car is redrawn now; the ground and signs from the next stage
+  if (Game.carModel) rebuildCarModel();
+  HUD.toast('TEXTURES ' + GFX_TEX[s.tex].name + ' · GROUND FROM THE NEXT STAGE'); Store.save(); Menu.refresh();
 }
 const _bq = new THREE.Quaternion(), _bp = new THREE.Vector3();
 function poseBlock(b) {
@@ -11178,6 +11216,8 @@ const Settings = {
     if (k === 'hud') { toggleHud(); return; }
     if (k === 'vol') { cycleVolume(); return; }
     if (k === 'stab') { cycleStab(); return; }
+    if (k === 'res') { cycleRes(); return; }
+    if (k === 'tex') { cycleTex(); return; }
     if (k === 'tilt') { Tilt.toggle(); return; }
     if (k === 'tiltSens') { Tilt.cycleSens(); return; }
     if (k === 'cam') toggleCamera(); else toggleSetting(k === 'sound' ? 'muted' : k);
@@ -11197,6 +11237,8 @@ const Settings = {
     document.getElementById('hudMode').textContent = s.hud === 'full' ? 'FULL' : 'MINIMAL';
     document.getElementById('tiltMode').textContent = TILT_SENS[Tilt.sensIdx()].name;
     document.getElementById('stabMode').textContent = STAB[stabMode()].name;
+    document.getElementById('resMode').textContent = GFX_RES[gfxRes()].name;
+    document.getElementById('texMode').textContent = gfxTex().name;
     document.getElementById('volMode').textContent = Math.round((s.vol == null ? 1 : s.vol) * 100) + '%';
   },
   init() {
@@ -11369,8 +11411,14 @@ const Menu = {
 /* ---- main loop ---- */
 let lastT = performance.now();
 // Adaptive resolution: drop the pixel ratio when frames run long, creep back up when they don't.
-const Res = { max: Math.min(window.devicePixelRatio || 1, LOW_SPEC ? 1.3 : 1.6), pr: 0, acc: 0, n: 0, good: 0, hold: 0 };
+const Res = { max: Math.min(window.devicePixelRatio || 1, GFX_RES.medium.pr), pr: 0, acc: 0, n: 0, good: 0, hold: 0 };
 Res.pr = Res.max;
+/** Set the pixel ratio cap from the RESOLUTION setting and start from it. */
+function applyResolution() {
+  Res.max = Math.min(window.devicePixelRatio || 1, GFX_RES[gfxRes()].pr);
+  Res.pr = Res.max; Res.acc = 0; Res.n = 0; Res.good = 0; Res.hold = 0;
+  renderer.setPixelRatio(Res.pr); renderer.setSize(window.innerWidth, window.innerHeight);
+}
 function adaptResolution(rawDt) {
   if (Game.state === 'loading' || document.hidden || rawDt > 0.25) return;
   Res.acc += rawDt; Res.n++;
@@ -11448,6 +11496,7 @@ function init() {
   if (typeof s.manual !== 'boolean') s.manual = !IS_TOUCH;
   if (typeof s.abs !== 'boolean') s.abs = true;      // manual gears by default on keyboard/gamepad, automatic on touch
   Cam.mode = s.cam === 'bumper' ? 'bumper' : 'chase';
+  applyResolution();
   if (IS_TOUCH) document.body.classList.add('touch');
   applyHud();
   HUD.init(); Input.init(); Tilt.init(); Sky.init(); FX.init(); Ghost.init(); Rival.init(); Menu.init();
