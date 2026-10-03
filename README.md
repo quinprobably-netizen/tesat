@@ -141,7 +141,6 @@ In the **garage** you build your ride Mario Kart style, with a live 3D preview t
 |---|---|
 | Pilot | NOVA (astronaut, medium), ZIX (alien, light), BOLT-9 (robot, heavy), MISO (cat, light), GRAVL (rock golem, heavy), PIP (drone, feather), KOI (goldfish, light), VEGA (rally ace, medium) |
 | Car | Group B inspired: TWINCHARGER (Lancia Delta S4), FIVE-POT (Audi Sport quattro S1 E2), T16 (Peugeot 205 T16), STRADALE (Lancia 037), RS WEDGE (Ford RS200), SIX-R (MG Metro 6R4), plus the PRERUNNER rally pickup (first-gen Toyota Tacoma), three 2025-26 Rally1 cars (GR YARIS, I20 N, PUMA), the Ford Focus RS WRC 06 and the 1964 Mini Cooper S. Each comes with its real engine and drivetrain, shown under the CAR tab along with its aero package. |
-| Wheels | STANDARD, CRAWLER, SLICK ROLLER, HOVER PADS, SPIKE RIMS |
 | Paint | 12 colours, including metallic chrome and copper |
 | Decal | CLEAN, STRIPES, FLAMES, CHECKER, BOLT, STARS |
 | Glow | Underglow in 5 colours, or off |
@@ -165,9 +164,13 @@ Every car carries its own full aero package, modelled on the car: splitters, div
 | I20 N | Rally1 package with the rear wing carried off the roof | 0.99 m² | 0.66 m² (38%) |
 | PUMA | Rally1 package over the crossover shell's sloping tailgate | 1.05 m² | 0.65 m² (38%) |
 | FOCUS WRC | Front splitter with dive planes, side skirts, big tailgate wing, diffuser | 0.86 m² | 0.54 m² (33%) |
-| MINI | None: an upright 1959 box (Cd about 0.48) | 0.78 m² | none |
+| MINI | None: an upright 1959 box (Cd about 0.48), which lifts at speed, mostly at the nose | 0.78 m² | lift 0.18 m² (67%) |
 
-Parts change the car's real physics; the pilot is looks only and has no effect on performance. Wheels change grip on each surface, weight and rolling drag. Each car's aero package is fixed: downforce presses each axle's tyres harder as speed rises, and it shifts with pitch, so the nose gains grip when the car dives under braking.
+The car sets the physics, on its own real tyres; the pilot is looks only and has no effect on performance. Each car's aero package is fixed and works on the air at each part of the car (its speed and spin through the air, less the wind):
+
+- Drag pushes back head-on and much harder side-on, so a slide scrubs speed and makes a side force. A rear wing's endplates move that side force behind the centre of mass, so a winged car weathervanes into the airflow at speed.
+- Downforce presses each axle's tyres harder as speed rises (none in reverse). It shifts forward as the nose dives under braking, the underbody's share grows as the car sits lower and stalls near the bump stops, and it changes with the angle the air meets the car: a car falling or pitching loses downforce as it goes, which damps it, and a car nose-up off a jump makes lift.
+- Each stage has its own steady wind, gusting along the road the same way every run. On the real roads the air thins with altitude: Pikes Peak starts with about 30% less drag and downforce than sea level and ends with 40% less at the summit. The ratings and target times use still sea-level air.
 
 Every build gets a **PI** (performance index, 100 to 999) and a class: D, C (501+), B (601+), A (701+), S1 (801+), S2 (901+) and X (999). Six ratings out of 10 make up the PI: speed, handling, acceleration, launch, braking and offroad. They are worked out from the build's physics: a full-throttle run on tarmac (where the real cars' figures were measured) with the drivetrain's traction limit for top speed, 0-100 and 0-160 km/h, tyre grip with downforce for cornering and braking, and loose-surface grip for offroad. Every tile shows the PI the build would have with that part, and hovering one previews the rating changes. The service park shows the PI with the chosen setup. The Group B cars and the PRERUNNER rate in A class: TWINCHARGER A 773, FIVE-POT A 713, T16 A 734, STRADALE A 707, RS WEDGE A 718, SIX-R A 718 and PRERUNNER A 735. The restricted Rally1 cars and the Focus rate B (I20 N 670, GR YARIS 671, PUMA 657, FOCUS 601) and the Mini D 418, as their real power says.
 
