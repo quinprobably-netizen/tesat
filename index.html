@@ -5350,9 +5350,11 @@ const VOLUMES = [1, 0.75, 0.5, 0.25];
 /* Stability assist levels: k and b0-b1 for the slip-angle assist (strength, and the body slip angles in
    radians over which it comes in), yd for the yaw damper. Default FULL on touch screens, SPORT elsewhere. */
 const STAB = {
-  full:  { name: 'FULL',  k: 2.0, b0: 0.12, b1: 0.45, yd: 1.5 },
-  sport: { name: 'SPORT', k: 0.6, b0: 0.3,  b1: 0.75, yd: 0.4 },
-  off:   { name: 'OFF',   k: 0,   b0: 0,    b1: 1,    yd: 0 },
+  // aids: the arcade helpers that aren't physics: steering and levelling the car in the air, easing it back onto
+  // four wheels when it teeters on two, and a little extra damping of its rotation. OFF is the physics alone.
+  full:  { name: 'FULL',  k: 2.0, b0: 0.12, b1: 0.45, yd: 1.5, aids: true },
+  sport: { name: 'SPORT', k: 0.6, b0: 0.3,  b1: 0.75, yd: 0.4, aids: true },
+  off:   { name: 'OFF',   k: 0,   b0: 0,    b1: 1,    yd: 0,   aids: false },
 };
 const STAB_ORDER = ['full', 'sport', 'off'];
 function stabMode() { const v = Store.data.settings.stab; return STAB[v] ? v : IS_TOUCH ? 'full' : 'sport'; }
@@ -5492,7 +5494,9 @@ function updateScenery(dt, t) {
    lateral force through one combined-slip curve per surface (TYRE_SURF), scaled by the surface's grip
    and the tyre's load. Brakes are torques at the wheels (ABS works on each wheel's slip, traction
    control cuts the engine on driven-wheel slip). Aero drag and downforce act at each axle, in the air
-   too. In the air the player can pitch/yaw, and a PD controller gently levels the car to the ground.
+   too. The body keeps its angular momentum in the air and trades it with the spinning wheels, so braking in the
+   air drops the nose. On the SPORT and FULL stability settings driving aids add more: the player can pitch and yaw
+   in the air, a controller levels the car to the ground, and it eases back onto four wheels when it teeters.
    ============================================================================= */
 const CAR = {
   mass: 1010,
@@ -6072,7 +6076,13 @@ function stepVehicle(dt, ctl) {
   } else car.tcF = Math.min(1, car.tcF + dt * 4);
   car.tcCut = car.tc && th0 > 0.05 && car.tcF < 0.95;
   if (car.tc) th0 *= car.tcF;
+  let L0 = 0; for (let k = 0; k < 4; k++) L0 += W[k].om;
   drivelineStep(dt, ctl, gearRatio(), th0);
+  // the wheels' spin (about the car's x axis; forward rolling is +) is angular momentum the body trades with: brakes
+  // or throttle that change it turn the car the other way (in the air, braking drops the nose), and the spinning
+  // wheels resist the body turning their axles (a gyroscope)
+  let L1 = 0; for (let k = 0; k < 4; k++) L1 += W[k].om;
+  T.addScaledVector(AX, -CAR.Iw * (L1 - L0) / dt).sub(_tmp2.crossVectors(car.w, AX).multiplyScalar(CAR.Iw * L1));
   car.limiter = car.cut && (rev ? ctl.brake : ctl.throttle) > 0;
   // 5) tyre forces on the body at each contact patch. The suspension links carry part of each tyre's force
   //    straight into the body (the roll and pitch centres): a vertical link load J that loads the tyre without
@@ -6132,11 +6142,9 @@ function stepVehicle(dt, ctl) {
       addForceAt(_ft.copy(AY).multiplyScalar(-q * cR), _cp.copy(car.pos).addScaledVector(AZ, CAR.wheels[2].z));
     }
   }
-  // 5) air control + landing detection
-  if (nG === 0) {
-    car.airTime += dt;
-    if (!car.wasAirborne) {
-      car.wasAirborne = true;
+  // 5) air control (a driving aid) + landing detection
+  if (nG === 0 && SA.aids) {
+    if (!car.wasAirborne) {                                       // just took off (the airtime is counted below)
       car.pitchLatch = ctl.throttle > 0.3 || ctl.brake > 0.3;    // held pedals don't pitch the car until re-pressed
       car.steerLatch = Math.abs(ctl.steer) > 0.3;
     }
@@ -6154,8 +6162,12 @@ function stepVehicle(dt, ctl) {
     const wy = yawIn !== 0 ? yawIn * 1.5 : _wl.y * 0.6;
     const wz = _tmp.z * 2.2;
     T.add(_tl.set(I.x * (wx - _wl.x) * 3, I.y * (wy - _wl.y) * 3, I.z * (wz - _wl.z) * 3).applyQuaternion(car.q));
+  }
+  if (nG === 0) {
+    car.airTime += dt;
+    if (!car.wasAirborne) car.wasAirborne = true;
   } else {
-    if (nG <= 2) {
+    if (nG <= 2 && SA.aids) {
       // teetering on one or two wheels: a gentle version of the air leveller pulls it back onto four
       _qi.copy(car.q).invert();
       _tmp.crossVectors(AY, groundN).applyQuaternion(_qi);
@@ -6195,10 +6207,17 @@ function stepVehicle(dt, ctl) {
   _qi.copy(car.q).invert();
   _tl.copy(T).applyQuaternion(_qi);
   _wl.copy(car.w).applyQuaternion(_qi);
-  _wl.x += _tl.x / CAR.inertia.x * dt; _wl.y += _tl.y / CAR.inertia.y * dt; _wl.z += _tl.z / CAR.inertia.z * dt;
-  car.w.copy(_wl).applyQuaternion(car.q);
-  car.w.multiplyScalar(Math.exp(-(nG ? 0.3 : 0.15) * dt));
-  if (car.w.lengthSq() > 144) car.w.setLength(12);
+  // angular momentum L = I·ω (body frame) takes the torque, then the spin is read back from it: a tumbling car keeps
+  // its angular momentum, and the gyroscopic coupling between its axes (ω × I·ω) comes out of the rotation itself
+  const I = CAR.inertia;
+  _wl.x = (_wl.x * I.x + _tl.x * dt); _wl.y = (_wl.y * I.y + _tl.y * dt); _wl.z = (_wl.z * I.z + _tl.z * dt);
+  _wl.applyQuaternion(car.q);                                          // world L, held while the body turns this step
+  _dq.set(car.w.x * dt * 0.5, car.w.y * dt * 0.5, car.w.z * dt * 0.5, 0).multiply(car.q);
+  _qi.set(car.q.x + _dq.x, car.q.y + _dq.y, car.q.z + _dq.z, car.q.w + _dq.w).normalize();   // orientation at the step's end
+  _tl.copy(_wl).applyQuaternion(_qiw.copy(_qi).invert());
+  car.w.set(_tl.x / I.x, _tl.y / I.y, _tl.z / I.z).applyQuaternion(_qi);
+  if (SA.aids) car.w.multiplyScalar(Math.exp(-(nG ? 0.3 : 0.15) * dt));   // the aids steady the car a little
+  if (car.w.lengthSq() > 900) car.w.setLength(30);                          // numerical safety net only
   _dq.set(car.w.x * dt * 0.5, car.w.y * dt * 0.5, car.w.z * dt * 0.5, 0).multiply(car.q);
   car.q.set(car.q.x + _dq.x, car.q.y + _dq.y, car.q.z + _dq.z, car.q.w + _dq.w).normalize();
   // 8) obstacles, 9) track-space position (neither exists on the test rig's proving ground)
@@ -6498,11 +6517,11 @@ function physicsTests(build) {
     const fine = stepSteer(1 / 960);
     check('timestep: 120 Hz vs 960 Hz after a step steer (m)', stepSteer(PHYS_DT).distanceTo(fine), 0, 0.4);
     // airborne, no driver aids: angular momentum is conserved, and the brakes pitch the nose down through the wheels
-    rig.place(SURF.TARMAC, 30, { drop: 60 }); car.w.set(0.6, 1.2, 0.4);
+    rig.place(SURF.TARMAC, 0, { drop: 60 }); car.w.set(0.6, 1.2, 0.4);     // from rest, so no aero torques; body plus wheels
     const Lw = () => { _qi.copy(car.q).invert(); _wl.copy(car.w).applyQuaternion(_qi); const I = CAR.inertia;
-      return _tl.set(I.x * _wl.x, I.y * _wl.y, I.z * _wl.z).applyQuaternion(car.q).length(); };
-    const L0 = Lw(); rig.step(240);
-    check('airborne: angular momentum kept over 2 s', Lw() / L0, 0.98, 1.02);
+      carAxes(); return _tl.set(I.x * _wl.x, I.y * _wl.y, I.z * _wl.z).applyQuaternion(car.q).addScaledVector(AX, CAR.Iw * car.wheels.reduce((a, w) => a + w.om, 0)).length(); };
+    const L0 = Lw(); rig.step(180);
+    check('airborne: angular momentum kept over 1.5 s', Lw() / L0, 0.98, 1.02);
     rig.place(SURF.TARMAC, 30, { drop: 60 });
     rig.step(30); carAxes(); const p0 = car.w.dot(AX);
     rig.ctl.brake = 1; rig.step(60); carAxes();
