@@ -2990,23 +2990,39 @@ function makeTerrainFns(def) {
   const nA = makeNoise2D(def.seed * 3 + 1), nB = makeNoise2D(def.seed * 3 + 2), nC = makeNoise2D(def.seed * 3 + 3);
   const amp = def.terrainAmp, sc = def.terrainScale, seed = def.seed;
   const large = (x, z) => amp * fbm(nA, x / sc, z / sc, 4);
-  let detail;
+  let detail, clearRoad = null;
   if (def.style === 'hills') {
-    const cell = 120;
+    const cell = 120, offRoad = new Set();               // craters that would dig into the road's verges are left out
+    const crater = (ix, iz, out) => {
+      if (hash2i(ix, iz, seed) > 0.6) return false;
+      out.x = (ix + 0.15 + 0.7 * hash2i(ix, iz, seed + 1)) * cell;
+      out.z = (iz + 0.15 + 0.7 * hash2i(ix, iz, seed + 2)) * cell;
+      out.R = 10 + 34 * hash2i(ix, iz, seed + 3);
+      return true;
+    };
+    const C = {};
     detail = (x, z) => {
       let h = 0.9 * fbm(nB, x / 45, z / 45, 3) + 0.07 * nC(x / 5.5, z / 5.5);
       const cx0 = Math.floor(x / cell), cz0 = Math.floor(z / cell);
       for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {          // procedural impact craters
         const ix = cx0 + a, iz = cz0 + b;
-        if (hash2i(ix, iz, seed) > 0.6) continue;
-        const px = (ix + 0.15 + 0.7 * hash2i(ix, iz, seed + 1)) * cell;
-        const pz = (iz + 0.15 + 0.7 * hash2i(ix, iz, seed + 2)) * cell;
-        const R = 10 + 34 * hash2i(ix, iz, seed + 3);
-        const dx = x - px, dz = z - pz, dd = dx * dx + dz * dz;
+        if (!crater(ix, iz, C) || offRoad.has(ix * 100003 + iz)) continue;
+        const dx = x - C.x, dz = z - C.z, dd = dx * dx + dz * dz, R = C.R;
         if (dd > R * R * 2.6) continue;
         h += craterProfile(Math.sqrt(dd) / R, R * 0.2, R * 0.06);
       }
       return h;
+    };
+    /** Leave out every crater whose rim (1.61 R) comes within `reach` m of the road's centreline. */
+    clearRoad = (xs, zs, reach) => {
+      for (let i = 0; i < xs.length; i += 2) {
+        const cx0 = Math.floor(xs[i] / cell), cz0 = Math.floor(zs[i] / cell);
+        for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+          const ix = cx0 + a, iz = cz0 + b;
+          if (crater(ix, iz, C) && Math.hypot(xs[i] - C.x, zs[i] - C.z) < C.R * 1.61 + reach) offRoad.add(ix * 100003 + iz);
+        }
+      }
+      return offRoad.size;
     };
   } else if (def.style === 'ring') {
     detail = (x, z) => {
@@ -3020,7 +3036,7 @@ function makeTerrainFns(def) {
       return block + 0.7 * Math.abs(fbm(nC, x / 18, z / 18, 3)) + 0.05 * nC(x / 3, z / 3);
     };
   }
-  return { large, detail, T: (x, z) => large(x, z) + detail(x, z) };
+  return { large, detail, clearRoad, T: (x, z) => large(x, z) + detail(x, z) };
 }
 
 /* ---- mountain terrain for a scripted road: a smooth surface through the road's own heights, fitted at three
@@ -3350,6 +3366,7 @@ function generateTrack(def) {
     snowbank: def.earth && def.earth.snowbank || 0,
   };
   TR = tr;
+  if (tr.terrain && tr.terrain.clearRoad) tr.terrain.clearRoad(tr.cx, tr.cz, def.hw + def.shoulder);   // the run-off stays smooth
   for (let i = 0; i < N; i++) {
     tr.kap[i] = plan.k[Math.min(i, N - 2)];
     tr.tx[i] = Math.sin(tr.th[i]); tr.tz[i] = Math.cos(tr.th[i]);
@@ -3459,21 +3476,16 @@ function generateTrack(def) {
     for (let i = 0; i < def.meteorZones; i++) pickZone(300);
     for (let i = 0; i < def.chicanes; i++) { const z = pickZone(def.style === 'platform' ? 150 : 190); if (z) tr.chicaneZones.push(z); }
   }
-  // ---- Road craters (static clusters) ----
+  // ---- Road craters ----
+  // Potholes in the driving lanes were removed (they only cluttered the road), but their random draws are kept so
+  // the rest of every stage's layout stays where it was. tr.craters stays empty; the crater code still reads it.
   tr.craterBuckets = Array.from({ length: (N >> 2) + 2 }, () => []);
   for (let c = 0; c < def.craterClusters; c++) {
     for (let t = 0; t < 40; t++) {
       const s = rng.range(220, tr.finishS - 80);
       if (inFeature(s - 30, s + 30, 40, 30) || nearGate(s, 30)) continue;
-      const n = rng.int(1, 3), cl = { s, ds: [], n }, side = rng.sign();
-      for (let q = 0; q < n; q++) {
-        // clusters sit on one half of the road so there is always a clear lane
-        const sC = s + rng.range(-9, 9), dC = side * rng.range(0.3, def.hw - 2.8), R = rng.range(2.6, 4.2);
-        const i = Math.round(sC / DS);
-        addCrater({ x: tr.cx[i] + tr.rx[i] * dC, z: tr.cz[i] + tr.rz[i] * dC, s: sC, d: dC, R, depth: R * 0.22, rim: R * 0.08, cl });
-        cl.ds.push(dC);
-      }
-      tr.clusters.push(cl);
+      const n = rng.int(1, 3); rng.sign();
+      for (let q = 0; q < n; q++) { rng.range(-9, 9); rng.range(0.3, def.hw - 2.8); rng.range(2.6, 4.2); }
       break;
     }
   }
@@ -3484,7 +3496,10 @@ function generateTrack(def) {
     c.dontCut = true;
     const inside = c.dir > 0 ? -1 : 1;     // left turn → inside is the left (negative d)
     const n = rng.int(3, 5);
-    for (let q = 0; q < n; q++) tr.extraRocks.push({ s: c.apexS + rng.range(-14, 14), d: inside * (def.hw + rng.range(0.2, 3.0)), scale: rng.range(0.9, 1.6) });
+    for (let q = 0; q < n; q++) {                // right on the verge, but every part of the rock clear of the road
+      const s = c.apexS + rng.range(-14, 14), off = rng.range(0.2, 3.0), scale = rng.range(0.9, 1.6);
+      tr.extraRocks.push({ s, d: inside * (def.hw + rockClear(scale) + off), scale });
+    }
   }
   placeChicanes(tr);
   buildGrid();
@@ -4411,6 +4426,28 @@ function addCollider(c) {
   TR.colliderBuckets[b].push(c);
 }
 
+/** How far past the road edge a rock of this scale sits so none of it pokes into the road (its widest lump, plus a little). */
+function rockClear(scale) { return 0.3 + 1.4 * scale; }
+/** True when no part of a box (a unit cube under matrix m) reaches the road, edge plus `pad` metres, anywhere on the
+ *  stage: scenery set beside one stretch can land on another (a hairpin, a loop), and a big hulk can reach right over.
+ *  Points across the road from the surface to car-roof height are taken into the box's own frame and tested there. */
+const _bc = new THREE.Vector3(), _bs = new THREE.Vector3(), _bm = new THREE.Matrix4();
+function boxClearOfRoad(m, pad) {
+  _bm.copy(m).invert();
+  _bs.setFromMatrixScale(m);
+  const cx = m.elements[12], cz = m.elements[14], reach = 0.87 * Math.max(_bs.x, _bs.y, _bs.z) + TR.hw + pad;
+  const ex = 0.5 + pad / _bs.x, ey = 0.5 + pad / _bs.y, ez = 0.5 + pad / _bs.z, w = TR.hw + pad;
+  for (let i = 0; i < TR.N; i++) {
+    if ((TR.cx[i] - cx) ** 2 + (TR.cz[i] - cz) ** 2 > reach * reach) continue;
+    const y0 = baseY(i * DS);
+    for (let d = -w; d <= w + 0.01; d += w / 6) for (let y = 0.2; y < 3; y += 1.2) {
+      _bc.set(TR.cx[i] + TR.rx[i] * d, y0 + y, TR.cz[i] + TR.rz[i] * d).applyMatrix4(_bm);
+      if (Math.abs(_bc.x) < ex && Math.abs(_bc.y) < ey && Math.abs(_bc.z) < ez) return false;
+    }
+  }
+  return true;
+}
+
 function buildRocks(rng) {
   const def = TR.def, hw = def.hw, W = def.ribbon, icy = def.style === 'ring', mtn = def.style === 'mountain';
   const geo = makeRockGeometry(def.seed + 5, 1);
@@ -4420,6 +4457,7 @@ function buildRocks(rng) {
   const base = srgb(def.colors.rock);
   let n = 0;
   const place = (s, d, scale, collide) => {
+    if (Math.abs(d) < hw + rockClear(scale)) d = Math.sign(d) * (hw + rockClear(scale));   // never into the road's edge
     worldAt(s, d, WP);
     if (WP.h <= VOID_H + 1 || (WP.h < baseY(s) - 4 && !mtn)) return;   // (not down in a chasm; a mountain just falls away)
     _e.set(rng.range(-0.3, 0.3), rng.range(0, TAU), rng.range(-0.3, 0.3));
@@ -4897,8 +4935,11 @@ function buildWreckDecor(rng) {
     const i = clamp(Math.round(s / DS), 0, TR.N - 1);
     const yaw = trackYaw(i) + rng.range(-0.6, 0.6);
     _e.set(rng.range(-0.25, 0.25), yaw, rng.range(-0.25, 0.25));
-    hulls.setMatrixAt(n, _m4.compose(_p.set(WP.x, WP.h + sy * 0.3 - 0.5, WP.z), _q.setFromEuler(_e), _s.set(sx, sy, sz)));
-    hulls.setColorAt(n++, tint.setHSL(rng.range(0.0, 0.1), rng.range(0.0, 0.25), rng.range(0.55, 0.9)).convertSRGBToLinear());
+    _m4.compose(_p.set(WP.x, WP.h + sy * 0.3 - 0.5, WP.z), _q.setFromEuler(_e), _s.set(sx, sy, sz));
+    tint.setHSL(rng.range(0.0, 0.1), rng.range(0.0, 0.25), rng.range(0.55, 0.9)).convertSRGBToLinear();
+    if (!boxClearOfRoad(_m4, 2)) continue;                // it would land across another stretch of the road
+    hulls.setMatrixAt(n, _m4);
+    hulls.setColorAt(n++, tint);
     if (Math.abs(d) - ext < hw + 16) {                  // chain of capsules along the long axis
       const along = sz >= sx, len = along ? sz : sx, rad = (along ? sx : sz) / 2;
       const ax = along ? Math.sin(yaw) : Math.cos(yaw), az = along ? Math.cos(yaw) : -Math.sin(yaw);
@@ -4915,8 +4956,11 @@ function buildWreckDecor(rng) {
     const d = side * (W + rng.range(60, 900));
     _e.set(rng.range(-1, 1), rng.range(0, TAU), rng.range(-1, 1));
     const sc = rng.range(15, 90);
-    hulls.setMatrixAt(n, _m4.compose(_p.set(TR.cx[i] + TR.rx[i] * d, TR.cy[i] + rng.range(-260, 200), TR.cz[i] + TR.rz[i] * d), _q.setFromEuler(_e), _s.set(sc, sc * rng.range(0.2, 0.6), sc * rng.range(0.5, 2.2))));
-    hulls.setColorAt(n++, tint.setHSL(0.02, 0.1, rng.range(0.35, 0.7)).convertSRGBToLinear());
+    _m4.compose(_p.set(TR.cx[i] + TR.rx[i] * d, TR.cy[i] + rng.range(-260, 200), TR.cz[i] + TR.rz[i] * d), _q.setFromEuler(_e), _s.set(sc, sc * rng.range(0.2, 0.6), sc * rng.range(0.5, 2.2)));
+    tint.setHSL(0.02, 0.1, rng.range(0.35, 0.7)).convertSRGBToLinear();
+    if (!boxClearOfRoad(_m4, 4)) continue;               // a big hulk drifting low can reach right across the road
+    hulls.setMatrixAt(n, _m4);
+    hulls.setColorAt(n++, tint);
   }
   hulls.count = n; hulls.castShadow = true; hulls.receiveShadow = true; hulls.frustumCulled = false;
   stageGroup.add(hulls);
@@ -4998,7 +5042,9 @@ function buildCollectors(rng) {
     if (WP.h <= VOID_H + 1 || WP.h < baseY(s) - 4 || TR.gates.some((g) => Math.abs(g.s - s) < 10)) continue;
     const mast = rng.range(2.5, 5);
     _q.copy(toSun).multiply(_dq.setFromAxisAngle(UP, rng.range(-0.3, 0.3)));
-    P.setMatrixAt(n++, _m4.compose(_p.set(WP.x, WP.h + mast, WP.z), _q, _s.set(w, 1, l)));
+    _m4.compose(_p.set(WP.x, WP.h + mast, WP.z), _q, _s.set(w, 1, l));
+    if (!boxClearOfRoad(_m4, 1.5)) continue;             // a tilted panel would hang over another stretch of the road
+    P.setMatrixAt(n++, _m4);
     F.setMatrixAt(m++, _m4.compose(_p.set(WP.x, WP.h + mast / 2 - 0.3, WP.z), _q.identity(), _s.set(1, mast + 0.6, 1)));
     if (Math.abs(d) < hw + 12) addCollider({ x: WP.x, z: WP.z, r: 0.4, y0: WP.h - 1, y1: WP.h + mast, kind: 'pylon' });
   }
@@ -5006,7 +5052,8 @@ function buildCollectors(rng) {
     const s = rng.range(-300, TR.total + 300), i = clamp(Math.round(s / DS), 0, TR.N - 1), side = rng.sign();
     const d = side * (W + rng.range(80, 1100)), sc = rng.range(30, 160);
     _q.copy(toSun).multiply(_dq.setFromAxisAngle(UP, rng.range(0, TAU)));
-    P.setMatrixAt(n++, _m4.compose(_p.set(TR.cx[i] + TR.rx[i] * d, TR.cy[i] + rng.range(-300, 260), TR.cz[i] + TR.rz[i] * d), _q, _s.set(sc, sc * 0.03, sc * rng.range(0.6, 1.6))));
+    _m4.compose(_p.set(TR.cx[i] + TR.rx[i] * d, TR.cy[i] + rng.range(-300, 260), TR.cz[i] + TR.rz[i] * d), _q, _s.set(sc, sc * 0.03, sc * rng.range(0.6, 1.6)));
+    if (boxClearOfRoad(_m4, 4)) P.setMatrixAt(n++, _m4);
   }
   P.count = n; F.count = m;
   for (const x of [P, F]) { x.castShadow = true; x.receiveShadow = true; x.frustumCulled = false; stageGroup.add(x); }
