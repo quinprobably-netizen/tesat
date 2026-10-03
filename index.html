@@ -2133,11 +2133,11 @@ const GARAGE = {
     { name: 'MINI', blurb: 'Mini Cooper S, 1964 Monte Carlo winner. 1071 cc, front-wheel drive, ten-inch wheels and a quarter of the power: pure momentum.' },
   ] },
   wheels: { label: 'WHEELS', opts: [
-    { name: 'STANDARD', blurb: 'All-round rally tyres.', mu: [1, 1, 1, 1, 1, 1], kg: 0, steer: 1, rr: 0 },
-    { name: 'CRAWLER', blurb: 'Big knobbly tyres. Dig into loose ground, heavy and slow to turn.', mu: [1.08, 1.04, 1.02, 1.1, 0.96, 1.08], kg: 24, steer: 0.965, rr: 0.012, rScale: 1.04 },
-    { name: 'SLICK ROLLER', blurb: 'Low-profile slicks. Sharp on tarmac and metal, slide on anything loose.', mu: [0.94, 0.86, 1.06, 0.9, 1.08, 0.86], kg: -12, steer: 1.035, rr: -0.003, rScale: 0.98 },
-    { name: 'HOVER PADS', blurb: 'Grav pads instead of wheels. Light and nimble, a touch less grip.', mu: [0.97, 0.97, 0.97, 0.97, 0.97, 0.97], kg: -20, steer: 1.07, rr: 0 },
-    { name: 'SPIKE RIMS', blurb: 'Studded tyres. Bite on ice and metal, a bit of drag, worse on tarmac.', mu: [1.02, 1.25, 1.08, 1.02, 0.94, 1.2], kg: 8, steer: 1, rr: 0.008 },
+    { name: 'GRAVEL', blurb: '15-inch gravel rally tyres on aluminium rims. Tall sidewalls soak up rocks and ruts: the all-round choice.', mu: [1, 1, 1, 1, 1, 1], kg: 0, steer: 1, rr: 0 },
+    { name: 'MUD-TERRAIN', blurb: 'Oversize knobbly off-road tyres. Dig into dust, gravel and snow; heavy, draggy and vague on tarmac.', mu: [1.08, 1.02, 0.98, 1.1, 0.9, 1.08], kg: 24, steer: 0.965, rr: 0.012, rScale: 1.04 },
+    { name: 'TARMAC', blurb: '18-inch low-profile asphalt tyres. Sharp on tarmac and metal decks, slide on anything loose.', mu: [0.88, 0.85, 1.06, 0.86, 1.08, 0.82], kg: -6, steer: 1.035, rr: -0.003, rScale: 0.98 },
+    { name: 'MAGNESIUM', blurb: 'Forged magnesium rims on gravel tyres. Same grip, but less unsprung and rotating weight: lighter on its feet.', mu: [1, 1, 1, 1, 1, 1], kg: -14, steer: 1.02, rr: 0 },
+    { name: 'SNOW', blurb: 'Narrow studded winter tyres, Rally Sweden style. Cut through snow and bite on ice; skate on tarmac.', mu: [0.96, 1.3, 1.04, 0.98, 0.88, 1.25], kg: 4, steer: 1, rr: 0.008 },
   ] },
   color: { label: 'PAINT', opts: [
     { name: 'BLAZE', hex: 0xff7a1a }, { name: 'NEBULA', hex: 0x8b5cff }, { name: 'COMET', hex: 0x19c8e6 }, { name: 'SOLAR', hex: 0xffd21f },
@@ -8698,32 +8698,27 @@ function buildCarModel(build) {
   if (works) for (const o of shell.children) if (o.isMesh && o.material === paint) liveryUV(o, liveryFrameF);   // the livery wraps the whole body
   warpShell(shell, map, P);                                 // onto the real car's length, width, height and wheelbase
   // ---- wheels: pivot (steer + suspension) → spin group (tyre, rim, brake disc). The caliper rides on the
-  // pivot, so it steers and moves with the hub but doesn't spin. Hover pads sit in the pivot. ----
+  // pivot, so it steers and moves with the hub but doesn't spin. ----
   const wheels = [];
-  const R = geo.r, W = sp.tyre.w * [1, 1.3, 0.92, 0, 1][wheelKind];   // the car's real tyre (crawlers a size up, slicks a touch lower)
+  const R = geo.r, W = sp.tyre.w * [1, 1.3, 0.92, 1, 0.75][wheelKind];   // the car's real tyre (mud-terrains a size up, tarmac a touch lower, snow tyres narrow)
   const rimSpec = RIM_STYLES[body];
   const plainPaint = works ? new THREE.MeshStandardMaterial({ color: LIVERIES[body].rim, metalness: 0.5, roughness: 0.4 }) : paint;   // the textured livery stays off the wheels
-  const rimMat = wheelKind === 2 ? plainPaint : new THREE.MeshStandardMaterial({ color: works ? LIVERIES[body].rim : rimSpec.color, metalness: 0.75, roughness: 0.3 });
+  const rimMat = wheelKind === 2 ? plainPaint : new THREE.MeshStandardMaterial({ color: wheelKind === 3 ? 0xc9a24a : works ? LIVERIES[body].rim : rimSpec.color, metalness: 0.75, roughness: 0.3 });   // magnesium rims in gold
   const discMats = [], rubberDS = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.92, side: THREE.DoubleSide });
   const caliperMat = new THREE.MeshStandardMaterial({ color: rimSpec.caliper, metalness: 0.3, roughness: 0.45 });
-  let tireGeo = null, wallGeo = null, dishGeo = null, spokeGeo = null, nutGeo = null, discGeo = null, hatGeo = null, calGeo = null, treadGeo = null, padGeo = null, padGlow = null;
-  const rimR = Math.min(sp.tyre.rim * 0.0127, R - 0.07), pr = R / 0.43;
-  if (wheelKind !== 3) {
-    tireGeo = new THREE.CylinderGeometry(R, R, W, wheelKind === 1 ? 10 : 20, 1, true); tireGeo.rotateZ(Math.PI / 2);   // tread band
-    wallGeo = new THREE.RingGeometry(rimR, R, 20, 1); wallGeo.rotateY(Math.PI / 2);                  // sidewalls, open to the rim
-    dishGeo = new THREE.CylinderGeometry(rimR, rimR, W * 0.92, 20, 1, true); dishGeo.rotateZ(Math.PI / 2);
-    spokeGeo = new THREE.BoxGeometry(0.03, rimSpec.spokeW * 0.7, rimR - 0.035); spokeGeo.translate(0, 0, (rimR - 0.035) / 2 + 0.025);
-    nutGeo = new THREE.CylinderGeometry(0.045, 0.052, 0.04, rimSpec.spokes > 5 ? 8 : 5); nutGeo.rotateZ(Math.PI / 2);
-    // brake disc: the car's real disc size where it fits inside the rim
-    discGeo = new THREE.CylinderGeometry(Math.min(sp.disc[0] / 2000, rimR - 0.03), Math.min(sp.disc[0] / 2000, rimR - 0.03), 0.028, 22); discGeo.rotateZ(Math.PI / 2);
-    hatGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.05, 10); hatGeo.rotateZ(Math.PI / 2);
-    calGeo = new THREE.BoxGeometry(0.07, 0.1, 0.16);
-    if (wheelKind === 1) treadGeo = new THREE.BoxGeometry(W + 0.03, 0.07, 0.1);
-    if (wheelKind === 4) treadGeo = new THREE.ConeGeometry(0.026, 0.075, 5);
-  } else {
-    padGeo = new THREE.CylinderGeometry(0.46 * pr, 0.36 * pr, 0.16 * pr, 20);
-    padGlow = new THREE.Mesh(new THREE.RingGeometry(0.12 * pr, 0.34 * pr, 24), new THREE.MeshBasicMaterial({ color: glowOpt.css ? glowOpt.hex : 0x78f0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
-  }
+  let tireGeo = null, wallGeo = null, dishGeo = null, spokeGeo = null, nutGeo = null, discGeo = null, hatGeo = null, calGeo = null, treadGeo = null;
+  const rimR = Math.min(sp.tyre.rim * 0.0127, R - 0.07);
+  tireGeo = new THREE.CylinderGeometry(R, R, W, wheelKind === 1 ? 10 : 20, 1, true); tireGeo.rotateZ(Math.PI / 2);   // tread band
+  wallGeo = new THREE.RingGeometry(rimR, R, 20, 1); wallGeo.rotateY(Math.PI / 2);                  // sidewalls, open to the rim
+  dishGeo = new THREE.CylinderGeometry(rimR, rimR, W * 0.92, 20, 1, true); dishGeo.rotateZ(Math.PI / 2);
+  spokeGeo = new THREE.BoxGeometry(0.03, rimSpec.spokeW * 0.7, rimR - 0.035); spokeGeo.translate(0, 0, (rimR - 0.035) / 2 + 0.025);
+  nutGeo = new THREE.CylinderGeometry(0.045, 0.052, 0.04, rimSpec.spokes > 5 ? 8 : 5); nutGeo.rotateZ(Math.PI / 2);
+  // brake disc: the car's real disc size where it fits inside the rim
+  discGeo = new THREE.CylinderGeometry(Math.min(sp.disc[0] / 2000, rimR - 0.03), Math.min(sp.disc[0] / 2000, rimR - 0.03), 0.028, 22); discGeo.rotateZ(Math.PI / 2);
+  hatGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.05, 10); hatGeo.rotateZ(Math.PI / 2);
+  calGeo = new THREE.BoxGeometry(0.07, 0.1, 0.16);
+  if (wheelKind === 1) treadGeo = new THREE.BoxGeometry(W + 0.03, 0.07, 0.1);
+  if (wheelKind === 4) treadGeo = new THREE.ConeGeometry(0.026, 0.075, 5);
   for (const cw of geo.wheels) {
     const pivot = new THREE.Group(); pivot.position.set(cw.x, geo.mountY - geo.rest, cw.z); g.add(pivot);
     const spin = new THREE.Group(); pivot.add(spin);
@@ -8749,18 +8744,13 @@ function buildCarModel(build) {
       cal.rotation.x = cw.front ? 0.6 : -0.6; pivot.add(cal);
       if (wheelKind === 1) for (let k = 0; k < 10; k++) { const t = new THREE.Mesh(treadGeo, rubber); const a = k / 10 * TAU; t.position.set(0, Math.cos(a) * R, Math.sin(a) * R); t.rotation.x = -a; spin.add(t); }
       if (wheelKind === 4) for (let k = 0; k < 24; k++) { const t = new THREE.Mesh(treadGeo, trim); const a = k / 12 * TAU; t.position.set(k % 2 ? W * 0.28 : -W * 0.28, Math.cos(a) * R, Math.sin(a) * R); t.rotation.x = a; spin.add(t); }
-    } else {
-      const pad = new THREE.Mesh(padGeo, dark); pad.position.y = -R * 0.3; pad.castShadow = true; pivot.add(pad);
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.44 * pr, 0.04 * pr, 6, 20), plainPaint); rim.rotation.x = Math.PI / 2; rim.position.y = pad.position.y + 0.05 * pr; pivot.add(rim);
-      const glow = padGlow.clone(); glow.rotation.x = Math.PI / 2; glow.position.y = pad.position.y - 0.09 * pr; pivot.add(glow);
-      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.05 * pr, 0.05 * pr, 0.4 * pr, 6), trim); strut.position.y = pad.position.y + 0.25 * pr; pivot.add(strut);
     }
     // coil-over top mount on the strut tower under the bodywork
     const top = new THREE.Vector3(cw.x * 0.72, map.y(spec.shockTop), cw.z + (cw.front ? -0.3 : 0.3) * map.sz);
-    wheels.push({ pivot, spin, discMat: discMats[discMats.length - 1] || null, heat: 0, shock: makeShock(g, cw, trim, dark, wheelKind === 3 ? -R * 0.3 + 0.45 * pr : R - geo.r, top) });
+    wheels.push({ pivot, spin, discMat: discMats[discMats.length - 1] || null, heat: 0, shock: makeShock(g, cw, trim, dark, R - geo.r, top) });
     poseShock(wheels[wheels.length - 1].shock, pivot.position.y);
   }
-  const arbVis = wheelKind === 3 ? null : makeArb(g, trim, geo);
+  const arbVis = makeArb(g, trim, geo);
   // headlight
   const spot = new THREE.SpotLight(0xe0f4ff, 2.2, 75, 0.5, 0.55, 1.2);
   spot.position.set(0, map.y(0.5), map.z(1.9));
@@ -11084,7 +11074,7 @@ const Garage = {
       return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b>${piBadge(Rv, true)}<div class="chips">${partChips(k, o)}</div></button>`;
     }).join('');
     const cur = cat.opts[b[k]];
-    const cosmetic = { color: 'Paint job for the body, wings and wheel arches. Chrome and copper are extra shiny. WORKS is the car\'s own rally livery.', decal: 'Livery pattern for the sides and roof (on WORKS paint, over the sides only).', glow: 'Colour of the underglow and hover pad lights.' };
+    const cosmetic = { color: 'Paint job for the body, wings and wheel arches. Chrome and copper are extra shiny. WORKS is the car\'s own rally livery.', decal: 'Livery pattern for the sides and roof (on WORKS paint, over the sides only).', glow: 'Colour of the underglow.' };
     if (k === 'pilot') cosmetic.pilot = `<b>${cur.full}</b> ${cur.blurb}`;
     let desc = cosmetic[k] ? cosmetic[k] + ' <em>Looks only, no effect on performance.</em>' : `<b>${cur.name}</b> ${cur.blurb}`;
     if (k === 'body') {

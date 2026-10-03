@@ -141,7 +141,7 @@ In the **garage** you build your ride Mario Kart style, with a live 3D preview t
 |---|---|
 | Pilot | NOVA (astronaut, medium), ZIX (alien, light), BOLT-9 (robot, heavy), MISO (cat, light), GRAVL (rock golem, heavy), PIP (drone, feather), KOI (goldfish, light), VEGA (rally ace, medium) |
 | Car | Group B inspired: TWINCHARGER (Lancia Delta S4), FIVE-POT (Audi Sport quattro S1 E2), T16 (Peugeot 205 T16), STRADALE (Lancia 037), RS WEDGE (Ford RS200), SIX-R (MG Metro 6R4), plus the PRERUNNER rally pickup (first-gen Toyota Tacoma), three 2025-26 Rally1 cars (GR YARIS, I20 N, PUMA), the Ford Focus RS WRC 06 and the 1964 Mini Cooper S. Each comes with its real engine and drivetrain, shown under the CAR tab along with its aero package. |
-| Wheels | STANDARD, CRAWLER, SLICK ROLLER, HOVER PADS, SPIKE RIMS |
+| Wheels | GRAVEL, MUD-TERRAIN, TARMAC, MAGNESIUM (lightweight rims), SNOW (studded) |
 | Paint | 12 colours, including metallic chrome and copper |
 | Decal | CLEAN, STRIPES, FLAMES, CHECKER, BOLT, STARS |
 | Glow | Underglow in 5 colours, or off |
