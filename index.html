@@ -1422,11 +1422,12 @@ function fmtDelta(d) { return (d < 0 ? '-' : '+') + Math.abs(d).toFixed(2); }
    ============================================================================= */
 const Store = {
   key: 'regolithRally.v1',
-  era: 7,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost,
+  era: 8,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost,
             // 4 = coupled driveline, real gearboxes, chassis and tyres per car, 5 = new layouts for the space stages (Pikes Peak unchanged),
-            // 6 = tyre relaxation length, slip-angle steering and the STABILITY setting, 7 = Dyson Swarm without its ice (every other stage unchanged)
+            // 6 = tyre relaxation length, slip-angle steering and the STABILITY setting, 7 = Dyson Swarm without its ice (every other stage unchanged),
+            // 8 = wheels with their own mass, transient tyres, full weight transfer, ESC, thin air on the mountains (every stage changed)
   data: { best: {}, settings: { muted: false, voice: true, ghost: true, cam: 'chase', name: 'DRIVER' },
-    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 7 },
+    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 8 },
   load() {
     try {
       const raw = window.localStorage.getItem(this.key);
@@ -1448,8 +1449,9 @@ const Store = {
    *  times (not the replays) under `archive` and start the boards fresh. Setups and the garage stay. */
   archiveEra(era) {
     const D = this.data, times = {}, boards = {};
-    // era 4 → 5 kept Pikes Peak (layouts only); 6 changed the handling, so nothing older carries over; 6 → 7 changed only the Dyson Swarm
-    const keep = (k) => era >= 6 && k !== 'dyson';
+    // era 4 → 5 kept Pikes Peak (layouts only); 6 changed the handling, so nothing older carries over; 6 → 7 changed only the
+    // Dyson Swarm; 8 changed the physics on every stage, so nothing older carries over
+    const keep = (k) => era >= 8;
     for (const k in D.best) if (!keep(k)) times[k] = { time: D.best[k].time, splits: D.best[k].splits };
     for (const k in D.boards) if (!keep(k)) boards[k] = D.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own, d: e.d }));
     if (Object.keys(times).length || Object.keys(boards).length || D.rallyBest) {     // the newest era's times replace an older archive
