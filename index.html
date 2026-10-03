@@ -2661,13 +2661,22 @@ function warpShell(shell, map, P) {
     o.scale.x *= f(new THREE.Vector3(1, 0, 0)); o.scale.y *= f(new THREE.Vector3(0, 1, 0)); o.scale.z *= f(new THREE.Vector3(0, 0, 1));
   }
 }
+// Texture quality: the most anisotropic filtering the GPU offers (the ground and the road signs are seen at grazing
+// angles from the chase camera), and canvas textures drawn at twice their size on desktop so text, numbers and
+// livery edges stay crisp up close. Draw code works in the logical size; the context is scaled underneath it.
+const TEX_ANISO = Math.min(LOW_SPEC ? 8 : 16, renderer.capabilities.getMaxAnisotropy());
+const TEX_SCALE = LOW_SPEC ? 1 : 2;
 /** Small canvas helper for procedural textures. */
 function makeCanvas(w, h, draw) {
-  const c = document.createElement('canvas'); c.width = w; c.height = h;
-  draw(c.getContext('2d'), w, h);
+  const k = Math.max(1, Math.min(TEX_SCALE, Math.floor(renderer.capabilities.maxTextureSize / Math.max(w, h))));
+  const c = document.createElement('canvas'); c.width = w * k; c.height = h * k;
+  const g = c.getContext('2d');
+  g.scale(k, k);
+  g.imageSmoothingQuality = 'high';
+  draw(g, w, h);
   const t = new THREE.CanvasTexture(c);
   t.encoding = THREE.sRGBEncoding;
-  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  t.anisotropy = TEX_ANISO;
   return t;
 }
 
@@ -3998,7 +4007,7 @@ function detailTextures() {
     const t = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true;
-    t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    t.anisotropy = TEX_ANISO;
     t.needsUpdate = true;
     return t;
   });
