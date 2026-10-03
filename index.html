@@ -2172,7 +2172,8 @@ function cleanBuild(b) {
    the centre differential's nominal share of torque to the front axle (0 = rear drive); each differential
    is open, limited-slip (lsd), Torsen, viscous or locking (see DIFF_TYPES). Chassis: wheelbase `wb`,
    `track` front and rear, `wf` the share of weight on the front axle, `cgH` the centre of mass height,
-   `dims` length, width and height, `travel` the wheel travel (all metres). `kg` is the homologation weight;
+   `dims` length, width and height, `travel` the wheel travel (all metres); `unsprung` the mass at each front and rear
+   corner (kg) where it isn't the usual wheel and tyre plus 22 kg of hub, brake and arms. `kg` is the homologation weight;
    the pilot and FUEL_KG of fuel ride on top. `cyl` and `layout` are the engine's cylinder count and layout (inline or V). `tyre`: rolling radius r, width w, rim size and the gravel
    tyre's size; `disc`: brake disc diameters front and rear (mm). `pitch` is the engine note. */
 const FUEL_KG = 45, REF_PILOT_KG = 75;
@@ -2253,7 +2254,7 @@ const CAR_SPECS = [
     disp: 3.378, launch: 3800, Ie: 0.2, enginePos: 'front',
     box: '5-speed R150F', gears: [3.83, 2.062, 1.436, 1.0, 0.838], final: 4.1, rev: 4.22, shift: 0.22,
     kg: 1200, front: 0.5, centre: 'locking', fdiff: 'open', rdiff: 'locking',
-    wb: 2.624, track: [1.61, 1.6], wf: 0.53, cgH: 0.6, dims: [4.585, 1.83, 1.715], travel: 0.32,
+    wb: 2.624, track: [1.61, 1.6], wf: 0.53, cgH: 0.6, dims: [4.585, 1.83, 1.715], travel: 0.32, unsprung: [60, 78],   // long-travel arms; solid rear axle
     tyre: { r: 0.39, w: 0.267, rim: 15, kg: 30, size: '31x10.50 R15' }, disc: [297, 295] },
   // Rally1, 2025-26 rules (hybrid unit removed): 1.6 L direct-injection turbo on a 35 mm restrictor, "over 370 PS",
   // 1,180 kg minimum; five-speed sequential with no centre differential (the axles are joined solid), mechanical
@@ -2302,7 +2303,7 @@ const CAR_SPECS = [
     disp: 1.071, launch: 4000, Ie: 0.05, enginePos: 'front',
     box: '4-speed close-ratio manual', gears: [2.573, 1.775, 1.24, 1.0], final: 4.133, rev: 2.573, shift: 0.3,
     kg: 650, front: 1, centre: 'open', fdiff: 'open', rdiff: 'open',
-    wb: 2.036, track: [1.24, 1.2], wf: 0.6, cgH: 0.48, dims: [3.054, 1.41, 1.35], travel: 0.15,
+    wb: 2.036, track: [1.24, 1.2], wf: 0.6, cgH: 0.48, dims: [3.054, 1.41, 1.35], travel: 0.15, unsprung: [18, 16],   // 10 in wheels, rear drums
     tyre: { r: 0.265, w: 0.145, rim: 10, kg: 9, size: 'Dunlop SP3 145-10' }, disc: [181, 178] },
 ];
 // derived: driveline efficiency (four-wheel drive loses a little more through the extra diffs), clutch capacity, and
@@ -2373,10 +2374,20 @@ const MODEL_BOX = [[0.75, 2.218, -2.172], [0.65, 2.636, -2.318], [0.76, 2.088, -
 const MODEL_HULL = [[0.95, -0.08, 1.9], [-0.95, -0.08, 1.9], [0.95, -0.08, -1.9], [-0.95, -0.08, -1.9],   // roof corners (y relative to the roof)
   [0.95, -0.32, 2.15], [-0.95, -0.32, 2.15], [0.95, -0.32, -2.0], [-0.95, -0.32, -2.0]];
 function carGeometry(body, wh, mass) {
-  const sp = CAR_SPECS[body], box = MODEL_BOX[body], g = 9.81;
+  const sp = CAR_SPECS[body], box = MODEL_BOX[body], g = 9.81, w2 = (TAU * SUSP.freq) ** 2;
   const r = sp.tyre.r * ((wh && wh.rScale) || 1), wb = sp.wb, a = wb * (1 - sp.wf), b = wb * sp.wf, h = sp.cgH;
-  const travel = sp.travel, rest = travel + 0.03, sag = g / (TAU * SUSP.freq) ** 2;
+  const travel = sp.travel, rest = travel + 0.03;
   const tF = sp.track[0] / 2, tR = sp.track[1] / 2;
+  const N0F = mass * g * sp.wf / 2, N0R = mass * g * (1 - sp.wf) / 2;
+  // unsprung mass per corner: wheel, tyre, hub, brake and half the arms (the car's own figure where it has one),
+  // plus the garage wheels' weight. The tyre is a vertical spring rated to squash about 11% of its sidewall under
+  // its static load, so a tall gravel sidewall is softer than a low-profile one.
+  const wkg = ((wh && wh.kg) || 0) / 4, us = sp.unsprung || [sp.tyre.kg + 22, sp.tyre.kg + 22];
+  const mUF = us[0] + wkg, mUR = us[1] + wkg, defl = 0.11 * (r - sp.tyre.rim * 0.0127);
+  // each corner's sprung mass rides at SUSP.freq on its coil spring and tyre in series
+  const corner = (N0, mU) => { const ms = N0 / g - mU, kT = N0 / defl, kr = ms * w2, kS = kr * kT / (kT - kr);
+    return { ms, kT, kS, cT: 2 * 0.05 * Math.sqrt(kT * mU), sag: ms * g / kS }; };
+  const cF = corner(N0F, mUF), cR = corner(N0R, mUR), sag = (cF.sag + cR.sag) / 2;
   // model space → car space (origin at the centre of mass)
   const sx = (tF + tR) / 2 / MODEL.X, sy = sp.dims[2] / (box[0] - MODEL.GY), sz = wb / (MODEL.FZ - MODEL.RZ);
   const zf = MODEL.FZ + MODEL.ARCH, zr = MODEL.RZ - MODEL.ARCH;
@@ -2387,18 +2398,22 @@ function carGeometry(body, wh, mass) {
     y: (y) => (y - MODEL.GY) * sy - h,
     z: (z) => z > zf ? a + (zf - MODEL.FZ) * sz + (z - zf) * so : z < zr ? -b + (zr - MODEL.RZ) * sz + (z - zr) * so : a + (z - MODEL.FZ) * sz,
     zs: (z) => z > zf || z < zr ? so : sz,                       // local z scale (for normals)
-    WY: r / sy + MODEL.GY,                                       // model y of the real wheel centre at ride height
+    WY: (r - defl) / sy + MODEL.GY,                              // model y of the real wheel centre at ride height (tyre squashed)
     AR: (r + 0.075) / (MODEL.archR * (sy + sz) / 2),             // wheel arch size to suit the real tyre
   };
   const m = mass, Iy = (sp.enginePos === 'front' ? 1.05 : 0.9) * m * a * b;
   const bias = clamp(sp.wf + 0.6 * h / wb, 0.5, 0.72), Btot = 1.25 * m * g * 1.1 * r;
-  const N0F = m * g * sp.wf / 2, N0R = m * g * (1 - sp.wf) / 2, w2 = (TAU * SUSP.freq) ** 2;
   const pt = (p) => [map.x(p[0]), map.y(p[1]), map.z(p[2])];
+  const dup = (f, rr) => [f, f, rr, rr];
   return {
-    r, wb, a, b, rest, travel, sag, mountY: r - h + rest - sag, rcH: 0.1, map,
+    r, wb, a, b, rest, travel, sag, defl, mountY: r - defl - h + rest - sag, rcH: 0.1, map,
     wheels: [{ x: tF, z: a, front: true }, { x: -tF, z: a, front: true }, { x: tR, z: -b, front: false }, { x: -tR, z: -b, front: false }],
-    inertia: new THREE.Vector3(0.95 * Iy, Iy, m * (0.1 * sp.dims[1] ** 2 + 0.045 * sp.dims[2] ** 2)),
-    Iw: 0.65 * sp.tyre.kg * r * r, N0: [N0F, N0F, N0R, N0R], kS: [N0F / g * w2, N0F / g * w2, N0R / g * w2, N0R / g * w2],
+    // whole-car yaw inertia; the wheels' vertical motion is their own (unsprung), so pitch and roll leave them out
+    inertia: new THREE.Vector3(0.95 * Iy - 2 * (mUF * a * a + mUR * b * b), Iy, m * (0.1 * sp.dims[1] ** 2 + 0.045 * sp.dims[2] ** 2) - 2 * (mUF * tF * tF + mUR * tR * tR)),
+    Iw: 0.65 * sp.tyre.kg * r * r, N0: dup(N0F, N0R), kS: dup(cF.kS, cR.kS),
+    mU: dup(mUF, mUR), mSprung: m - 2 * (mUF + mUR), ms: dup(cF.ms, cR.ms), kT: dup(cF.kT, cR.kT), cT: dup(cF.cT, cR.cT),
+    // the sprung body's own centre of mass, offset from the whole car's (the origin) by the wheels' share
+    cgS: new THREE.Vector3(0, -2 * (mUF + mUR) * (r - defl - h), -2 * (mUF * a - mUR * b)).multiplyScalar(1 / (m - 2 * (mUF + mUR))),
     brakeT: [Btot * bias / 2, Btot * (1 - bias) / 2], hbT: 2.4 * 1.1 * N0R * r,
     hull: MODEL_HULL.map((p) => pt(p[1] > -0.2 ? [p[0], box[0] + p[1], p[2]] : p)).concat([pt([0, box[0] + 0.2, -0.2])]),
     spheres: [[0, 0.1, 1.05], [0, 0.1, -1.05]].map((p) => pt(p).concat(1.15 * (sx + sz) / 2)),
@@ -3878,7 +3893,7 @@ function heightSD(s, d, x, z) {
   return h;
 }
 function heightNear(x, z, hint) {
-  if (RIG_GROUND.on) return RIG_GROUND.h0 + RIG_GROUND.sx * x + RIG_GROUND.sz * z;
+  if (RIG_GROUND.on) return rigHeight(x, z);
   locateNear(x, z, hint, 16, LQ2); return heightSD(LQ2.s, LQ2.d, x, z);
 }
 function heightGlobal(x, z) { const i = locateGlobal(x, z); locateFrom(x, z, i, LQ2); return heightSD(LQ2.s, LQ2.d, x, z); }
@@ -3895,11 +3910,18 @@ function worldAt(s, d, out) {
 }
 /* The physics test rig's proving ground (PhysicsRig, section 10): while `on`, the ground everywhere is the plane
    y = h0 + sx·x + sz·z of one surface, so the car's real physics can be measured away from any stage. */
-const RIG_GROUND = { on: false, h0: 0, sx: 0, sz: 0, surf: 4 };
+const RIG_GROUND = { on: false, h0: 0, sx: 0, sz: 0, surf: 4, rA: 0, rL: 4 };   // rA, rL: amplitude and wavelength of ripples
+function rigHeight(x, z) {
+  const G = RIG_GROUND;
+  let h = G.h0 + G.sx * x + G.sz * z;
+  if (G.rA) h += G.rA * (Math.sin(TAU * z / G.rL) + 0.6 * Math.sin(TAU * (0.8 * z + 0.5 * x) / (0.73 * G.rL)));
+  return h;
+}
 function rigGround(x, z, out) {
-  const G = RIG_GROUND, l = Math.sqrt(G.sx * G.sx + 1 + G.sz * G.sz), info = SURF_INFO[G.surf];
+  const G = RIG_GROUND, info = SURF_INFO[G.surf], e = 0.05, h = rigHeight(x, z);
+  const gx = (rigHeight(x + e, z) - rigHeight(x - e, z)) / (2 * e), gz = (rigHeight(x, z + e) - rigHeight(x, z - e)) / (2 * e), l = Math.sqrt(gx * gx + 1 + gz * gz);
   out.void = false; out.road = true; out.s = 0; out.d = 0; out.i = 0;
-  out.h = G.h0 + G.sx * x + G.sz * z; out.nx = -G.sx / l; out.ny = 1 / l; out.nz = -G.sz / l;
+  out.h = h; out.nx = -gx / l; out.ny = 1 / l; out.nz = -gz / l;
   out.surf = G.surf; out.mu = info.mu; out.rr = info.rr;
   return out;
 }
@@ -5510,10 +5532,22 @@ const SUSP = {
   stopLen: 0.05, stopK: 3, stopC: 0.5, // bump stop: engages this far before full travel; force ≈ k·stopK·x²/stopLen, plus hydraulic damping
   arbF: 0.8, arbR: 0.8,                // anti-roll bar rate as a share of the axle's spring rate (front, rear)
 };
-function damperForce(v, cB, cR) {      // v > 0: compressing (bump); v < 0: extending (rebound)
-  if (v >= 0) return cB * (v < SUSP.bumpKnee ? v : SUSP.bumpKnee + (v - SUSP.bumpKnee) * SUSP.bumpHi);
-  const a = -v;
-  return -cR * (a < SUSP.rebKnee ? a : SUSP.rebKnee + (a - SUSP.rebKnee) * SUSP.rebHi);
+/** Coil-over force (N, pushing the car up and the wheel down) at compression x (m) and compression speed v (m/s;
+ *  > 0 bump, < 0 rebound), with its slopes for the implicit wheel step: SF.f, SF.kx = ∂f/∂x, SF.kc = ∂f/∂v. */
+const SF = { f: 0, kx: 0, kc: 0 }, _comp0 = new Float64Array(4);
+function coilover(x, v, kS, cB, cR, cD) {
+  let f = kS * x, kx = kS, kc;
+  if (v >= 0) { const hi = v > SUSP.bumpKnee; f += cB * (hi ? SUSP.bumpKnee + (v - SUSP.bumpKnee) * SUSP.bumpHi : v); kc = cB * (hi ? SUSP.bumpHi : 1); }
+  else { const a = -v, hi = a > SUSP.rebKnee; f -= cR * (hi ? SUSP.rebKnee + (a - SUSP.rebKnee) * SUSP.rebHi : a); kc = cR * (hi ? SUSP.rebHi : 1); }
+  // progressive urethane bump stop over the last few cm, then the hard stop at full travel
+  const on = x - (CAR.travel - SUSP.stopLen);
+  if (on > 0) {
+    f += kS * SUSP.stopK * on * on / SUSP.stopLen; kx += 2 * kS * SUSP.stopK * on / SUSP.stopLen;
+    if (v > 0) { f += cB * SUSP.stopC * v * on / SUSP.stopLen; kx += cB * SUSP.stopC * v / SUSP.stopLen; kc += cB * SUSP.stopC * on / SUSP.stopLen; }
+  }
+  const past = x - CAR.travel;
+  if (past > 0) { f += kS * 10 * past; kx += kS * 10; if (v > 0) { f += cD * 2 * v; kc += cD * 2; } }
+  SF.f = f; SF.kx = kx; SF.kc = kc;
 }
 
 /* ---- tyres: one combined-slip curve per surface ----
@@ -5576,7 +5610,8 @@ function setCarTune(tune) {
   CAR.inertia.copy(G.inertia);
   CAR.wheels.forEach((cw, k) => Object.assign(cw, G.wheels[k]));
   Object.assign(CAR, { wb: G.wb, cgH: sp.cgH, mountY: G.mountY, rest: G.rest, travel: G.travel, radius: G.r, rcH: G.rcH, Iw: G.Iw,
-    kS: G.kS, N0: G.N0, brakeT: G.brakeT, hbT: G.hbT, hull: G.hull, spheres: G.spheres, vmax: tune.vmax });
+    kS: G.kS, N0: G.N0, brakeT: G.brakeT, hbT: G.hbT, hull: G.hull, spheres: G.spheres, vmax: tune.vmax,
+    mU: G.mU, mSprung: G.mSprung, cgS: G.cgS, ms: G.ms, kT: G.kT, cT: G.cT, sag: G.sag, defl: G.defl });
   GEARBOX.redline = sp.redline; GEARBOX.idle = sp.idle / sp.redline; GEARBOX.rpmMax = Math.round(sp.redline / 0.914 / 100) * 100;
 }
 function newGroundSample() { return { h: 0, nx: 0, ny: 1, nz: 0, s: 0, d: 0, i: 0, void: false, road: true, surf: 0, mu: 1, rr: 0 }; }
@@ -5617,8 +5652,14 @@ function invInertiaWorld(v, out) {
   out.x /= CAR.inertia.x; out.y /= CAR.inertia.y; out.z /= CAR.inertia.z;
   return out.applyQuaternion(car.q);
 }
-/** World-space M⁻¹·v for the body's translation; out may be v. */
-function bodyInvMassApply(v, out) { return out.copy(v).multiplyScalar(1 / CAR.mass); }
+/** World-space M⁻¹·v for the body's translation; out may be v. Across the car (and along it) the wheels move with
+ *  the body, so it has the whole mass; along its up axis they ride on their own springs, so only the sprung mass. */
+const _upM = new THREE.Vector3();
+function bodyInvMassApply(v, out) {
+  _upM.set(0, 1, 0).applyQuaternion(car.q);
+  const d = v.dot(_upM) * (1 / CAR.mSprung - 1 / CAR.mass);
+  return out.copy(v).multiplyScalar(1 / CAR.mass).addScaledVector(_upM, d);
+}
 /** Translational inverse mass of the body along unit world direction d. */
 const _jm = new THREE.Vector3();
 function bodyInvMass(d) { return bodyInvMassApply(d, _jm).dot(d); }
@@ -5848,66 +5889,85 @@ function drivelineStep(dt, ctl, G, th0) {
 function stepVehicle(dt, ctl) {
   const def = RIG_GROUND.on ? EARTH : TR.def, m = CAR.mass, g = def.gravity, tn = car.tune, sp = tn.spec;
   carAxes();
-  F.set(0, -m * g, 0); T.set(0, 0, 0);
+  // gravity: the body carries its own weight, the wheels theirs along the car's up axis (across it they ride with the body)
+  F.set(0, -m * g, 0).addScaledVector(AY, (m - CAR.mSprung) * g * AY.y); T.set(0, 0, 0);
+  T.crossVectors(_r.copy(CAR.cgS).applyQuaternion(car.q), _ft.set(0, -CAR.mSprung * g, 0));   // the body's weight acts at its own centre
   const vLongBody = car.vel.dot(AZ);
   const betaB = Math.atan2(car.vel.dot(AX), Math.abs(vLongBody) + 2);
   const steerMax = steerLimit(Math.sign(-ctl.steer) || 1);
   car.steerAngle = damp(car.steerAngle, -ctl.steer * steerMax, 12, dt);
   const maxLen = CAR.rest + CAR.radius;
 
-  // 1) suspension raycasts against the analytic ground
-  let nG = 0;
-  _tmp.set(0, 0, 0);
+  // 1) the ground under each wheel: a ray down the car's up axis from the suspension mount meets the ground's
+  //    tangent plane. w.cg is the suspension compression at which a rigid tyre would just touch it.
   for (let k = 0; k < 4; k++) {
     const w = car.wheels[k], cw = CAR.wheels[k];
     w.mount.set(cw.x, CAR.mountY, cw.z).applyQuaternion(car.q).add(car.pos);
     const gs = sampleGround(w.mount.x, w.mount.z, car.i, w.gs);
-    w.grounded = false; w.comp = 0;
+    w.reach = false;
     if (!gs.void) {
       _n.set(gs.nx, gs.ny, gs.nz);
       const denom = AY.dot(_n);
       if (denom > 0.25) {
         const t = (w.mount.y - gs.h) * gs.ny / denom;          // distance along -up to the ground plane
-        if (t < maxLen && t > -0.8) { w.grounded = true; w.dist = t; w.comp = maxLen - t; w.n.copy(_n); nG++; _tmp.add(_n); }
+        if (t < maxLen && t > -0.8) { w.reach = true; w.dist = t; w.cg = maxLen - t; w.nAY = denom; w.n.copy(_n); }
       }
     }
   }
-  const groundN = nG ? _gn.copy(_tmp).normalize() : null;
-  // 2) anti-roll bars (front stiffer than rear)
-  for (let a = 0; a < 4; a += 2) {
-    const wa = car.wheels[a], wb = car.wheels[a + 1], diff = wa.comp - wb.comp, arb = CAR.kS[a] * tn.k * (a ? SUSP.arbR : SUSP.arbF) * tn.arb;
-    wa.arb = wa.grounded ? diff * arb : 0; wb.arb = wb.grounded ? -diff * arb : 0;
-  }
-  // 3) springs and dampers, then each tyre's frame, load and grip
+  // 2) suspension and wheels. Each wheel is its own mass (CAR.mU) moving along the car's up axis, between its
+  //    coil-over above (spring, two-stage damper, bump stop, hard stop and the anti-roll bar to its partner) and
+  //    its tyre below, a stiff spring (CAR.kT) that only pushes while it touches. It is stepped implicitly, so the
+  //    stiff tyre and stops stay stable; whatever the droop stop has to hold comes out of the same balance.
   const fc = Game.forceCtl;
   car.abs = fc && typeof fc.abs === 'boolean' ? fc.abs
     : Store.data.settings.abs !== false || Game.autopilot || Game.state !== 'racing';     // the AI always brakes with ABS
   car.tc = fc && typeof fc.tc === 'boolean' ? fc.tc
     : Store.data.settings.tc !== false || Game.autopilot || Game.state !== 'racing';      // and drives with traction control
+  const gUp = -g * AY.y, W = car.wheels;                         // gravity along the car's up axis, per kg
+  const comp0 = _comp0; for (let k = 0; k < 4; k++) comp0[k] = W[k].comp;
+  let nG = 0;
+  _tmp.set(0, 0, 0);
   for (let k = 0; k < 4; k++) {
-    const w = car.wheels[k], cw = CAR.wheels[k];
-    if (!w.grounded) { w.load = 0; w.N = 0; w.Fmax = 0; w.sliding = false; w.spinning = false; w.locked = false; w.slipLat = 0; w.prevGround = false; continue; }
+    const w = W[k], mU = CAR.mU[k];
+    _r.subVectors(w.mount, car.pos); _vp.crossVectors(car.w, _r).add(car.vel);
+    const vm = _vp.dot(AY), cv0 = w.u - vm;                      // the mount's speed along up; the suspension's compression speed
+    const kS = CAR.kS[k] * tn.k, cD = 2 * def.damping * tn.c * Math.sqrt(kS * CAR.ms[k]);
+    const cB = cD * SUSP.bump * tn.db, cR = cD * SUSP.rebound * tn.dr;
+    const karb = CAR.kS[k] * tn.k * (k < 2 ? SUSP.arbF : SUSP.arbR) * tn.arb, J = w.J || 0;
+    // the coil-over linearised about now: force F0, stiffness Kx, damping Kc
+    coilover(comp0[k], cv0, kS, cB, cR, cD);
+    const F0 = SF.f + karb * (comp0[k] - comp0[k ^ 1]), Kx = SF.kx + karb, Kc = SF.kc;
+    // wheel: mU·(u1 − u0)/dt = tyre − coil-over − link load + weight, in terms of the new compression speed cv1
+    const A0 = mU / dt + Kx * dt + Kc, B0 = mU * cv0 / dt - F0 + Kc * cv0 - J + mU * gUp;
+    let cv1 = B0 / A0, Nt = 0;
+    if (w.reach) {
+      const cgd = -_vp.dot(w.n) / w.nAY, cgN = w.cg + cgd * dt;   // how fast the ground closes on the mount; where it'll be
+      if (cgN - comp0[k] - dt * cv1 > 0) {                         // the tyre touches: solve again with it
+        const kT = CAR.kT[k], cT = CAR.cT[k];
+        const A = A0 + kT * dt + cT, B = B0 + kT * (cgN - comp0[k]) + cT * cgd, c = B / A;
+        const n = kT * (cgN - comp0[k] - dt * c) + cT * (cgd - c);
+        if (n > 0) { cv1 = c; Nt = n; }
+      }
+    }
+    let comp1 = comp0[k] + dt * cv1;
+    if (comp1 < 0) { comp1 = 0; cv1 = -comp0[k] / dt; }          // the droop stop: the wheel hangs from the car
+    const Fs = F0 + Kx * dt * cv1 + Kc * (cv1 - cv0);
+    // anything the wheel's own balance doesn't account for (the droop stop) the car supplies, and feels in return
+    const Fc = mU * (cv1 - cv0) / dt - (Nt - Fs - J + mU * gUp);
+    w.comp = comp1; w.u = vm + cv1; w.compVel = cv1; w.load = Fs;
+    w.onStop = comp1 > CAR.travel - SUSP.stopLen; w.bottomed = comp1 > CAR.travel;
+    addForceAt(_ft.copy(AY).multiplyScalar(Fs + J - Fc), w.mount);
+    w.grounded = Nt > 0;
+    w.Nt = Nt;
+    if (w.grounded) { nG++; _tmp.add(w.n); }
+  }
+  const groundN = nG ? _gn.copy(_tmp).normalize() : null;
+  // 3) each touching tyre's frame, load and grip
+  for (let k = 0; k < 4; k++) {
+    const w = W[k], cw = CAR.wheels[k];
+    if (!w.grounded) { w.N = 0; w.Fmax = 0; w.sliding = false; w.spinning = false; w.locked = false; w.slipLat = 0; w.prevGround = false; continue; }
     const wasGround = w.prevGround;
     w.prevGround = true;
-    _r.subVectors(w.mount, car.pos);
-    _vp.crossVectors(car.w, _r).add(car.vel);
-    const compVel = -_vp.dot(w.n);
-    w.compVel = compVel;
-    const kS = CAR.kS[k] * tn.k, cD = 2 * def.damping * tn.c * Math.sqrt(kS * CAR.N0[k] / 9.81);
-    const cB = cD * SUSP.bump * tn.db, cR = cD * SUSP.rebound * tn.dr;
-    let Fs = kS * w.comp + damperForce(compVel, cB, cR) + w.arb;
-    // progressive urethane bump stop over the last few cm, then the hard stop at full travel
-    const onStop = w.comp - (CAR.travel - SUSP.stopLen);
-    w.onStop = onStop > 0;
-    if (w.onStop) Fs += kS * SUSP.stopK * onStop * onStop / SUSP.stopLen + cB * SUSP.stopC * Math.max(0, compVel) * onStop / SUSP.stopLen;
-    w.bottomed = w.comp > CAR.travel;
-    if (w.bottomed) Fs += kS * 10 * (w.comp - CAR.travel) + cD * 2 * Math.max(0, compVel);
-    Fs = clamp(Fs, 0, m * 60);
-    w.load = Fs;
-    addForceAt(_ft.copy(AY).multiplyScalar(Fs), w.mount);
-    // grav-clamps (clampG, 0 at Earth gravity): extra downforce only while in contact, so a
-    // low-gravity stage would hug gentle terrain but still fly off crests and kickers.
-    if (def.clampG > 0) addForceAt(_ft.copy(w.n).multiplyScalar(-m * def.clampG / 4), w.mount);
     // tyre frame on the ground plane
     _fw.copy(AZ);
     if (cw.front) { const c = Math.cos(car.steerAngle), s = Math.sin(car.steerAngle); _fw.multiplyScalar(c).addScaledVector(AX, s); }
@@ -5922,7 +5982,7 @@ function stepVehicle(dt, ctl) {
     const vAbs = Math.abs(w.vLong), ta = w.vLat / Math.max(vAbs, TYRE.v0), sig = TYRE.sigma[w.gs.surf] * smoothstep(3, 10, vAbs);
     w.ta = sig > 0.02 && wasGround ? w.ta + (ta - w.ta) * (1 - Math.exp(-Math.max(vAbs, TYRE.v0) / sig * dt)) : ta;
     // load sensitivity: grip grows less than linearly with load, so weight transfer and bumps don't snap the car around
-    const gs = w.gs, N = Fs * Math.max(0, AY.dot(w.n)), N0 = CAR.N0[k];
+    const gs = w.gs, N = w.Nt * Math.max(0, AY.dot(w.n)), N0 = CAR.N0[k];
     w.N = N; w.mu = gs.mu * tn.mu[gs.surf]; w.ts = TYRE_SURF[gs.surf];
     w.Fmax = w.mu * N0 * Math.pow(Math.min(N / N0, 3), 0.85);
     w.rr = (gs.rr + tn.rr) * N * CAR.radius;                      // rolling resistance torque (N·m)
@@ -5998,7 +6058,7 @@ function stepVehicle(dt, ctl) {
     const vf = Math.max(0, vLongBody), q = 0.5 * AIR_RHO * vf * vf, wh = car.wheels;
     if (q > 1) {
       // each axle's drop below its static ride height, per 10 cm (−2: off the ground)
-      const sag = 9.81 / (TAU * SUSP.freq) ** 2 / tn.k, axleH = (a) => wh[a].grounded || wh[a + 1].grounded ? clamp(((wh[a].comp + wh[a + 1].comp) / 2 - sag) / 0.1, -1.5, 1.5) : -2;
+      const sag = CAR.sag / tn.k, axleH = (a) => wh[a].grounded || wh[a + 1].grounded ? clamp(((wh[a].comp + wh[a + 1].comp) / 2 - sag) / 0.1, -1.5, 1.5) : -2;
       const hF = axleH(0), hR = axleH(2), ge = ae.ge;
       const dive = nG > 0 ? clamp(hF - hR, -1.5, 1.5) * ae.pitch : 0;
       const cF = Math.max(0, ae.claF + dive * (ae.claF + ae.claR)) * (1 + ge * clamp(hF * 0.5, -1, 0.5));
@@ -6065,7 +6125,7 @@ function stepVehicle(dt, ctl) {
     addForceAt(_ft.set(fx, fn, fz), _cp);
   }
   // 7) integrate (semi-implicit Euler)
-  car.vel.addScaledVector(F, dt / m);
+  car.vel.addScaledVector(bodyInvMassApply(F, _tmp), dt);
   car.pos.addScaledVector(car.vel, dt);
   _qi.copy(car.q).invert();
   _tl.copy(T).applyQuaternion(_qi);
@@ -6194,7 +6254,10 @@ function resetCarMotion(speed) {
   for (const c of DL.cpl) c.lin = true;
   car.steerAngle = 0; car.airTime = 0; car.wasAirborne = false; car.flipTimer = 0; car.offTimer = 0;
   car.spool = 1; car.backfire = 0; car.events.length = 0;
-  for (const w of car.wheels) { w.prevGround = true; w.om = v / CAR.radius; w.absP = 1; w.kap = 0; w.ta = 0; w.comp = 0; w.grounded = false; }
+  car.wheels.forEach((w, k) => {
+    w.prevGround = true; w.om = v / CAR.radius; w.absP = 1; w.kap = 0; w.ta = 0; w.grounded = false;
+    w.comp = CAR.ms[k] * 9.81 / (CAR.kS[k] * tn.k); w.u = 0; w.J = 0; w.Nt = 0;     // each wheel at its static compression, at rest
+  });
 }
 
 /* ---- physics test rig ----
@@ -6232,7 +6295,7 @@ const PhysicsRig = {
       setCarTune(tune); RIG_GROUND.on = true; Game.forceCtl = this.ctl;
       return fn(this);
     } finally {
-      Object.assign(RIG_GROUND, { on: false, h0: 0, sx: 0, sz: 0 });
+      Object.assign(RIG_GROUND, { on: false, h0: 0, sx: 0, sz: 0, rA: 0 });
       setCarTune(savedTune); restoreState(car, saved);
       DL.cpl.forEach((c, i) => { c.lin = cpl[i]; });
       Game.forceCtl = fc;
@@ -6241,7 +6304,7 @@ const PhysicsRig = {
   /** Car at the origin heading +z (or `o.yaw`) at speed v on surface `surf`; o.sx/o.sz tilt the ground, o.drop lifts the car. */
   place(surf, v, o) {
     o = o || {};
-    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0 });
+    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4 });
     car.q.set(0, 0, 0, 1); if (o.yaw) car.q.setFromAxisAngle(UP, o.yaw);
     car.pos.set(0, CAR.cgH + (o.drop || 0), 0);
     car.vel.set(0, 0, v).applyQuaternion(car.q);
@@ -6379,6 +6442,14 @@ function physicsTests(build) {
     rig.ctl.brake = 1; rig.step(60); carAxes();
     check('airborne: pitch rate from stabbing the brakes (rad/s)', car.w.dot(AX) - p0, 0.2, 0.6);
   });
+  // rough road (the wheels are masses on their own springs): firm dampers skip off ripples more than soft ones
+  const skip = (damp) => PhysicsRig.run(tuneFor(Object.assign({}, DEFAULT_SETUP, { damp }), build || DEFAULT_BUILD), (rig) => {
+    rig.place(SURF.GRAVEL, 20, { rA: 0.025, rL: 3 });
+    let off = 0, n = 0;
+    rig.step(420, (i) => { rig.speedHold(20); if (i >= 60) for (const w of car.wheels) { n++; if (!w.grounded) off++; } });
+    return off / n * 100;
+  });
+  check('rough road: firm minus soft dampers, time off the ground (%)', skip(2) - skip(0), 1, 30);
   return R;
 }
 
@@ -8961,14 +9032,18 @@ function buildCarModel(build) {
     padGlow = new THREE.Mesh(new THREE.RingGeometry(0.12 * pr, 0.34 * pr, 24), new THREE.MeshBasicMaterial({ color: glowOpt.css ? glowOpt.hex : 0x78f0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
   }
   for (const cw of geo.wheels) {
-    const pivot = new THREE.Group(); pivot.position.set(cw.x, geo.mountY - geo.rest, cw.z); g.add(pivot);
+    const pivot = new THREE.Group(); pivot.position.set(cw.x, geo.mountY - geo.rest + geo.sag, cw.z); g.add(pivot);   // at ride height
     const spin = new THREE.Group(); pivot.add(spin);
-    let disc = null;
+    let disc = null, squash = null;
     if (tireGeo) {
       const out = cw.x > 0 ? 1 : -1;                         // +x is the car's left: the outer face points away from the centre
       spin.position.y = R - geo.r;                          // keep the contact patch where the physics has it
-      const tire = new THREE.Mesh(tireGeo, rubber); tire.castShadow = true; spin.add(tire);
-      for (const f of [-1, 1]) { const wl = new THREE.Mesh(wallGeo, rubberDS); wl.position.x = f * W / 2; spin.add(wl); }
+      // the tyre's band and sidewalls look the same at any angle, so they sit in a group that doesn't spin and
+      // squashes against the ground by the tyre's real deflection (updateCarVisual)
+      const sq = new THREE.Group(); sq.position.y = spin.position.y; pivot.add(sq);
+      squash = new THREE.Group(); sq.add(squash);
+      const tire = new THREE.Mesh(tireGeo, rubber); tire.castShadow = true; squash.add(tire);
+      for (const f of [-1, 1]) { const wl = new THREE.Mesh(wallGeo, rubberDS); wl.position.x = f * W / 2; squash.add(wl); }
       spin.add(new THREE.Mesh(dishGeo, rimMat));
       const face = out * (W / 2 - 0.05);
       for (let k = 0; k < rimSpec.spokes; k++) {
@@ -8993,7 +9068,7 @@ function buildCarModel(build) {
     }
     // coil-over top mount on the strut tower under the bodywork
     const top = new THREE.Vector3(cw.x * 0.72, map.y(spec.shockTop), cw.z + (cw.front ? -0.3 : 0.3) * map.sz);
-    wheels.push({ pivot, spin, discMat: discMats[discMats.length - 1] || null, heat: 0, shock: makeShock(g, cw, trim, dark, wheelKind === 3 ? -R * 0.3 + 0.45 * pr : R - geo.r, top) });
+    wheels.push({ pivot, spin, squash, discMat: discMats[discMats.length - 1] || null, heat: 0, shock: makeShock(g, cw, trim, dark, wheelKind === 3 ? -R * 0.3 + 0.45 * pr : R - geo.r, top) });
     poseShock(wheels[wheels.length - 1].shock, pivot.position.y);
   }
   const arbVis = wheelKind === 3 ? null : makeArb(g, trim, geo);
@@ -10536,8 +10611,13 @@ function updateCarVisual(dt, ctl) {
   M.group.position.copy(Draw.pos); M.group.quaternion.copy(Draw.q);
   for (let k = 0; k < 4; k++) {
     const w = car.wheels[k], cw = CAR.wheels[k], wm = M.wheels[k];
-    const ext = w.grounded ? clamp(w.dist - CAR.radius, CAR.rest - CAR.travel - 0.05, CAR.rest) : CAR.rest;
-    wm.pivot.position.y = CAR.mountY - ext;
+    // the hub rides where the wheel's own mass has it (so it hops and hangs), and the tyre squashes as it does
+    wm.pivot.position.y = CAR.mountY - (CAR.rest - clamp(w.comp, 0, CAR.travel + 0.05));
+    if (wm.squash) {
+      const sq = w.grounded ? clamp(w.Nt / CAR.kT[k], 0, CAR.radius * 0.3) : 0;
+      wm.squash.scale.set(1 + 0.6 * sq / CAR.radius, 1 - sq / (2 * CAR.radius), 1);   // bottom on the ground, top where it was,
+      wm.squash.position.y = sq / 2;                                                  // the sidewalls bulging out a little
+    }
     poseShock(wm.shock, wm.pivot.position.y);
     if (cw.front) wm.pivot.rotation.y = car.steerAngle;
     w.spinAngle = (w.spinAngle + w.om * dt) % TAU;           // each wheel turns at its own solved speed: wheelspin, lock-ups and all
