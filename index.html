@@ -1120,6 +1120,32 @@ body.tilt #tCentre{display:flex}
   body.touch.hud-min #bigMsg{font-size:13px} body.touch.hud-min #subMsg{font-size:12px}
   body.touch.hud-min #countdown{font-size:48px}
 }
+/* stage select: SPACE and EARTH groups, each with its own accent; yellow stays the focus colour */
+.sgroup{flex:none;display:flex;align-items:baseline;gap:10px;padding:8px 10px 6px;margin-top:6px;font-family:var(--display);color:var(--gc);
+  text-shadow:0 0 10px var(--gc);box-shadow:inset 0 -2px 0 var(--gc);background:var(--gbg)}
+.sgroup:first-child{margin-top:0}
+.sgroup b{font-size:22px;letter-spacing:.12em}
+.sgroup small{font-size:14px;letter-spacing:.1em;color:var(--dim);text-shadow:none}
+.sgroup.space,.srow.space{--gc:#b48cff}
+.sgroup.earth,.srow.earth{--gc:var(--neon-grn)}
+.sgroup.test,.srow.test{--gc:var(--neon-org)}
+.sgroup.space{--gbg:radial-gradient(1px 1px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 55% 70%,#fff,transparent),radial-gradient(1px 1px at 82% 25%,#fff,transparent),radial-gradient(1px 1px at 68% 45%,#cfe,transparent),linear-gradient(90deg,rgba(120,70,255,.35),rgba(20,8,48,.2))}
+.sgroup.earth{--gbg:linear-gradient(180deg,rgba(57,255,20,.06),rgba(57,255,20,.06) 60%,rgba(120,80,30,.4) 60%,rgba(60,40,15,.15))}
+.sgroup.test{--gbg:linear-gradient(90deg,rgba(255,138,0,.22),transparent)}
+.srow.space,.srow.earth,.srow.test{box-shadow:inset 4px 0 0 var(--gc),inset 0 0 0 2px var(--edge)}
+.srow.space:hover,.srow.earth:hover,.srow.test:hover{box-shadow:inset 4px 0 0 var(--gc),inset 0 0 0 2px var(--neon-cyan)}
+.srow.space.sel,.srow.earth.sel,.srow.test.sel{box-shadow:inset 4px 0 0 var(--gc),inset 0 0 0 3px var(--neon-yel),inset 0 0 24px rgba(255,230,0,.18)}
+#menu .stage-detail{box-shadow:inset 0 0 0 3px var(--wc,var(--neon-cyan))}
+#menu.w-space{--wc:#b48cff} #menu.w-earth{--wc:var(--neon-grn)} #menu.w-test{--wc:var(--neon-org)}
+.sd-world{display:inline-block;margin-right:8px;padding:1px 8px;color:var(--ink);background:var(--wc,var(--neon-cyan));text-shadow:none}
+@media (max-width:760px){
+  .sgroup{flex-direction:column;justify-content:center;align-items:center;gap:0;margin:0 0 0 6px;padding:4px 8px;box-shadow:inset 0 -3px 0 var(--gc)}
+  .sgroup:first-child{margin-left:0}
+  .sgroup b{font-size:16px} .sgroup small{display:none}
+}
+@media (max-height:500px) and (orientation:landscape){
+  .sgroup{padding:4px 8px 3px;margin-top:3px} .sgroup b{font-size:17px} .sgroup small{font-size:11px}
+}
 </style>
 </head>
 <body>
@@ -2088,6 +2114,15 @@ const STAGES = [
 ];
 /** The stages run back to back in a rally (all but the test park, which comes last). */
 const RALLY_STAGES = STAGES.filter((d) => !d.test).length;
+// stage select groups (display order only; stage indexes, saves and boards are unchanged)
+const stageWorld = (d) => d.test ? 'test' : d.earth ? 'earth' : 'space';
+const STAGE_GROUPS = [
+  { key: 'space', label: 'SPACE', sub: 'OFF-WORLD STAGES' },
+  { key: 'earth', label: 'EARTH', sub: 'REAL RALLY ROADS' },
+  { key: 'test', label: 'TEST', sub: 'PROVING GROUND' },
+].map((g) => ({ ...g, idx: STAGES.map((d, i) => i).filter((i) => stageWorld(STAGES[i]) === g.key) }));
+const STAGE_ORDER = STAGE_GROUPS.flatMap((g) => g.idx);
+const stageStep = (i, d) => STAGE_ORDER[clamp(STAGE_ORDER.indexOf(i) + d, 0, STAGE_ORDER.length - 1)];
 
 STAGES.forEach((d, i) => { d.tpl = i; d.letter = d.letter || 'LIW'[i]; d.real = !!d.real; });
 const STAGE_LETTERS = STAGES.map((d) => d.letter).join('');
@@ -11397,7 +11432,7 @@ function handleActions() {
         const d = a === 'navUp' ? -1 : 1;
         if (Settings.from) Settings.nav(d);
         else if (st === 'menu' && Menu.screen === 'home') { Menu.homeIdx = (Menu.homeIdx + d + 4) % 4; Menu.refresh(); }
-        else if (st === 'menu' && Menu.screen === 'stages') { const n = clamp(Game.stageIdx + d, 0, STAGES.length - 1); if (n !== Game.stageIdx) loadStage(n, enterMenu); }
+        else if (st === 'menu' && Menu.screen === 'stages') { const n = stageStep(Game.stageIdx, d); if (n !== Game.stageIdx) loadStage(n, enterMenu); }
         else if (st === 'paused') { const n = Menu.pauseItems().length; Menu.pauseIdx = (Menu.pauseIdx + d + n) % n; Menu.refresh(); }
         else if (st === 'garage') Garage.setTab(Garage.tab + d);
         break;
@@ -11406,7 +11441,7 @@ function handleActions() {
         if (Settings.from) { Settings.activate(true); break; }
         if (st === 'garage') { Garage.cycle(a === 'navLeft' ? -1 : 1); break; }
         if (st === 'menu' && Menu.screen === 'stages') {
-          const n = clamp(Game.stageIdx + (a === 'navLeft' ? -1 : 1), 0, STAGES.length - 1);
+          const n = stageStep(Game.stageIdx, a === 'navLeft' ? -1 : 1);
           if (n !== Game.stageIdx) loadStage(n, enterMenu);
         }
         break;
@@ -11942,13 +11977,20 @@ const Menu = {
     document.getElementById('homeRide').addEventListener('click', (e) => { if (e.target.closest('button') && Game.state === 'menu') Garage.open('home'); });
     // stage select: one row per stage, the chosen stage's details alongside
     const list = document.getElementById('stageList');
-    STAGES.forEach((def, i) => {
-      const r = document.createElement('button');
-      r.className = 'srow'; r.dataset.idx = i;
+    STAGE_GROUPS.forEach((g) => {
+      const h = document.createElement('div');
+      h.className = 'sgroup ' + g.key;
+      h.innerHTML = `<b>${g.label}</b><small>${g.sub}</small>`;
+      list.appendChild(h);
+      g.idx.forEach((i) => list.appendChild(stageRow(i, g.key)));
+    });
+    function stageRow(i, key) {
+      const def = STAGES[i], r = document.createElement('button');
+      r.className = 'srow ' + key; r.dataset.idx = i;
       r.innerHTML = `<i class="th" style="background-image:url(${stageArt(def, 104, 72)})"></i><span class="sn"><b></b><small>${def.test ? 'TEST PARK' : 'STAGE ' + (i + 1)} · ${(def.length / 1000).toFixed(1)} KM · ${surfLabel(def)}</small></span><span class="sb"></span>`;
       r.addEventListener('click', () => { AudioSys.unlock(); r.blur(); if (Game.state === 'menu' && (i !== Game.stageIdx || Game.def.custom)) loadStage(i, enterMenu); });
-      list.appendChild(r);
-    });
+      return r;
+    }
     document.getElementById('sdTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { this.sdTab = b.dataset.tab; this.refresh(); } });
     const on = (id, fn) => document.getElementById(id).addEventListener('click', (e) => { e.preventDefault(); AudioSys.unlock(); fn(); });
     on('startBtn', () => { if (Game.state === 'menu') openService(); });
@@ -12028,6 +12070,7 @@ const Menu = {
     document.querySelectorAll('.srow').forEach((r) => {
       const i = +r.dataset.idx, def = i === Game.stageIdx && Game.def && Game.def.custom ? Game.def : STAGES[i], b = Store.best(def.id);
       const m = b && targetOf(def) ? medalFor(b.time, targetOf(def)) : null, sb = r.querySelector('.sb');
+      if (i === Game.stageIdx && !r.classList.contains('sel') && r.offsetParent) r.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       r.classList.toggle('sel', i === Game.stageIdx);
       r.querySelector('.sn b').textContent = def.name;
       sb.classList.toggle('none', !b);
@@ -12038,7 +12081,10 @@ const Menu = {
       const b = Store.best(def.id), tgt = targetOf(def), here = TR && TR.def === def;
       document.getElementById('sdBanner').style.backgroundImage = `url(${stageArt(def, 800, 140)})`;
       document.getElementById('sdName').textContent = def.name;
-      document.getElementById('sdRegion').textContent = def.region;
+      const w = stageWorld(STAGES[Game.stageIdx]), menu = document.getElementById('menu');
+      ['space', 'earth', 'test'].forEach((k) => menu.classList.toggle('w-' + k, k === w));
+      document.getElementById('sdRegion').innerHTML = `<span class="sd-world">${w.toUpperCase()}</span>`;
+      document.getElementById('sdRegion').append(def.region);
       document.getElementById('sdBlurb').textContent = def.blurb;
       document.getElementById('sdStats').innerHTML = [
         ['CORNERS', here ? TR.corners.length : '—'], ['LENGTH', here ? ((TR.finishS - TR.startS) / 1000).toFixed(2) + ' KM' : '~' + (def.length / 1000).toFixed(1) + ' KM'],
