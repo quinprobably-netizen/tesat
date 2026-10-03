@@ -2524,24 +2524,28 @@ function corneringG(tn, surf, v) {
 }
 
 /* ---- performance index: six ratings (0-10) from what the build's physics give it, and a PI (100-999)
-   with a class letter, like a racing game's car classes. Straight-line figures come from straightRun on
-   tarmac (where the real cars' figures were measured); cornering from corneringG on gravel, braking from the
-   tyres' grip with the downforce; offroad from the grip on loose surfaces and the drivetrain. ---- */
+   with a class letter, like a racing game's car classes. Acceleration, cornering and braking are measured on the
+   physics the player drives (PhysicsRig): a launch on tarmac (where the real cars' figures were measured), a
+   gravel skidpad and an ABS stop on gravel; top speed is where the pull meets drag (topSpeed); offroad is the
+   grip on loose surfaces and the drivetrain. ---- */
 const PI_CLASSES = [[998, 'X', '#5ef08c'], [900, 'S2', '#3d8bff'], [800, 'S1', '#b06bff'], [700, 'A', '#ff4d5e'], [600, 'B', '#ff8a3a'], [500, 'C', '#ffd23d'], [0, 'D', '#58f0ff']];
 function piClass(pi) { for (const c of PI_CLASSES) if (pi > c[0] || c[0] === 0) return { cls: c[1], color: c[2] }; return { cls: 'D', color: '#58f0ff' }; }
-const PI_SCALE = { speed: [150, 260], t160: [12, 5], t100: [6, 2.5], corner: [0.5, 0.85], brake: [80, 45], offroad: [0.4, 0.8] };
+const PI_SCALE = { speed: [150, 260], t160: [13, 5.4], t100: [6.2, 2.6], corner: [0.445, 0.757], brake: [74.4, 41.9], offroad: [0.4, 0.8] };
 const PI_BASE = 240;                              // the Group B cars and the PRERUNNER, with their real figures, land in A class; the restricted Rally1 cars in B
 function perfRatings(build, setup) {
-  const tn = tuneFor(setup || DEFAULT_SETUP, build), sp = tn.spec, m = tn.mass, gG = 9.81;
-  const run = straightRun(tn, SURF.TARMAC, 40);
+  const tn = tuneFor(setup || DEFAULT_SETUP, build), sp = tn.spec, m = tn.mass;
   const surfMu = (i) => SURF_INFO[i].mu * tn.mu[i];
-  const df = (v) => 0.5 * AIR_RHO * tn.cla * v * v;
-  // cornering on gravel at a medium and a fast corner's speed; turn-in (yaw inertia against the wheelbase) sharpens it
+  // measured on the real physics (PhysicsRig): a full-throttle launch on tarmac with traction control, a constant-
+  // speed skidpad on gravel at a medium and a fast corner's speed, an ABS stop from 100 km/h on gravel
+  const run = PhysicsRig.run(tn, (rig) => {
+    const L = rig.launch(SURF.TARMAC, 25);
+    return { t100: L.t100, t160: L.t160, corner: (rig.skidpad(SURF.GRAVEL, 15).g + rig.skidpad(SURF.GRAVEL, 30).g) / 2, brakeDist: rig.brake(SURF.GRAVEL, 100 / 3.6).dist };
+  });
+  // turn-in (yaw inertia against the wheelbase, steering lock) sharpens what the skidpad holds
   const agility = Math.sqrt(m * tn.geo.a * tn.geo.b / tn.geo.inertia.y);
-  const corner = (corneringG(tn, SURF.GRAVEL, 15) * 0.5 + corneringG(tn, SURF.GRAVEL, 30) * 0.5) * Math.sqrt(tn.steer) * agility;
-  const brakeDist = (100 / 3.6) ** 2 / (2 * gG * 0.92 * surfMu(SURF.GRAVEL) * (1 + df(18) / (m * gG)));
+  const corner = run.corner * Math.sqrt(tn.steer) * agility, brakeDist = run.brakeDist;
   const offroad = ((surfMu(SURF.GRAVEL) + surfMu(SURF.REGOLITH) + surfMu(SURF.ICE)) / 3) * (!sp.front ? 0.86 : sp.front >= 1 ? 0.93 : 1);
-  const vTop = Math.min(run.v, tn.vmax) * 3.6;
+  const vTop = tn.vmax * 3.6;                         // where the best gear's pull meets drag and rolling resistance (topSpeed)
   const r = (x, [a, b]) => clamp((x - a) / (b - a) * 10, 0, 10);
   const R = {
     speed: r(vTop, PI_SCALE.speed), accel: r(run.t160, PI_SCALE.t160), launch: r(run.t100, PI_SCALE.t100),
@@ -3658,6 +3662,22 @@ function refAccel(v, surf) {
   return _refAcc[k] + (_refAcc[k + 1] - _refAcc[k]) * (t - k) - SURF_INFO[surf].rr * 9.81;
 }
 const REF_VMAX = () => refTune().vmax;
+/* The speed plan's grip, calibrated on the real physics: the reference car's measured cornering and ABS braking
+   grip on each surface (PhysicsRig, once a session), against what it measured when the plan's margins were set
+   (CAL_REF, the physics before the wheels had their own mass), so the margins keep their meaning as the physics
+   changes and the target times follow it. */
+const CAL_REF = { corner: [0.844, 0.9, 0.808, 0.855, 0.82, 0.885], brake: [1, 0.85, 0.985, 1.003, 0.985, 1.011] };
+let _gripCal = null;
+function gripCal() {
+  if (!_gripCal) _gripCal = PhysicsRig.run(refTune(), (rig) => {
+    const c = { corner: [], brake: [] };
+    for (let s = 0; s < SURF_INFO.length; s++) { c.corner.push(rig.skidpad(s, 18).muEff / CAL_REF.corner[s]); c.brake.push(rig.brake(s, 25).muEff / CAL_REF.brake[s]); }
+    return c;
+  });
+  return _gripCal;
+}
+const cornerMu = (surf) => SURF_INFO[surf].mu * gripCal().corner[surf];
+const brakeMu = (surf) => SURF_INFO[surf].mu * gripCal().brake[surf];
 /** The reference car's engine in the stage's air: its power halfway up a real climb (1 at sea level). */
 function stageAirF() {
   const a = TR.def.altitude;
@@ -3669,11 +3689,10 @@ function computeSpeedProfile() {
   const v = new Float32Array(N), cum = new Float32Array(N);
   const vmax = REF_VMAX() * 0.97;
   for (let i = 0; i < N; i++) {
-    const mu = SURF_INFO[TR.surf[i]].mu;
     const kk = Math.max(Math.abs(TR.kap[i]), 1e-5);
     // Wide roads let a racing line open the corner up: effective radius grows by ~hw.
     const Reff = 1 / kk + def.hw * 0.6;
-    v[i] = Math.min(vmax, Math.sqrt(mu * def.gripG * 0.62 * Reff));   // the cars hold about 0.75 μ on the limit
+    v[i] = Math.min(vmax, Math.sqrt(cornerMu(TR.surf[i]) * def.gripG * 0.62 * Reff));   // the cars hold about 0.85 μ on the limit
   }
   // don't arrive at crests so fast that the landing is wild
   for (const f of TR.feats) if (f.type === 'crest') {
@@ -3685,7 +3704,7 @@ function computeSpeedProfile() {
   const chicaneCap = (arr, f) => {
     for (const ch of TR.chicanes) for (let i = Math.max(0, Math.floor(ch.a / DS)); i <= Math.min(N - 1, Math.ceil(ch.b / DS)); i++) {
       const kk = Math.max(Math.abs(TR.kap[i] - chicaneLine(ch, i * DS).d2), 1e-5);
-      arr[i] = Math.min(arr[i], Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * f / kk));
+      arr[i] = Math.min(arr[i], Math.sqrt(cornerMu(TR.surf[i]) * def.gripG * f / kk));
     }
   };
   chicaneCap(v, 0.62);
@@ -3696,7 +3715,7 @@ function computeSpeedProfile() {
     const a = Math.max(0.4, Math.min(refAccel(v[i - 1], TR.surf[i]) * stageAirF(), mu * def.gripG * 0.9) - def.gravity * grade(i));
     v[i] = Math.min(v[i], Math.sqrt(v[i - 1] * v[i - 1] + 2 * a * DS));
   }
-  const brakeAt = (i) => Math.max(1, SURF_INFO[TR.surf[i]].mu * def.gripG * 0.75 + def.gravity * grade(i));   // uphill helps the brakes
+  const brakeAt = (i) => Math.max(1, brakeMu(TR.surf[i]) * def.gripG * 0.75 + def.gravity * grade(i));   // uphill helps the brakes
   for (let i = N - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * brakeAt(i) * DS));
   for (let i = 1; i < N; i++) cum[i] = cum[i - 1] + DS / Math.max(1, 0.5 * (v[i] + v[i - 1]));
   TR.vprof = v; TR.simTime = cum;
@@ -3710,7 +3729,7 @@ function computeSpeedProfile() {
   chicaneCap(ai, 0.54);   // the AI threads chicanes with a margin
   for (let i = 0; i < N; i++) {   // and keeps a little grip in hand in every corner, for the bumps and its own corrections
     const kk = Math.max(Math.abs(TR.kap[i]), 1e-5);
-    ai[i] = Math.min(ai[i], Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * 0.56 * (1 / kk + def.hw * 0.6)));
+    ai[i] = Math.min(ai[i], Math.sqrt(cornerMu(TR.surf[i]) * def.gripG * 0.56 * (1 / kk + def.hw * 0.6)));
   }
   for (let i = N - 2; i >= 0; i--) ai[i] = Math.min(ai[i], Math.sqrt(ai[i + 1] * ai[i + 1] + 2 * brakeAt(i) * DS));
   TR.aiV = ai;
@@ -3779,14 +3798,14 @@ function computeLineProfile() {
     kap[i] = dh / (0.5 * (seg[i - 1] + seg[i] + seg[i + 1] + seg[i + 2]));
   }
   const vmax = REF_VMAX() * 0.97;
-  for (let i = 0; i < N; i++) v[i] = Math.min(vmax, Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * 0.66 / Math.max(Math.abs(kap[i]), 1e-5)));
+  for (let i = 0; i < N; i++) v[i] = Math.min(vmax, Math.sqrt(cornerMu(TR.surf[i]) * def.gripG * 0.66 / Math.max(Math.abs(kap[i]), 1e-5)));
   for (const f of TR.feats) if (f.type === 'crest') {
     const vc = Math.sqrt(def.gravity * def.crest.L * def.crest.L / (2 * Math.PI * Math.PI * def.crest.h)) * 0.95;
     for (let i = Math.max(0, Math.floor((f.s0 - 10) / DS)); i < Math.min(N, (f.sc + 10) / DS); i++) v[i] = Math.min(v[i], vc);
   }
   const grade = (i) => (TR.cy[Math.min(i + 1, N - 1)] - TR.cy[Math.max(i - 1, 0)]) / (2 * DS);
   const brake = new Float32Array(N);
-  for (let i = 0; i < N; i++) brake[i] = Math.max(1, SURF_INFO[TR.surf[i]].mu * def.gripG * 0.75 + def.gravity * grade(i));
+  for (let i = 0; i < N; i++) brake[i] = Math.max(1, brakeMu(TR.surf[i]) * def.gripG * 0.75 + def.gravity * grade(i));
   v[0] = 0;
   for (let i = 1; i < N; i++) {
     const a = Math.max(0.4, Math.min(refAccel(v[i - 1], TR.surf[i]) * stageAirF(), SURF_INFO[TR.surf[i]].mu * def.gripG * 0.9) - def.gravity * grade(i));
@@ -3795,7 +3814,7 @@ function computeLineProfile() {
   for (let i = N - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * brake[i] * seg[i + 1]));
   // the AI drives this line, so its speeds respect the line's own bends too (an S through the width can be tighter than the road)
   const ai = TR.aiV, kS = boxBlur(kap, Math.round(10 / DS));   // over about 20 m: small wiggles inside the road width don't count
-  for (let i = 0; i < N; i++) ai[i] = Math.min(ai[i], Math.sqrt(SURF_INFO[TR.surf[i]].mu * def.gripG * 0.58 / Math.max(Math.abs(kS[i]), 1e-5)));
+  for (let i = 0; i < N; i++) ai[i] = Math.min(ai[i], Math.sqrt(cornerMu(TR.surf[i]) * def.gripG * 0.58 / Math.max(Math.abs(kS[i]), 1e-5)));
   for (let i = N - 2; i >= 0; i--) ai[i] = Math.min(ai[i], Math.sqrt(ai[i + 1] * ai[i + 1] + 2 * brake[i] * seg[i + 1]));
   // braking points: where the line's speed starts to fall by a real margin into a corner (or a crest)
   const marks = [], i0 = Math.round(TR.startS / DS) + 4, i1 = Math.round(TR.finishS / DS);
@@ -6034,13 +6053,15 @@ function stepVehicle(dt, ctl) {
       if (cgN - comp0[k] - dt * cv1 > 0) {                         // the tyre touches: solve again with it, its spring linearised
         const da = Math.max(0, w.cg - comp0[k]), Fa = tyreSpring(da, CAR.kT[k], CAR.defl), Kt = SF.kx, cT = CAR.cT[k];
         const A = A0 + Kt * dt + cT, B = B0 + Fa + Kt * (cgN - comp0[k] - da) + cT * cgd, c = B / A;
-        const n = Fa + Kt * (cgN - comp0[k] - dt * c - da) + cT * (cgd - c);
-        if (n > 0) { cv1 = c; Nt = n; }
+        const n = Fa + Kt * (cgN - comp0[k] - dt * c - da) + cT * (cgd - c), cap = m * 60;
+        // a step in the ground (a chasm's far face, say) can't push harder than the tyre and rim can take: past
+        // 60 g of the car's weight on one corner the load is held there, as the wheel climbs it
+        if (n > cap) { cv1 = (B0 + cap) / A0; Nt = cap; } else if (n > 0) { cv1 = c; Nt = n; }
       }
     }
     let comp1 = comp0[k] + dt * cv1;
     if (comp1 < 0) { comp1 = 0; cv1 = -comp0[k] / dt; }          // the droop stop: the wheel hangs from the car
-    const Fs = F0 + Kx * dt * cv1 + Kc * (cv1 - cv0);
+    const Fs = clamp(F0 + Kx * dt * cv1 + Kc * (cv1 - cv0), -m * 60, m * 60);
     // anything the wheel's own balance doesn't account for (the droop stop) the car supplies, and feels in return
     const Fc = mU * (cv1 - cv0) / dt - (Nt - Fs - J + mU * gUp);
     w.comp = comp1; w.u = vm + cv1; w.compVel = cv1; w.load = Fs;
@@ -10606,7 +10627,9 @@ function aiControl(skill, stopping) {
   const herr = Math.abs(angP);
   if (herr > 0.25) vt = Math.min(vt, lerp(26, 7, clamp((herr - 0.25) / 0.9, 0, 1)));
   if (Math.abs(car.d) > TR.hw + 4) vt = Math.min(vt, 18);
-  c.throttle = clamp((vt - sp) * 0.6 + 0.15, 0, 1) * (1 - 0.8 * smoothstep(0.08, 0.3, Math.abs(car.slip || 0)));   // ease off in a big slide
+  // ease off in a big slide (not when nearly stopped: a standing car's slip angle means nothing, and the tyres now
+  // hold it still, so it has to pull away properly)
+  c.throttle = clamp((vt - sp) * 0.6 + 0.15, 0, 1) * (1 - 0.8 * smoothstep(0.08, 0.3, Math.abs(car.slip || 0)) * smoothstep(3, 6, sp));
   const slack = chicaneAt(car.s, 40) ? 0.8 : 2.5;   // chicanes want their entry speed
   c.brake = sp > vt + slack ? clamp((sp - vt - slack) * 0.5, 0.3, 1) : 0;
   if (c.brake > 0) c.throttle = 0;
@@ -11440,6 +11463,20 @@ function ratingsFor(build, setup) {
   if (!_perfCache.has(key)) _perfCache.set(key, perfRatings(build, setup));
   return _perfCache.get(key);
 }
+/** The ratings are measured on the real physics (about 30 ms a build), so the garage's tiles are worked out ahead,
+ *  one build at a time while the menus are idle: every car on the current wheels, every wheel set on the current car. */
+function warmRatings() {
+  const queue = [], g = Store.data.garage;
+  for (let b = 0; b < GARAGE.body.opts.length; b++) queue.push(Object.assign({}, g, { body: b }));
+  for (let w = 0; w < GARAGE.wheels.opts.length; w++) queue.push(Object.assign({}, g, { wheels: w }));
+  const next = () => {
+    if (!queue.length) return;
+    const st = Game.state;
+    if (st !== 'racing' && st !== 'countdown' && st !== 'loading') ratingsFor(queue.shift());
+    setTimeout(next, 60);
+  };
+  setTimeout(next, 500);
+}
 function piBadge(R, small) {
   return `<span class="pi-badge${small ? ' sm' : ''}" style="--c:${R.color}"><i>${R.cls}</i><b>${R.pi}</b></span>`;
 }
@@ -11904,7 +11941,7 @@ function init() {
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
   };
-  loadStage(0, enterMenu);
+  loadStage(0, () => { enterMenu(); warmRatings(); });
   requestAnimationFrame(frame);
 }
 init();
