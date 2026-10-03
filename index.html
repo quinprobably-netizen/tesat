@@ -836,8 +836,8 @@ td.good{color:var(--neon-grn)!important} td.bad{color:var(--neon-red)!important}
 #speedo path:first-of-type{stroke:#1c0c36}
 #spdArc{filter:drop-shadow(0 0 4px rgba(0,240,255,.8))}
 #spdNum{font-size:34px;fill:var(--neon-yel);filter:drop-shadow(3px 3px 0 #a0005a)}
-#speedo text:not(#spdNum):not(#tcLbl){fill:var(--neon-cyan);font-size:15px}
-#tcLbl{font-size:15px}
+#speedo text:not(#spdNum):not(#tcLbl):not(#escLbl){fill:var(--neon-cyan);font-size:15px}
+#tcLbl,#escLbl{font-size:15px}
 #gearNum{border:0;border-radius:0;background:#000;box-shadow:inset 0 0 0 3px var(--neon-pink);color:var(--neon-yel);font-size:20px}
 #rpmBar{border-radius:0;background:#14082a;box-shadow:0 0 0 2px #3a1a6a}
 #rpmFill{background:repeating-linear-gradient(90deg,transparent 0 0),linear-gradient(90deg,var(--neon-grn) 0%,var(--neon-cyan) 55%,var(--neon-yel) 80%,var(--neon-red) 100%);background-size:auto,193px 100%;
@@ -1035,7 +1035,7 @@ body.hud-min .pn{clip-path:none;background:rgba(0,0,0,.5);color:var(--neon-yel);
 body.hud-min .pn svg *{stroke:var(--neon-yel)!important}
 body.hud-min .pn svg,body.hud-min .pn .ico{width:22px;height:22px;font-size:16px}
 body.hud-min #dash{background:none}
-body.hud-min #speedo text:not(#spdNum):not(#tcLbl){opacity:.7}
+body.hud-min #speedo text:not(#spdNum):not(#tcLbl):not(#escLbl){opacity:.7}
 body.hud-min:not(.touch) #topbar{top:8px;width:min(460px,56vw)}
 body.hud-min:not(.touch) #timerBox{top:22px}
 body.hud-min:not(.touch) #pace{top:60px;min-width:0}
@@ -1109,7 +1109,8 @@ body.tilt #tCentre{display:flex}
         <path id="spdArc" d="M 45.6 164.4 A 84 84 0 1 1 164.4 164.4" pathLength="100" fill="none" stroke="url(#spdGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="0 100"/>
         <text id="spdNum" x="105" y="114" text-anchor="middle" font-size="48" font-weight="900" font-style="italic" fill="#fff">0</text>
         <text x="105" y="134" text-anchor="middle" font-size="11" font-weight="800" letter-spacing="3" fill="#c3cce0">KM/H</text>
-        <text id="tcLbl" x="105" y="162" text-anchor="middle" font-size="11" font-weight="900" letter-spacing="3" fill="#44506a">TC</text>
+        <text id="tcLbl" x="84" y="162" text-anchor="middle" font-size="11" font-weight="900" letter-spacing="3" fill="#44506a">TC</text>
+        <text id="escLbl" x="128" y="162" text-anchor="middle" font-size="11" font-weight="900" letter-spacing="3" fill="#44506a">ESC</text>
       </svg>
       <div id="gearRow"><div id="gearNum">1</div><div id="rpmWrap"><div id="rpmBar"><div id="rpmFill"></div></div><div id="brkBar"><div id="brkFill"></div></div>
         <div id="rpmTxt"><span><b id="rpmNum">0</b> RPM</span><span id="gearMode">MANUAL</span></div></div></div>
@@ -1256,7 +1257,7 @@ body.tilt #tCentre{display:flex}
         <button class="opt" data-set="manual"><span><b>MANUAL GEARS</b><small>Shift yourself with E / Q or the bumpers (RB up, LB down). Off: automatic gearbox.</small></span><i class="switch"></i></button>
         <button class="opt" data-set="abs"><span><b>ABS</b><small>Stops the wheels locking under hard braking. Off: squeeze the brakes.</small></span><i class="switch"></i></button>
         <button class="opt" data-set="tc"><span><b>TRACTION CONTROL</b><small>Trims the engine so the driven wheels never spin. Off: feed the throttle in, or spin up and slide.</small></span><i class="switch"></i></button>
-        <button class="opt" data-set="stab"><span><b>STABILITY</b><small>FULL: the car helps straighten every slide. SPORT: only steps in on a big slide, and gently. OFF: no help, catch every slide yourself.</small></span><i class="mode" id="stabMode">SPORT</i></button>
+        <button class="opt" data-set="stab"><span><b>STABILITY</b><small>FULL: stability control brakes a front wheel to straighten every slide, and helps beyond what the brakes can on ice; you can steer and level the car in the air. SPORT: the brakes alone, only on a big slide; air control too. OFF: the physics alone, no help on the ground or in the air.</small></span><i class="mode" id="stabMode">SPORT</i></button>
         <button class="opt touch-only" data-set="tilt"><span><b>TILT STEERING</b><small>Steer by turning the phone like a wheel. Gas and brake stay on the buttons; &#9678; recentres.</small></span><i class="switch"></i></button>
         <button class="opt touch-only" data-set="tiltSens"><span><b>TILT SENSITIVITY</b><small>How far you turn the phone for full lock: LOW 30&deg;, MEDIUM 20&deg;, HIGH 12&deg;.</small></span><i class="mode" id="tiltMode">MEDIUM</i></button>
         <div class="set-group">VIEW</div>
@@ -5352,16 +5353,18 @@ const VOLUMES = [1, 0.75, 0.5, 0.25];
 const STAB = {
   // aids: the arcade helpers that aren't physics: steering and levelling the car in the air, easing it back onto
   // four wheels when it teeters on two, and a little extra damping of its rotation. OFF is the physics alone.
-  full:  { name: 'FULL',  k: 2.0, b0: 0.12, b1: 0.45, yd: 1.5, aids: true },
-  sport: { name: 'SPORT', k: 0.6, b0: 0.3,  b1: 0.75, yd: 0.4, aids: true },
-  off:   { name: 'OFF',   k: 0,   b0: 0,    b1: 1,    yd: 0,   aids: false },
+  // topUp: whatever yaw moment the stability control asks for that braking can't deliver (on ice, mostly) is added
+  // straight to the car, as the old arcade assist did; SPORT is the brakes alone.
+  full:  { name: 'FULL',  k: 2.0, b0: 0.12, b1: 0.45, yd: 1.5, aids: true, topUp: true },
+  sport: { name: 'SPORT', k: 0.6, b0: 0.3,  b1: 0.75, yd: 0.4, aids: true, topUp: false },
+  off:   { name: 'OFF',   k: 0,   b0: 0,    b1: 1,    yd: 0,   aids: false, topUp: false },
 };
 const STAB_ORDER = ['full', 'sport', 'off'];
 function stabMode() { const v = Store.data.settings.stab; return STAB[v] ? v : IS_TOUCH ? 'full' : 'sport'; }
 function cycleStab() {
   const s = Store.data.settings;
   s.stab = STAB_ORDER[(STAB_ORDER.indexOf(stabMode()) + 1) % STAB_ORDER.length];
-  HUD.toast('STABILITY ' + STAB[s.stab].name + (s.stab === 'off' ? ' · CATCH YOUR OWN SLIDES' : ''));
+  HUD.toast('STABILITY ' + STAB[s.stab].name + (s.stab === 'off' ? ' · PURE PHYSICS: CATCH YOUR OWN SLIDES' : ''));
   Store.save(); Menu.refresh();
 }
 function cycleVolume() {
@@ -6057,14 +6060,52 @@ function stepVehicle(dt, ctl) {
   gearboxStep(dt, ctl, vLongBody, nG);
   const rev = car.gear < 0, drv0 = sp.front ? 0 : 2, drv1 = sp.front >= 1 ? 2 : 4;   // driven wheels: drv0 up to drv1
   const pedal = rev ? ctl.throttle : ctl.brake;                    // in reverse the throttle pedal brakes
+  // stability control (Settings > STABILITY; the AI always drives on FULL), done the way a real car's ESC does it:
+  // when the car slides further than a keyboard can catch (body slip past b0) or yaws faster than the steering asks
+  // for, it wants a yaw moment back toward the direction of travel, and gets it by braking the front wheel on that
+  // side, up to that tyre's grip; the engine is trimmed while it works. It rests
+  // while the handbrake is held and while you drift on purpose. SPORT only steps in on a big slide, and gently.
+  const sm = fc && fc.stab ? fc.stab : Game.autopilot || Game.state !== 'racing' ? 'full' : stabMode();
+  const SA = car.stab = STAB[sm] || STAB.full;
+  if (ctl.handbrake) car.hbTimer = 0.35; else car.hbTimer = Math.max(0, (car.hbTimer || 0) - dt);
+  let Mesc = 0;
+  if (nG >= 2 && car.hbTimer <= 0) {
+    const vl = car.vel.dot(AZ), vs = car.vel.dot(AX), spd = Math.hypot(vl, vs);
+    if (SA.k > 0 && spd > 4 && vl > 0) {
+      const beta = Math.atan2(vs, vl);
+      Mesc += CAR.inertia.y * SA.k * smoothstep(SA.b0, SA.b1, Math.abs(beta)) * Math.min(1, spd / 12) * nG / 4 * beta;
+    }
+    // yaw rate beyond what the steering asks for (a kinematic wheelbase model), so snap oversteer settles;
+    // it never adds yaw and fades out while drifting on purpose
+    if (SA.yd > 0 && vLongBody > 8) {
+      const wyB = car.w.dot(AY), wAsk = vLongBody * Math.tan(car.steerAngle) / CAR.wb, excess = wyB - wAsk;
+      if (Math.abs(wyB) > Math.abs(wAsk) && excess * wyB > 0)
+        Mesc -= excess * CAR.inertia.y * SA.yd * smoothstep(8, 30, vLongBody) * (1 - smoothstep(0.12, 0.35, Math.abs(betaB)));
+    }
+  }
+  const escK = Mesc > 0 ? 0 : 1, escW = car.wheels[escK];          // + yaws left: brake the left front (x > 0)
+  let escT = 0, escTrim = 0;
+  if (Mesc !== 0 && escW.grounded) {
+    escTrim = clamp(0.6 * Math.abs(Mesc) / (escW.Fmax * Math.abs(CAR.wheels[escK].x) + 1), 0, 0.9);   // more asked than braking can give: less engine
+    // up to the tyre's grip (the ABS keeps it near its peak slip); what the braked front loses in cornering force
+    // helps too, since that force is what's turning the car too far
+    escT = Math.min(Math.abs(Mesc) / Math.abs(CAR.wheels[escK].x), escW.Fmax, CAR.brakeT[0] / CAR.radius) * CAR.radius;
+  }
+  car.esc = escT > 30;
+  if (SA.topUp && Mesc !== 0) {
+    const got = escT / CAR.radius * Math.abs(CAR.wheels[escK].x) * Math.sign(Mesc);
+    T.addScaledVector(AY, Mesc - got);
+  }
   for (let k = 0; k < 4; k++) {
-    const w = car.wheels[k], fw = k < 2;
-    // ABS: per wheel, eases the pressure off as soon as the wheel slips past the tyre's peak, then builds it back
-    if (car.abs && pedal > 0.02 && w.grounded && Math.abs(w.vLong) > 2) {
+    const w = car.wheels[k], fw = k < 2, e = k === escK ? escT : 0;
+    // ABS: per wheel, eases the pressure off as soon as the wheel slips past the tyre's peak, then builds it back;
+    // the stability control's braking always goes through it, as on a real car
+    const absOn = (car.abs && pedal > 0.02) || e > 0;
+    if (absOn && w.grounded && Math.abs(w.vLong) > 2) {
       w.absP = -w.kap > 1.1 * w.ts.kp ? Math.max(0.12, w.absP - dt * 10) : Math.min(1, w.absP + dt * 5);
     } else w.absP = Math.min(1, w.absP + dt * 8);
     w.absOn = car.abs && pedal > 0.02 && w.absP < 0.97;
-    w.Tb = pedal * CAR.brakeT[fw ? 0 : 1] * (car.abs ? w.absP : 1) + (ctl.handbrake && !fw ? CAR.hbT : 0);
+    w.Tb = pedal * CAR.brakeT[fw ? 0 : 1] * (car.abs ? w.absP : 1) + e * w.absP + (ctl.handbrake && !fw ? CAR.hbT : 0);
   }
   // throttle; in reverse the brake pedal drives, eased off near the reverse limit
   let th0 = rev ? ctl.brake * clamp((CAR.reverseVmax + vLongBody) / 3, 0, 1) : ctl.throttle;
@@ -6076,6 +6117,7 @@ function stepVehicle(dt, ctl) {
   } else car.tcF = Math.min(1, car.tcF + dt * 4);
   car.tcCut = car.tc && th0 > 0.05 && car.tcF < 0.95;
   if (car.tc) th0 *= car.tcF;
+  if (car.esc) th0 *= 1 - escTrim;   // the stability control trims the engine while it brakes
   let L0 = 0; for (let k = 0; k < 4; k++) L0 += W[k].om;
   drivelineStep(dt, ctl, gearRatio(), th0);
   // the wheels' spin (about the car's x axis; forward rolling is +) is angular momentum the body trades with: brakes
@@ -6098,29 +6140,6 @@ function stepVehicle(dt, ctl) {
     _ft.copy(w.fw).multiplyScalar(w.Fx).addScaledVector(w.lt, w.Fy);
     addForceAt(_ft, w.cp);
     w.J = -_ft.dot(AX) * CAR.rc[k >> 1] / cw.x - _ft.dot(AZ) * CAR.pc / cw.z;
-  }
-  // stability assist (Settings > STABILITY; the AI always drives on FULL): gently yaw the nose toward the
-  // direction of travel when the body slip angle grows, so drifts are catchable on a keyboard. Disabled while
-  // the handbrake is held. SPORT only steps in on a big slide and far more gently; OFF leaves it all to the driver.
-  const sm = fc && fc.stab ? fc.stab : Game.autopilot || Game.state !== 'racing' ? 'full' : stabMode();
-  const SA = car.stab = STAB[sm] || STAB.full;
-  if (ctl.handbrake) car.hbTimer = 0.35; else car.hbTimer = Math.max(0, (car.hbTimer || 0) - dt);
-  if (SA.k > 0 && nG >= 2 && car.hbTimer <= 0) {
-    const vl = car.vel.dot(AZ), vs = car.vel.dot(AX), spd = Math.hypot(vl, vs);
-    if (spd > 4 && vl > 0) {
-      const beta = Math.atan2(vs, vl);
-      const k = CAR.inertia.y * SA.k * smoothstep(SA.b0, SA.b1, Math.abs(beta)) * Math.min(1, spd / 12) * nG / 4;
-      T.addScaledVector(AY, k * beta);
-    }
-  }
-  // yaw stability: at speed, bleed off yaw rate beyond what the steering asks for (kinematic
-  // wheelbase model), so snap oversteer settles. Never adds yaw; fades out while drifting on purpose.
-  if (SA.yd > 0 && nG >= 2 && !ctl.handbrake && vLongBody > 8) {
-    const wyB = car.w.dot(AY), wAsk = vLongBody * Math.tan(car.steerAngle) / CAR.wb, excess = wyB - wAsk;
-    if (Math.abs(wyB) > Math.abs(wAsk) && excess * wyB > 0) {
-      const yd = CAR.inertia.y * SA.yd * smoothstep(8, 30, vLongBody) * (1 - smoothstep(0.12, 0.35, Math.abs(betaB)));
-      T.addScaledVector(AY, -excess * yd);
-    }
   }
   // aerodynamics: drag grows from the head-on area to the side-on area as the car slides. Downforce needs
   // air flowing front to back, presses on each axle (the front's share rising as the nose dives) and,
@@ -10175,7 +10194,7 @@ const HUD = {
   init() {
     for (const id of ['hud', 'stageName', 'progress', 'progFill', 'progCar', 'progGhost', 'progRival', 'cpLabel', 'infoBox', 'timer', 'delta', 'penalty', 'bestBox',
       'coDriver', 'pn1', 'pn2', 'countdown', 'bigMsg', 'subMsg', 'toast', 'surfName', 'gripFill', 'altRow', 'altVal', 'camVal', 'driftTag',
-      'spdArc', 'spdNum', 'tcLbl', 'dmgRow', 'dmgFill', 'dmgPct', 'dmgIcon', 'touch', 'gearNum', 'rpmBar', 'rpmFill', 'rpmNum', 'gearMode', 'brkBar', 'brkFill']) this.el[id] = document.getElementById(id);
+      'spdArc', 'spdNum', 'tcLbl', 'escLbl', 'dmgRow', 'dmgFill', 'dmgPct', 'dmgIcon', 'touch', 'gearNum', 'rpmBar', 'rpmFill', 'rpmNum', 'gearMode', 'brkBar', 'brkFill']) this.el[id] = document.getElementById(id);
     this.suspBars = [...document.querySelectorAll('#suspBars i')];
   },
   set(key, text) { if (this.last[key] !== text) { this.last[key] = text; this.el[key].textContent = text; } },
@@ -10227,6 +10246,8 @@ const HUD = {
     this.el.spdArc.setAttribute('stroke-dasharray', pct.toFixed(1) + ' 100');
     // traction control light: dim when off, lit when on, amber while it is trimming the engine
     this.el.tcLbl.setAttribute('fill', !car.tc ? '#44506a' : car.tcCut ? '#ffb52e' : '#58f0ff');
+    // stability control: dim on OFF, lit on SPORT and FULL, amber while it brakes a wheel
+    this.el.escLbl.setAttribute('fill', !car.stab || !car.stab.k ? '#44506a' : car.esc ? '#ffb52e' : '#58f0ff');
     this.el.dmgFill.style.width = (car.damage * 100).toFixed(1) + '%';
     this.el.dmgRow.classList.toggle('hit', car.damage > 0.1);   // the minimal HUD only shows damage once it matters
     // gearbox: gear, rev counter with redline, shift light (manual only) and limiter flash
