@@ -3877,7 +3877,10 @@ function heightSD(s, d, x, z) {
   if (TR.edge) h -= smoothstep(TR.W - 7, TR.W, ad) * 2.2;
   return h;
 }
-function heightNear(x, z, hint) { locateNear(x, z, hint, 16, LQ2); return heightSD(LQ2.s, LQ2.d, x, z); }
+function heightNear(x, z, hint) {
+  if (RIG_GROUND.on) return RIG_GROUND.h0 + RIG_GROUND.sx * x + RIG_GROUND.sz * z;
+  locateNear(x, z, hint, 16, LQ2); return heightSD(LQ2.s, LQ2.d, x, z);
+}
 function heightGlobal(x, z) { const i = locateGlobal(x, z); locateFrom(x, z, i, LQ2); return heightSD(LQ2.s, LQ2.d, x, z); }
 /** World position of track coordinate (s,d) — interpolated along s. */
 const WP = { x: 0, z: 0, h: 0, i: 0 };
@@ -3890,8 +3893,19 @@ function worldAt(s, d, out) {
   out.h = Math.abs(d) < TR.hw + TR.shoulder + 4 ? heightSD(s, d, out.x, out.z) : heightGlobal(out.x, out.z);
   return out;
 }
+/* The physics test rig's proving ground (PhysicsRig, section 10): while `on`, the ground everywhere is the plane
+   y = h0 + sx·x + sz·z of one surface, so the car's real physics can be measured away from any stage. */
+const RIG_GROUND = { on: false, h0: 0, sx: 0, sz: 0, surf: 4 };
+function rigGround(x, z, out) {
+  const G = RIG_GROUND, l = Math.sqrt(G.sx * G.sx + 1 + G.sz * G.sz), info = SURF_INFO[G.surf];
+  out.void = false; out.road = true; out.s = 0; out.d = 0; out.i = 0;
+  out.h = G.h0 + G.sx * x + G.sz * z; out.nx = -G.sx / l; out.ny = 1 / l; out.nz = -G.sz / l;
+  out.surf = G.surf; out.mu = info.mu; out.rr = info.rr;
+  return out;
+}
 /** Physics ground sample: height, normal (finite differences), surface grip & drag. */
 function sampleGround(x, z, hint, out) {
+  if (RIG_GROUND.on) return rigGround(x, z, out);
   locateNear(x, z, hint, 14, LQ);
   const h = heightSD(LQ.s, LQ.d, x, z);
   out.s = LQ.s; out.d = LQ.d; out.i = LQ.i;
@@ -5813,7 +5827,7 @@ function drivelineStep(dt, ctl, G, th0) {
 }
 
 function stepVehicle(dt, ctl) {
-  const def = TR.def, m = CAR.mass, g = def.gravity, tn = car.tune, sp = tn.spec;
+  const def = RIG_GROUND.on ? EARTH : TR.def, m = CAR.mass, g = def.gravity, tn = car.tune, sp = tn.spec;
   carAxes();
   F.set(0, -m * g, 0); T.set(0, 0, 0);
   const vLongBody = car.vel.dot(AZ);
@@ -6043,11 +6057,12 @@ function stepVehicle(dt, ctl) {
   if (car.w.lengthSq() > 144) car.w.setLength(12);
   _dq.set(car.w.x * dt * 0.5, car.w.y * dt * 0.5, car.w.z * dt * 0.5, 0).multiply(car.q);
   car.q.set(car.q.x + _dq.x, car.q.y + _dq.y, car.q.z + _dq.z, car.q.w + _dq.w).normalize();
-  // 8) obstacles
-  collideObstacles();
-  // 9) track-space position
-  locateNear(car.pos.x, car.pos.z, car.i, 30, LQ);
-  car.i = LQ.i; car.s = LQ.s; car.d = LQ.d;
+  // 8) obstacles, 9) track-space position (neither exists on the test rig's proving ground)
+  if (!RIG_GROUND.on) {
+    collideObstacles();
+    locateNear(car.pos.x, car.pos.z, car.i, 30, LQ);
+    car.i = LQ.i; car.s = LQ.s; car.d = LQ.d;
+  }
   car.speed = car.vel.length();
   // drift metrics
   carAxes();
@@ -6131,8 +6146,13 @@ function placeCar(s, d, speed) {
   car.q.setFromRotationMatrix(_m4);
   car.pos.set(WP.x, GS_TMP.h + CAR.cgH + 0.08, WP.z);
   car.vel.copy(_fw).multiplyScalar(speed || 0);
-  car.w.set(0, 0, 0);
-  car.i = i; car.s = s; car.d = d; car.speed = speed || 0; car.reach = s;
+  car.i = i; car.s = s; car.d = d; car.reach = s;
+  resetCarMotion(speed);
+  Draw.snap();
+}
+/** Everything but the car's position and heading back to rest at `speed`: powertrain, wheels, aids and timers. */
+function resetCarMotion(speed) {
+  car.w.set(0, 0, 0); car.speed = speed || 0;
   // powertrain: the gear that suits the speed, the engine turning with it, the wheels rolling with the car
   const tn = car.tune, sp = tn.spec, v = speed || 0, rpmAt = (g) => v / CAR.radius * tn.gears[g - 1] * tn.final * 60 / TAU;
   let gear = 1;
@@ -6143,7 +6163,191 @@ function placeCar(s, d, speed) {
   car.steerAngle = 0; car.airTime = 0; car.wasAirborne = false; car.flipTimer = 0; car.offTimer = 0;
   car.spool = 1; car.backfire = 0; car.events.length = 0;
   for (const w of car.wheels) { w.prevGround = true; w.om = v / CAR.radius; w.absP = 1; w.kap = 0; w.ta = 0; w.comp = 0; w.grounded = false; }
-  Draw.snap();
+}
+
+/* ---- physics test rig ----
+   Runs the real stepVehicle on RIG_GROUND (a flat or sloped plane of one surface), with the car's whole state
+   saved and restored around it, so the garage ratings, the AI's grip calibration and the self-tests
+   (RegolithRally.physicsTests) all measure the physics the player drives rather than a separate model. */
+function snapState(o) {
+  const s = {};
+  for (const k in o) {
+    const v = o[k];
+    if (v && (v.isVector3 || v.isQuaternion)) s[k] = v.clone();
+    else if (k === 'wheels') s[k] = v.map(snapState);
+    else if (k === 'gs') s[k] = Object.assign({}, v);
+    else if (k === 'events') s[k] = v.slice();
+    else s[k] = v;                                   // numbers, flags and shared references (tune, tyre curves)
+  }
+  return s;
+}
+function restoreState(o, s) {
+  for (const k in s) {
+    const v = s[k];
+    if (v && (v.isVector3 || v.isQuaternion)) o[k].copy(v);
+    else if (k === 'wheels') v.forEach((ws, i) => restoreState(o.wheels[i], ws));
+    else if (k === 'gs') Object.assign(o[k], v);
+    else o[k] = v;
+  }
+}
+const PhysicsRig = {
+  ctl: { steer: 0, throttle: 0, brake: 0, handbrake: false, abs: true, tc: true, stab: 'off' },
+  dt: PHYS_DT,
+  /** Run fn(rig) with the car set up as `tune` on the proving ground; everything is put back afterwards. */
+  run(tune, fn) {
+    const saved = snapState(car), savedTune = car.tune, fc = Game.forceCtl, cpl = DL.cpl.map((c) => c.lin);
+    try {
+      setCarTune(tune); RIG_GROUND.on = true; Game.forceCtl = this.ctl;
+      return fn(this);
+    } finally {
+      Object.assign(RIG_GROUND, { on: false, h0: 0, sx: 0, sz: 0 });
+      setCarTune(savedTune); restoreState(car, saved);
+      DL.cpl.forEach((c, i) => { c.lin = cpl[i]; });
+      Game.forceCtl = fc;
+    }
+  },
+  /** Car at the origin heading +z (or `o.yaw`) at speed v on surface `surf`; o.sx/o.sz tilt the ground, o.drop lifts the car. */
+  place(surf, v, o) {
+    o = o || {};
+    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0 });
+    car.q.set(0, 0, 0, 1); if (o.yaw) car.q.setFromAxisAngle(UP, o.yaw);
+    car.pos.set(0, CAR.cgH + (o.drop || 0), 0);
+    car.vel.set(0, 0, v).applyQuaternion(car.q);
+    car.i = 0; car.s = 0; car.d = 0; car.damage = 0;
+    resetCarMotion(v);
+    Object.assign(this.ctl, { steer: 0, throttle: 0, brake: 0, handbrake: false, abs: true, tc: true, stab: 'off' }, o.ctl);
+  },
+  step(n, each) { for (let i = 0; i < n; i++) { if (each && each(i) === false) return i; stepVehicle(this.dt, this.ctl); } return n; },
+  vFwd() { carAxes(); return car.vel.dot(AZ); },
+  speedHold(v) { const c = this.ctl; c.brake = 0; c.throttle = clamp((v - this.vFwd()) * 0.8 + 0.25, 0, 1); },
+  /** Constant-speed ramp steer: the peak lateral acceleration held for 0.5 s, the share of μ that is, and the
+   *  lateral load transfer at that point against a rigid car's m·ay·h/t. */
+  skidpad(surf, v) {
+    this.place(surf, v);
+    this.step(120, () => this.speedHold(v));
+    const n = 960, win = 60, hist = [], prev = car.vel.clone();
+    this.step(n, (i) => {
+      this.ctl.steer = i / n; this.speedHold(v);
+      if (i) {
+        carAxes();
+        const W = car.wheels, ay = _tmp.subVectors(car.vel, prev).dot(AX) / this.dt;
+        hist.push([ay, (W[0].N - W[1].N) * CAR.wheels[0].x + (W[2].N - W[3].N) * CAR.wheels[2].x, Math.atan2(car.vel.dot(AX), car.vel.dot(AZ))]);
+        if (Math.abs(hist[hist.length - 1][2]) > 0.6) return false;
+      }
+      prev.copy(car.vel);
+    });
+    let best = null, ay = 0, lt = 0;                 // the 0.5 s running average with the highest |ay|
+    for (let i = 0; i < hist.length; i++) {
+      ay += hist[i][0]; lt += hist[i][1];
+      if (i >= win) { ay -= hist[i - win][0]; lt -= hist[i - win][1]; }
+      if (i >= win - 1 && (!best || Math.abs(ay) > Math.abs(best.ay))) best = { ay, lt };
+    }
+    const pk = best ? Math.abs(best.ay) / win : 0, mu = SURF_INFO[surf].mu * car.tune.mu[surf];
+    return { g: pk / 9.81, muEff: pk / (9.81 * mu), transfer: pk > 0.5 ? Math.abs(best.lt / win) / (CAR.mass * pk * CAR.cgH) : 0 };
+  },
+  /** Full-throttle standing start (traction control on, as the game defaults): times to 100 and 160 km/h. */
+  launch(surf, tMax) {
+    this.place(surf, 0);
+    this.step(60);
+    let t = 0, t100 = 99, t160 = 99;
+    this.ctl.throttle = 1;
+    this.step(Math.round((tMax || 30) / this.dt), () => {
+      t += this.dt; const v = this.vFwd();
+      if (t100 > 98 && v >= 100 / 3.6) t100 = t;
+      if (v >= 160 / 3.6) { t160 = t; return false; }
+    });
+    return { t100, t160 };
+  },
+  /** ABS stop from v0 (m/s) with the pedal flat: distance and the deceleration as a share of the surface's μ·g. */
+  brake(surf, v0) {
+    this.place(surf, v0);
+    const z0 = car.pos.z;
+    this.ctl.brake = 1;
+    this.step(Math.round(20 / this.dt), () => this.vFwd() > 0.3);
+    const d = car.pos.z - z0, mu = SURF_INFO[surf].mu * car.tune.mu[surf];
+    return { dist: d, muEff: v0 * v0 / (2 * Math.max(d, 0.1)) / (9.81 * mu) };
+  },
+  /** Flat drop of `drop` m onto tarmac: the most suspension travel used, the dip below ride height and the highest
+   *  rebound above it once the car has landed. */
+  drop(drop) {
+    this.place(SURF.TARMAC, 0, { drop });
+    let maxComp = 0, landed = false, minY = Infinity, top = -Infinity;
+    this.step(480, (i) => {
+      if (!i) return;                                  // car.nGround is from before the reset until the first step
+      for (const w of car.wheels) maxComp = Math.max(maxComp, w.comp);
+      if (car.nGround) landed = true;
+      if (!landed) return;
+      if (car.pos.y < minY) { minY = car.pos.y; top = -Infinity; }   // the rebound counts from the deepest point
+      else top = Math.max(top, car.pos.y);
+    });
+    return { maxComp, rebound: top - CAR.cgH, dip: CAR.cgH - minY };
+  },
+};
+/** Physics self-test: properties of the model with the range each should fall in. RegolithRally.physicsTests()
+ *  runs it from the console and returns { test: { value, want, pass } }. */
+function physicsTests(build) {
+  const R = {}, tn = tuneFor(DEFAULT_SETUP, build || DEFAULT_BUILD);
+  const check = (name, value, lo, hi) => { R[name] = { value: +value.toFixed(3), want: lo + ' to ' + hi, pass: value >= lo && value <= hi }; };
+  const sn = (s) => SURF_INFO[s].name.toLowerCase();
+  PhysicsRig.run(tn, (rig) => {
+    // statics: the wheel loads add up to the car's weight, each corner at its design load
+    rig.place(SURF.TARMAC, 0); rig.step(600);
+    const W = car.wheels;
+    check('static: wheel loads / weight', W.reduce((a, w) => a + w.N, 0) / (CAR.mass * 9.81), 0.995, 1.005);
+    check('static: worst corner load error', Math.max(...W.map((w, k) => Math.abs(w.N / CAR.N0[k] - 1))), 0, 0.03);
+    // ride: a 15 cm drop settles without bouncing past ride height by more than a few mm
+    const heave = rig.drop(0.15);
+    check('ride: overshoot after a 15 cm drop (m)', heave.rebound, -0.01, 0.01);
+    // landings: a 1 m flat drop stays off the hard stop, a 2 m one doesn't bounce the car back up
+    check('landing: 1 m drop, peak travel used', rig.drop(1).maxComp / CAR.travel, 0.5, 1);
+    check('landing: 2 m drop, rebound above ride height (m)', rig.drop(2).rebound, -0.05, 0.1);
+    // cornering: the full lateral load transfer of a rigid car, and grip near the surface's μ
+    for (const [s, v] of [[SURF.GRAVEL, 15], [SURF.TARMAC, 25], [SURF.ICE, 12]]) {
+      const r = rig.skidpad(s, v);
+      check(`skidpad ${sn(s)} ${v} m/s: load transfer / rigid car`, r.transfer, 0.95, 1.12);
+      check(`skidpad ${sn(s)} ${v} m/s: grip / μ`, r.muEff, 0.75, 1.05);
+    }
+    // braking: an ABS stop from 100 km/h close to μ·g
+    for (const s of [SURF.TARMAC, SURF.GRAVEL]) check(`ABS stop ${sn(s)}: deceleration / μg`, rig.brake(s, 100 / 3.6).muEff, 0.85, 1.05);
+    const L = rig.launch(SURF.TARMAC, 20);
+    check('launch tarmac: 0-100 km/h (s)', L.t100, 2.5, 6);
+    // standing still: a 15% grade with the handbrake, all four brakes on a 15% grade and across a 20% one
+    const hold = (surf, o, axis) => {
+      rig.place(surf, 0, o); rig.step(240); const p0 = car.pos[axis]; rig.step(Math.round(30 / rig.dt));
+      return Math.abs(car.pos[axis] - p0) * 100;
+    };
+    for (const s of [SURF.TARMAC, SURF.GRAVEL, SURF.ICE]) {
+      check(`hold 15% ${sn(s)}, handbrake: creep in 30 s (cm)`, hold(s, { sz: 0.15, ctl: { handbrake: true } }, 'z'), 0, 2);
+      check(`hold 15% ${sn(s)}, foot brake: creep in 30 s (cm)`, hold(s, { sz: 0.15, ctl: { brake: 1, throttle: 1e-6 } }, 'z'), 0, 2);
+    }
+    check('hold across 20% tarmac: creep in 30 s (cm)', hold(SURF.TARMAC, { sx: 0.2, ctl: { brake: 1, throttle: 1e-6, handbrake: true } }, 'x'), 0, 2);
+    // collisions: a 5 m/s sideways knock on the nose corner can't add energy
+    rig.place(SURF.TARMAC, 0); car.pos.y += 0.5; car.vel.set(-5, 0, 0);
+    const ke = () => { _qi.copy(car.q).invert(); _wl.copy(car.w).applyQuaternion(_qi); const I = CAR.inertia;
+      return 0.5 * CAR.mass * car.vel.lengthSq() + 0.5 * (I.x * _wl.x * _wl.x + I.y * _wl.y * _wl.y + I.z * _wl.z * _wl.z); };
+    const ke0 = ke();
+    resolveContact(1, 0, 0, 0, 'rock', car.pos.x - 0.9, car.pos.y, car.pos.z + 2);
+    check('collision: energy after / before an off-centre hit', ke() / ke0, 0, 1);
+    // timestep: 3 s of throttle and a step steer at 25 m/s, at 120 Hz against 960 Hz
+    const stepSteer = (dt) => {
+      rig.dt = dt; rig.place(SURF.GRAVEL, 25);
+      rig.step(Math.round(3 / dt), (i) => { rig.ctl.throttle = 0.6; rig.ctl.steer = i * dt > 0.5 ? 0.6 : 0; });
+      rig.dt = PHYS_DT; return car.pos.clone();
+    };
+    const fine = stepSteer(1 / 960);
+    check('timestep: 120 Hz vs 960 Hz after a step steer (m)', stepSteer(PHYS_DT).distanceTo(fine), 0, 0.4);
+    // airborne, no driver aids: angular momentum is conserved, and the brakes pitch the nose down through the wheels
+    rig.place(SURF.TARMAC, 30, { drop: 60 }); car.w.set(0.6, 1.2, 0.4);
+    const Lw = () => { _qi.copy(car.q).invert(); _wl.copy(car.w).applyQuaternion(_qi); const I = CAR.inertia;
+      return _tl.set(I.x * _wl.x, I.y * _wl.y, I.z * _wl.z).applyQuaternion(car.q).length(); };
+    const L0 = Lw(); rig.step(240);
+    check('airborne: angular momentum kept over 2 s', Lw() / L0, 0.98, 1.02);
+    rig.place(SURF.TARMAC, 30, { drop: 60 });
+    rig.step(30); carAxes(); const p0 = car.w.dot(AX);
+    rig.ctl.brake = 1; rig.step(60); carAxes();
+    check('airborne: pitch rate from stabbing the brakes (rad/s)', car.w.dot(AX) - p0, 0.2, 0.6);
+  });
+  return R;
 }
 
 /* ---- vehicle model ---- */
@@ -11448,7 +11652,7 @@ function init() {
   window.RegolithRally = {
     AudioSys, EngineSound, Game, car, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
-    placeCar, forceControls(c) { Game.forceCtl = c || null; },
+    placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig,
     openService, leaveService, startRally, Rally, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
