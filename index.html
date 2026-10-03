@@ -4496,9 +4496,7 @@ function buildGates() {
     caps.setMatrixAt(k * 2 + 1, _m4.compose(_p.set(rx, top + 0.3, rz), _q, _s.set(1, 1, 1)));
     beams.setMatrixAt(k, _m4.compose(_p.set(cx, top, cz), _q, _s.set(2 * halfW + 0.8, 1, 1)));
     panels.setMatrixAt(k, _m4.compose(_p.set(cx, (ch + top) / 2, cz), _q, _s.set(2 * halfW - 0.8, top - ch, 1)));
-    Object.assign(g, { x: cx, z: cz, halfW, top, k });
-    addCollider({ x: lx, z: lz, r: 0.6, y0: lh - 1, y1: top, kind: 'pylon' });
-    addCollider({ x: rx, z: rz, r: 0.6, y0: rh - 1, y1: top, kind: 'pylon' });
+    Object.assign(g, { x: cx, z: cz, halfW, top, k });   // gates are not solid: the car drives straight through the pylons
     if (g.start || g.finish) {
       const tex = g.start ? textBanner('START', '#10141c', '#ffb52e') : textBanner('FINISH', '#f4f4f4', '#111111');
       const face = new THREE.MeshBasicMaterial({ map: tex });
@@ -10088,7 +10086,7 @@ function raceLogic(dt) {
   car.reach = Math.max(car.reach, car.s);
   const g = TR.gates[Game.nextGate];
   if (g && !Game.pendingReset && Game.prevS < g.s && car.s >= g.s) {
-    if (Math.abs(car.d) <= g.halfW + 0.3) passGate(g); else missGate(g);
+    if (Math.abs(car.d) <= g.halfW + 1) passGate(g); else missGate(g);   // any part of the car through the gate counts
   }
   if (!Game.pendingReset && Game.state === 'racing') checkChicanes(Game.prevS, car.s);
   Game.prevS = car.s;
