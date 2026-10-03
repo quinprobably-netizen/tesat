@@ -1658,6 +1658,23 @@ const DYSON_COURSE = [
   { name: 'HEAT SINKS', grade: 0, path: 'R80:-20 S30 C L60:70 S40 K' },
   { name: 'FINISH', grade: 0, path: 'S190' },
 ];
+// The proving ground (the test park): not a race so much as a place to try a car and a set-up. A launch strip into
+// a braking zone, a slalom and a constant-radius skidpad bend on tarmac, kickers at three sizes on gravel, crests at
+// three heights, a loop on snow and one on ice, a chasm over regolith and a chicane on steel deck plating.
+const TESTPARK_COURSE = [
+  { name: 'PADDOCK', grade: 0, path: 'S110 L300:8 S60' },
+  { name: 'LAUNCH STRIP', grade: 0, path: 'S240' },
+  { name: 'BRAKING ZONE', grade: 0, path: 'S40 R30:-90 S40' },
+  { name: 'SLALOM', grade: 0, path: 'L55:-60 S6 R55:-110 S6 L55:-60 S6 R55:-110 S6 L60:-85 S40' },
+  { name: 'SKIDPAD', grade: 0, path: 'L60:90 S40' },
+  { name: 'KICKERS', grade: 0, surf: SURF.GRAVEL, path: 'J*0.6 J J*1.4' },
+  { name: 'CREST ROW', grade: 0.01, path: 'R140:60 S20 C*0.7 C C*1.3' },
+  { name: 'SNOW LOOP', grade: 0, surf: SURF.SNOW, path: 'R60:-30 S30 L70:20 S30 R80:-40 S40' },
+  { name: 'ICE RINK', grade: 0, surf: SURF.ICE, path: 'L80:30 S30 R70:-30 S30 L90:0 S40' },
+  { name: 'CHASM', grade: 0, surf: SURF.REGOLITH, path: 'X' },
+  { name: 'STEEL DECK', grade: 0, surf: SURF.METAL, path: 'R60:-60 S30 K L70:0' },
+  { name: 'FINISH', grade: 0, surf: SURF.TARMAC, path: 'S190' },
+];
 
 // Road widths (`hw`, half the width) suit real-size cars: 12-16 m on the space stages (wide by Earth standards, so
 // there is room to slide), 9 m on Pikes Peak (the real road's two lanes and gutters).
@@ -1995,7 +2012,38 @@ const STAGES = [
       surf: [0x9a8e80, 0xa8e8f4, 0x9a9ea6, 0x6a625a], rock: 0x5e5a56, marker: [0xffb020, 0xf0f4ff], accent: 0xffb020,
     },
   },
+  // The test park: last in the list (and out of the rally), so every other stage keeps its index and saved set-up
+  {
+    id: 'testpark', name: 'Proving Ground', region: 'TEST PARK · EVERY SURFACE', seed: 2026, letter: 'Z', test: true,
+    blurb: 'Not a race so much as a place to try a car and a set-up: a launch strip into a hard braking zone, a slalom and a skidpad bend on tarmac, kickers and crests at three sizes on gravel, a loop on snow and one on ice, a chasm over regolith and a chicane on steel plate. Every surface in the game on one lap.',
+    length: 3800, ...EARTH,
+    hw: 6.5, ribbon: 130, shoulder: 10, style: 'mountain', offRR: 0.3,
+    course: TESTPARK_COURSE, real: true, surfLabel: 'ALL SIX SURFACES', roadLines: 2,
+    roadRough: 0.03,
+    surf: { base: SURF.TARMAC, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
+    features: [], ramp: { H: 1.2, L: 15, landing: 110 }, chasm: { H: 1.5, L: 15, gap: 16, landing: 130, depth: 26 }, crest: { h: 1.8, L: 48, landing: 70 },
+    craterClusters: 0, meteorZones: 0, chicanes: 0, dontCut: 0,
+    checkpoints: 8, rocks: 160, targetFactor: 1.1,
+    sky: {
+      day: true, sunDir: [0.45, 0.58, 0.35], sunColor: 0xfff3e0, sunIntensity: 3.1, sunSize: 1.0,
+      zenith: [0.08, 0.23, 0.55], horizon: [0.6, 0.72, 0.84], fog: [420, 5200],
+    },
+    planet: null,
+    hemi: { sky: 0xa8c4ec, ground: 0x5a5a44, intensity: 0.68 },
+    colors: {
+      road: 0x4a4b4e, roadDark: 0x3b3c3f, off: 0x4e5c34, offB: 0x6a6444, offC: 0x86904e,
+      surf: [0x9c978d, 0xc8e4f4, 0x9aa2ab, 0x9a8a72, 0x4a4b4e, 0xe8ecf0], rock: 0x8a8580, marker: [0xffb21a, 0xf4f4f0], accent: 0xffb21a,
+      forest: 0x30442a, tundra: 0x5a6a36, granite: 0x8a8580, snow: 0xeef2f6,
+    },
+    earth: { fall: 0, ridges: 0.15, trees: ['birch', 'pine', 'spruce'], density: 3200, treeline: 9, snowLine: 9, ground: 'meadow',
+      signs: [{ at: 'start', lines: [['PROVING', 70], ['GROUND', 70], ['TEST PARK', 40]] }, { at: 'SKIDPAD', lines: [['SKIDPAD', 70], ['RADIUS 60 M', 44], ['TARMAC', 36]] },
+        { at: 'KICKERS', lines: [['KICKERS', 70], ['SMALL · MEDIUM · BIG', 34], ['GRAVEL', 36]] }, { at: 'CREST ROW', lines: [['CREST ROW', 64], ['LOW · MEDIUM · HIGH', 34], ['GRAVEL', 36]] },
+        { at: 'ICE RINK', lines: [['ICE RINK', 70], ['STUDS ADVISED', 40], ['', 30]] }, { at: 'CHASM', lines: [['CHASM', 70], ['FLAT OUT', 44], ['REGOLITH', 36]] }],
+      houses: [{ at: 'start', n: 2, wall: 0xd6d2c8, roof: 0x3a3e44, big: 1 }] },
+  },
 ];
+/** The stages run back to back in a rally (all but the test park, which comes last). */
+const RALLY_STAGES = STAGES.filter((d) => !d.test).length;
 
 STAGES.forEach((d, i) => { d.tpl = i; d.letter = d.letter || 'LIW'[i]; d.real = !!d.real; });
 const STAGE_LETTERS = STAGES.map((d) => d.letter).join('');
@@ -2043,7 +2091,8 @@ const RECOMMENDED = [{ susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 1, 
   { susp: 1, damp: 1, arb: 1, gear: 0, tyre: 0 },
   { susp: 1, damp: 1, arb: 1, gear: 0, tyre: 1 }, { susp: 1, damp: 1, arb: 0, gear: 1, tyre: 1 }, { susp: 0, damp: 1, arb: 0, gear: 2, tyre: 0 },
   { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 },
-  { susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 }];
+  { susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 }, { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 },
+  { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 }];
 const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
 const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
 /* ---- garage: pilot + vehicle parts (chosen in the garage, kept for every stage) ----
@@ -3264,16 +3313,25 @@ function boxBlur(src, r) {
  *  jump/crest feature) and clothoid-eased corners, keeping track of the heading. */
 function makePlan(def) {
   const P = { k: [], segs: [], feats: [], heading: 0 };
-  P.featureLen = (f) => f === 'ramp' ? 45 + def.ramp.L + def.ramp.landing
-    : f === 'chasm' ? 75 + def.chasm.L + def.chasm.gap + def.chasm.landing : 40 + def.crest.L + def.crest.landing;
-  P.straight = (len, feature) => {
+  /** A feature's dimensions: the stage's own, or scaled by sc (a bigger jump flies further, so its landing is longer). */
+  P.size = (f, sc = 1) => {
+    const r = Math.sqrt(sc);
+    return f === 'ramp' ? { H: def.ramp.H * sc, L: def.ramp.L * r, landing: def.ramp.landing * sc }
+      : f === 'chasm' ? { H: def.chasm.H * r, L: def.chasm.L * r, gap: def.chasm.gap * sc, landing: def.chasm.landing * sc, depth: def.chasm.depth }
+      : { h: def.crest.h * sc, L: def.crest.L * r, landing: def.crest.landing * sc };
+  };
+  P.featureLen = (f, sc) => {
+    const q = P.size(f, sc);
+    return f === 'ramp' ? 45 + q.L + q.landing : f === 'chasm' ? 75 + q.L + q.gap + q.landing : 40 + q.L + q.landing;
+  };
+  P.straight = (len, feature, sc) => {
     const k = P.k, s0 = k.length * DS, n = Math.max(1, Math.round(len / DS));
     for (let i = 0; i < n; i++) k.push(0);
-    const seg = { type: 'straight', s0, s1: k.length * DS, feature: feature || null };
+    const seg = { type: 'straight', s0, s1: k.length * DS, feature: feature || null }, q = feature && P.size(feature, sc);
     P.segs.push(seg);
-    if (feature === 'ramp') P.feats.push({ type: 'ramp', s0: s0 + 45, lip: s0 + 45 + def.ramp.L, end: seg.s1, seg });
-    else if (feature === 'chasm') P.feats.push({ type: 'chasm', s0: s0 + 75, lip: s0 + 75 + def.chasm.L, gapEnd: s0 + 75 + def.chasm.L + def.chasm.gap, end: seg.s1, seg });
-    else if (feature === 'crest') P.feats.push({ type: 'crest', s0: s0 + 40, sc: s0 + 40 + def.crest.L / 2, end: seg.s1, seg });
+    if (feature === 'ramp') P.feats.push({ type: 'ramp', s0: s0 + 45, lip: s0 + 45 + q.L, end: seg.s1, seg, P: q });
+    else if (feature === 'chasm') P.feats.push({ type: 'chasm', s0: s0 + 75, lip: s0 + 75 + q.L, gapEnd: s0 + 75 + q.L + q.gap, end: seg.s1, seg, P: q });
+    else if (feature === 'crest') P.feats.push({ type: 'crest', s0: s0 + 40, sc: s0 + 40 + q.L / 2, end: seg.s1, seg, P: q });
   };
   P.corner = (dir, R1, R2, ang) => {
     const k = P.k;
@@ -3328,7 +3386,8 @@ function planTrack(def, seed) {
 }
 /** Plan a scripted course (a real road, or a designed stage): its sections in order, each a run of straights,
  *  crests, jumps and corners. Path tokens: S<m> straight; C crest, J kicker ramp, X chasm jump (each a straight
- *  sized by the stage's own feature); L|R<radius>[><exit radius]:<heading> a corner that turns to an absolute
+ *  sized by the stage's own feature, or scaled by a factor: J*1.5 is half as high again and flies further);
+ *  L|R<radius>[><exit radius]:<heading> a corner that turns to an absolute
  *  heading in degrees (0 = the start direction, + = left), with a trailing ! marking a landmark inside it;
  *  K a straight carrying a chicane; @<letter> switches the road surface from here on (R regolith, I ice, M metal,
  *  G gravel, T tarmac, S snow). */
@@ -3345,9 +3404,10 @@ function planCourse(def) {
         const dir = m[1] === 'L' ? 1 : -1;
         P.corner(dir, +m[2], +(m[3] || m[2]), (+m[4] * Math.PI / 180 - P.heading) * dir);
         if (m[5]) landmarks.push(P.segs[P.segs.length - 1]);
-      } else if (t === 'C') P.straight(P.featureLen('crest'), 'crest');
-      else if (t === 'J') P.straight(P.featureLen('ramp'), 'ramp');
-      else if (t === 'X') P.straight(P.featureLen('chasm'), 'chasm');
+      } else if (/^[CJX](\*[\d.]+)?$/.test(t)) {
+        const f = { C: 'crest', J: 'ramp', X: 'chasm' }[t[0]], sc = t.length > 1 ? +t.slice(2) : 1;
+        P.straight(P.featureLen(f, sc), f, sc);
+      }
       else if (t === 'K') { const s0 = P.k.length * DS, len = def.style === 'platform' ? 150 : 190; P.straight(len, null); zones.push({ s0, s1: s0 + len, course: true }); }
       else if (t[0] === '@') marks.push({ s: P.k.length * DS, surf: SURF_LETTERS[t[1]] });
       else P.straight(+t.slice(1), null);
@@ -3438,8 +3498,8 @@ function generateTrack(def) {
     tr.cy = boxBlur(boxBlur(raw, 22), 22);
   }
   for (const f of tr.feats) if (f.type === 'crest') {
-    const L = def.crest.L;
-    for (let i = 0; i < N; i++) { const x = (i * DS - f.sc) / L; if (Math.abs(x) < 0.5) { const c = Math.cos(Math.PI * x); tr.cy[i] += def.crest.h * c * c; } }
+    const L = f.P.L;
+    for (let i = 0; i < N; i++) { const x = (i * DS - f.sc) / L; if (Math.abs(x) < 0.5) { const c = Math.cos(Math.PI * x); tr.cy[i] += f.P.h * c * c; } }
   }
   if (!tr.terrain) tr.terrain = makeMountainTerrain(tr);   // a mountain (or Earth forest) built around the road
   else if (tr.secs) fitTerrainToRoad(tr, plan);             // a designed space stage: the ground meets its road
@@ -3450,7 +3510,7 @@ function generateTrack(def) {
   // ---- Kicker ramps and chasm jumps ----
   for (const f of tr.feats) {
     if (f.type !== 'ramp' && f.type !== 'chasm') continue;
-    const P = f.type === 'ramp' ? def.ramp : def.chasm;
+    const P = f.P;
     for (let i = Math.max(0, Math.floor(f.s0 / DS)); i < N; i++) {
       const s = i * DS, t = (s - f.s0) / P.L;
       if (t < 0) continue;
@@ -3568,7 +3628,7 @@ const CHICANE = {
 function placeChicanes(tr) {
   const def = tr.def, C = CHICANE, crng = new RNG((def.seed * 31 + 7) >>> 0);   // own RNG: the rest of the layout doesn't move
   tr.chicanes = [];
-  const featEnd = (f) => f.type === 'crest' ? f.s0 + def.crest.L + 15 : (f.gapEnd || f.lip) + 60;
+  const featEnd = (f) => f.type === 'crest' ? f.s0 + f.P.L + 15 : (f.gapEnd || f.lip) + 60;
   for (const z of tr.chicaneZones) {
     const nRows = crng.next() < (def.style === 'platform' ? 0.4 : 0.25) ? 3 : 2, side0 = crng.sign();
     const span = (nRows - 1) * C.gapL;
@@ -3698,7 +3758,7 @@ function computeSpeedProfile() {
   }
   // don't arrive at crests so fast that the landing is wild
   for (const f of TR.feats) if (f.type === 'crest') {
-    const Rv = def.crest.L * def.crest.L / (2 * Math.PI * Math.PI * def.crest.h);
+    const Rv = f.P.L * f.P.L / (2 * Math.PI * Math.PI * f.P.h);
     const vc = Math.sqrt(def.gravity * Rv) * 0.95;   // stays (mostly) planted
     for (let i = Math.max(0, Math.floor((f.s0 - 10) / DS)); i < Math.min(N, (f.sc + 10) / DS); i++) v[i] = Math.min(v[i], vc);
   }
@@ -3802,7 +3862,7 @@ function computeLineProfile() {
   const vmax = REF_VMAX() * 0.97;
   for (let i = 0; i < N; i++) v[i] = Math.min(vmax, Math.sqrt(cornerMu(TR.surf[i]) * def.gripG * 0.66 / Math.max(Math.abs(kap[i]), 1e-5)));
   for (const f of TR.feats) if (f.type === 'crest') {
-    const vc = Math.sqrt(def.gravity * def.crest.L * def.crest.L / (2 * Math.PI * Math.PI * def.crest.h)) * 0.95;
+    const vc = Math.sqrt(def.gravity * f.P.L * f.P.L / (2 * Math.PI * Math.PI * f.P.h)) * 0.95;
     for (let i = Math.max(0, Math.floor((f.s0 - 10) / DS)); i < Math.min(N, (f.sc + 10) / DS); i++) v[i] = Math.min(v[i], vc);
   }
   const grade = (i) => (TR.cy[Math.min(i + 1, N - 1)] - TR.cy[Math.max(i - 1, 0)]) / (2 * DS);
@@ -5549,8 +5609,20 @@ const PHYS_DT = 1 / 120;
 const Draw = {
   pos: new THREE.Vector3(), q: new THREE.Quaternion(), vel: new THREE.Vector3(),
   p0: new THREE.Vector3(), q0: new THREE.Quaternion(), v0: new THREE.Vector3(),
-  keep() { this.p0.copy(car.pos); this.q0.copy(car.q); this.v0.copy(car.vel); },     // before each physics step
-  blend(a) { this.pos.lerpVectors(this.p0, car.pos, a); this.q.copy(this.q0).slerp(car.q, a); this.vel.lerpVectors(this.v0, car.vel, a); },
+  // the wheels too (travel, and the tyre's squash against the ground), or on a landing they'd be a step ahead of the
+  // body they hang from, and the tyres would float or sink into the ground for a frame as they touch
+  comp: new Float64Array(4), sq: new Float64Array(4), c0: new Float64Array(4), s0: new Float64Array(4),
+  keep() {                                                                              // before each physics step
+    this.p0.copy(car.pos); this.q0.copy(car.q); this.v0.copy(car.vel);
+    for (let k = 0; k < 4; k++) { const w = car.wheels[k]; this.c0[k] = w.comp; this.s0[k] = w.grounded ? Math.max(0, w.cg - w.comp) : 0; }
+  },
+  blend(a) {
+    this.pos.lerpVectors(this.p0, car.pos, a); this.q.copy(this.q0).slerp(car.q, a); this.vel.lerpVectors(this.v0, car.vel, a);
+    for (let k = 0; k < 4; k++) {
+      const w = car.wheels[k], s1 = w.grounded ? Math.max(0, w.cg - w.comp) : 0;
+      this.comp[k] = this.c0[k] + (w.comp - this.c0[k]) * a; this.sq[k] = this.s0[k] + (s1 - this.s0[k]) * a;
+    }
+  },
   snap() { this.keep(); this.blend(1); },                                               // after a teleport
   axes() { AX.set(1, 0, 0).applyQuaternion(this.q); AY.set(0, 1, 0).applyQuaternion(this.q); AZ.set(0, 0, 1).applyQuaternion(this.q); },
 };
@@ -5569,6 +5641,7 @@ const SUSP = {
   bumpKnee: 0.7, bumpHi: 0.4,          // m/s knee and high-speed slope (blow-off) in bump
   rebKnee: 0.5, rebHi: 0.35,           // and in rebound
   stopLen: 0.06, stopK: 6, stopC: 12,  // bump stop over the last stopLen: spring k·stopK·x²/stopLen (12k at full), damping up to stopC × the damper's
+  stopR: 0.4,                          // its damping coming back out (rebound), as a share of that in bump
   hardK: 10,                           // hard stop past full travel: hardK × the spring rate, critically damped
   arbF: 0.8, arbR: 0.8,                // anti-roll bar rate as a share of the axle's spring rate (front, rear)
 };
@@ -5584,7 +5657,9 @@ function coilover(x, v, kS, cB, cR, cD, mS) {
   if (on > 0) {
     const e = on / SUSP.stopLen, cS = cD * SUSP.stopC;
     f += kS * SUSP.stopK * on * e; kx += 2 * kS * SUSP.stopK * e;
-    if (v > 0) { f += cS * e * v; kx += cS * v / SUSP.stopLen; kc += cS * e; }
+    const cv = v > 0 ? cS : cS * SUSP.stopR;                         // (and a valve that slows it on the way back out)
+    f += cv * e * v; kc += cv * e;
+    if (v > 0) kx += cv * v / SUSP.stopLen;                          // (on the way out that slope would be negative: left out)
   }
   // hard stop: stiff and critically damped both ways while it's in contact, and it only ever pushes
   const past = x - CAR.travel;
@@ -5593,6 +5668,11 @@ function coilover(x, v, kS, cB, cR, cD, mS) {
     if (fh > 0) { f += fh; kx += kH; kc += cH; }
   }
   SF.f = f; SF.kx = kx; SF.kc = kc;
+}
+/** The deflection (m) at which the tyre pushes with force F: tyreSpring's inverse. */
+function tyreDefl(F, kT, ds) {
+  const q = F / kT - 1.5 * ds;                     // past the linear range: p + 2p²/ds = q, with p = d − 1.5·ds
+  return q <= 0 ? F / kT : 1.5 * ds + ds * (Math.sqrt(1 + 8 * q / ds) - 1) / 4;
 }
 /** Tyre's vertical force (N) at deflection d (m), with its rate in SF.kx: linear around its static squash `ds`,
  *  then stiffening as the sidewall closes on the rim (7.5× the static load at 3× the squash). */
@@ -5624,6 +5704,9 @@ const TYRE = {
   sigma: [0.55, 0.45, 0.35, 0.5, 0.3, 0.5],   // lateral relaxation length (m), per surface (SURF order)
   sigmaX: 0.5,                                // longitudinal relaxation length, as a share of the lateral
   vd: 3.5, vLo: [4, 12],                      // low-speed damping (m/s scale), faded out between these speeds
+  swZ: 0.5,                                   // damping of a sidewall crushed past its working range (share of critical, with the body corner on it)
+  capA: 60, gMax: 12,                         // the most one tyre can push (× the car's mass, N); the fastest the ground closes on it (m/s)
+  reinflate: 0.3, climb: 0.1, climbLoad: 2,   // a crushed tyre recovers (m/s, plus climb × the car's speed) while under climbLoad × its static load
 };
 const TYRE_SURF = [
   { kp: 0.17, ap: 0.2, C: 1.22 },      // REGOLITH: loose dust
@@ -5706,7 +5789,7 @@ const car = {
   wheels: CAR.wheels.map(() => ({ mount: new THREE.Vector3(), n: new THREE.Vector3(0, 1, 0), gs: newGroundSample(), grounded: false, prevGround: true,
     comp: 0, dist: 0, load: 0, arb: 0, slipLat: 0, vLong: 0, vLat: 0, ta: 0, sliding: false, spinning: false, locked: false, absOn: false, absP: 1, bottomed: false,
     om: 0, spinAngle: 0, emit: 0, fw: new THREE.Vector3(), lt: new THREE.Vector3(), cp: new THREE.Vector3(),
-    N: 0, Fmax: 0, mu: 1, ts: TYRE_SURF[0], rr: 0, Fx: 0, Fy: 0, kap: 0, slip: 0, Tb: 0, brakeP: 0, taE: 0, kt: 0, wl: 1, u: 0, J: 0, Nt: 0, cg: 0, nAY: 1, reach: false, bAng: 0 })),
+    N: 0, Fmax: 0, mu: 1, ts: TYRE_SURF[0], rr: 0, Fx: 0, Fy: 0, kap: 0, slip: 0, Tb: 0, brakeP: 0, taE: 0, kt: 0, wl: 1, u: 0, J: 0, Nt: 0, cg: 0, nAY: 1, reach: false, bAng: 0, crush: 0, dEnd: 0 })),
   nGround: 0, airTime: 0, wasAirborne: false, pitchLatch: false, steerLatch: false,
   damage: 0, drifting: false, slip: 0, hullContact: false, spool: 1, tc: true, tcF: 1, tcCut: false, abs: true, backfire: 0,
   events: [], flipTimer: 0, offTimer: 0, globalTimer: 0, tune: null,
@@ -6028,6 +6111,10 @@ function stepVehicle(dt, ctl) {
   //    coil-over above (spring, two-stage damper, bump stop, hard stop and the anti-roll bar to its partner) and
   //    its tyre below, a stiff spring (CAR.kT) that only pushes while it touches. It is stepped implicitly, so the
   //    stiff tyre and stops stay stable; whatever the droop stop has to hold comes out of the same balance.
+  //    The body corner above it gives way too: the coil-over's force moves that corner by dt·force/m_c, where m_c is
+  //    the body's effective mass there (its sprung mass, plus how easily that push pitches and rolls it), and the
+  //    solve includes that. Without it a bump stop's or hard stop's stiff damping, met on a landing, overshoots the
+  //    body at 120 Hz and the corner loads chatter from step to step.
   const fc = Game.forceCtl;
   car.abs = fc && typeof fc.abs === 'boolean' ? fc.abs
     : Store.data.settings.abs !== false || Game.autopilot || Game.state !== 'racing';     // the AI always brakes with ABS
@@ -6038,35 +6125,52 @@ function stepVehicle(dt, ctl) {
   let nG = 0;
   _tmp.set(0, 0, 0);
   for (let k = 0; k < 4; k++) {
-    const w = W[k], mU = CAR.mU[k];
+    const w = W[k], mU = CAR.mU[k], cw = CAR.wheels[k];
     _r.subVectors(w.mount, car.pos); _vp.crossVectors(car.w, _r).add(car.vel);
-    const vm = _vp.dot(AY), cv0 = w.u - vm;                      // the mount's speed along up; the suspension's compression speed
+    const vm = _vp.dot(AY), u0 = w.u, cv0 = u0 - vm;              // the mount's and the wheel's speeds along up; the compression speed
     const kS = CAR.kS[k] * tn.k, cD = 2 * def.damping * tn.c * Math.sqrt(kS * CAR.ms[k]);
     const cB = cD * SUSP.bump * tn.db, cR = cD * SUSP.rebound * tn.dr;
     const karb = CAR.kS[k] * tn.k * (k < 2 ? SUSP.arbF : SUSP.arbR) * tn.arb, J = w.J || 0;
-    // the coil-over linearised about now: force F0, stiffness Kx, damping Kc
+    // the coil-over linearised about now: force F0, stiffness Kx, damping Kc. Its force at the step's end, F* + a·cv1,
+    // also moves the body corner by dt·force/m_c (1/m_c = ia), so seen from the wheel it is β·(F* + a·(u1 − vm)),
+    // in terms of the wheel's new speed u1
     coilover(comp0[k], cv0, kS, cB, cR, cD, CAR.ms[k]);
     const F0 = SF.f + karb * (comp0[k] - comp0[k ^ 1]), Kx = SF.kx + karb, Kc = SF.kc;
-    // wheel: mU·(u1 − u0)/dt = tyre − coil-over − link load + weight, in terms of the new compression speed cv1
-    const A0 = mU / dt + Kx * dt + Kc, B0 = mU * cv0 / dt - F0 + Kc * cv0 - J + mU * gUp;
-    let cv1 = B0 / A0, Nt = 0;
+    const ia = 1 / CAR.mSprung + cw.z * cw.z / CAR.inertia.x + cw.x * cw.x / CAR.inertia.z;
+    const a = Kx * dt + Kc, Fst = F0 - Kc * cv0, beta = 1 / (1 + a * dt * ia);
+    // wheel: mU·(u1 − u0)/dt = tyre − coil-over − link load + weight
+    const A0 = mU / dt + beta * a, B0 = mU * u0 / dt - beta * (Fst - a * vm) - J + mU * gUp;
+    let u1 = B0 / A0, Nt = 0;
     if (w.reach) {
-      const cgd = -_vp.dot(w.n) / w.nAY, cgN = w.cg + cgd * dt;   // how fast the ground closes on the mount; where it'll be
-      if (cgN - comp0[k] - dt * cv1 > 0) {                         // the tyre touches: solve again with it, its spring linearised
-        const da = Math.max(0, w.cg - comp0[k]), Fa = tyreSpring(da, CAR.kT[k], CAR.defl), Kt = SF.kx, cT = CAR.cT[k];
-        const A = A0 + Kt * dt + cT, B = B0 + Fa + Kt * (cgN - comp0[k] - da) + cT * cgd, c = B / A;
-        const n = Fa + Kt * (cgN - comp0[k] - dt * c - da) + cT * (cgd - c), cap = m * 60;
-        // a step in the ground (a chasm's far face, say) can't push harder than the tyre and rim can take: past
-        // 60 g of the car's weight on one corner the load is held there, as the wheel climbs it
-        if (n > cap) { cv1 = (B0 + cap) / A0; Nt = cap; } else if (n > 0) { cv1 = c; Nt = n; }
+      // the tyre's squash d = cg − comp − crush (below) grows at the ground's own speed along up, g0, less the wheel's.
+      // (At a step's edge the ground reads as a near-vertical face: g0 is held to what a hard landing gives.)
+      const g0 = clamp(vm - _vp.dot(w.n) / w.nAY, -TYRE.gMax, TYRE.gMax), dg = w.cg - comp0[k], cap = m * TYRE.capA;
+      // A tyre can only push so hard: TYRE.capA × the car's mass, on its rim. Squashed further than it takes that load
+      // to, or further than the wheel's own motion could have pushed it since the last step (the wheel has met a step
+      // in the ground, the far face of a chasm), it crushes instead: what is crushed pushes no harder and doesn't spring
+      // back (a load capped on its own would hand all of it back, a catapult). It recovers as the wheel lifts away, and
+      // while the tyre is lightly loaded it climbs on up the step as it rolls (TYRE.climb) or slowly re-inflates
+      const dLim = Math.min(tyreDefl(cap, CAR.kT[k], CAR.defl), w.dEnd + dt * TYRE.gMax);
+      if (dg - w.crush > dLim) w.crush = dg - dLim;
+      const d0 = dg - w.crush;
+      if (d0 + dt * (g0 - u1) > 0) {                                // the tyre touches: solve again with it, its spring linearised
+        // crushed past its working range the sidewall folds, which soaks up energy rather than storing it (TYRE.swZ)
+        const da = Math.max(0, d0), Fa = tyreSpring(da, CAR.kT[k], CAR.defl), Kt = SF.kx;
+        const cT = CAR.cT[k] + TYRE.swZ * 2 * Math.sqrt((Kt - CAR.kT[k]) * (1 / ia + mU));
+        const A = A0 + Kt * dt + cT, B = B0 + Fa + Kt * (d0 - da + dt * g0) + cT * g0, c = B / A;
+        const n = Fa + Kt * (d0 - da + dt * (g0 - c)) + cT * (g0 - c);
+        if (n > cap) { u1 = (B0 + cap) / A0; Nt = cap; } else if (n > 0) { u1 = c; Nt = n; }
       }
-    }
-    let comp1 = comp0[k] + dt * cv1;
-    if (comp1 < 0) { comp1 = 0; cv1 = -comp0[k] / dt; }          // the droop stop: the wheel hangs from the car
-    const Fs = clamp(F0 + Kx * dt * cv1 + Kc * (cv1 - cv0), -m * 60, m * 60);
+      w.dEnd = Nt > 0 ? Math.max(0, d0 + dt * (g0 - u1)) : 0;
+      if (w.crush > 0 && Nt < TYRE.climbLoad * CAR.N0[k]) w.crush = Math.max(0, w.crush - dt * (TYRE.reinflate + TYRE.climb * car.speed));
+      w.crush = Math.min(w.crush, Math.max(0, dg));
+    } else { w.crush = 0; w.dEnd = 0; }
+    let cv1 = beta * (u1 - vm - dt * Fst * ia), comp1 = comp0[k] + dt * cv1, Fs = beta * (Fst + a * (u1 - vm));
+    if (comp1 < 0) { comp1 = 0; cv1 = -comp0[k] / dt; u1 = vm + cv1; Fs = Fst + a * cv1; }   // the droop stop: the wheel hangs from the car
+    Fs = clamp(Fs, -m * 60, m * 60);
     // anything the wheel's own balance doesn't account for (the droop stop) the car supplies, and feels in return
-    const Fc = mU * (cv1 - cv0) / dt - (Nt - Fs - J + mU * gUp);
-    w.comp = comp1; w.u = vm + cv1; w.compVel = cv1; w.load = Fs;
+    const Fc = mU * (u1 - u0) / dt - (Nt - Fs - J + mU * gUp);
+    w.comp = comp1; w.u = u1; w.compVel = cv1; w.load = Fs;
     w.onStop = comp1 > CAR.travel - SUSP.stopLen; w.bottomed = comp1 > CAR.travel;
     addForceAt(_ft.copy(AY).multiplyScalar(Fs + J - Fc), w.mount);
     w.grounded = Nt > 0;
@@ -6409,7 +6513,7 @@ function resetCarMotion(speed) {
   car.spool = 1; car.backfire = 0; car.events.length = 0;
   car.wheels.forEach((w, k) => {
     w.prevGround = true; w.om = v / CAR.radius; w.absP = 1; w.kap = 0; w.ta = 0; w.taE = 0; w.kt = 0; w.wl = 1; w.bAng = 0; w.grounded = false;
-    w.comp = CAR.ms[k] * 9.81 / (CAR.kS[k] * tn.k); w.u = 0; w.J = 0; w.Nt = 0;     // each wheel at its static compression, at rest
+    w.comp = CAR.ms[k] * 9.81 / (CAR.kS[k] * tn.k); w.u = 0; w.J = 0; w.Nt = 0; w.crush = 0; w.dEnd = 0;     // each wheel at its static compression, at rest
   });
 }
 
@@ -6531,7 +6635,32 @@ const PhysicsRig = {
     });
     return { maxComp, rebound: top - CAR.cgH, dip: CAR.cgH - minY };
   },
+  /** A landing at 20 m/s from `drop` m, nose up by `pitch` and rolled by `roll` (rad), so one corner lands first: how
+   *  often the body's pitch and roll rates reverse within 0.3 s of touchdown (a body that chatters reverses every
+   *  step), and the time it then spends on two wheels or fewer (bouncing back up off one side). */
+  tiltDrop(drop, pitch, roll) {
+    this.place(SURF.TARMAC, 20, { drop });
+    car.q.multiply(_dq.setFromEuler(_eT.set(-pitch, 0, roll)));
+    let i = 0, t0 = -1, all4 = -1, rev = 0, few = 0, px = 0, pz = 0, dx = 0, dz = 0;
+    this.step(480, () => {
+      if (++i < 2) return;                             // (car.nGround is from before the reset until the first step)
+      if (t0 < 0 && car.nGround) t0 = i;
+      if (t0 < 0) return;
+      if (all4 < 0 && car.nGround === 4) all4 = i;
+      _qi.copy(car.q).invert(); _wl.copy(car.w).applyQuaternion(_qi);
+      if (i > t0 && i - t0 < 36) {
+        const ex = _wl.x - px, ez = _wl.z - pz;
+        if (Math.abs(ex) > 0.05 && Math.abs(dx) > 0.05 && ex * dx < 0) rev++;
+        if (Math.abs(ez) > 0.05 && Math.abs(dz) > 0.05 && ez * dz < 0) rev++;
+        dx = ex; dz = ez;
+      }
+      px = _wl.x; pz = _wl.z;
+      if (all4 > 0 && i - all4 < 120 && car.nGround <= 2) few++;
+    });
+    return { reversals: rev, twoWheels: few * this.dt };
+  },
 };
+const _eT = new THREE.Euler();
 /** Physics self-test: properties of the model with the range each should fall in. RegolithRally.physicsTests()
  *  runs it from the console and returns { test: { value, want, pass } }. */
 function physicsTests(build) {
@@ -6550,6 +6679,10 @@ function physicsTests(build) {
     // landings: a 1 m flat drop stays off the hard stop, a 2 m one doesn't bounce the car back up
     check('landing: 1 m drop, peak travel used', rig.drop(1).maxComp / CAR.travel, 0.5, 1);
     check('landing: 2 m drop, rebound above ride height (m)', rig.drop(2).rebound, -0.05, 0.1);
+    // a 3 m landing on one rear corner first: the body doesn't chatter, nor bounce back up onto two wheels
+    const tilt = rig.tiltDrop(3, 0.1, 0.07);
+    check('landing: 3 m, rear corner first: pitch/roll rate reversals in 0.3 s', tilt.reversals, 0, 4);
+    check('landing: 3 m, rear corner first: time on two wheels after (s)', tilt.twoWheels, 0, 0.05);
     // cornering: the full lateral load transfer of a rigid car, and grip near the surface's μ
     for (const [s, v] of [[SURF.GRAVEL, 15], [SURF.TARMAC, 25], [SURF.ICE, 12]]) {
       const r = rig.skidpad(s, v);
@@ -7911,7 +8044,17 @@ function gbBody_prerunner(K) {
     const a = Math.asin((SILL - tr) / AR);
     return [[BEDF, SILL], [BEDF, top], [TAIL, top], [TAIL, SILL], ...K.rarc(-wb, tr, AR, PI - a, a, 12)];
   };
-  K.rbox(1.52, 0.03, BEDF - TAIL - 0.05, K.dark, 0, BF, (BEDF + TAIL) / 2);
+  // floor, and the wheel tubs it is cut round, tall enough to take the long-travel rear wheels at full bump
+  const tubX = 0.6, tubZ = AR * 0.86, tubTop = 1.06, zA = BEDF - 0.025, zB = TAIL + 0.025;
+  K.rbox(2 * tubX, 0.03, zA - zB, K.dark, 0, BF, (zA + zB) / 2);
+  K.both((s) => {
+    K.rbox(0.2, 0.03, zA - (-wb + tubZ), K.dark, s * (tubX + 0.1), BF, (zA - wb + tubZ) / 2);
+    K.rbox(0.2, 0.03, -wb - tubZ - zB, K.dark, s * (tubX + 0.1), BF, (-wb - tubZ + zB) / 2);
+    // the tub: open underneath, a top and an inner wall and two ends, against the bed side
+    K.rbox(0.2, 0.03, 2 * tubZ, K.dark, s * (tubX + 0.1), tubTop, -wb);
+    K.rbox(0.03, tubTop - BF, 2 * tubZ, K.dark, s * tubX, (tubTop + BF) / 2, -wb);
+    for (const e of [-1, 1]) K.rbox(0.2, tubTop - BF, 0.03, K.dark, s * (tubX + 0.1), (tubTop + BF) / 2, -wb + e * tubZ);
+  });
   K.rbox(1.6, BELT - BF, 0.05, K.paint, 0, (BELT + BF) / 2, BEDF - 0.02);
   K.both((s) => {
     K.rprofile(bedPts(BELT), 0.08, [K.side, K.paint], { x: s * 0.805, bevel: 0.012 });
@@ -8771,7 +8914,7 @@ function gbBody_mini(K) {
   K.rbox(0.16, 0.02, 0.02, K.trim, 0, 0.66, TAIL - 0.01);                                             // boot handle
   // interior: dash shelf, seats, cage hoop
   K.rbox(1.2, 0.08, 0.2, K.dark, 0, BELT - 0.04, WS0 - 0.12);
-  K.rbox(1.24, 0.02, 1.6, K.dark, 0, 0.5, -1.1);
+  K.rbox(1.24, 0.02, 1.45, K.dark, 0, 0.5, -1.025);                                                  // (stops short of the rear wheels)
   both((s) => K.rbox(0.42, 0.5, 0.1, K.dark, s * 0.3, 0.8, -1.42));
   K.rtube(0.52, 0.55, -1.25, 0.5, GUT - 0.04, -1.25, 0.02, K.dark); K.rtube(-0.52, 0.55, -1.25, -0.5, GUT - 0.04, -1.25, 0.02, K.dark);
   K.rtube(-0.5, GUT - 0.04, -1.25, 0.5, GUT - 0.04, -1.25, 0.02, K.dark);
@@ -9231,9 +9374,41 @@ function buildCarModel(build) {
   spot.position.set(0, map.y(0.5), map.z(1.9));
   spot.target.position.set(0, -1.6, 14);
   g.add(spot, spot.target);
-  const model = { group: g, wheels, flames, tailMat, tip, under, spot, pilot: P, arb: arbVis };
+  const model = { group: g, wheels, flames, tailMat, tip, under, spot, pilot: P, arb: arbVis, compMax: wheelRoom(shell, geo, W) };
   if (arbVis) poseArb(arbVis, wheels);
   return model;
+}
+/** How far each wheel can rise into its arch before the tyre's crown meets the bodywork: the suspension compression
+ *  (as w.comp) at which it would. Vertical lines through a grid over the tyre's tread are met with the body shell's
+ *  triangles above the hub. The real cars' tyres disappear up into wheel wells the shells don't have, so on a big
+ *  landing the wheel is drawn no higher than this and the tyre squashes the rest (updateCarVisual). */
+function wheelRoom(shell, geo, W) {
+  const R = geo.r, hub = geo.mountY - geo.rest + geo.sag, NX = 5, NZ = 11;   // hub: at ride height
+  const rise = geo.wheels.map(() => Infinity);
+  for (const o of shell.children) {
+    if (!o.isMesh || o.userData.keep || o.material.transparent) continue;
+    const p = o.geometry.attributes.position, ix = o.geometry.index, nt = (ix ? ix.count : p.count) / 3;
+    for (let t = 0; t < nt; t++) {
+      const i0 = ix ? ix.getX(3 * t) : 3 * t, i1 = ix ? ix.getX(3 * t + 1) : 3 * t + 1, i2 = ix ? ix.getX(3 * t + 2) : 3 * t + 2;
+      const ax = p.getX(i0), ay = p.getY(i0), az = p.getZ(i0), bx = p.getX(i1), by = p.getY(i1), bz = p.getZ(i1), cx = p.getX(i2), cy = p.getY(i2), cz = p.getZ(i2);
+      if (Math.max(ay, by, cy) <= hub) continue;
+      const det = (bx - ax) * (cz - az) - (cx - ax) * (bz - az);
+      if (Math.abs(det) < 1e-9) continue;                                     // edge-on from above
+      geo.wheels.forEach((cw, k) => {
+        if (Math.max(ax, bx, cx) < cw.x - W / 2 || Math.min(ax, bx, cx) > cw.x + W / 2 || Math.max(az, bz, cz) < cw.z - R || Math.min(az, bz, cz) > cw.z + R) return;
+        for (let i = 0; i < NX; i++) for (let j = 0; j < NZ; j++) {
+          const x = cw.x + W * (i / (NX - 1) - 0.5), dz = R * 0.98 * (2 * j / (NZ - 1) - 1), z = cw.z + dz;
+          const u = ((x - ax) * (cz - az) - (cx - ax) * (z - az)) / det, v = ((bx - ax) * (z - az) - (x - ax) * (bz - az)) / det;
+          if (u < 0 || v < 0 || u + v > 1) continue;
+          const y = ay + u * (by - ay) + v * (cy - ay);
+          if (y > hub) rise[k] = Math.min(rise[k], y - hub - Math.sqrt(R * R - dz * dz));
+        }
+      });
+    }
+  }
+  // a centimetre clear of the paint; never less than 5 cm, which every arch clears its tyre by (anything lower over a
+  // tyre is a skin hidden inside a flare or the cabin)
+  return rise.map((r) => geo.sag + clamp(r - 0.012, 0.05, geo.travel));
 }
 /* ---- anti-roll bars: a torsion bar across each axle, arms to either side and drop links to the hubs.
    Posed every frame from the wheel travel, so the arms visibly twist the bar when the car rolls. ---- */
@@ -10162,7 +10337,7 @@ function buildPaceNotes() {
     if (f.type === 'ramp') raw.push({ s: f.s0 - 6, end: f.lip, kind: 'icon', icon: '⤴', text: 'JUMP' });
     else if (f.type === 'chasm') raw.push({ s: f.s0 - 12, end: f.gapEnd, kind: 'icon', icon: '⤴', text: 'BIG JUMP · FLAT OUT', speak: 'over chasm, big jump, flat out' });
     else {
-      const lift = Math.sqrt(def.gravity * def.crest.L * def.crest.L / (2 * Math.PI * Math.PI * def.crest.h));   // speed at which the car leaves the ground
+      const lift = Math.sqrt(def.gravity * f.P.L * f.P.L / (2 * Math.PI * Math.PI * f.P.h));   // speed at which the car leaves the ground
       const jumps = lift < 25;
       raw.push({ s: f.s0 - 4, end: f.sc, kind: 'icon', icon: '⌢', text: jumps ? 'CREST · JUMPS' : 'OVER CREST', speak: jumps ? 'crest, jumps' : 'over crest' });
     }
@@ -10341,7 +10516,7 @@ const HUD = {
     const rp = Rival.progress();
     this.el.progRival.classList.toggle('hidden', rp === null);
     if (rp !== null) this.el.progRival.style.left = (clamp((rp - TR.startS) / span, 0, 1) * 100).toFixed(2) + '%';
-    this.setHTML('infoBox', Rally.active ? `RALLY <b>${Rally.stage + 1}/${STAGES.length}</b><br>TOTAL <b>${fmtTime(Rally.total + Rally.servicePen + Game.time)}</b>` : '');
+    this.setHTML('infoBox', Rally.active ? `RALLY <b>${Rally.stage + 1}/${RALLY_STAGES}</b><br>TOTAL <b>${fmtTime(Rally.total + Rally.servicePen + Game.time)}</b>` : '');
     this.set('cpLabel', Game.nextGate >= TR.gates.length - 1 ? 'FINISH' : 'CP ' + Game.nextGate + '/' + (TR.gates.length - 1));
     this.set('timer', fmtTime(Game.time));
     this.set('penalty', Game.penalty > 0 ? '+' + Game.penalty.toFixed(0) + 's PENALTY' : '');
@@ -10549,7 +10724,7 @@ const Service = {
     rb.classList.toggle('hidden', !Rally.active);
     if (Rally.active) {
       const cost = Math.round(Rally.damage * 100 * 0.4);
-      rb.innerHTML = `RALLY STAGE <b>${Rally.stage + 1}/${STAGES.length}</b> · TOTAL <b>${fmtTime(Rally.total + Rally.servicePen)}</b>` +
+      rb.innerHTML = `RALLY STAGE <b>${Rally.stage + 1}/${RALLY_STAGES}</b> · TOTAL <b>${fmtTime(Rally.total + Rally.servicePen)}</b>` +
         (Rally.servicePen ? ` · SERVICE PENALTY <b>+${Rally.servicePen}s</b>` : '') +
         `<br>DAMAGE AFTER THE CREW'S FREE 40% REPAIR: <b>${Math.round(Rally.damage * 100)}%</b>` +
         (Rally.damage > 0.005 ? ` <button class="mini" id="svcRepair">FULL REPAIR  +${cost}s</button>` : ' · CAR IS PRISTINE');
@@ -10769,10 +10944,12 @@ function updateCarVisual(dt, ctl) {
   M.group.position.copy(Draw.pos); M.group.quaternion.copy(Draw.q);
   for (let k = 0; k < 4; k++) {
     const w = car.wheels[k], cw = CAR.wheels[k], wm = M.wheels[k];
-    // the hub rides where the wheel's own mass has it (so it hops and hangs), and the tyre squashes as it does
-    wm.pivot.position.y = CAR.mountY - (CAR.rest - clamp(w.comp, 0, CAR.travel + 0.05));
+    // the hub rides where the wheel's own mass has it (so it hops and hangs), and the tyre squashes as it does. A hub
+    // that would rise into the bodywork (wheelRoom) stops below it, and its tyre squashes by the rest instead
+    const cmax = M.compMax ? M.compMax[k] : CAR.travel, dc = Draw.comp[k], cv = clamp(dc, 0, cmax);
+    wm.pivot.position.y = CAR.mountY - (CAR.rest - cv);
     if (wm.squash) {
-      const sq = w.grounded ? clamp(w.Nt / CAR.kT[k], 0, CAR.radius * 0.3) : 0;
+      const sq = clamp(Draw.sq[k] + (Draw.sq[k] > 0 ? dc - cv : 0), 0, CAR.radius * 0.45);
       wm.squash.scale.set(1 + 0.6 * sq / CAR.radius, 1 - sq / (2 * CAR.radius), 1);   // bottom on the ground, top where it was,
       wm.squash.position.y = sq / 2;                                                  // the sidewalls bulging out a little
     }
@@ -10945,11 +11122,11 @@ function finishRace() {
   if (Rally.active) {
     Rally.results.push({ name: def.name, time: t, service: Rally.servicePen, dmg: car.damage });
     Rally.total += t + Rally.servicePen; Rally.servicePen = 0; Rally.damage = car.damage; Rally.serviced = false;
-    if (Rally.stage >= STAGES.length - 1) {
+    if (Rally.stage >= RALLY_STAGES - 1) {
       Rally.done = true;
       const rb = Store.data.rallyBest;
       Rally.isBest = !rb || Rally.total < rb.total;
-      if (Rally.isBest) Store.data.rallyBest = { total: +Rally.total.toFixed(3), stages: Rally.results.map((q) => +q.time.toFixed(3)), n: cleanName(Store.data.settings.name), count: STAGES.length };
+      if (Rally.isBest) Store.data.rallyBest = { total: +Rally.total.toFixed(3), stages: Rally.results.map((q) => +q.time.toFixed(3)), n: cleanName(Store.data.settings.name), count: RALLY_STAGES };
     }
   }
   Store.save();
@@ -10977,7 +11154,7 @@ function showFinish() {
   });
   document.getElementById('finSplits').innerHTML = `<tr><td>SPLIT</td><td>TIME</td><td>${r.prevSplits ? 'VS BEST' : 'VS TARGET'}</td></tr>` + rows;
   const nextBtn = document.getElementById('nextBtn');
-  nextBtn.classList.toggle('hidden', Rally.active ? Rally.done : Game.stageIdx >= STAGES.length - 1);
+  nextBtn.classList.toggle('hidden', Rally.active ? Rally.done : Game.stageIdx >= RALLY_STAGES - 1);   // (not on into the test park)
   nextBtn.innerHTML = Rally.active ? 'SERVICE PARK &#9656;' : 'NEXT STAGE &#9656;';
   document.getElementById('retryBtn').classList.toggle('hidden', Rally.active);
   document.getElementById('finMenuBtn').textContent = Rally.active && !Rally.done ? 'ABANDON RALLY' : 'STAGE SELECT';
@@ -10985,7 +11162,7 @@ function showFinish() {
   fr.classList.toggle('hidden', !Rally.active);
   if (Rally.active) {
     const rb = Store.data.rallyBest;
-    fr.innerHTML = (Rally.done ? `<b style="color:var(--accent)">RALLY COMPLETE</b> · ` : `RALLY STAGE <b>${Rally.stage + 1}/${STAGES.length}</b> · `) +
+    fr.innerHTML = (Rally.done ? `<b style="color:var(--accent)">RALLY COMPLETE</b> · ` : `RALLY STAGE <b>${Rally.stage + 1}/${RALLY_STAGES}</b> · `) +
       `TOTAL <b>${fmtTime(Rally.total)}</b>` + (Rally.done ? (Rally.isBest ? ' · <b style="color:var(--good)">NEW RALLY RECORD</b>' : ` · RECORD <b>${fmtTime(rb.total)}</b>`) : '') + '<br>' +
       Rally.results.map((q, i) => `SS${i + 1} ${esc(q.name.toUpperCase())} <b>${fmtTime(q.time)}</b>${q.service ? ' +' + q.service + 's service' : ''}`).join('<br>') +
       (Rally.done ? '' : `<br>DAMAGE CARRIED TO SERVICE: <b>${Math.round(Rally.damage * 100)}%</b>`);
@@ -11124,7 +11301,7 @@ function toggleCamera() {
 function goNext() {
   document.getElementById('finish').classList.add('hidden');
   if (Rally.active) { if (!Rally.done) { Rally.stage++; loadStage(Rally.stage, openService); } return; }
-  if (Game.stageIdx < STAGES.length - 1) loadStage(Game.stageIdx + 1, openService);
+  if (Game.stageIdx < RALLY_STAGES - 1) loadStage(Game.stageIdx + 1, openService);
 }
 function handleActions() {
   const acts = Input.actions;
@@ -11727,7 +11904,7 @@ const Menu = {
     STAGES.forEach((def, i) => {
       const r = document.createElement('button');
       r.className = 'srow'; r.dataset.idx = i;
-      r.innerHTML = `<i class="th" style="background-image:url(${stageArt(def, 104, 72)})"></i><span class="sn"><b></b><small>STAGE ${i + 1} · ${(def.length / 1000).toFixed(1)} KM · ${surfLabel(def)}</small></span><span class="sb"></span>`;
+      r.innerHTML = `<i class="th" style="background-image:url(${stageArt(def, 104, 72)})"></i><span class="sn"><b></b><small>${def.test ? 'TEST PARK' : 'STAGE ' + (i + 1)} · ${(def.length / 1000).toFixed(1)} KM · ${surfLabel(def)}</small></span><span class="sb"></span>`;
       r.addEventListener('click', () => { AudioSys.unlock(); r.blur(); if (Game.state === 'menu' && (i !== Game.stageIdx || Game.def.custom)) loadStage(i, enterMenu); });
       list.appendChild(r);
     });
@@ -11759,7 +11936,7 @@ const Menu = {
     on('loadSeed', loadCode);
     seedIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadCode(); } });
     on('randSeed', () => {
-      if (STAGES[Game.stageIdx].real) { flashButton(document.getElementById('randSeed'), 'REAL ROAD: ONE LAYOUT'); return; }
+      if (STAGES[Game.stageIdx].real) { flashButton(document.getElementById('randSeed'), STAGES[Game.stageIdx].test ? 'TEST PARK: ONE LAYOUT' : 'REAL ROAD: ONE LAYOUT'); return; }
       if (Game.state === 'menu') loadStage(stageDef(Game.stageIdx, 1 + Math.floor(Math.random() * 999999)), enterMenu);
     });
     on('copyCode', () => copyText(stageCode(Game.def), 'STAGE CODE', document.getElementById('copyCode')));
@@ -11838,7 +12015,7 @@ const Menu = {
     // home screen + garage shortcut
     const gb = Store.data.garage, gp = GARAGE.pilot.opts[gb.pilot];
     document.querySelectorAll('#homeNav .hbtn').forEach((b, i) => b.classList.toggle('sel', i === this.homeIdx));
-    document.getElementById('homeRally').textContent = 'All ' + STAGES.length + ' stages back to back' + (rb ? ' · best ' + fmtTime(rb.total) : '');
+    document.getElementById('homeRally').textContent = 'All ' + RALLY_STAGES + ' stages back to back' + (rb ? ' · best ' + fmtTime(rb.total) : '');
     const rideHTML = `<h4>YOUR RIDE</h4><div class="ride-head"><img src="${pilotPortrait(gb.pilot)}" alt=""><div><b>${gp.name}</b><small>${gp.cls}</small>` +
       `<div class="ride-parts">${rideSummary(gb)}<br>${GARAGE.color.opts[gb.color].name} PAINT</div></div></div>${ratingsHTML(ratingsFor(gb))}<button class="btn alt">OPEN GARAGE &#9656;</button>`;
     const hr = document.getElementById('homeRide');
@@ -11923,7 +12100,7 @@ function init() {
   Store.data.garage = cleanBuild(Store.data.garage);
   // a rally record from the old three-stage rally isn't comparable with the full-length one: keep it aside
   const rbOld = Store.data.rallyBest;
-  if (rbOld && rbOld.count !== STAGES.length) { Store.data.rallyBestClassic = rbOld; Store.data.rallyBest = null; }
+  if (rbOld && rbOld.count !== RALLY_STAGES) { Store.data.rallyBestClassic = rbOld; Store.data.rallyBest = null; }
   const s = Store.data.settings;
   AudioSys.muted = !!s.muted; AudioSys.voice = s.voice !== false; AudioSys.vol = s.vol == null ? 1 : s.vol;
   if (typeof s.manual !== 'boolean') s.manual = !IS_TOUCH;
