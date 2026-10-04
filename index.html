@@ -10527,31 +10527,30 @@ const NEW_CARS = [
       wb: 2.5, track: [1.56, 1.56], wf: 0.41, cgH: 0.42, dims: [4.1, 1.9, 1.18], travel: 0.25,
       tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [330, 300] },
     aero: { cda: 0.82, cdaSide: 2.3, claF: 0.22, claR: 0.44, pitch: 0.07, ge: 0.35, text: 'Low wedge nose with a full-width splitter, flat underbody into a rear diffuser, tall rear wing on the engine cover' },
-    // traced off the Impreza WRX STI (2008) hatchback blueprint, the WRC's flares, bumpers and roof spoiler added
-    // traced off a four-view blueprint of the Delta S4, whose shape and wheelbase the ECV kept
-    shape: { trace: { top: '0.667:0.25 0.64:0.5 0.62:0.62 0.51:0.66 0.2:0.72 -0.27:0.78 -0.5:0.835 -0.75:1.03 -1.02:1.215 -1.4:1.26 -1.78:1.29 -2.28:1.31 -2.7:1.05 -3.15:0.78 -3.24:0.73 -3.25:0.46',
-        bot: '0.667:0.16 0.5:0.14 0.3:0.13 0:0.13 -0.5:0.12 -2.0:0.12 -2.9:0.16 -3.1:0.2 -3.25:0.24',
-        plan: '0.667:0.7 0.62:0.84 0.5:0.89 0.3:0.92 0:0.94 -0.3:0.92 -0.6:0.88 -0.8:0.86 -1.6:0.86 -1.9:0.89 -2.2:0.93 -2.44:0.94 -2.8:0.93 -3.1:0.9 -3.25:0.82',
-        belt: '-0.5:0.81 -0.82:0.795 -1.7:0.795 -2.52:0.76 -2.93:0.78', cowl: -0.5, roof: [-1.02, -2.28], glassEnd: -2.93,
-        ys: '0.667:0.42 0.3:0.45 0:0.47 -1.5:0.5 -2.6:0.52 -3.25:0.5', tum: '0.667:0.08 0.3:0.12 0:0.16 -0.5:0.1 -1.0:0.06 -2.0:0.08 -2.44:0.15 -3.0:0.1 -3.25:0.08',
-        crown: '0.667:0.02 0.3:0.04 -0.45:0.04 -0.5:0.015 -2.93:0.015 -2.97:0.02', roofW: '-0.5:0.72 -1.02:0.64 -2.28:0.62 -2.93:0.66', gcrown: '-0.5:0.04 -1.02:0.05 -2.28:0.05 -2.93:0.03' },
-      arch: 0.07, flare: 0, b: -1.75, shuts: [-0.52, -1.72], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, scoop: -1.55,
-      intakes: [-2.4, -2.62], wing: [-2.22, -2.56, 1.42, 1.6, 0], aero: { planes: false },
-      windows: [{ lo: [[-0.82, 0.795], [-1.7, 0.795]], hi: [[-0.82, 0.795], [-1.16, 1.17], [-1.7, 1.18]] },
-        { lo: [[-1.8, 0.79], [-2.52, 0.76]], hi: [[-1.8, 1.18], [-2.3, 1.18], [-2.52, 0.78]] }],
+    // traced off a side-view drawing of the car: a Group C-style body, a nose that rounds down from the wheel arches,
+    // a steep windscreen, a long roof running into a fastback engine cover, the big side intake behind the door and a
+    // tall rear wing
+    shape: { trace: { top: '0.76:0.35 0.72:0.42 0.65:0.48 0.56:0.6 0.47:0.7 0.25:0.8 -0.05:0.85 -0.3:0.97 -0.6:1.12 -0.91:1.3 -1.1:1.34 -1.27:1.355 -1.55:1.33 -1.78:1.29 -2.0:1.22 -2.28:1.13 -2.55:1.04 -2.83:0.95 -3.1:0.9 -3.3:0.88 -3.35:0.71 -3.3:0.5',
+        bot: '0.76:0.16 0.7:0.15 0.5:0.14 0.3:0.14 0:0.13 -0.5:0.13 -1.6:0.13 -2.2:0.12 -2.8:0.15 -3.0:0.26 -3.2:0.32 -3.35:0.4',
+        plan: '0.76:0.45 0.72:0.62 0.62:0.78 0.45:0.88 0.25:0.93 0:0.95 -0.3:0.93 -0.6:0.89 -0.9:0.87 -1.7:0.87 -2.0:0.9 -2.3:0.94 -2.5:0.95 -2.8:0.94 -3.1:0.9 -3.35:0.8',
+        belt: '-0.05:0.85 -0.67:0.88 -1.72:0.88 -1.85:0.9', cowl: -0.05, roof: [-0.91, -1.78], glassEnd: -1.85,
+        ys: '0.76:0.3 0.5:0.4 0:0.46 -1.5:0.5 -2.6:0.52 -3.35:0.5', tum: '0.76:0.08 0.4:0.12 0:0.16 -0.5:0.1 -1.0:0.07 -1.8:0.1 -2.5:0.16 -3.0:0.12 -3.35:0.1',
+        crown: '0.76:0.03 0.4:0.06 -0.03:0.06 -0.05:0.015 -1.85:0.015 -1.9:0.08 -3.0:0.08 -3.35:0.05', roofW: '-0.05:0.72 -0.91:0.6 -1.78:0.58 -1.85:0.6', gcrown: '-0.05:0.05 -0.91:0.07 -1.78:0.06 -1.85:0.05' },
+      mid: true, arch: 0.07, flare: 0, b: -1.72, backlight: 0.07, deck: false, lamps: 'none', grille: false, tailLamps: false, rearPanel: false,
+      shuts: [-0.67, -1.72], intakes: [-1.74, -2.17], wing: [-2.97, -3.4, 1.3, 1.8, 0.88], aero: { planes: false },
+      windows: [{ lo: [[-0.67, 0.88], [-1.72, 0.88]], hi: [[-0.67, 0.88], [-0.85, 1.07], [-1.05, 1.21], [-1.4, 1.22], [-1.72, 1.19]] }],
       details(K, S, c) {
-        // the Delta S4's face: one round lamp in each corner either side of a wide grille split into two black openings,
-        // two louvred bonnet vents; black louvres where the hatch glass would be, over the engine; tail lamps in a black band
+        // twin lamps each side under clear covers on the nose's shoulders, a wide mouth below, NACA ducts in the doors,
+        // four round tail lamps in a black panel under the wing
         const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
         K.both((sx) => {
-          S.lamp(sx * 0.66, 0.57, 0.075, K.headMat);
-          S.decal(rect(sx * 0.04, 0.5, sx * 0.54, 0.63), K.dark, 'front', 0.006);
-          S.decal(rect(sx * 0.48, 0.5, sx * 0.78, 0.6), K.tailMat, 'rear', 0.008);
+          S.decal([[sx * 0.4, 0.5], [sx * 0.8, 0.5], [sx * 0.78, 0.62], [sx * 0.45, 0.66]], K.dark, 'front', 0.006);
+          S.lamp(sx * 0.53, 0.57, 0.05, K.headMat); S.lamp(sx * 0.68, 0.56, 0.05, K.headMat);
+          S.lamp(sx * 0.62, 0.62, 0.05, K.tailMat, 'rear'); S.lamp(sx * 0.46, 0.62, 0.05, K.tailMat, 'rear');
         });
-        S.decal(rect(-0.85, 0.48, 0.85, 0.62), K.dark, 'rear', 0.005);
-        S.decal(rect(-0.6, 0.2, 0.6, 0.38), K.dark, 'front');
-        for (let i = 0; i < 5; i++) S.bodyTop(0.15 - i * 0.06, 0.12 - i * 0.06, 0.25, 0.45, K.dark, 0.012);
-        for (let i = 0; i < 6; i++) S.top(-2.4 - i * 0.08, -2.44 - i * 0.08, 0.05, 0.95, K.dark, 0.012);
+        S.decal(rect(-0.55, 0.2, 0.55, 0.36), K.dark, 'front');
+        S.decal(rect(-0.8, 0.52, 0.8, 0.72), K.dark, 'rear', 0.005);
+        S.bodySide(-0.75, -1.15, (v) => K.lerp(0.45, 0.2, v), 0.5, K.dark);
       } },
     rim: { spokes: 6, spokeW: 0.09, color: 0xe2e4e8, caliper: 0xd8262e }, pipes: [-0.35, 0.35],
     livery: { name: 'Audi Sport (custom)', base: '#f4f4f0', rim: 0xe2e4e8, num: 1,
@@ -10684,19 +10683,30 @@ const NEW_CARS = [
       wb: 2.44, track: [1.51, 1.535], wf: 0.43, cgH: 0.44, dims: [4.0, 1.88, 1.33], travel: 0.25,
       tyre: { r: 0.33, w: 0.195, rim: 16, kg: 20, size: 'Pirelli 660-16 gravel' }, disc: [300, 300] },
     aero: { cda: 0.86, cdaSide: 2.4, claF: 0.16, claR: 0.34, pitch: 0.06, ge: 0.35, text: 'Front splitter, roof intake, hatch spoiler, side skirts, rear diffuser' },
-    shape: { nose: 0.8, tail: 0.76, hood: [0.66, 0.88], rake: 0.05, lift: 0.06, noseW: 0.1, noseYs: 0.48, belt: 0.93, ws: [-0.68, -1.3], crown: 0.03, tumble: 0.22, roofEnd: -2.78, back: [-3.06, 0.94],
-      b: -1.8, lamps: 'none', scoop: -1.55, intakes: [-2.4, -2.62], flare: 1, flareRun: 0.26, wing: [-2.76, -3.0, 1.36, 1.5, 0],
+    // traced off a four-view blueprint of the Delta S4, whose shape and wheelbase the ECV kept
+    shape: { trace: { top: '0.667:0.25 0.64:0.5 0.62:0.62 0.51:0.66 0.2:0.72 -0.27:0.78 -0.5:0.835 -0.75:1.03 -1.02:1.215 -1.4:1.26 -1.78:1.29 -2.28:1.31 -2.7:1.05 -3.15:0.78 -3.24:0.73 -3.25:0.46',
+        bot: '0.667:0.16 0.5:0.14 0.3:0.13 0:0.13 -0.5:0.12 -2.0:0.12 -2.9:0.16 -3.1:0.2 -3.25:0.24',
+        plan: '0.667:0.7 0.62:0.84 0.5:0.89 0.3:0.92 0:0.94 -0.3:0.92 -0.6:0.88 -0.8:0.86 -1.6:0.86 -1.9:0.89 -2.2:0.93 -2.44:0.94 -2.8:0.93 -3.1:0.9 -3.25:0.82',
+        belt: '-0.5:0.81 -0.82:0.795 -1.7:0.795 -2.52:0.76 -2.93:0.78', cowl: -0.5, roof: [-1.02, -2.28], glassEnd: -2.93,
+        ys: '0.667:0.42 0.3:0.45 0:0.47 -1.5:0.5 -2.6:0.52 -3.25:0.5', tum: '0.667:0.08 0.3:0.12 0:0.16 -0.5:0.1 -1.0:0.06 -2.0:0.08 -2.44:0.15 -3.0:0.1 -3.25:0.08',
+        crown: '0.667:0.02 0.3:0.04 -0.45:0.04 -0.5:0.015 -2.93:0.015 -2.97:0.02', roofW: '-0.5:0.72 -1.02:0.64 -2.28:0.62 -2.93:0.66', gcrown: '-0.5:0.04 -1.02:0.05 -2.28:0.05 -2.93:0.03' },
+      arch: 0.07, flare: 0, b: -1.75, shuts: [-0.52, -1.72], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, scoop: -1.55,
+      intakes: [-2.4, -2.62], wing: [-2.22, -2.56, 1.42, 1.6, 0], aero: { planes: false },
+      windows: [{ lo: [[-0.82, 0.795], [-1.7, 0.795]], hi: [[-0.82, 0.795], [-1.16, 1.17], [-1.7, 1.18]] },
+        { lo: [[-1.8, 0.79], [-2.52, 0.76]], hi: [[-1.8, 1.18], [-2.3, 1.18], [-2.52, 0.78]] }],
       details(K, S, c) {
         // the Delta S4's face: one round lamp in each corner either side of a wide grille split into two black openings,
-        // two louvred bonnet vents; black louvres where the hatch glass would be, over the engine
+        // two louvred bonnet vents; black louvres where the hatch glass would be, over the engine; tail lamps in a black band
+        const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
         K.both((sx) => {
-          K.rlamp(sx * (c.W + 0.08), c.ly, c.NOSE + 0.006, 0.075, K.headMat);
-          K.rpanel([[sx * 0.04, c.ly - 0.06], [sx * (c.W - 0.06), c.ly - 0.06], [sx * (c.W - 0.06), c.ly + 0.05], [sx * 0.04, c.ly + 0.05]], K.dark, 'front', c.NOSE + 0.006, 1);
+          S.lamp(sx * 0.66, 0.57, 0.075, K.headMat);
+          S.decal(rect(sx * 0.04, 0.5, sx * 0.54, 0.63), K.dark, 'front', 0.006);
+          S.decal(rect(sx * 0.48, 0.5, sx * 0.78, 0.6), K.tailMat, 'rear', 0.008);
         });
+        S.decal(rect(-0.85, 0.48, 0.85, 0.62), K.dark, 'rear', 0.005);
+        S.decal(rect(-0.6, 0.2, 0.6, 0.38), K.dark, 'front');
         for (let i = 0; i < 5; i++) S.bodyTop(0.15 - i * 0.06, 0.12 - i * 0.06, 0.25, 0.45, K.dark, 0.012);
-        for (let z = -2.98; z > -3.04; z -= 0.1) S.top(z, z - 0.01, 0, 1, K.dark, 0.012);
-        S.top(-2.96, -3.05, 0.04, 0.96, K.dark, 0.011);
-        for (let i = 0; i < 4; i++) S.top(-2.975 - i * 0.02, -2.985 - i * 0.02, 0.04, 0.96, K.paint, 0.014);
+        for (let i = 0; i < 6; i++) S.top(-2.4 - i * 0.08, -2.44 - i * 0.08, 0.05, 0.95, K.dark, 0.012);
       } },
     rim: { spokes: 8, spokeW: 0.05, color: 0xf2f2ee, caliper: 0xd8262e }, pipes: [0.42],
     // the ECV was shown in 1986 in Lancia red with the Martini stripes
@@ -10995,18 +11005,37 @@ const NEW_CARS = [
       wb: 2.625, track: [1.55, 1.55], wf: 0.57, cgH: 0.46, dims: [4.415, 1.8, 1.425], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Pirelli 15 in gravel' }, disc: [300, 300] },
     aero: { cda: 0.92, cdaSide: 2.6, claF: 0.18, claR: 0.34, pitch: 0.07, ge: 0.25, text: 'Front splitter with dive planes, bonnet scoop, roof vent, rear wing over the hatch, rear diffuser' },
-    shape: { nose: 0.95, tail: 0.84, hood: [0.72, 0.95], rake: 0.06, lift: 0.04, noseW: 0.1, noseYs: 0.5, belt: 0.97, ws: [-0.5, -1.3], roofEnd: -2.95, back: [-3.3, 0.99],
-      b: -1.5, shuts: [-0.52, -1.53, -2.42], lamps: 'slim', grille: false, scoop: -1.9, flareRun: 0.34, tailLamps: false, wing: [-2.86, -3.24, 1.45, 1.5, 0],
+    // traced off the Impreza WRX STI (2008) hatchback blueprint, the WRC's flares, bumpers and roof spoiler added
+    shape: { trace: { top: '1.021:0.616 0.971:0.641 0.921:0.797 0.871:0.832 0.821:0.852 0.771:0.872 0.721:0.887 0.671:0.902 0.621:0.917 0.571:0.932 0.521:0.947 0.471:0.967 0.421:1.012 0.371:1.017 0.321:1.017 0.271:1.022 0.221:1.022 0.171:1.022 0.121:1.022 0.071:1.022 0.021:1.032 -0.029:1.037 -0.079:1.047 -0.129:1.052 -0.179:1.057 -0.229:1.052 -0.279:1.037 -0.329:1.032 -0.379:1.062 -0.429:1.097 -0.479:1.127 -0.529:1.157 -0.579:1.188 -0.629:1.213 -0.679:1.243 -0.729:1.268 -0.779:1.293 -0.829:1.318 -0.879:1.343 -0.929:1.368 -0.979:1.393 -1.029:1.443 -1.079:1.458 -1.129:1.459 -1.179:1.46 -1.229:1.461 -1.279:1.462 -1.329:1.463 -1.379:1.464 -1.429:1.465 -1.479:1.466 -1.529:1.467 -1.579:1.468 -1.629:1.469 -1.679:1.47 -1.729:1.471 -1.779:1.472 -1.829:1.473 -1.879:1.474 -1.929:1.475 -1.979:1.476 -2.029:1.477 -2.079:1.478 -2.129:1.479 -2.179:1.48 -2.229:1.481 -2.279:1.482 -2.329:1.483 -2.379:1.484 -2.429:1.485 -2.479:1.485 -2.529:1.483 -2.579:1.478 -2.629:1.468 -2.679:1.463 -2.729:1.463 -2.779:1.458 -2.829:1.458 -2.879:1.458 -2.929:1.458 -2.979:1.458 -3.029:1.258 -3.079:1.223 -3.129:1.183 -3.179:1.147 -3.229:1.137 -3.279:1.112 -3.329:1.042 -3.348:0.992',
+        bot: '1.021:0.226 0.971:0.22 0.921:0.22 0.871:0.22 0.821:0.22 0.771:0.215 0.721:0.215 0.671:0.21 0.621:0.21 0.571:0.205 0.521:0.195 0.471:0.19 0.421:0.185 0.371:0.186 0.321:0.187 0.271:0.188 0.221:0.188 0.171:0.189 0.121:0.19 0.071:0.191 0.021:0.192 -0.029:0.193 -0.079:0.194 -0.129:0.195 -0.179:0.196 -0.229:0.197 -0.279:0.197 -0.329:0.198 -0.379:0.199 -0.429:0.2 -0.479:0.2 -0.529:0.2 -0.579:0.2 -0.629:0.2 -0.679:0.195 -0.729:0.185 -0.779:0.185 -0.829:0.185 -0.879:0.2 -0.929:0.2 -0.979:0.2 -1.029:0.195 -1.079:0.195 -1.129:0.195 -1.179:0.195 -1.229:0.195 -1.279:0.195 -1.329:0.185 -1.379:0.185 -1.429:0.18 -1.479:0.165 -1.529:0.165 -1.579:0.165 -1.629:0.165 -1.679:0.16 -1.729:0.16 -1.779:0.16 -1.829:0.16 -1.879:0.165 -1.929:0.185 -1.979:0.185 -2.029:0.185 -2.079:0.175 -2.129:0.17 -2.179:0.165 -2.229:0.167 -2.279:0.172 -2.329:0.176 -2.379:0.181 -2.429:0.185 -2.479:0.19 -2.529:0.194 -2.579:0.199 -2.629:0.203 -2.679:0.208 -2.729:0.212 -2.779:0.217 -2.829:0.221 -2.879:0.226 -2.929:0.231 -2.979:0.235 -3.029:0.24 -3.079:0.241 -3.129:0.246 -3.179:0.251 -3.229:0.246 -3.279:0.246 -3.329:0.246 -3.348:0.246',
+        plan: '1.02:0.3 0.97:0.55 0.9:0.7 0.8:0.8 0.65:0.86 0.45:0.89 0.2:0.9 0:0.9 -0.3:0.89 -0.6:0.86 -0.8:0.85 -2.0:0.85 -2.25:0.88 -2.62:0.9 -2.9:0.89 -3.1:0.85 -3.25:0.76 -3.35:0.5',
+        belt: '-0.5:1.03 -0.83:1.05 -1.5:1.07 -2.27:1.075 -2.73:1.13 -3.15:1.07',
+        cowl: -0.5, roof: [-1.1, -2.9], glassEnd: -3.15,
+        ys: '1.0:0.45 0.5:0.5 0:0.52 -1.5:0.6 -2.6:0.6 -3.2:0.58 -3.35:0.45', tum: '1.0:0.12 0.5:0.12 0:0.13 -0.6:0.09 -1.5:0.07 -2.3:0.09 -2.62:0.12 -3.2:0.12 -3.35:0.1',
+        crown: '1.0:0.03 0.6:0.06 -0.45:0.06 -0.5:0.015 -3.15:0.015 -3.2:0.03', roofW: '-0.5:0.68 -1.1:0.6 -2.9:0.58 -3.15:0.62', gcrown: '-0.5:0.05 -1.1:0.07 -2.9:0.06 -3.15:0.04' },
+      arch: 0.07, flare: 0, b: -1.65, shuts: [-0.66, -1.63, -2.33], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, scoop: -1.95,
+      wing: [-2.88, -3.26, 1.48, 1.5, 0], aero: { planes: false },
+      windows: [{ lo: [[-0.83, 1.04], [-1.5, 1.055]], hi: [[-0.83, 1.04], [-1.08, 1.31], [-1.3, 1.36], [-1.5, 1.375]] },
+        { lo: [[-1.74, 1.06], [-2.27, 1.065]], hi: [[-1.74, 1.385], [-2.05, 1.39], [-2.27, 1.38]] },
+        { lo: [[-2.39, 1.08], [-2.73, 1.12]], hi: [[-2.39, 1.37], [-2.6, 1.28], [-2.73, 1.16]] }],
       details(K, S, c) {
-        // hexagon grille, the WRX bonnet scoop over the intercooler, swept hawk-eye lamps (from 'slim'), fog lamps low;
-        // the GE hatch's big tail lamps on the rear corners, rising towards the hatch glass
-        K.both((sx) => K.rpanel([[sx * (c.HW - 0.46), c.belt - 0.17], [sx * (c.HW - 0.34), c.belt - 0.31], [sx * (c.HW - 0.16), c.belt - 0.29], [sx * (c.HW - 0.22), c.belt - 0.11], [sx * (c.HW - 0.44), c.belt - 0.11]], K.tailMat, 'front', c.TAIL - 0.006, -1));
-        K.rpanel([[-0.2, c.ly - 0.08], [0.2, c.ly - 0.08], [0.26, c.ly - 0.01], [0.18, c.ly + 0.06], [-0.18, c.ly + 0.06], [-0.26, c.ly - 0.01]], K.dark, 'front', c.NOSE + 0.004, 1);
-        K.rpanel([[-0.56, 0.3], [0.56, 0.3], [0.52, 0.44], [-0.52, 0.44]], K.rubber, 'front', c.NOSE + 0.004, 1);
-        K.both((sx) => K.rlamp(sx * 0.6, 0.38, c.NOSE + 0.006, 0.05, K.headMat));
-        const by = S.sec(S.LB, 0.05).yt;
-        K.rbox(0.36, 0.05, 0.3, K.paint, 0, by + 0.01, 0.05, 0.08);
-        K.rpanel([[-0.15, by + 0.005], [0.15, by + 0.005], [0.15, by + 0.04], [-0.15, by + 0.04]], K.dark, 'front', 0.2, 1);
+        // the GE's hawk-eye headlamps swept back either side of the hexagon grille, the bonnet scoop, fog lamps in the
+        // WRC's lower intakes; the big tail lamps on the rear corners, wrapping onto the sides
+        const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+        K.both((sx) => {
+          S.decal([[sx * 0.3, 0.7], [sx * 0.76, 0.72], [sx * 0.8, 0.82], [sx * 0.42, 0.78]], K.dark, 'front', 0.006);
+          S.decal([[sx * 0.34, 0.715], [sx * 0.74, 0.735], [sx * 0.77, 0.8], [sx * 0.44, 0.77]], K.headMat, 'front', 0.01);
+          S.decal(rect(sx * 0.5, 0.24, sx * 0.82, 0.46), K.dark, 'front'); S.lamp(sx * 0.66, 0.36, 0.05, K.headMat);
+          S.decal([[sx * 0.4, 0.84], [sx * 0.8, 0.84], [sx * 0.82, 1.02], [sx * 0.5, 1.0]], K.tailMat, 'rear', 0.008);
+          S.decal([[-3.0, 1.02], [-3.31, 1.02], [-3.31, 0.83], [-3.1, 0.83]], K.tailMat, sx > 0 ? 'left' : 'right', 0.006);
+        });
+        S.decal([[-0.24, 0.6], [0.24, 0.6], [0.3, 0.68], [0.2, 0.76], [-0.2, 0.76], [-0.3, 0.68]], K.dark, 'front');
+        S.decal(rect(-0.46, 0.22, 0.46, 0.44), K.dark, 'front');
+        const by = S.sec(S.LB, 0.25).yt;                                                       // the WRX bonnet scoop
+        K.rbox(0.44, 0.06, 0.4, K.paint, 0, by + 0.015, 0.25, 0.08);
+        K.rpanel([[-0.18, by + 0.005], [0.18, by + 0.005], [0.18, by + 0.045], [-0.18, by + 0.045]], K.dark, 'front', 0.452, 1);
+        S.decal(rect(-0.75, 0.2, 0.75, 0.4), K.dark, 'rear');
+        S.decal(rect(-0.22, 0.6, 0.22, 0.7), K.trim, 'rear', 0.008);
       } },
     rim: { spokes: 6, spokeW: 0.08, color: 0xd4af37, caliper: 0xd8262e }, pipes: [0.45],
     livery: { name: 'Subaru World Rally Team, 2008', base: '#1c3f94', rim: 0xd4af37, num: 5,
