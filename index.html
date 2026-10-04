@@ -2826,8 +2826,44 @@ sunLight.shadow.mapSize.set(SHADOW_SIZE, SHADOW_SIZE);
 Object.assign(sunLight.shadow.camera, { left: -SHADOW_EXTENT, right: SHADOW_EXTENT, top: SHADOW_EXTENT, bottom: -SHADOW_EXTENT, near: 1, far: 600 });
 sunLight.shadow.bias = -0.0004;
 sunLight.shadow.normalBias = 0.3;
+sunLight.shadow.radius = 2;                        // (three's PCF filter: a soft edge a couple of texels wide)
 const hemiLight = new THREE.HemisphereLight(0x404860, 0x302a24, 0.5);
 scene.add(sunLight, sunLight.target, hemiLight);
+/* Far shadow cascade: a second sun with no light of its own (intensity 0) whose shadow map covers SHADOW_FAR_EXTENT
+   around the car at a coarser scale. The patched lights chunk below shades the sun with the near map where it
+   reaches and the far map beyond, so trees and rocks keep their shadows out to the distance. Redrawn every other frame. */
+const SHADOW_FAR_EXTENT = LOW_SPEC ? 0 : 420;
+let farSun = null;
+if (SHADOW_FAR_EXTENT) {
+  farSun = new THREE.DirectionalLight(0xffffff, 0);
+  farSun.castShadow = true;
+  farSun.shadow.mapSize.set(2048, 2048);
+  Object.assign(farSun.shadow.camera, { left: -SHADOW_FAR_EXTENT, right: SHADOW_FAR_EXTENT, top: SHADOW_FAR_EXTENT, bottom: -SHADOW_FAR_EXTENT, near: 1, far: 2400 });
+  farSun.shadow.bias = -0.001;
+  farSun.shadow.normalBias = 1.2;
+  farSun.shadow.radius = 1.5;
+  farSun.shadow.autoUpdate = false; farSun.shadow.needsUpdate = true;
+  scene.add(farSun, farSun.target);
+  // (only this scene has two shadowed directional lights, so the cascade path keys on that count)
+  THREE.ShaderChunk.lights_fragment_begin = THREE.ShaderChunk.lights_fragment_begin
+    .replace('#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )\n', `#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )
+	#if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS == 2 && NUM_DIR_LIGHTS == 2
+	float rrSunShadow = 1.0;
+	if ( receiveShadow ) {
+		vec2 rrP = vDirectionalShadowCoord[ 0 ].xy / vDirectionalShadowCoord[ 0 ].w;
+		float rrE = max( abs( rrP.x - 0.5 ), abs( rrP.y - 0.5 ) ), rrNear = 1.0, rrFar = 1.0;
+		if ( rrE < 0.5 ) rrNear = getShadow( directionalShadowMap[ 0 ], directionalLightShadows[ 0 ].shadowMapSize, directionalLightShadows[ 0 ].shadowIntensity, directionalLightShadows[ 0 ].shadowBias, directionalLightShadows[ 0 ].shadowRadius, vDirectionalShadowCoord[ 0 ] );
+		if ( rrE > 0.42 ) rrFar = getShadow( directionalShadowMap[ 1 ], directionalLightShadows[ 1 ].shadowMapSize, directionalLightShadows[ 1 ].shadowIntensity, directionalLightShadows[ 1 ].shadowBias, directionalLightShadows[ 1 ].shadowRadius, vDirectionalShadowCoord[ 1 ] );
+		rrSunShadow = mix( rrNear, rrFar, smoothstep( 0.42, 0.5, rrE ) );
+	}
+	#endif
+`)
+    .replace('\t\t#if defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_DIR_LIGHT_SHADOWS )\n\t\tdirectionalLightShadow', `\t\t#if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS == 2 && NUM_DIR_LIGHTS == 2
+		directLight.color *= directLight.visible ? rrSunShadow : 1.0;
+		#elif defined( USE_SHADOWMAP ) && ( UNROLLED_LOOP_INDEX < NUM_DIR_LIGHT_SHADOWS )
+		directionalLightShadow`);
+  if ((THREE.ShaderChunk.lights_fragment_begin.match(/rrSunShadow/g) || []).length !== 3) console.warn('[Regolith Rally] far shadow cascade: lights chunk not patched');
+}
 const SUN_DIR = new THREE.Vector3(0.5, 0.4, 0.2).normalize();
 
 let stageGroup = new THREE.Group();   // everything owned by the current stage, disposed on stage change
@@ -2963,7 +2999,10 @@ uniform vec3 uSunDir; uniform vec3 uSunColor; uniform float uSunSize;
 uniform vec3 uNebA; uniform vec3 uNebB; uniform float uNebStrength; uniform vec3 uBand; uniform float uStars; uniform float uEnv;
 uniform float uDay; uniform vec3 uZenith; uniform vec3 uHorizon;
 uniform float uHole; uniform vec3 uHoleDir; uniform float uHoleR; uniform float uHoleTilt; uniform vec3 uDisk;   // 1 = black hole, 2 = Dyson swarm
+uniform samplerCube uBaked;
 varying vec3 vDir;
+// RR_SKY: 0 = the whole sky (reflection capture), 1 = bake everything but the stars into a cube (alpha = how much of
+// the starlight gets through), 2 = on screen: the baked cube plus the stars, kept sharp
 ${GLSL_NOISE}
 vec3 rrStars(vec3 d, float scale, float thresh, float size){
   vec3 p = d * scale; vec3 c = floor(p); vec3 f = fract(p);
@@ -2994,11 +3033,17 @@ vec3 rrDaySky(vec3 d){
 void main(){
   vec3 d = normalize(vDir);
   if (uDay > 0.5) {
+#if RR_SKY == 2
+    gl_FragColor = vec4(textureCube(uBaked, d).rgb, 1.0);
+#else
     gl_FragColor = vec4(rrDaySky(d), 1.0);
+#endif
+#if RR_SKY != 1
     if (uEnv < 0.5) {                      // tone-mapped like the lit scene, so the fogged terrain meets the sky
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }
+#endif
     return;
   }
   vec3 d0 = d;
@@ -3014,6 +3059,14 @@ void main(){
     float thE = uHoleR * 1.45, beta = hth - thE * thE / max(hth, 1e-4);
     d = normalize(uHoleDir * cos(beta) + hpd * sin(beta));
   }
+#if RR_SKY == 2
+  vec4 baked = textureCube(uBaked, d0);
+  float bandS = exp(-pow(dot(d, normalize(uBand)) * 3.0, 2.0));
+  vec3 stars = rrStars(d, 80.0, 0.88, 0.16) + 0.8 * rrStars(d, 170.0, 0.9, 0.2) * (0.6 + bandS);
+  gl_FragColor = vec4(baked.rgb + uStars * stars * baked.a, 1.0);
+  return;
+#endif
+  float vis = 1.0;                         // share of the starlight that reaches the eye here
   float band = exp(-pow(dot(d, normalize(uBand)) * 3.0, 2.0));
   float n = rrFbm3(d * 2.2 + rrFbm3(d * 1.4) * 1.4);
   float n2 = rrFbm3(d * 4.6 + 3.0);
@@ -3022,8 +3075,10 @@ void main(){
   col += neb * uNebStrength * pow(n, 3.0) * 2.6 * (0.3 + band);
   col += vec3(0.45, 0.5, 0.65) * band * 0.035 * n2;
   col *= 1.0 - 0.65 * smoothstep(0.52, 0.72, rrFbm3(d * 5.0 + 11.0)) * band;
+#if RR_SKY == 0
   vec3 st = rrStars(d, 80.0, 0.88, 0.16) + 0.8 * rrStars(d, 170.0, 0.9, 0.2) * (0.6 + band);
   col += uStars * st * (1.0 - 0.8 * uEnv);
+#endif
   if (uHole > 0.5 && uHole < 1.5) {
     // the shadow, the photon ring, the far side of the disk bent up over the top, then the disk itself
     float u = q.x, v = q.y / uHoleTilt, rd = length(vec2(u, v));
@@ -3031,7 +3086,7 @@ void main(){
     float swirl = 0.65 + 0.35 * rrNoise(vec2(ang * 5.0 + rd * 2.3, rd * 4.0)) + 0.2 * rrNoise(vec2(ang * 23.0, rd * 11.0));
     float beam = 1.0 - 0.55 * u / max(rd, 0.001);                       // the side spinning towards you is brighter
     vec3 hot = mix(uDisk, vec3(1.0, 0.95, 0.85), 0.55);
-    if (rr < 1.0) col = vec3(0.0);
+    if (rr < 1.0) { col = vec3(0.0); vis = 0.0; }
     float arc = exp(-pow((rr - 1.32) / 0.2, 2.0)) * (0.3 + 0.7 * smoothstep(-0.4, 0.7, q.y / max(rr, 0.001)));
     col += mix(uDisk, hot, 0.5) * arc * 2.2 * (1.0 - 0.4 * q.x / max(rr, 0.001)) * (0.7 + 0.3 * swirl);
     col += hot * exp(-pow((rr - 1.03) / 0.025, 2.0)) * 3.0;
@@ -3063,6 +3118,7 @@ void main(){
       if (side == 0) { shellF = pres; sEdge = edge; } else shellB = pres;
     }
     col = mix(col, uSunColor * vec3(1.0, 0.8, 0.55) * (0.9 + 0.5 * z), shellB * (1.0 - uEnv * 0.5));
+    vis *= 1.0 - shellB * (1.0 - uEnv * 0.5);
   }
   float sd = max(dot(d, uSunDir), 0.0);
   float disc = smoothstep(1.0 - 0.00035 * uSunSize, 1.0 - 0.00025 * uSunSize, sd);
@@ -3070,9 +3126,10 @@ void main(){
   if (uHole > 1.5 && rr < 1.0) {           // the near side: collectors seen from behind, dark, with lit rims and running lights
     float lights = step(0.985, rrHash13(floor(vec3(q * 140.0, 3.0)))) * shellF;
     col = mix(col, vec3(0.025, 0.022, 0.03) + uSunColor * 0.08 * (1.0 - rr), shellF);
+    vis *= 1.0 - shellF;
     col += uSunColor * vec3(1.0, 0.7, 0.4) * sEdge * 0.6 * (1.0 - shellF * 0.6) + vec3(1.0, 0.75, 0.45) * lights * 2.0;
   }
-  gl_FragColor = vec4(col, 1.0);
+  gl_FragColor = vec4(col, vis);
 }`;
 const PLANET_VS = `
 varying vec3 vN; varying vec3 vObjN; varying vec3 vView;
@@ -3151,9 +3208,20 @@ const Sky = {
       uBand: { value: new THREE.Vector3(0, 1, 0) }, uStars: { value: 1 }, uEnv: { value: 0 },
       uDay: { value: 0 }, uZenith: { value: new THREE.Vector3() }, uHorizon: { value: new THREE.Vector3() },
       uHole: { value: 0 }, uHoleDir: { value: new THREE.Vector3(0, 0, 1) }, uHoleR: { value: 0.1 }, uHoleTilt: { value: 0.2 }, uDisk: { value: new THREE.Vector3(1, 0.6, 0.3) },
+      uBaked: { value: null },
     });
-    this.mat = new THREE.ShaderMaterial({ uniforms: skyUniforms(), vertexShader: SKY_VS, fragmentShader: SKY_FS,
-      side: THREE.BackSide, depthWrite: false, depthTest: false });
+    const skyMat = (mode) => new THREE.ShaderMaterial({ uniforms: skyUniforms(), vertexShader: SKY_VS, fragmentShader: SKY_FS,
+      defines: { RR_SKY: mode }, side: THREE.BackSide, depthWrite: false, depthTest: false });
+    // The sky's clouds, nebula, black hole and swarm stand still, so they are drawn once per stage into a cube that
+    // the on-screen sky just samples; only the stars are drawn live (a cube this size would blur them).
+    this.mat = skyMat(2);
+    this.bakeRT = new THREE.WebGLCubeRenderTarget(LOW_SPEC ? 512 : 1024, { type: THREE.HalfFloatType, generateMipmaps: false,
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    this.mat.uniforms.uBaked.value = this.bakeRT.texture;
+    this.bakeScene = new THREE.Scene();
+    this.bakeSky = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), skyMat(1));
+    this.bakeCam = new THREE.CubeCamera(0.1, 300, this.bakeRT);
+    this.bakeScene.add(this.bakeSky, this.bakeCam);
     this.mesh = new THREE.Mesh(new THREE.SphereGeometry(100, 48, 24), this.mat);
     this.mesh.renderOrder = -10; this.mesh.frustumCulled = false;
     scene.add(this.mesh);
@@ -3178,23 +3246,21 @@ const Sky = {
 
     // Separate tiny scene used only to capture an environment cube map (reflections on metal/ice/paint).
     this.envScene = new THREE.Scene();
-    this.envSky = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), this.mat.clone());
+    this.envSky = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), skyMat(0));
     this.envSky.renderOrder = -10;
     this.envPlanet = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), this.planetMat.clone());
     this.envPlanet.renderOrder = -9;
     this.envScene.add(this.envSky, this.envPlanet);
-    // 8-bit mip-mapped cube capture of the sky (sampled directly by r128's standard material).
-    // Deliberately not PMREM: r128's RGBE-encoded PMREM targets are fragile on some drivers.
-    this.envRT = new THREE.WebGLCubeRenderTarget(128, { format: THREE.RGBAFormat, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter });
-    this.cubeCam = new THREE.CubeCamera(0.1, 300, this.envRT);
-    this.envScene.add(this.cubeCam);
+    // Prefiltered (PMREM) capture of the sky: each roughness gets a properly blurred reflection plus diffuse light.
+    this.pmrem = new THREE.PMREMGenerator(renderer);
+    this.envRT = null;
     this.planetDir = new THREE.Vector3(0, 0, 1);
     this.planetRadius = 100;
   },
   configure(def) {
     const s = def.sky, p = def.planet;
     SUN_DIR.set(s.sunDir[0], s.sunDir[1], s.sunDir[2]).normalize();
-    for (const m of [this.mat, this.envSky.material]) {
+    for (const m of [this.mat, this.bakeSky.material, this.envSky.material]) {
       const u = m.uniforms;
       u.uSunDir.value.copy(SUN_DIR); u.uSunColor.value.set(s.sunColor); u.uSunSize.value = s.sunSize;
       u.uDay.value = s.day ? 1 : 0;
@@ -3233,9 +3299,11 @@ const Sky = {
       this.ringMat.uniforms.uSunDir.value.copy(SUN_DIR);
       scene.add(this.ring);
     }
+    this.bakeCam.update(renderer, this.bakeScene);
     // Bake reflections from this sky.
     if (p) { this.envPlanet.position.copy(this.planetDir).multiplyScalar(40); this.envPlanet.scale.setScalar(40 * Math.sin(p.angRadius)); }
-    this.cubeCam.update(renderer, this.envScene);
+    if (this.envRT) this.envRT.dispose();
+    this.envRT = this.pmrem.fromScene(this.envScene, 0, 0.1, 300);
     scene.environment = this.envRT.texture;
     // Lights.
     sunLight.color.set(s.sunColor).convertSRGBToLinear(); sunLight.intensity = s.sunIntensity * LIGHT_PI;
@@ -4306,17 +4374,60 @@ function genDetailMaps(N) {
   }
   return { A, B };
 }
-let _detailTex = null;
+/* The maps take a while to generate, so a worker makes them off the main thread and IndexedDB keeps them for the
+   next visit. Bump DETAIL_VER whenever genDetailMaps changes, so stale cached maps are not used. */
+const DETAIL_VER = 1;
+const IDB = {
+  db: null,
+  open() {
+    return this.db || (this.db = new Promise((res, rej) => {
+      const r = indexedDB.open('regolith-rally', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('cache');
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    }));
+  },
+  async get(key) {
+    const db = await this.open();
+    return new Promise((res, rej) => { const r = db.transaction('cache').objectStore('cache').get(key); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  },
+  async put(key, val) {
+    const db = await this.open();
+    return new Promise((res, rej) => { const tx = db.transaction('cache', 'readwrite'); tx.objectStore('cache').put(val, key); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+  },
+};
+function genDetailMapsAsync(N) {
+  return new Promise((res, rej) => {
+    const src = `const mulberry32 = ${mulberry32.toString()};\n${genDetailMaps.toString()}\n` +
+      'onmessage = (e) => { const m = genDetailMaps(e.data); postMessage(m, [m.A.buffer, m.B.buffer]); };';
+    const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' })), w = new Worker(url);
+    w.onmessage = (e) => { res(e.data); w.terminate(); URL.revokeObjectURL(url); };
+    w.onerror = (e) => { rej(e); w.terminate(); URL.revokeObjectURL(url); };
+    w.postMessage(N);
+  });
+}
+async function loadDetailMaps(N) {
+  const key = `detail-${DETAIL_VER}-${N}`;
+  try { const m = await IDB.get(key); if (m && m.A && m.A.length === N * N * 4) return m; } catch (e) { /* no IndexedDB: generate */ }
+  let m;
+  try { m = await genDetailMapsAsync(N); } catch (e) { m = genDetailMaps(N); }   // (workers can be blocked: do it here)
+  IDB.put(key, m).catch(() => {});
+  return m;
+}
+let _detailTex = null, detailReady = null;
+/** The two detail textures, shared by every stage. Their data arrives later: wait on detailReady before drawing. */
 function detailTextures() {
   if (_detailTex) return _detailTex;
-  const N = LOW_SPEC ? 256 : 512, m = genDetailMaps(N);
-  _detailTex = [m.A, m.B].map((data) => {
-    const t = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
+  const N = LOW_SPEC ? 256 : 512;
+  _detailTex = [0, 1].map(() => {
+    const t = new THREE.DataTexture(new Uint8Array(N * N * 4).fill(128), N, N, THREE.RGBAFormat);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true;
     t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     t.needsUpdate = true;
     return t;
+  });
+  detailReady = loadDetailMaps(N).then((m) => {
+    [m.A, m.B].forEach((data, k) => { _detailTex[k].image.data = data; _detailTex[k].needsUpdate = true; });
   });
   return _detailTex;
 }
@@ -4345,16 +4456,25 @@ float onRoad = 1.0 - smoothstep(uHW - 0.2, uHW + 0.8, ax);
 // wheel tracks: the cars run in two pairs of ruts either side of the centre line
 float alongN = rrNoise(vec2(vTrk.y * 0.05, 1.7));
 float ruts = (exp(-pow((ax - 0.85) / 0.32, 2.0)) + 0.7 * exp(-pow((ax - 2.35) / 0.38, 2.0))) * onRoad * (0.65 + 0.35 * alongN);
+#ifdef RR_S0
 // --- regolith: fine dust mottled by old ejecta, scattered stones where the mottle is dark
 float rStones = smoothstep(0.35, 0.8, A3.r) * smoothstep(0.62, 0.3, mott) * (1.0 - 0.7 * ruts);
 float aReg = 0.88 + 0.26 * (mott - 0.5) + hf * (0.2 * (grain - 0.5)) - 0.1 * ruts + 0.16 * rStones * (A2.b - 0.3);
 float hReg = 0.006 * grain * bCm + 0.03 * rStones * bStone + 0.012 * smoothstep(0.4, 0.9, A2.r) - 0.01 * ruts;
+#else
+float rStones = 0.0, aReg = 1.0, hReg = 0.0;
+#endif
+#ifdef RR_S1
 // --- ice: clear blue-white sheet, a coarse network of pressure cracks with finer crazing between, frost blown into streaks
 float crBig = A2.g, crFine = A1.g * smoothstep(0.35, 0.65, mott);
 float frost = smoothstep(0.45, 0.85, texture2D(uDetB, rrRot * wp * 0.12).r) * (0.5 + 0.5 * A2.a);
 float aIce = 1.0 + 0.1 * (mott - 0.5) - 0.3 * crBig - 0.14 * crFine * hf + 0.16 * frost - 0.08 * ruts;
 float hIce = -0.012 * crBig - 0.005 * crFine + 0.003 * frost;
 float rIce = 0.06 + 0.5 * crBig + 0.25 * crFine + 0.35 * frost;
+#else
+float aIce = 1.0, hIce = 0.0, rIce = 0.9;
+#endif
+#ifdef RR_S2
 // --- metal deck: plates with seams and rivets, brushed scratches, grime gathering at the seams and in the ruts
 vec2 pc = vec2(vTrk.x / 3.2, vTrk.y / 4.8);
 vec2 pf = fract(pc);
@@ -4367,11 +4487,19 @@ float grime = smoothstep(0.4, 0.75, mott) * 0.25 + 0.3 * seam + 0.18 * ruts;
 float aMetal = (0.78 + 0.28 * pid) * (1.0 - 0.45 * seam) * (0.95 + 0.1 * scratch * hf) * (1.0 - grime * 0.6) + 0.22 * rivet + 0.06 * (A3.b - 0.5) * hf;
 float hMetal = -0.01 * seam + 0.006 * rivet + 0.001 * scratch * bCm;
 float rMetal = 0.32 + 0.3 * seam + 0.25 * grime - 0.12 * scratch;
+#else
+float aMetal = 1.0, hMetal = 0.0, rMetal = 0.9, grime = 0.0;
+#endif
+#ifdef RR_S3
 // --- gravel: packed fines with loose stones at two sizes, each stone its own shade; swept clear in the ruts
 float g1 = A3.r, g2 = texture2D(uDetA, wp * 2.3 + 0.13).r;
 float loose = (1.0 - 0.75 * ruts) * (0.6 + 0.4 * smoothstep(0.3, 0.7, mott)) + (1.0 - onRoad) * 0.3;
 float aGrav = 0.84 + 0.18 * (mott - 0.5) + loose * (0.32 * g1 * (A1.b - 0.45) + hfFine * 0.16 * g2 * (B2.b - 0.4)) - 0.08 * ruts + hf * 0.1 * (grain - 0.5) + loose * 0.2 * (A1.r - 0.22);
 float hGrav = loose * (0.016 * A1.r + 0.022 * g1 * bStone + 0.012 * g2 * bCm) + 0.004 * grain * bCm;
+#else
+float aGrav = 1.0, hGrav = 0.0;
+#endif
+#ifdef RR_S4
 // --- tarmac: aggregate chips in a dark binder, sealed cracks, square repair patches, tyre-polished lines
 float chip = texture2D(uDetB, wp * 1.6).b;
 float tCrack = smoothstep(0.6, 0.95, A2.g) * smoothstep(0.55, 0.8, mott);
@@ -4381,6 +4509,10 @@ float repair = step(0.86, patchId) * onRoad * (1.0 - smoothstep(0.42, 0.5, max(a
 float aTar = 0.92 + 0.14 * (mott - 0.5) + hf * 0.22 * (chip - 0.45) - 0.22 * tCrack - 0.12 * repair * (0.6 + 0.4 * patchId) - 0.1 * ruts;
 float hTar = 0.0025 * chip * bCm - 0.006 * tCrack + 0.003 * repair;
 float rTar = 0.88 - 0.22 * ruts - 0.1 * tCrack + 0.06 * (chip - 0.5);
+#else
+float aTar = 1.0, hTar = 0.0, rTar = 0.9;
+#endif
+#if defined(RR_S5) || defined(RR_S6)
 // --- snow: wind-rippled powder with sparkle, packed and glazed in the wheel tracks
 float rip = texture2D(uDetB, rrRot * wp * 0.21 + 0.5).r;
 float rip2 = B2.r;
@@ -4389,6 +4521,10 @@ float pack = clamp(ruts * 1.15, 0.0, 1.0);
 float aSnow = 1.0 + 0.05 * (mott - 0.5) + 0.05 * (rip - 0.5) - 0.17 * pack * (0.7 + 0.3 * A3.b) + 0.12 * glint;
 float hSnow = 0.012 * rip + (0.004 * rip2 + 0.004 * grain) * bCm - 0.02 * pack;
 float rSnow = 0.72 - 0.45 * pack - 0.5 * glint + 0.1 * rip;
+#else
+float aSnow = 1.0, hSnow = 0.0, rSnow = 0.9, pack = 0.0;
+#endif
+#ifdef RR_S6
 // --- ground beside an Earth road: told apart by the vertex colour (green = grass, bright = snow, else soil and scree)
 vec3 vc = diffuseColor.rgb;
 float lum = dot(vc, vec3(0.299, 0.587, 0.114));
@@ -4401,6 +4537,9 @@ float aGround = mix(0.84 + 0.3 * (mott - 0.5) + 0.3 * smoothstep(0.35, 0.8, A1.r
 aGround = mix(aGround, aSnow + 0.17 * pack, wSn);
 float hGround = mix(mix(0.02 * smoothstep(0.35, 0.8, A1.r) + 0.005 * grain * bCm, 0.012 * blades * bCm, wGr), 0.014 * rip + 0.004 * grain * bCm, wSn);
 float rGround = mix(0.95, 0.72, wSn);
+#else
+float aGround = 1.0, hGround = 0.0, rGround = 0.9, wSn = 0.0, wGr = 0.0, dry = 0.0;
+#endif
 // --- boulder field (Pikes Peak above the treeline): rounded granite boulders at two sizes packed together, dark voids
 // between them, lichen on their tops
 #ifdef RR_TALUS
@@ -4426,11 +4565,16 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.08, 1.0, 0.72
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.31, 0.24), lichen * sx4.w * 0.55);                                         // grey-green lichen
 float rrH = dot(sw4, vec4(hReg, hIce, hMetal, hGrav)) + dot(sx4, vec4(hTar, hSnow, hGround, hTal));
 // rock faces on a mountain: bands of strata cut by cracks, the stone detail on top
-float rockF = (1.0 - smoothstep(0.5, 0.82, vNrmY)) * uRock * (1.0 - wSn * sx4.z);   // (snowbanks are steep too, but they are snow)
+#ifdef RR_ROCK
+float rockF = (1.0 - smoothstep(0.5, 0.82, vNrmY)) * (1.0 - wSn * sx4.z);   // (snowbanks are steep too, but they are snow)
 float strata = rrNoise(vec2((wp.x + wp.y) * 0.03, vWPos.y * 0.45)), crack = 1.0 - smoothstep(0.0, 0.07, abs(rrNoise(wp * 0.11 + vWPos.y * 0.05) - 0.5));
 float faceTex = texture2D(uDetA, vec2((wp.x - wp.y) * 0.11, vWPos.y * 0.2)).a;
 diffuseColor.rgb *= mix(1.0, (0.72 + 0.5 * strata - 0.3 * crack) * (0.8 + 0.4 * faceTex) * (0.92 + 0.16 * A2.g), rockF);
 rrH += rockF * (0.04 * faceTex - 0.03 * crack);
+#else
+float rockF = 0.0;
+#endif
+#ifdef RR_S4
 // painted lines on tarmac, worn in places: 1 = US double yellow centre and white edges, 2 = French dashed white centre line
 float swT = sx4.x;
 float wear = smoothstep(0.2, 0.45, rrNoise(vec2(vTrk.y * 0.11, 3.0))) * (0.75 + 0.25 * smoothstep(0.2, 0.6, A3.b));
@@ -4439,10 +4583,15 @@ float wl = (1.0 - smoothstep(0.07, 0.1, abs(ax - (uHW - 0.45)))) * wear * step(0
 float dash = (1.0 - smoothstep(0.055, 0.075, ax)) * step(fract(vTrk.y / 13.0), 0.23) * wear * step(1.5, uLines);
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.56, 0.07), yl * swT);
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.82, 0.82, 0.8), (wl + dash) * swT);
+#else
+float yl = 0.0, wl = 0.0, dash = 0.0;
+#endif
+#ifdef RR_S2
 float edgeD = abs(ax - (uHW - 0.6));
 float stripeZone = (1.0 - smoothstep(0.26, 0.32, edgeD)) * uStripe * sw4.z;
 float stripe = step(0.5, fract((vTrk.y + ax) * 0.22));
 diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.015), vec3(0.8, 0.5, 0.03), stripe), stripeZone);
+#endif
 float rrRough = clamp(dot(sw4, vec4(0.95 - 0.1 * rStones, rIce, rMetal, 0.9)) + dot(sx4, vec4(rTar - 0.2 * (yl + wl + dash), rSnow, rGround, rTal)), 0.04, 1.0);
 rrRough = mix(rrRough, 0.85, rockF);
 float rrMetal = sw4.z * 0.5 * (1.0 - grime * 0.5);
@@ -4481,7 +4630,10 @@ vec3 rrPerturb(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy, float faceDirection) {
 function makeTerrainMaterial(def) {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0.0, envMapIntensity: def.sky.day ? 0.3 : 0.7 });
   const stripe = def.style === 'platform' ? 1 : 0, det = detailTextures();
-  if (def.earth && def.earth.talus) mat.defines = { RR_TALUS: 1 };   // (defines are part of three's program cache key)
+  // (defines are part of three's program cache key; buildStage adds one per surface the stage uses: RR_S0..RR_S6)
+  mat.defines = {};
+  if (def.earth && def.earth.talus) mat.defines.RR_TALUS = 1;
+  if (def.style === 'mountain') mat.defines.RR_ROCK = 1;
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uHW = { value: def.hw };
     sh.uniforms.uStripe = { value: stripe };
@@ -4489,12 +4641,11 @@ function makeTerrainMaterial(def) {
     sh.uniforms.uBump = { value: LOW_SPEC ? 0.6 : 1.4 };
     sh.uniforms.uDetA = { value: det[0] };
     sh.uniforms.uDetB = { value: det[1] };
-    sh.uniforms.uRock = { value: def.style === 'mountain' ? 1 : 0 };
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nattribute vec4 surfW;\nattribute vec4 surfX;\nattribute vec2 trk;\nvarying vec4 vSurfW;\nvarying vec4 vSurfX;\nvarying vec2 vTrk;\nvarying vec3 vWPos;\nvarying float vNrmY;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSurfW = surfW; vSurfX = surfX; vTrk = trk; vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vNrmY = objectNormal.y;');
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uHW;\nuniform float uStripe;\nuniform float uLines;\nuniform float uRock;\nuniform float uBump;\nuniform sampler2D uDetA;\nuniform sampler2D uDetB;\nvarying vec4 vSurfW;\nvarying vec4 vSurfX;\nvarying vec2 vTrk;\nvarying vec3 vWPos;\nvarying float vNrmY;\n' + GLSL_NOISE + TERRAIN_BUMP)
+      .replace('#include <common>', '#include <common>\nuniform float uHW;\nuniform float uStripe;\nuniform float uLines;\nuniform float uBump;\nuniform sampler2D uDetA;\nuniform sampler2D uDetB;\nvarying vec4 vSurfW;\nvarying vec4 vSurfX;\nvarying vec2 vTrk;\nvarying vec3 vWPos;\nvarying float vNrmY;\n' + GLSL_NOISE + TERRAIN_BUMP)
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + TERRAIN_FRAG)
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = rrPerturb(-vViewPosition, normal, rrDH, faceDirection);')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = rrRough;')
@@ -4503,6 +4654,19 @@ function makeTerrainMaterial(def) {
   return mat;
 }
 
+/** Compile only the surfaces this stage's ground actually uses into the terrain shader (RR_S0..RR_S6). */
+function terrainSurfaceDefines(mat) {
+  const used = new Array(8).fill(false);
+  stageGroup.traverse((o) => {
+    if (o.material !== mat) return;
+    for (const [name, base] of [['surfW', 0], ['surfX', 4]]) {
+      const a = o.geometry.attributes[name].array;
+      for (let i = 0; i < a.length; i++) if (a[i] > 0) used[base + (i & 3)] = true;
+    }
+  });
+  used.forEach((u, k) => { if (u && k < 7) mat.defines['RR_S' + k] = 1; });
+  mat.needsUpdate = true;
+}
 function lateralOffsets(def) {
   const hw = def.hw, W = def.ribbon, pos = [];
   const nRoad = Math.ceil(hw / 0.95);
@@ -10883,7 +11047,18 @@ function updateSunShadow() {
   sunLight.target.position.copy(_tmp2);
   sunLight.position.copy(_tmp2).addScaledVector(SUN_DIR, 300);
   sunLight.target.updateMatrixWorld();
+  if (farSun && (_farTick = (_farTick + 1) % 2) === 0) {   // moved only when its map is redrawn, so the two agree
+    const ft = (2 * SHADOW_FAR_EXTENT) / farSun.shadow.mapSize.x;
+    _tmp.copy(Draw.pos).addScaledVector(Cam.yawDir, SHADOW_FAR_EXTENT * 0.55);
+    const fa = Math.round(_tmp.dot(_lr) / ft) * ft, fb = Math.round(_tmp.dot(_lu) / ft) * ft, fc = _tmp.dot(SUN_DIR);
+    _tmp2.copy(_lr).multiplyScalar(fa).addScaledVector(_lu, fb).addScaledVector(SUN_DIR, fc);
+    farSun.target.position.copy(_tmp2);
+    farSun.position.copy(_tmp2).addScaledVector(SUN_DIR, 1200);
+    farSun.target.updateMatrixWorld();
+    farSun.shadow.needsUpdate = true;
+  }
 }
+let _farTick = 0;
 
 /* =============================================================================
    15. AUDIO — all procedural (Web Audio) + optional co-driver speech synthesis
@@ -12298,6 +12473,7 @@ function buildStage(def) {
   const mat = makeTerrainMaterial(def);
   buildRibbon(mat);
   if (def.style === 'hills' || def.style === 'mountain') buildFarTerrain(mat);
+  terrainSurfaceDefines(mat);
   TR.colliderBuckets = Array.from({ length: (TR.N >> 3) + 2 }, () => []);
   TR.cells = [];
   const rng = new RNG(def.seed + 404);
@@ -12325,11 +12501,12 @@ function loadStage(def, then) {
   l.textContent = 'GENERATING ' + def.name.toUpperCase() + '…';
   l.classList.remove('hidden');
   AudioSys.stopSpeech();
-  setTimeout(() => {
+  detailTextures();                           // (starts the detail maps on the first load)
+  setTimeout(() => detailReady.then(() => {
     buildStage(def);
     l.classList.add('hidden');
     if (then) then();
-  }, 40);
+  }), 40);
 }
 function resetRunState() {
   Game.runCount++;
