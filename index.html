@@ -9549,6 +9549,18 @@ function gsShell(K, c) {
       if (base) K.rbox(0.03, y - base, 0.14, K.dark, sx * 0.42, (y + base) / 2, (z0 + z1) / 2);
     });
   };
+  /** A 2017-rules World Rally Car wing: a main plane whose leading edge sits on the roof's trailing edge (z0) and runs
+   *  back past the tailgate to z1, a second plane over its back half, and deep endplates that drop down the sides. */
+  S.bigWing = (z0, z1, y, span) => {
+    const ch = z0 - z1;
+    K.rbox(span, 0.035, ch, K.paint, 0, y, (z0 + z1) / 2, -0.08);
+    K.rbox(span - 0.04, 0.03, ch * 0.42, K.paint, 0, y + 0.09, z1 + ch * 0.24, -0.32);
+    K.rbox(span - 0.04, 0.05, 0.02, K.dark, 0, y + 0.13, z1 + 0.02);
+    K.both((sx) => {
+      const ep = [[z0 + 0.02, y + 0.03], [z1 - 0.03, y + 0.16], [z1 - 0.03, y - 0.19], [z0 - ch * 0.45, y - 0.12]];
+      K.rpanel(ep, K.dark, 'side', sx * span / 2, sx); K.rpanel(ep, K.dark, 'side', sx * (span / 2 - 0.01), -sx);
+    });
+  };
   S.layout = (seatZ, roofZ) => {
     const ry = sec(G, roofZ).yt;
     return {
@@ -10307,7 +10319,9 @@ LIVERIES.forEach((l, i) => { if (l.num == null) l.num = [4, 1, 5, 3, 2, 6, 8][i]
  *  narrower the nose is than the car), noseYs (height of the nose's leading edge), waist [z, y] (where the shoulder line
  *  kicks up), tailRake, crown (roof crown), tumble (how far the glasshouse leans in), flare / flareRun (arch flares),
  *  body / glass (functions of the car's size returning gsShell stations, to trace a car's own sections outright),
- *  details (K, S, c) for the car's own lamps, grilles and vents; lamps 'none' and grille false leave those to it. */
+ *  details (K, S, c) for the car's own lamps, grilles and vents; lamps 'none' and grille false leave those to it, and
+ *  tailLamps false / rearPanel false the tail's. openRear: the 2017 rules' cut-away rear bumper over the diffuser;
+ *  bigWing [z0, z1, y, span]: the 2017 twin-plane wing off the roof's trailing edge (S.bigWing). */
 function gsCar(K, d) {
   const wb = K.wb, HW = K.spec.dims[1] / 2, H = K.spec.dims[2], lerp = K.lerp;
   const T = -wb - d.tail, [w0, w1] = d.ws, r2 = d.roofEnd, [zE, yE] = d.back, [hN, hC] = d.hood, belt = d.belt;
@@ -10346,15 +10360,20 @@ function gsCar(K, d) {
   }
   K.both((sx) => {
     if (d.lamps === 'round2') { K.rlamp(sx * 0.38, ly, NOSE + 0.01, 0.06, K.headMat); K.rlamp(sx * 0.56, ly, NOSE + 0.01, 0.06, K.headMat); }
-    else if (d.lamps === 'popup') {
-      S.bodyTop(0.6, 0.3, 0.12, 0.42, K.dark, 0.012);                  // the closed pop-up pods' shut lines
-      K.rlamp(sx * 0.3, 0.38, NOSE + 0.08, 0.075, K.headMat); K.rlamp(sx * 0.52, 0.38, NOSE + 0.08, 0.075, K.headMat);   // spot-lamp pod
+    else if (d.lamps === 'covered') {
+      // fixed lamps behind clear covers set into the nose (the 222D swapped the MR2's pop-ups for these)
+      K.rlamp(sx * (W - 0.02), ly, NOSE + 0.004, 0.065, K.headMat); K.rlamp(sx * (W - 0.19), ly, NOSE + 0.004, 0.065, K.headMat);
+      K.rpanel([[sx * (W - 0.29), ly - 0.085], [sx * (W + 0.08), ly - 0.085], [sx * (W + 0.07), ly + 0.085], [sx * (W - 0.29), ly + 0.085]], K.trim, 'front', NOSE + 0.002, 1);
     } else if (d.lamps === 'slim') K.rpanel([[sx * 0.3, ly - 0.02], [sx * (W + 0.2), ly - 0.01], [sx * (W + 0.22), ly + 0.05], [sx * 0.34, ly + 0.04]], K.headMat, 'front', NOSE + 0.006, 1);
     else if (d.lamps !== 'none') K.rpanel([[sx * 0.32, ly - 0.04], [sx * (W + 0.18), ly - 0.04], [sx * (W + 0.18), ly + 0.04], [sx * 0.32, ly + 0.04]], K.headMat, 'front', NOSE + 0.006, 1);
     if (d.grille !== false) K.rlamp(sx * (W - 0.06), 0.36, NOSE + 0.006, 0.045, K.headMat);
-    if (d.tailLamps !== false) K.rpanel([[sx * 0.44, belt - 0.26], [sx * (HW - 0.2), belt - 0.26], [sx * (HW - 0.22), belt - 0.12], [sx * 0.46, belt - 0.12]], K.tailMat, 'front', TAIL - 0.006, -1);
+    if (d.tailLamps !== false && !d.openRear) K.rpanel([[sx * 0.44, belt - 0.26], [sx * (HW - 0.2), belt - 0.26], [sx * (HW - 0.22), belt - 0.12], [sx * 0.46, belt - 0.12]], K.tailMat, 'front', TAIL - 0.006, -1);
   });
-  K.rpanel([[-(HW - 0.22), 0.42], [HW - 0.22, 0.42], [HW - 0.24, belt - 0.3], [-(HW - 0.24), belt - 0.3]], K.dark, 'front', TAIL - 0.004, -1);
+  if (d.openRear) {
+    // the 2017 rules let the rear bumper go: the diffuser's fins and the exhaust stand open under the tailgate
+    K.rpanel([[-(HW - 0.2), 0.22], [HW - 0.2, 0.22], [HW - 0.24, belt - 0.36], [-(HW - 0.24), belt - 0.36]], K.dark, 'front', TAIL - 0.004, -1);
+    for (const x of [-0.6, -0.3, 0, 0.3, 0.6]) K.rbox(0.014, 0.24, 0.42, K.dark, x, 0.34, TAIL + 0.15);
+  } else if (d.rearPanel !== false) K.rpanel([[-(HW - 0.22), 0.42], [HW - 0.22, 0.42], [HW - 0.24, belt - 0.3], [-(HW - 0.24), belt - 0.3]], K.dark, 'front', TAIL - 0.004, -1);
   if (d.scoop != null) {
     const sy = S.sec(S.G, d.scoop).yt;
     K.rbox(0.34, 0.05, 0.4, K.paint, 0, sy + 0.015, d.scoop);
@@ -10364,7 +10383,15 @@ function gsCar(K, d) {
   if (d.details) d.details(K, S, c);
   S.aero(d.aero);
   if (d.wing) S.wing(...d.wing);
+  if (d.bigWing) S.bigWing(...d.bigWing);
   return S.layout(d.b + 0.12, (w1 + r2) / 2);                         // seat just ahead of the B pillar
+}
+/** The Kadett E / Astra Mk2 hatch's wide ribbed tail lamps across the bottom of the tailgate, either side of the plate. */
+function kadettTail(K, c) {
+  K.both((sx) => {
+    K.rpanel([[sx * 0.24, c.belt - 0.28], [sx * (c.HW - 0.16), c.belt - 0.28], [sx * (c.HW - 0.22), c.belt - 0.11], [sx * 0.24, c.belt - 0.11]], K.tailMat, 'front', c.TAIL - 0.006, -1);
+    for (let i = 1; i < 4; i++) K.rbox(c.HW - 0.46, 0.008, 0.01, K.dark, sx * (c.HW + 0.05) / 2, c.belt - 0.28 + i * 0.042, c.TAIL - 0.01);
+  });
 }
 const NEW_CARS = [
   { name: 'RS 002', blurb: 'Audi Sport quattro RS 002 (1987), Audi\'s Group S prototype: the S1\'s turbo five turned round behind the driver in a low carbon-kevlar wedge. Two prototypes were built on a tube frame and Group S was cancelled before either raced. Specs mostly estimated.',
@@ -10378,11 +10405,17 @@ const NEW_CARS = [
       wb: 2.5, track: [1.56, 1.56], wf: 0.41, cgH: 0.42, dims: [4.1, 1.9, 1.18], travel: 0.25,
       tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [330, 300] },
     aero: { cda: 0.82, cdaSide: 2.3, claF: 0.22, claR: 0.44, pitch: 0.07, ge: 0.35, text: 'Low wedge nose with a full-width splitter, flat underbody into a rear diffuser, tall rear wing on the engine cover' },
-    shape: { nose: 0.85, tail: 0.75, hood: [0.44, 0.72], rake: 0.14, lift: 0.05, noseYs: 0.36, belt: 0.86, waist: [-1.7, 0.84], ws: [-0.3, -1.1], crown: 0.03, tumble: 0.3,
-      roofEnd: -1.7, back: [-3.1, 0.86], mid: true, b: -1.6, lamps: 'none', tailLamps: false, intakes: [-1.72, -2.05], flareRun: 0.36, wing: [-2.92, -3.28, 1.22, 1.8, 0.86],
+    shape: { nose: 0.85, tail: 0.75, hood: [0.44, 0.72], belt: 0.86, waist: [-1.7, 0.84], ws: [-0.3, -1.1], crown: 0.07, tumble: 0.34,
+      roofEnd: -1.7, back: [-3.1, 0.86], mid: true, b: -1.6, lamps: 'none', tailLamps: false, intakes: [-1.72, -2.05], flareRun: 0.4, wing: [-2.92, -3.28, 1.22, 1.8, 0.86],
+      // traced sections with the curves of a Group C sports-prototype: a nose rounded in plan, rolled shoulders and a
+      // crowned deck, rather than flat wedge planes
+      body: (c) => [[0.85, 0.24, 0.31, 0.4, c.HW - 0.32, c.HW - 0.48, 0.04], [0.72, 0.19, 0.38, 0.5, c.HW - 0.12, c.HW - 0.3, 0.07],
+        [0.4, 0.19, 0.46, 0.62, c.HW - 0.04, c.HW - 0.2, 0.09], [-0.28, 0.21, 0.52, 0.73, c.HW - 0.04, c.HW - 0.2, 0.08],
+        [-1.7, 0.22, 0.56, 0.84, c.HW - 0.04, c.HW - 0.2, 0.08], [-2.95, 0.24, 0.58, 0.86, c.HW - 0.05, c.HW - 0.22, 0.09],
+        [c.T + 0.12, 0.27, 0.56, 0.84, c.HW - 0.12, c.HW - 0.3, 0.08], [c.T, 0.31, 0.54, 0.79, c.HW - 0.22, c.HW - 0.38, 0.05]],
       details(K, S, c) {
-        // a full-width lamp band across the wedge's nose, NACA ducts in the doors, four round tail lamps in a black panel
-        K.rpanel([[-(c.W + 0.18), c.hN - 0.07], [c.W + 0.18, c.hN - 0.07], [c.W + 0.14, c.hN - 0.02], [-(c.W + 0.14), c.hN - 0.02]], K.headMat, 'front', c.NOSE + 0.006, 1);
+        // a lamp band across the nose under a clear cover, NACA ducts in the doors, four round tail lamps in a black panel
+        K.rpanel([[-(c.HW - 0.42), 0.31], [c.HW - 0.42, 0.31], [c.HW - 0.44, 0.36], [-(c.HW - 0.44), 0.36]], K.headMat, 'front', c.NOSE + 0.006, 1);
         S.bodySide(-0.75, -1.15, (v) => K.lerp(0.45, 0.2, v), 0.5, K.dark);
         K.both((sx) => { K.rlamp(sx * 0.62, c.belt - 0.2, c.TAIL - 0.01, 0.055, K.tailMat, -1); K.rlamp(sx * 0.46, c.belt - 0.2, c.TAIL - 0.01, 0.055, K.tailMat, -1); });
       } },
@@ -10436,9 +10469,10 @@ const NEW_CARS = [
       tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [280, 280] },
     aero: { cda: 0.86, cdaSide: 2.4, claF: 0.14, claR: 0.3, pitch: 0.06, ge: 0.3, text: 'Chin splitter, side intakes for the mid engine, wing on the hatch, rear diffuser' },
     shape: { nose: 0.82, tail: 0.72, hood: [0.58, 0.88], rake: 0.1, lift: 0.08, belt: 0.95, waist: [-2.0, 0.93], ws: [-0.62, -1.38], tumble: 0.27, roofEnd: -2.35,
-      back: [-3.08, 0.96], b: -1.85, lamps: 'rect', intakes: [-2.0, -2.35], flareRun: 0.36, wing: [-2.9, -3.18, 1.34, 1.65, 0],
+      back: [-3.08, 0.96], b: -1.85, lamps: 'rect', intakes: [-2.0, -2.35], flareRun: 0.36, wing: [-2.9, -3.18, 1.22, 1.65, 0.96],
       details(K, S, c) {
-        // the Samara's slatted grille between wide rectangular lamps
+        // the Samara's slatted grille between wide rectangular lamps; the EVA's two wings, one off the roof's trailing edge
+        S.wing(-2.33, -2.53, c.H + 0.01, 1.4, 0);
         for (let i = 0; i < 3; i++) K.rbox(0.48, 0.012, 0.01, K.trim, 0, c.ly - 0.04 + i * 0.035, c.NOSE + 0.008);
       } },
     rim: { spokes: 5, spokeW: 0.1, color: 0xf2f2ee, caliper: 0xd8262e }, pipes: [0.4],
@@ -10462,7 +10496,7 @@ const NEW_CARS = [
       wb: 2.44, track: [1.51, 1.535], wf: 0.43, cgH: 0.44, dims: [4.0, 1.88, 1.33], travel: 0.25,
       tyre: { r: 0.33, w: 0.195, rim: 16, kg: 20, size: 'Pirelli 660-16 gravel' }, disc: [300, 300] },
     aero: { cda: 0.86, cdaSide: 2.4, claF: 0.16, claR: 0.34, pitch: 0.06, ge: 0.35, text: 'Front splitter, roof intake, hatch spoiler, side skirts, rear diffuser' },
-    shape: { nose: 0.8, tail: 0.76, hood: [0.66, 0.88], rake: 0.05, lift: 0.07, belt: 0.93, ws: [-0.68, -1.3], crown: 0.03, tumble: 0.22, roofEnd: -2.78, back: [-3.06, 0.94],
+    shape: { nose: 0.8, tail: 0.76, hood: [0.66, 0.88], rake: 0.05, lift: 0.06, noseW: 0.1, noseYs: 0.48, belt: 0.93, ws: [-0.68, -1.3], crown: 0.03, tumble: 0.22, roofEnd: -2.78, back: [-3.06, 0.94],
       b: -1.8, lamps: 'none', scoop: -1.55, intakes: [-2.4, -2.62], flare: 1, flareRun: 0.26, wing: [-2.76, -3.0, 1.36, 1.5, 0],
       details(K, S, c) {
         // the Delta S4's face: a big and a small rectangular lamp each side of a slim grille, two louvred bonnet vents
@@ -10486,8 +10520,14 @@ const NEW_CARS = [
       wb: 2.44, track: [1.53, 1.55], wf: 0.43, cgH: 0.43, dims: [4.05, 1.9, 1.3], travel: 0.25,
       tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [305, 300] },
     aero: { cda: 0.74, cdaSide: 2.3, claF: 0.18, claR: 0.32, pitch: 0.06, ge: 0.45, text: 'Smooth faired body with flush glass, integrated splitter, full underbody and diffuser, low spoiler on the tail' },
-    shape: { nose: 0.86, tail: 0.75, hood: [0.56, 0.86], rake: 0.16, lift: 0.06, noseYs: 0.4, belt: 0.93, ws: [-0.5, -1.45], crown: 0.06, tumble: 0.28, roofEnd: -2.35,
-      back: [-3.08, 0.96], tailRake: 0.1, b: -1.85, lamps: 'slim', tailLamps: false, intakes: [-2.3, -2.55], flareRun: 0.4, wing: [-2.98, -3.16, 1.02, 1.74, 0],
+    shape: { nose: 0.86, tail: 0.75, hood: [0.52, 0.86], belt: 0.93, ws: [-0.48, -1.5], crown: 0.09, tumble: 0.33, roofEnd: -2.2, back: [-3.02, 0.95],
+      b: -1.85, lamps: 'slim', tailLamps: false, intakes: [-2.3, -2.55], flareRun: 0.45, wing: [-2.98, -3.16, 1.0, 1.36, 0],
+      // traced sections: a round, narrow nose, full rounded shoulders all the way back and a tail that tucks in, with no
+      // creases anywhere (the faired wind-tunnel shape that sets it apart from the boxy first ECV)
+      body: (c) => [[0.86, 0.27, 0.36, 0.5, c.HW - 0.24, c.HW - 0.42, 0.05], [0.74, 0.21, 0.4, 0.6, c.HW - 0.1, c.HW - 0.26, 0.07],
+        [0.45, 0.2, 0.46, 0.72, c.HW - 0.04, c.HW - 0.2, 0.09], [-0.46, 0.21, 0.52, 0.86, c.HW - 0.03, c.HW - 0.18, 0.08],
+        [-1.6, 0.22, 0.55, 0.9, c.HW - 0.03, c.HW - 0.17, 0.07], [-2.6, 0.24, 0.56, 0.95, c.HW - 0.04, c.HW - 0.2, 0.08],
+        [c.T + 0.22, 0.27, 0.55, 0.94, c.HW - 0.1, c.HW - 0.27, 0.08], [c.T, 0.32, 0.52, 0.88, c.HW - 0.24, c.HW - 0.4, 0.05]],
       details(K, S, c) {
         // one flush full-width tail lamp strip, smooth and faired like the rest of Synthesis Design's body
         K.rpanel([[-(c.HW - 0.2), c.belt - 0.2], [c.HW - 0.2, c.belt - 0.2], [c.HW - 0.22, c.belt - 0.12], [-(c.HW - 0.22), c.belt - 0.12]], K.tailMat, 'front', c.TAIL - 0.006, -1);
@@ -10506,9 +10546,9 @@ const NEW_CARS = [
       kg: 950, front: 0.35, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.32, track: [1.53, 1.53], wf: 0.42, cgH: 0.44, dims: [4.0, 1.83, 1.24], travel: 0.25,
       tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [300, 300] },
-    aero: { cda: 0.8, cdaSide: 2.3, claF: 0.16, claR: 0.38, pitch: 0.06, ge: 0.3, text: 'Spot-lamp pod over a chin splitter, side intakes, louvred engine deck, tall rear wing on stanchions' },
+    aero: { cda: 0.8, cdaSide: 2.3, claF: 0.16, claR: 0.38, pitch: 0.06, ge: 0.3, text: 'Fixed lamps behind clear covers over a chin splitter, side intakes, louvred engine deck, tall rear wing on stanchions' },
     shape: { nose: 0.86, tail: 0.82, hood: [0.48, 0.76], rake: 0.12, lift: 0.06, belt: 0.86, waist: [-1.6, 0.86], ws: [-0.44, -1.0], tumble: 0.28, roofEnd: -1.74,
-      back: [-3.0, 0.86], mid: true, b: -1.62, lamps: 'popup', intakes: [-1.7, -2.02], flare: 1, flareRun: 0.26, wing: [-2.85, -3.12, 1.2, 1.65, 0.86],
+      back: [-3.0, 0.86], mid: true, b: -1.62, lamps: 'covered', intakes: [-1.7, -2.02], flare: 1, flareRun: 0.26, wing: [-2.85, -3.12, 1.2, 1.65, 0.86],
       details(K, S, c) {
         // the box flares' vents behind each wheel
         for (const z of [-0.62, -2.95]) S.bodySide(z, z - 0.12, -0.2, 0.5, K.dark);
@@ -10532,9 +10572,10 @@ const NEW_CARS = [
       wb: 2.52, track: [1.47, 1.47], wf: 0.57, cgH: 0.48, dims: [4.0, 1.78, 1.39], travel: 0.25,
       tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [300, 280] },
     aero: { cda: 0.9, cdaSide: 2.5, claF: 0.1, claR: 0.24, pitch: 0.05, ge: 0.25, text: 'Air dam with a splitter lip, bonnet scoop for the intercooler, roof-edge spoiler, side skirts' },
-    shape: { nose: 0.8, tail: 0.68, hood: [0.6, 0.9], rake: 0.14, lift: 0.06, noseYs: 0.4, belt: 0.95, ws: [-0.62, -1.36], crown: 0.06, tumble: 0.26, roofEnd: -2.7,
-      back: [-3.06, 0.96], tailRake: 0.05, b: -1.85, lamps: 'none', scoop: -1.6, flareRun: 0.38, wing: [-2.7, -2.98, 1.42, 1.42, 0],
+    shape: { nose: 0.8, tail: 0.68, hood: [0.64, 0.9], rake: 0.1, lift: 0.05, noseW: 0.1, noseYs: 0.46, belt: 0.95, ws: [-0.62, -1.36], crown: 0.06, tumble: 0.26,
+      roofEnd: -2.7, back: [-3.06, 0.96], tailRake: 0.05, b: -1.85, lamps: 'none', scoop: -1.6, flareRun: 0.38, tailLamps: false, wing: [-2.7, -2.98, 1.42, 1.42, 0],
       details(K, S, c) {
+        kadettTail(K, c);
         // the Kadett E's slim wraparound lamps with a narrow slotted grille and the Opel blitz between them
         K.both((sx) => K.rpanel([[sx * 0.24, c.ly - 0.03], [sx * (c.W + 0.2), c.ly - 0.04], [sx * (c.W + 0.22), c.ly + 0.03], [sx * 0.24, c.ly + 0.03]], K.headMat, 'front', c.NOSE + 0.006, 1));
         K.rpanel([[-0.04, c.ly - 0.03], [0.04, c.ly - 0.03], [0.04, c.ly + 0.03], [-0.04, c.ly + 0.03]], K.trim, 'front', c.NOSE + 0.01, 1);
@@ -10558,9 +10599,10 @@ const NEW_CARS = [
       wb: 2.52, track: [1.47, 1.47], wf: 0.58, cgH: 0.48, dims: [4.0, 1.78, 1.39], travel: 0.25,
       tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [300, 280] },
     aero: { cda: 0.92, cdaSide: 2.5, claF: 0.12, claR: 0.28, pitch: 0.05, ge: 0.25, text: 'Air dam with a splitter lip, bonnet louvres, rear wing on the hatch, side skirts' },
-    shape: { nose: 0.8, tail: 0.68, hood: [0.6, 0.9], rake: 0.14, lift: 0.06, noseYs: 0.4, belt: 0.95, ws: [-0.62, -1.36], crown: 0.06, tumble: 0.26, roofEnd: -2.7,
-      back: [-3.06, 0.96], tailRake: 0.05, b: -1.85, lamps: 'none', louvres: true, flareRun: 0.38, wing: [-2.85, -3.12, 1.2, 1.6, 0.95],
+    shape: { nose: 0.8, tail: 0.68, hood: [0.64, 0.9], rake: 0.1, lift: 0.05, noseW: 0.1, noseYs: 0.46, belt: 0.95, ws: [-0.62, -1.36], crown: 0.06, tumble: 0.26,
+      roofEnd: -2.7, back: [-3.06, 0.96], tailRake: 0.05, b: -1.85, lamps: 'none', louvres: true, flareRun: 0.38, tailLamps: false, wing: [-2.85, -3.12, 1.2, 1.6, 0.95],
       details(K, S, c) {
+        kadettTail(K, c);
         // the Astra Mk2's slim lamps and slotted grille (the Kadett E's shell), with the Griffin badge
         K.both((sx) => K.rpanel([[sx * 0.24, c.ly - 0.03], [sx * (c.W + 0.2), c.ly - 0.04], [sx * (c.W + 0.22), c.ly + 0.03], [sx * 0.24, c.ly + 0.03]], K.headMat, 'front', c.NOSE + 0.006, 1));
         K.radd(new THREE.CircleGeometry(0.035, 12), K.trim, 0, c.ly, c.NOSE + 0.01);
@@ -10586,10 +10628,17 @@ const NEW_CARS = [
       wb: 2.44, track: [1.42, 1.42], wf: 0.52, cgH: 0.5, dims: [3.64, 1.72, 1.39], travel: 0.22,
       tyre: { r: 0.31, w: 0.185, rim: 15, kg: 18, size: '15 in gravel (est.)' }, disc: [260, 260] },
     aero: { cda: 0.9, cdaSide: 2.3, claF: 0.06, claR: 0.16, pitch: 0.04, ge: 0.2, text: 'Air dam, rear-engine intakes in the rear quarters, roof-edge spoiler' },
-    shape: { nose: 0.64, tail: 0.56, hood: [0.66, 0.88], rake: 0.04, lift: 0.06, belt: 0.95, ws: [-0.6, -1.25], crown: 0.03, tumble: 0.22, roofEnd: -2.62,
-      back: [-2.86, 0.96], tailRake: 0.04, b: -1.78, lamps: 'none', intakes: [-2.2, -2.5], flare: 1, flareRun: 0.28, wing: [-2.6, -2.85, 1.41, 1.4, 0],
+    shape: { nose: 0.64, tail: 0.56, hood: [0.72, 0.9], rake: 0.03, lift: 0.02, noseW: 0.05, noseYs: 0.58, belt: 0.96, ws: [-0.6, -1.25], crown: 0.03, tumble: 0.22,
+      roofEnd: -2.62, back: [-2.86, 0.96], tailRake: 0.04, b: -1.78, lamps: 'none', intakes: [-2.2, -2.5], flare: 1, flareRun: 0.28, tailLamps: false, rearPanel: false,
+      wing: [-2.6, -2.85, 1.41, 1.4, 0],
       details(K, S, c) {
-        // Giugiaro's square lamps either side of a slatted grille; vents in the rear quarters feed the back engine
+        // Giugiaro's square lamps either side of a slatted grille on a flat, upright face; vents in the rear quarters feed
+        // the back engine; ribbed horizontal tail lamps low on the rear panel either side of the plate
+        K.both((sx) => {
+          K.rpanel([[sx * 0.3, c.belt - 0.38], [sx * (c.HW - 0.16), c.belt - 0.38], [sx * (c.HW - 0.16), c.belt - 0.24], [sx * 0.3, c.belt - 0.24]], K.tailMat, 'front', c.TAIL - 0.006, -1);
+          for (let i = 1; i < 3; i++) K.rbox(c.HW - 0.48, 0.008, 0.01, K.dark, sx * (c.HW + 0.14) / 2, c.belt - 0.38 + i * 0.047, c.TAIL - 0.01);
+        });
+        K.rpanel([[-0.28, c.belt - 0.4], [0.28, c.belt - 0.4], [0.28, c.belt - 0.22], [-0.28, c.belt - 0.22]], K.dark, 'front', c.TAIL - 0.005, -1);
         K.both((sx) => K.rpanel([[sx * 0.3, c.ly - 0.07], [sx * (c.W + 0.18), c.ly - 0.07], [sx * (c.W + 0.18), c.ly + 0.06], [sx * 0.3, c.ly + 0.06]], K.headMat, 'front', c.NOSE + 0.006, 1));
         for (let i = 0; i < 3; i++) K.rbox(0.5, 0.012, 0.01, K.trim, 0, c.ly - 0.04 + i * 0.04, c.NOSE + 0.008);
         for (let i = 0; i < 3; i++) S.bodySide(-2.24 - i * 0.08, -2.28 - i * 0.08, 0.1, 0.75, K.trim, 0.014);
@@ -10614,12 +10663,13 @@ const NEW_CARS = [
       wb: 2.54, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.128, 1.875, 1.4], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     aero: { cda: 1.02, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, swan-neck twin-plane rear wing, full-width diffuser' },
-    shape: { nose: 0.88, tail: 0.708, hood: [0.66, 0.94], rake: 0.12, lift: 0.07, belt: 0.98, ws: [-0.72, -1.48], crown: 0.06, roofEnd: -2.8, back: [-3.12, 0.99],
-      b: -1.95, shuts: [-0.74, -1.98, -2.6], lamps: 'none', grille: false, scoop: -1.7, flareRun: 0.4, wing: [-2.95, -3.28, 1.22, 1.75, 0.99],
+    shape: { nose: 0.88, tail: 0.708, hood: [0.78, 0.97], rake: 0.06, lift: 0.03, noseW: 0.07, noseYs: 0.56, belt: 1.0, ws: [-0.72, -1.48], crown: 0.06, roofEnd: -2.8,
+      back: [-3.12, 0.99], b: -1.95, shuts: [-0.74, -1.98, -2.6], lamps: 'none', grille: false, scoop: -1.7, flareRun: 0.4, openRear: true, bigWing: [-2.78, -3.36, 1.36, 1.8],
       details(K, S, c) {
         // the C3's split face: slim lamps up at the bonnet line running into the chevrons, round main lamps down in the bumper,
-        // big corner intakes; a black C pillar for the floating roof
+        // big corner intakes; a black C pillar for the floating roof; wide tail lamps on the rear corners
         K.rpanel([[-0.5, 0.28], [0.5, 0.28], [0.46, 0.5], [-0.46, 0.5]], K.dark, 'front', c.NOSE + 0.004, 1);
+        K.both((sx) => K.rpanel([[sx * 0.4, c.belt - 0.25], [sx * (c.HW - 0.16), c.belt - 0.22], [sx * (c.HW - 0.22), c.belt - 0.11], [sx * 0.42, c.belt - 0.13]], K.tailMat, 'front', c.TAIL - 0.006, -1));
         for (const y of [c.hN - 0.07, c.hN - 0.035]) K.rpanel([[-0.24, y - 0.015], [0, y + 0.015], [0.24, y - 0.015], [0.24, y], [0, y + 0.03], [-0.24, y]], K.trim, 'front', c.NOSE + 0.008, 1);
         K.both((sx) => {
           K.rpanel([[sx * 0.26, c.hN - 0.06], [sx * (c.W + 0.22), c.hN - 0.05], [sx * (c.W + 0.2), c.hN - 0.02], [sx * 0.26, c.hN - 0.04]], K.headMat, 'front', c.NOSE + 0.006, 1);
@@ -10648,11 +10698,12 @@ const NEW_CARS = [
       wb: 2.493, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.13, 1.875, 1.42], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     aero: { cda: 1.0, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, tall rear wing on the hatch, full-width diffuser' },
-    shape: { nose: 0.85, tail: 0.787, hood: [0.62, 0.92], rake: 0.16, lift: 0.07, belt: 0.99, waist: [-2.2, 0.97], ws: [-0.68, -1.5], crown: 0.06, roofEnd: -2.85,
-      back: [-3.17, 0.99], b: -1.95, shuts: [-0.74, -1.98], lamps: 'slim', grille: false, flareRun: 0.42, wing: [-2.98, -3.32, 1.32, 1.78, 0.99],
+    shape: { nose: 0.85, tail: 0.787, hood: [0.76, 0.96], rake: 0.08, lift: 0.03, noseW: 0.08, noseYs: 0.54, belt: 1.0, waist: [-2.2, 0.98], ws: [-0.68, -1.5], crown: 0.06,
+      roofEnd: -2.85, back: [-3.17, 0.99], b: -1.95, shuts: [-0.74, -1.98], lamps: 'slim', grille: false, flareRun: 0.42, openRear: true, bigWing: [-2.83, -3.4, 1.38, 1.8],
       details(K, S, c) {
-        // the Fiesta's big trapezoid grille, open corner intakes and a wide splitter mouth
+        // the Fiesta's big trapezoid grille, open corner intakes and a wide splitter mouth; tall tail lamps up the rear pillars
         K.rpanel([[-0.4, 0.3], [0.4, 0.3], [0.3, c.hN - 0.06], [-0.3, c.hN - 0.06]], K.dark, 'front', c.NOSE + 0.005, 1);
+        K.both((sx) => K.rpanel([[sx * (c.HW - 0.36), c.belt - 0.4], [sx * (c.HW - 0.16), c.belt - 0.4], [sx * (c.HW - 0.22), c.belt - 0.11], [sx * (c.HW - 0.34), c.belt - 0.11]], K.tailMat, 'front', c.TAIL - 0.006, -1));
         for (let i = 1; i < 4; i++) K.rbox(0.66 - i * 0.05, 0.008, 0.01, K.trim, 0, 0.3 + i * (c.hN - 0.36) / 4, c.NOSE + 0.01);
         K.both((sx) => K.rpanel([[sx * 0.5, 0.28], [sx * (c.W + 0.22), 0.28], [sx * (c.W + 0.2), 0.42], [sx * 0.5, 0.4]], K.rubber, 'front', c.NOSE + 0.005, 1));
       } },
@@ -10678,10 +10729,12 @@ const NEW_CARS = [
       wb: 2.625, track: [1.55, 1.55], wf: 0.57, cgH: 0.46, dims: [4.415, 1.8, 1.425], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Pirelli 15 in gravel' }, disc: [300, 300] },
     aero: { cda: 0.92, cdaSide: 2.6, claF: 0.18, claR: 0.34, pitch: 0.07, ge: 0.25, text: 'Front splitter with dive planes, bonnet scoop, roof vent, rear wing over the hatch, rear diffuser' },
-    shape: { nose: 0.95, tail: 0.84, hood: [0.62, 0.91], rake: 0.08, lift: 0.08, belt: 0.95, ws: [-0.74, -1.45], roofEnd: -2.95, back: [-3.3, 0.99], b: -1.9,
-      shuts: [-0.76, -1.95, -2.68], lamps: 'slim', grille: false, scoop: -1.9, flareRun: 0.34, wing: [-2.86, -3.24, 1.45, 1.5, 0],
+    shape: { nose: 0.95, tail: 0.84, hood: [0.72, 0.95], rake: 0.06, lift: 0.04, noseW: 0.1, noseYs: 0.5, belt: 0.97, ws: [-0.74, -1.45], roofEnd: -2.95, back: [-3.3, 0.99],
+      b: -1.9, shuts: [-0.76, -1.95, -2.68], lamps: 'slim', grille: false, scoop: -1.9, flareRun: 0.34, tailLamps: false, wing: [-2.86, -3.24, 1.45, 1.5, 0],
       details(K, S, c) {
-        // hexagon grille, the WRX bonnet scoop over the intercooler, swept hawk-eye lamps (from 'slim'), fog lamps low
+        // hexagon grille, the WRX bonnet scoop over the intercooler, swept hawk-eye lamps (from 'slim'), fog lamps low;
+        // the GE hatch's big tail lamps on the rear corners, rising towards the hatch glass
+        K.both((sx) => K.rpanel([[sx * (c.HW - 0.46), c.belt - 0.17], [sx * (c.HW - 0.34), c.belt - 0.31], [sx * (c.HW - 0.16), c.belt - 0.29], [sx * (c.HW - 0.22), c.belt - 0.11], [sx * (c.HW - 0.44), c.belt - 0.11]], K.tailMat, 'front', c.TAIL - 0.006, -1));
         K.rpanel([[-0.2, c.ly - 0.08], [0.2, c.ly - 0.08], [0.26, c.ly - 0.01], [0.18, c.ly + 0.06], [-0.18, c.ly + 0.06], [-0.26, c.ly - 0.01]], K.dark, 'front', c.NOSE + 0.004, 1);
         K.rpanel([[-0.56, 0.3], [0.56, 0.3], [0.52, 0.44], [-0.52, 0.44]], K.rubber, 'front', c.NOSE + 0.004, 1);
         K.both((sx) => K.rlamp(sx * 0.6, 0.38, c.NOSE + 0.006, 0.05, K.headMat));
@@ -10715,12 +10768,15 @@ const NEW_CARS = [
       wb: 2.511, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.085, 1.875, 1.42], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     aero: { cda: 1.04, cdaSide: 2.7, claF: 0.28, claR: 0.44, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with stacked dive planes, louvred front arches, side skirts, swan-neck rear wing on tall endplates, full-width diffuser' },
-    shape: { nose: 0.86, tail: 0.714, hood: [0.64, 0.92], rake: 0.14, lift: 0.07, belt: 0.98, ws: [-0.7, -1.42], crown: 0.06, roofEnd: -2.8, back: [-3.1, 0.99], b: -1.92,
-      shuts: [-0.72, -1.95, -2.55], lamps: 'slim', grille: false, scoop: -1.7, flareRun: 0.42, wing: [-2.9, -3.24, 1.24, 1.75, 0.99],
+    shape: { nose: 0.86, tail: 0.714, hood: [0.77, 0.96], rake: 0.06, lift: 0.03, noseW: 0.07, noseYs: 0.56, belt: 1.0, ws: [-0.7, -1.42], crown: 0.06, roofEnd: -2.8,
+      back: [-3.1, 0.99], b: -1.92, shuts: [-0.72, -1.95, -2.55], lamps: 'slim', grille: false, scoop: -1.7, flareRun: 0.42, openRear: true, bigWing: [-2.78, -3.36, 1.38, 1.8],
       details(K, S, c) {
-        // the Yaris WRC's huge black mouth filling the front under the slim lamps, with a centre bar for the plate
-        K.rpanel([[-(c.W + 0.2), 0.28], [c.W + 0.2, 0.28], [c.W + 0.12, c.ly - 0.04], [-(c.W + 0.12), c.ly - 0.04]], K.dark, 'front', c.NOSE + 0.004, 1);
-        K.rbox(0.3, 0.1, 0.02, K.trim, 0, 0.4, c.NOSE + 0.01);
+        // the Yaris WRC's huge black mouth filling the front from the splitter up to the slim lamps, with a centre bar for
+        // the plate; tail lamps on the corners joined by a black band across the tailgate
+        K.rpanel([[-(c.W + 0.2), 0.2], [c.W + 0.2, 0.2], [c.W + 0.12, c.ly - 0.03], [0.12, c.ly + 0.02], [-0.12, c.ly + 0.02], [-(c.W + 0.12), c.ly - 0.03]], K.dark, 'front', c.NOSE + 0.004, 1);
+        K.rbox(0.3, 0.1, 0.02, K.trim, 0, 0.44, c.NOSE + 0.01);
+        K.rpanel([[-0.4, c.belt - 0.21], [0.4, c.belt - 0.21], [0.4, c.belt - 0.14], [-0.4, c.belt - 0.14]], K.dark, 'front', c.TAIL - 0.005, -1);
+        K.both((sx) => K.rpanel([[sx * 0.4, c.belt - 0.24], [sx * (c.HW - 0.16), c.belt - 0.21], [sx * (c.HW - 0.22), c.belt - 0.11], [sx * 0.4, c.belt - 0.13]], K.tailMat, 'front', c.TAIL - 0.006, -1));
       } },
     rim: { spokes: 5, spokeW: 0.1, color: 0x1c1c1f, caliper: 0xd8262e }, pipes: [0.45],
     livery: { name: 'Toyota Gazoo Racing WRT, 2018', base: '#f4f4f2', rim: 0x1c1c1f, num: 8,
@@ -10742,10 +10798,13 @@ const NEW_CARS = [
       wb: 2.48, track: [1.58, 1.58], wf: 0.56, cgH: 0.45, dims: [3.976, 1.82, 1.37], travel: 0.26,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     aero: { cda: 0.88, cdaSide: 2.5, claF: 0.18, claR: 0.36, pitch: 0.07, ge: 0.25, text: 'Front splitter with corner dive planes, side skirts, rear wing on the hatch top, rear diffuser' },
-    shape: { nose: 0.8, tail: 0.696, hood: [0.62, 0.9], rake: 0.1, lift: 0.08, belt: 0.95, ws: [-0.7, -1.4], crown: 0.05, roofEnd: -2.75, back: [-3.03, 0.96], b: -1.9,
-      shuts: [-0.72, -1.93], lamps: 'rect', grille: false, scoop: -1.65, flareRun: 0.38, wing: [-2.78, -3.1, 1.38, 1.5, 0],
+    shape: { nose: 0.8, tail: 0.696, hood: [0.74, 0.94], rake: 0.06, lift: 0.03, noseW: 0.08, noseYs: 0.52, belt: 0.97, ws: [-0.7, -1.4], crown: 0.05, roofEnd: -2.75,
+      back: [-3.03, 0.96], b: -1.9, shuts: [-0.72, -1.93], lamps: 'rect', grille: false, scoop: -1.65, flareRun: 0.38, tailLamps: false, wing: [-2.78, -3.1, 1.38, 1.5, 0],
       details(K, S, c) {
-        // the Polo's slim horizontal grille bar joining the lamps with the VW roundel, and a big lower intake
+        // the Polo's slim horizontal grille bar joining the lamps with the VW roundel, and a big lower intake; the roof
+        // spoiler plus a second wing across the tailgate; wide tail lamps wrapping round the rear corners
+        S.wing(-2.96, -3.13, 1.08, 1.5, 0.98);
+        K.both((sx) => K.rpanel([[sx * 0.36, c.belt - 0.25], [sx * (c.HW - 0.16), c.belt - 0.22], [sx * (c.HW - 0.22), c.belt - 0.11], [sx * 0.38, c.belt - 0.13]], K.tailMat, 'front', c.TAIL - 0.006, -1));
         K.rpanel([[-0.32, c.ly - 0.03], [0.32, c.ly - 0.03], [0.32, c.ly + 0.03], [-0.32, c.ly + 0.03]], K.dark, 'front', c.NOSE + 0.005, 1);
         K.radd(new THREE.CircleGeometry(0.045, 14), K.trim, 0, c.ly, c.NOSE + 0.01);
         K.rpanel([[-(c.W + 0.1), 0.28], [c.W + 0.1, 0.28], [c.W, 0.46], [-c.W, 0.46]], K.dark, 'front', c.NOSE + 0.004, 1);
@@ -10828,8 +10887,8 @@ function buildCarModel(build) {
   const spec = Object.assign({ seatY: -0.1, seatZ: -0.1, seatX: 0.36, pilotScale: 0.85, rearZ: -2.1, thrY: -0.2, wing: [0.3, 0.55, -1.8, 1.8], shockTop: 0.2, antenna: [0.55, 0.5, -1.2] },
     BODY_BUILDERS[body](K));
   const { seatY, seatZ, rearZ, thrY } = spec;
-  add(new THREE.CylinderGeometry(0.015, 0.015, 1.1, 4), trim, spec.antenna[0], spec.antenna[1] + 0.55, spec.antenna[2]);
-  const tip = add(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff3030, toneMapped: false }), spec.antenna[0], spec.antenna[1] + 1.12, spec.antenna[2]);
+  add(new THREE.CylinderGeometry(0.015, 0.015, 0.4, 4), trim, spec.antenna[0], spec.antenna[1] + 0.2, spec.antenna[2]);   // a short rally aerial
+  const tip = add(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff3030, toneMapped: false }), spec.antenna[0], spec.antenna[1] + 0.42, spec.antenna[2]);
   tip.userData.keep = true; tip.visible = false;
   // ---- exhaust: tailpipes, with a flame for the anti-lag pops on upshifts and lifts ----
   const flameMat = new THREE.MeshBasicMaterial({ color: 0xff8a3a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
