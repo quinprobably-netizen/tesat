@@ -2262,6 +2262,9 @@ const GARAGE = {
     { name: 'PUMA', blurb: 'Ford Puma Rally1 by M-Sport, 2025-26 spec. A crossover shell over the Rally1 spaceframe: a touch taller and draggier.' },
     { name: 'FOCUS WRC', blurb: 'Ford Focus RS WRC 06, double manufacturers\' champion. 2.0 turbo with huge mid-range torque and an active centre diff.' },
     { name: 'MINI', blurb: 'Mini Cooper S, 1964 Monte Carlo winner. 1071 cc, front-wheel drive, ten-inch wheels and a quarter of the power: pure momentum.' },
+    { name: '222D', blurb: 'Toyota 222D, Group S prototype (1985-86). An MR2 turned into a mid-engined 4WD missile by Toyota Team Europe; the class was cancelled before it could race. Some specs estimated.' },
+    { name: 'RS002', blurb: 'Audi RS002, Group S prototype (1987). The S1\'s five-cylinder moved behind the driver in a low wedge. Only one was built; specs mostly estimated.' },
+    { name: 'ECV', blurb: 'Lancia ECV, Group S prototype (1986). A Delta S4 on a carbon-kevlar tub with the twin-turbo Triflux engine: 600 CV and almost no lag.' },
   ] },
   color: { label: 'PAINT', opts: [
     { name: 'BLAZE', hex: 0xff7a1a }, { name: 'NEBULA', hex: 0x8b5cff }, { name: 'COMET', hex: 0x19c8e6 }, { name: 'SOLAR', hex: 0xffd21f },
@@ -2430,6 +2433,35 @@ const CAR_SPECS = [
     kg: 650, front: 1, centre: 'open', fdiff: 'open', rdiff: 'open',
     wb: 2.036, track: [1.24, 1.2], wf: 0.6, cgH: 0.48, dims: [3.054, 1.41, 1.35], travel: 0.15, unsprung: [18, 16],   // 10 in wheels, rear drums
     tyre: { r: 0.265, w: 0.145, rim: 10, kg: 9, size: 'Dunlop SP3 145-10' }, disc: [181, 178] },
+  // Group S prototypes (the class meant to replace Group B in 1987, cancelled in 1986). None raced, so few figures
+  // were published; anything marked (est.) is an estimate.
+  // Toyota 222D: 503E 2.1 L turbo four, about 600 PS (Toyota's figure; some claims go higher), mid-mounted, four-wheel
+  // drive in the later cars; MR2 (AW11) 2.32 m wheelbase; weight, ratios, tracks and the torque curve (est.)
+  { engine: '2.1 L inline-4 (503E), turbo', cyl: 4, layout: 'inline', pitch: 1.02, hp: 592, hpAt: 8000, nm: 560, nmAt: 6000, redline: 8800, idle: 1000, lag: 0.6, offBoost: 0.5,
+    curve: [[1000, 150], [2000, 200], [3000, 280], [4000, 400], [5000, 510], [6000, 560], [7000, 545], [8000, 527], [8800, 470]],
+    disp: 2.14, launch: 5000, Ie: 0.1, enginePos: 'mid',
+    box: '5-speed dog box (ratios est.)', gears: [2.538, 1.706, 1.25, 1.0, 0.84], final: 5.3, rev: 2.8, shift: 0.1,
+    kg: 950, front: 0.35, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+    wb: 2.32, track: [1.53, 1.53], wf: 0.42, cgH: 0.44, dims: [4.0, 1.83, 1.24], travel: 0.25,
+    tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [300, 300] },
+  // Audi RS002: the S1's 2.1 L turbo five mid-mounted, about 700 PS claimed; one prototype, no published dimensions,
+  // so weight, size, ratios and the curve are estimates (the gearbox ratios are the S1's)
+  { engine: '2.1 L inline-5, turbo (mid-mounted)', cyl: 5, layout: 'inline', pitch: 1.09, hp: 685, hpAt: 8000, nm: 650, nmAt: 6500, redline: 8400, idle: 1000, lag: 0.7, offBoost: 0.5,
+    curve: [[1000, 190], [2000, 240], [3000, 320], [4000, 470], [5000, 600], [5500, 640], [6500, 650], [7500, 630], [8000, 610], [8400, 560]],
+    disp: 2.11, launch: 5500, Ie: 0.13, enginePos: 'mid',
+    box: '5-speed manual (S1 ratios)', gears: [3.111, 2.273, 1.706, 1.318, 0.962], final: 4.571, rev: 3.5, shift: 0.12,
+    kg: 1000, front: 0.5, centre: 'torsen', fdiff: 'lsdF', rdiff: 'lsd',
+    wb: 2.5, track: [1.55, 1.55], wf: 0.42, cgH: 0.43, dims: [4.1, 1.9, 1.18], travel: 0.25,
+    tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [330, 300] },
+  // Lancia ECV: Triflux 1,759 cc twin-turbo four, 600 CV at 8,000 rpm and 538 N·m at 5,000 (Lancia's figures),
+  // carbon-kevlar tub on the S4's 2.44 m wheelbase and tracks; S4 gearbox and viscous centre (est.), 930 kg (est.)
+  { engine: '1.8 L inline-4 (Triflux), twin-turbo', cyl: 4, layout: 'inline', pitch: 1, hp: 592, hpAt: 8000, nm: 538, nmAt: 5000, redline: 8600, idle: 1000, lag: 0.35, offBoost: 0.6,
+    curve: [[1000, 220], [2000, 300], [3000, 410], [4000, 500], [5000, 538], [6000, 535], [7000, 525], [8000, 527], [8600, 480]],
+    disp: 1.759, launch: 5000, Ie: 0.1, enginePos: 'mid',
+    box: '5-speed Hewland dog box (S4 ratios)', gears: [2.538, 1.706, 1.25, 1.0, 0.84], final: 5.55, rev: 2.8, shift: 0.1,
+    kg: 930, front: 0.3, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+    wb: 2.44, track: [1.51, 1.535], wf: 0.43, cgH: 0.44, dims: [4.0, 1.88, 1.33], travel: 0.25,
+    tyre: { r: 0.33, w: 0.195, rim: 16, kg: 20, size: 'Pirelli 660-16 gravel' }, disc: [300, 300] },
 ];
 // derived: driveline efficiency (four-wheel drive loses a little more through the extra diffs), clutch capacity, and
 // the revs the engine settles at on a full-throttle standing start while the launch clutch slips
@@ -2474,6 +2506,13 @@ const CAR_AERO = [
   // Mini: Cd about 0.48 and a small frontal area; the upright box lifts at speed, mostly at the nose
   { cda: 0.78, cdaSide: 1.9, claF: -0.12, claR: -0.06, pitch: 0, ge: 0,
     text: 'No aero devices: an upright 1959 box with a Cd of about 0.48' },
+  // Group S: no published aero figures, so these are estimates from the bodies' shapes and wings
+  { cda: 0.82, cdaSide: 2.3, claF: 0.2, claR: 0.42, pitch: 0.07, ge: 0.3,
+    text: 'Splitter under a spot-lamp pod, box flares, side intakes, tall rear wing on stanchions, rear diffuser (estimated)' },
+  { cda: 0.8, cdaSide: 2.3, claF: 0.26, claR: 0.46, pitch: 0.07, ge: 0.35,
+    text: 'Low wedge nose with dive planes, roof scoop, big side scoops, full-width rear wing, rear diffuser (estimated)' },
+  { cda: 0.82, cdaSide: 2.35, claF: 0.18, claR: 0.38, pitch: 0.06, ge: 0.35,
+    text: 'Chin splitter with dive planes, roof intake, rear wing on the hatch, rear diffuser (estimated)' },
 ];
 const aeroText = (a) => { const c = a.claF + a.claR, f = Math.round(a.claF / c * 100);
   return `${a.text}. Drag ${a.cda.toFixed(2)} m², ` + (c > 0 ? `downforce ${c.toFixed(2)} m² (${f}% front)` : c < 0 ? `lift ${(-c).toFixed(2)} m² (${f}% front)` : 'no downforce'); };
@@ -2497,7 +2536,7 @@ function drivetrainText(spec) {
    of mass), z by the wheelbase between the wheel arches and by the real length beyond them. The physics
    uses the same numbers: wheel positions, tyre radius, ride height, springs, brakes, inertia and hull. */
 const MODEL = { FZ: 1.38, RZ: -1.30, X: 1.02, GY: -0.87, ARCH: 0.55, archR: 0.52 };
-const MODEL_BOX = [[0.75, 2.218, -2.172], [0.65, 2.636, -2.318], [0.76, 2.088, -1.948], [0.44, 2.2403, -2.0381], [0.67, 2.265, -2.232], [0.8, 2.1356, -1.928], [0.88, 2.616, -2.74], [0.62, 2.32, -1.975], [0.62, 2.23, -1.94], [0.63, 2.286, -2.046], [0.55, 2.338, -2.08], [0.55, 2.098, -2.061]];
+const MODEL_BOX = [[0.75, 2.218, -2.172], [0.65, 2.636, -2.318], [0.76, 2.088, -1.948], [0.44, 2.2403, -2.0381], [0.67, 2.265, -2.232], [0.8, 2.1356, -1.928], [0.88, 2.616, -2.74], [0.62, 2.32, -1.975], [0.62, 2.23, -1.94], [0.63, 2.286, -2.046], [0.55, 2.338, -2.08], [0.55, 2.098, -2.061], [0.6, 2.3041, -2.3165], [0.6, 2.184, -2.2112], [0.6, 2.2148, -2.1787]];
 const MODEL_HULL = [[0.95, -0.08, 1.9], [-0.95, -0.08, 1.9], [0.95, -0.08, -1.9], [-0.95, -0.08, -1.9],   // roof corners (y relative to the roof)
   [0.95, -0.32, 2.15], [-0.95, -0.32, 2.15], [0.95, -0.32, -2.0], [-0.95, -0.32, -2.0]];
 function carGeometry(body, mass) {
@@ -9024,9 +9063,161 @@ function gbBody_mini(K) {
     wing: [K.RY(ROOF), K.RY(ROOF + 0.2), K.RZ(-1.6), 1.4], shockTop: K.RY(0.55), antenna: [K.RX(-0.4), K.RY(ROOF - 0.01), K.RZ(-1.5)],
   };
 }
+/* ---- Group S: the prototypes built for the class that was to replace Group B in 1987, cancelled in 1986 ----
+   One shared shell for the three mid-engined prototypes: a lofted lower body from the car's deck line (c.deck:
+   [z, deck height, half width, bottom] nose to tail), a glass canopy (c.glass: [z, bottom, top, half width, top half
+   width]) under a painted roof skin, flared arch lips, sills, cage and interior. Each builder adds its own nose,
+   tail, intakes and wing. Returns the real nose/tail z and a wing helper. */
+function gbGroupS(K, c) {
+  const wb = K.wb, r = K.tyreR, AR = r + 0.08, NOSE = c.nose, TAIL = -wb - c.tail, ROOF = c.roof, W = c.w;
+  const zsAll = (a, b, step) => { const o = []; for (let z = a; z > b - 1e-6; z -= step) o.push(+z.toFixed(4)); if (o[o.length - 1] > b) o.push(b); return o; };
+  K.loft(c.deck.map(([z, yt, w = W, yb = 0.2]) => ({ z, yb, ys: yb + (yt - yb) * 0.5, yt, w, wt: w - 0.07, r: 0.05, crown: 0.03 })),
+    { zs: zsAll(NOSE, TAIL, 0.06), bottom: (z, yb) => K.archY(z, yb, AR), side: 4, top: 3 });
+  const G = c.glass, gz0 = G[0][0], gz1 = G[G.length - 1][0];
+  K.loft(G.map(([z, yb, yt, w, wt]) => ({ z, yb, ys: yb + 0.02, yt, w, wt, r: 0.01, crown: yt - yb > 0.15 ? 0.05 : 0.01 })),
+    { zs: zsAll(gz0, gz1, 0.1).concat(G.map((s) => s[0])), mat: K.glass, under: null, caps: [null, null], side: 4, top: 3 });
+  const [rz0, rz1] = c.roofZ, rw = c.roofW;
+  K.loft([
+    { z: rz0, yb: ROOF - 0.07, ys: ROOF - 0.055, yt: ROOF, w: rw, wt: rw - 0.045, r: 0.01, crown: 0.04 },
+    { z: rz1, yb: ROOF - 0.07, ys: ROOF - 0.055, yt: ROOF, w: rw, wt: rw - 0.045, r: 0.01, crown: 0.04 },
+  ], { zs: zsAll(rz0, rz1, 0.3).concat([rz1]), side: 2, top: 3 });
+  // interior, cage and the bulkhead in front of the mid engine
+  K.rbox(1.4, 0.02, rz0 - rz1 + 0.6, K.dark, 0, 0.62, (rz0 + rz1) / 2);
+  K.rbox(1.36, 0.1, 0.2, K.dark, 0, G[0][1] + 0.06, gz0 - 0.12);                      // dash
+  K.rbox(1.4, 0.45, 0.04, K.dark, 0, ROOF - 0.3, rz1 - 0.02);
+  K.both((sx) => {
+    K.rbox(0.42, 0.55, 0.1, K.dark, sx * 0.33, 0.85, rz1 + 0.12);                      // bucket seats
+    K.rtube(sx * 0.6, 0.65, rz1 + 0.05, sx * 0.58, ROOF - 0.08, rz1 + 0.08, 0.025, K.dark);
+    K.rtube(sx * 0.58, ROOF - 0.08, rz1 + 0.08, sx * 0.6, ROOF - 0.08, rz0 - 0.05, 0.022, K.dark);
+    K.rtube(sx * (G[0][3] - 0.01), G[0][1] + 0.02, gz0 - 0.02, sx * (rw - 0.01), ROOF - 0.05, rz0 + 0.02, 0.03, K.paint);   // A pillar
+    if (c.sail) { K.rpanel(c.sail, K.paint, 'side', sx * c.sailX, sx); K.rpanel(c.sail, K.paint, 'side', sx * (c.sailX - 0.01), -sx); }
+    // flared arch lips, sill skirt and mud flaps
+    for (const cz of [0, -wb]) {
+      const o = K.rarc(cz, r, AR + 0.05, 0, Math.PI, 14), i = K.rarc(cz, r, AR, Math.PI, 0, 14);
+      K.rpanel(o.concat(i).map(([z, y]) => [z, Math.max(y, 0.2)]), K.paint, 'side', sx * (W + 0.008), sx);
+      K.rbox(0.2, 0.2, 0.012, K.rubber, sx * 0.72, 0.13, cz - AR - 0.02);
+    }
+    K.rbox(0.04, 0.08, wb - 2 * AR - 0.12, K.dark, sx * (W - 0.01), 0.24, -wb / 2);
+    for (const q of c.intakes || []) K.rpanel(q, K.rubber, 'side', sx * (W + 0.01), sx);
+    K.rbox(0.07, 0.08, 0.13, K.paint, sx * (G[0][3] + 0.14), G[0][1] + 0.12, gz0 - 0.08);   // door mirror
+  });
+  // splitter, bumpers and diffuser
+  K.rbox(2 * W - 0.1, 0.025, 0.34, K.dark, 0, 0.17, NOSE - 0.1);
+  K.rbox(2 * W - 0.06, 0.16, 0.05, K.dark, 0, 0.3, NOSE + 0.005);
+  K.rbox(2 * W - 0.08, 0.16, 0.05, K.dark, 0, 0.36, TAIL - 0.005);
+  K.rbox(1.4, 0.03, 0.4, K.dark, 0, 0.24, TAIL + 0.16);
+  for (const x of [-0.45, -0.15, 0.15, 0.45]) K.rbox(0.015, 0.1, 0.36, K.dark, x, 0.29, TAIL + 0.16);
+  /** Rear wing: main plane from z0 to z1 at height y, span wide, gurney lip, endplates; stanchions down to `base`. */
+  const wing = (z0, z1, y, span, base) => {
+    K.rbox(span, 0.035, z0 - z1, K.paint, 0, y, (z0 + z1) / 2, -0.06);
+    K.rbox(span, 0.06, 0.02, K.dark, 0, y + 0.03, z1 + 0.01);
+    K.both((sx) => {
+      const ep = [[z0 + 0.05, y - 0.07], [z1 - 0.04, y - 0.07], [z1 - 0.04, y + 0.1], [z0 + 0.05, y + 0.05]];
+      K.rpanel(ep, K.dark, 'side', sx * span / 2, sx); K.rpanel(ep, K.dark, 'side', sx * (span / 2 - 0.01), -sx);
+      if (base) K.rbox(0.03, y - base, 0.14, K.dark, sx * 0.42, (y + base) / 2, (z0 + z1) / 2);
+    });
+  };
+  const layout = (seatZ) => ({
+    seatX: K.RX(0.33), seatY: K.RY(ROOF - 0.6), seatZ: K.RZ(seatZ), pilotScale: 1.0,
+    rearZ: K.RZ(TAIL), thrY: K.RY(0.32),
+    wing: [K.RY(ROOF - 0.05), K.RY(ROOF + 0.03), K.RZ(TAIL + 0.4), K.RX(1.6)], shockTop: K.RY(0.64),
+    antenna: [K.RX(-0.3), K.RY(ROOF), K.RZ(rz1 + 0.15)],
+  });
+  return { NOSE, TAIL, ROOF, W, wing, layout };
+}
+// Toyota 222D (1985-86), Toyota Team Europe's Group S prototype on the MR2 (AW11): 2.32 m wheelbase from the MR2,
+// about 4.0 m long, 1.83 m wide and 1.24 m tall over box flares (estimates from photos). Pop-up lamps, a spot-lamp
+// pod on the nose, side intakes behind the doors, sail panels over a flat engine lid and a tall rear wing.
+function gbBody_222d(K) {
+  const S = gbGroupS(K, {
+    nose: 0.8, tail: 0.88, roof: 1.24, w: 0.86,
+    deck: [[0.8, 0.5, 0.78, 0.26], [0.74, 0.58, 0.84, 0.22], [0.45, 0.7], [0.0, 0.78], [-0.55, 0.81], [-1.5, 0.84], [-2.3, 0.86], [-2.95, 0.87], [-3.15, 0.86, 0.83, 0.24], [-3.2, 0.82, 0.78, 0.27]],
+    glass: [[-0.52, 0.8, 0.83, 0.74, 0.73], [-1.18, 0.85, 1.23, 0.72, 0.62], [-1.8, 0.86, 1.23, 0.72, 0.62], [-1.98, 0.86, 0.95, 0.7, 0.68]],
+    roofZ: [-1.15, -1.83], roofW: 0.64,
+    sail: [[-1.8, 1.21], [-2.95, 0.87], [-1.95, 0.86]], sailX: 0.7,
+    intakes: [[[-1.85, 0.46], [-2.12, 0.46], [-2.12, 0.74], [-1.85, 0.78]]],
+  });
+  const { NOSE, TAIL } = S;
+  K.both((sx) => {
+    // pop-up headlamps, shut, and their lids' shut lines; wrap-around indicators
+    K.rbox(0.36, 0.012, 0.012, K.dark, sx * 0.5, 0.645, 0.62);
+    K.rbox(0.36, 0.012, 0.012, K.dark, sx * 0.5, 0.71, 0.3);
+    K.rbox(0.012, 0.012, 0.32, K.dark, sx * 0.32, 0.68, 0.46);
+    K.rpanel([[sx * 0.55, 0.42], [sx * 0.76, 0.42], [sx * 0.74, 0.48], [sx * 0.55, 0.48]], K.headMat, 'front', NOSE + 0.01, 1);
+    // rally pod: two big spot lamps each side on the bumper
+    K.rlamp(sx * 0.18, 0.53, NOSE + 0.03, 0.08, K.headMat); K.rlamp(sx * 0.4, 0.5, NOSE + 0.02, 0.08, K.headMat);
+    // tail: wide lamp band and the louvred engine lid
+    K.rpanel([[sx * 0.2, 0.62], [sx * 0.76, 0.62], [sx * 0.74, 0.76], [sx * 0.2, 0.76]], K.tailMat, 'front', TAIL - 0.006, -1);
+  });
+  K.rpanel([[-0.6, 0.27], [0.6, 0.27], [0.55, 0.4], [-0.55, 0.4]], K.rubber, 'front', NOSE + 0.035, 1);    // cooling mouth
+  K.rpanel([[-0.78, 0.5], [0.78, 0.5], [0.76, 0.8], [-0.76, 0.8]], K.dark, 'front', TAIL - 0.003, -1);
+  for (let i = 0; i < 6; i++) K.rbox(1.1, 0.012, 0.06, K.dark, 0, 0.875, -2.1 - i * 0.13);
+  S.wing(-2.78, -3.18, 1.13, 1.72, 0.88);
+  return S.layout(-1.45);
+}
+// Audi RS002 (1986-87), Audi Sport's single Group S prototype: the Sport quattro's 2.1 L five turned round to sit
+// behind the driver in a low composite wedge. Audi published no dimensions: 4.1 m long, 1.9 m wide, 1.18 m tall on a
+// 2.5 m wheelbase are estimates from photos. Cab-forward canopy, roof scoop, huge side scoops, full-width wing.
+function gbBody_rs002(K) {
+  const S = gbGroupS(K, {
+    nose: 0.75, tail: 0.85, roof: 1.18, w: 0.9,
+    deck: [[0.75, 0.44, 0.82, 0.24], [0.68, 0.53, 0.88, 0.2], [0.3, 0.68], [0.0, 0.77], [-0.3, 0.79], [-1.2, 0.84], [-2.0, 0.9], [-2.9, 0.93], [-3.3, 0.92, 0.87, 0.24], [-3.35, 0.89, 0.83, 0.27]],
+    glass: [[-0.28, 0.78, 0.81, 0.76, 0.75], [-0.95, 0.82, 1.17, 0.72, 0.6], [-1.55, 0.85, 1.17, 0.72, 0.6], [-1.75, 0.88, 0.97, 0.7, 0.68]],
+    roofZ: [-0.92, -1.58], roofW: 0.62,
+    sail: [[-1.55, 1.15], [-2.75, 0.93], [-1.75, 0.88]], sailX: 0.72,
+    intakes: [[[-1.8, 0.42], [-2.3, 0.42], [-2.3, 0.82], [-1.8, 0.82]]],
+  });
+  const { NOSE, TAIL, ROOF } = S;
+  K.both((sx) => {
+    // slim lamp strip across the nose, two lamps a side
+    K.rpanel([[sx * 0.25, 0.42], [sx * 0.8, 0.42], [sx * 0.78, 0.5], [sx * 0.25, 0.5]], K.dark, 'front', NOSE + 0.004, 1);
+    K.rpanel([[sx * 0.3, 0.43], [sx * 0.5, 0.43], [sx * 0.5, 0.49], [sx * 0.3, 0.49]], K.headMat, 'front', NOSE + 0.007, 1);
+    K.rpanel([[sx * 0.54, 0.43], [sx * 0.75, 0.43], [sx * 0.74, 0.49], [sx * 0.54, 0.49]], K.headMat, 'front', NOSE + 0.007, 1);
+    K.rbox(0.14, 0.018, 0.2, K.dark, sx * 0.84, 0.3, NOSE - 0.05, 0, 0, sx * 0.25);    // dive planes
+    K.rlamp(sx * 0.5, 0.7, TAIL - 0.01, 0.06, K.tailMat, -1); K.rlamp(sx * 0.68, 0.7, TAIL - 0.01, 0.06, K.tailMat, -1);
+  });
+  for (let k = 0; k < 4; k++) K.radd(new THREE.TorusGeometry(0.045, 0.008, 6, 16), K.trim, -0.105 + k * 0.07, 0.3, NOSE + 0.035);   // four rings
+  K.rpanel([[-0.55, 0.22], [0.55, 0.22], [0.5, 0.38], [-0.5, 0.38]], K.rubber, 'front', NOSE + 0.035, 1);
+  K.rpanel([[-0.82, 0.48], [0.82, 0.48], [0.8, 0.86], [-0.8, 0.86]], K.dark, 'front', TAIL - 0.003, -1);
+  // roof scoop feeding the intercooler, louvres down the engine cover
+  K.rbox(0.42, 0.13, 0.7, K.paint, 0, ROOF + 0.02, -1.85, 0.12);
+  K.rpanel([[-0.17, ROOF - 0.03], [0.17, ROOF - 0.03], [0.17, ROOF + 0.06], [-0.17, ROOF + 0.06]], K.dark, 'front', -1.48, 1);
+  for (let i = 0; i < 5; i++) K.rbox(1.0, 0.012, 0.06, K.dark, 0, 0.93, -2.3 - i * 0.13);
+  S.wing(-2.95, -3.35, 1.06, 1.86, 0.93);
+  return S.layout(-1.2);
+}
+// Lancia ECV (1986), Abarth's Group S prototype on the Delta S4: same 2.44 m wheelbase and tracks, carbon-kevlar
+// honeycomb tub, smoother body. About 4.0 m long, 1.88 m wide and 1.33 m tall (S4-based estimates). Four round lamps
+// in a black band, roof intake, rear wing on the hatch.
+function gbBody_ecv(K) {
+  const S = gbGroupS(K, {
+    nose: 0.76, tail: 0.8, roof: 1.3, w: 0.9,
+    deck: [[0.76, 0.56, 0.82, 0.24], [0.7, 0.65, 0.88, 0.2], [0.3, 0.74], [0.0, 0.8], [-0.55, 0.86], [-2.0, 0.9], [-2.95, 0.92], [-3.2, 0.9, 0.86, 0.24], [-3.24, 0.86, 0.82, 0.27]],
+    glass: [[-0.55, 0.85, 0.88, 0.8, 0.79], [-1.25, 0.9, 1.29, 0.76, 0.7], [-2.72, 0.92, 1.29, 0.76, 0.7], [-3.0, 0.92, 1.0, 0.74, 0.72]],
+    roofZ: [-1.22, -2.75], roofW: 0.72,
+    sail: [[-2.3, 0.92], [-2.98, 0.93], [-2.78, 1.27], [-2.38, 1.27]], sailX: 0.765,
+    intakes: [[[-2.0, 0.5], [-2.3, 0.5], [-2.3, 0.82], [-2.0, 0.84]]],
+  });
+  const { NOSE, TAIL, ROOF } = S;
+  K.rpanel([[-0.8, 0.5], [0.8, 0.5], [0.78, 0.66], [-0.78, 0.66]], K.dark, 'front', NOSE + 0.004, 1);      // black lamp band
+  K.both((sx) => {
+    K.rlamp(sx * 0.42, 0.58, NOSE + 0.01, 0.065, K.headMat); K.rlamp(sx * 0.62, 0.58, NOSE + 0.01, 0.065, K.headMat);
+    K.rpanel([[sx * 0.3, 0.68], [sx * 0.76, 0.68], [sx * 0.74, 0.82], [sx * 0.3, 0.82]], K.tailMat, 'front', TAIL - 0.006, -1);
+    K.rbox(0.14, 0.018, 0.2, K.dark, sx * 0.84, 0.32, NOSE - 0.05, 0, 0, sx * 0.25);
+  });
+  K.rpanel([[-0.08, 0.53], [0.08, 0.53], [0.08, 0.63], [-0.08, 0.63]], K.trim, 'front', NOSE + 0.008, 1);   // Lancia shield
+  K.rpanel([[-0.6, 0.24], [0.6, 0.24], [0.55, 0.42], [-0.55, 0.42]], K.rubber, 'front', NOSE + 0.035, 1);
+  K.rpanel([[-0.78, 0.5], [0.78, 0.5], [0.76, 0.9], [-0.76, 0.9]], K.dark, 'front', TAIL - 0.003, -1);
+  for (let i = 0; i < 4; i++) K.rbox(0.6, 0.012, 0.01, K.trim, 0, 0.56 + i * 0.03, TAIL - 0.008);
+  // roof intake for the engine
+  K.rbox(0.5, 0.05, 0.6, K.paint, 0, ROOF + 0.015, -1.75);
+  K.rpanel([[-0.22, ROOF], [0.22, ROOF], [0.22, ROOF + 0.035], [-0.22, ROOF + 0.035]], K.dark, 'front', -1.44, 1);
+  S.wing(-2.72, -3.06, 1.27, 1.62, 0);
+  return S.layout(-1.55);
+}
 /* Tailpipe x positions (model space) per car, at the builder's thrY and rearZ. */
-const TAILPIPES = [[0.42], [-0.5, 0.5], [0.42], [-0.36, 0.36], [0.42], [-0.32, 0.32], [0.5], [0.3], [0.3], [0.3], [0.3], [0.53]];
-const BODY_BUILDERS = [gbBody_twincharger, gbBody_fivepot, gbBody_t16, gbBody_stradale, gbBody_rswedge, gbBody_sixr, gbBody_prerunner, gbBody_yaris, gbBody_i20, gbBody_puma, gbBody_focus, gbBody_mini];
+const TAILPIPES = [[0.42], [-0.5, 0.5], [0.42], [-0.36, 0.36], [0.42], [-0.32, 0.32], [0.5], [0.3], [0.3], [0.3], [0.3], [0.53], [0.4], [-0.35, 0.35], [0.42]];
+const BODY_BUILDERS = [gbBody_twincharger, gbBody_fivepot, gbBody_t16, gbBody_stradale, gbBody_rswedge, gbBody_sixr, gbBody_prerunner, gbBody_yaris, gbBody_i20, gbBody_puma, gbBody_focus, gbBody_mini, gbBody_222d, gbBody_rs002, gbBody_ecv];
 /* Rally wheels per car: spoke count and width, rim and caliper colours (in GARAGE.body order). */
 const RIM_STYLES = [
   { spokes: 8, spokeW: 0.05, color: 0xf2f2ee, caliper: 0xd8262e },   // TWINCHARGER: white multi-spoke
@@ -9041,6 +9232,9 @@ const RIM_STYLES = [
   { spokes: 5, spokeW: 0.1, color: 0xe8e8ec, caliper: 0xd8262e },    // PUMA: white five-spoke
   { spokes: 6, spokeW: 0.08, color: 0xd9dce2, caliper: 0xe6a21a },   // FOCUS WRC: silver six-spoke
   { spokes: 4, spokeW: 0.1, color: 0xd0d0d0, caliper: 0x2a2a2a },    // MINI: slotted steel wheel
+  { spokes: 8, spokeW: 0.05, color: 0xe8e8ea, caliper: 0xd8262e },  // 222D: white multi-spoke (est.)
+  { spokes: 6, spokeW: 0.09, color: 0xc9ccd2, caliper: 0xd8262e },   // RS002: silver six-spoke (est.)
+  { spokes: 8, spokeW: 0.05, color: 0xf2f2ee, caliper: 0xd8262e },   // ECV: white multi-spoke like the S4
 ];
 /* ---- works liveries: each car's real rally livery, painted onto one texture atlas that wraps the whole shell.
    Every painted face takes its texture coordinates from where it sits on the car (liveryUV): a face looking
@@ -9312,6 +9506,36 @@ LIVERIES.push(
     top(P) {
       P.rect(0.54, -1.15, -1.1, 1.1, '#f4f4f0');
       P.ellipse(1.55, 0, 0.17, '#f4f4f0'); P.text('37', 1.55, 0, 0.14, '#111', { rot: -Math.PI / 2, italic: false, w: 0.3 });
+    } },
+  // Group S prototypes never raced, so these are their test and show colours, approximated from photos
+  { name: 'Toyota Team Europe test car, 1986', base: '#16171b', rim: 0xe8e8ea, num: 22,
+    side(P, n) {
+      P.rect(2.4, -2.4, -0.62, -0.56, '#d6202a');
+      P.rect(2.4, -2.4, -0.54, -0.52, '#f4f4f2');
+      P.plate(n, 0.45, -0.2, 0.4, 0.2);
+      P.text('TOYOTA', -0.7, -0.33, 0.1, '#f4f4f2', { w: 0.9 });
+      P.text('TTE', 1.75, -0.28, 0.07, '#d6202a', { w: 0.3 });
+    },
+    top(P) { P.text('TOYOTA', 1.6, 0, 0.12, '#f4f4f2', { rot: Math.PI / 2, w: 0.7 }); P.rect(2.4, -2.4, -0.06, 0.06, '#d6202a'); } },
+  { name: 'Audi Sport prototype, 1987', base: '#f4f4f0', rim: 0xc9ccd2, num: 2,
+    side(P, n) {
+      P.rect(2.4, -2.5, -0.68, -0.6, '#d71920');
+      P.rect(2.4, -2.5, -0.58, -0.555, '#111');
+      P.plate(n, 0.5, -0.25, 0.4, 0.2);
+      for (let k = 0; k < 4; k++) P.ellipse(-0.75 + k * 0.08, -0.3, 0.055, '#111', 0.012);
+      P.text('RS 002', -1.6, -0.3, 0.08, '#111', { w: 0.5 });
+    },
+    top(P) { for (let k = 0; k < 4; k++) P.ellipse(1.7, -0.17 + k * 0.11, 0.075, '#111', 0.016); P.rect(2.4, -2.5, -0.04, 0.04, '#d71920'); } },
+  { name: 'Martini Lancia, 1986', base: '#f4f4f0', rim: 0xf2f2ee, num: 1,
+    side(P, n) {
+      martini(P, [[2.6, -0.14], [-0.4, -0.14], [-0.92, 0.1], [-1.4, 0.3], [-2.5, 0.3]], 0.05);
+      P.plate(n, 0.3, 0.0);
+      P.text('MARTINI RACING', 0.05, -0.36, 0.085, '#111', { w: 1.1 });
+      P.text('ECV', -1.6, -0.12, 0.1, '#0d2a5c', { w: 0.4 });
+    },
+    top(P) {
+      for (const sx of [-1, 1]) { P.rect(2.6, -2.5, sx * 0.3, sx * 0.36, '#3d9ad1'); P.rect(2.6, -2.5, sx * 0.37, sx * 0.43, '#0d2a5c'); P.rect(2.6, -2.5, sx * 0.44, sx * 0.5, '#d6262b'); }
+      P.text('MARTINI', 1.6, 0, 0.13, '#111', { rot: 0 });
     } },
 );
 
