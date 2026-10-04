@@ -10792,6 +10792,12 @@ LIVERIES.push(
 
 LIVERIES.forEach((l, i) => { if (l.num == null) l.num = [4, 1, 5, 3, 2, 6, 8][i]; });
 
+/* Only the MINI stays in the garage: trim every list indexed like GARAGE.body down to its entry. */
+{
+  const keep = GARAGE.body.opts.findIndex((o) => o.name === 'MINI');
+  for (const a of [GARAGE.body.opts, CAR_SPECS, CAR_AERO, MODEL_BOX, TAILPIPES, BODY_BUILDERS, RIM_STYLES, LIVERIES]) a.splice(0, a.length, a[keep]);
+}
+
 function buildCarModel(build) {
   build = cleanBuild(build);
   const accentHex = GARAGE.color.opts[build.color].hex, pilot = GARAGE.pilot.opts[build.pilot];
