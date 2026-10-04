@@ -1,47 +1,34 @@
 # Regolith Rally
 
-A point-to-point rally game in a single self-contained HTML file. You drive a Group B-inspired rally car against the clock across thirteen stages: eight in space (the Moon, a planetary ring, a derelict station field, a Martian canyon, the ice of Europa, an orbital smelter over Io, a moon of the black hole Cygnus X-1 and a Dyson swarm around Tabby's Star) and five real roads on Earth: the Pikes Peak hill climb, the Col de Turini (Monte-Carlo), Vargåsen (Rally Sweden), Ouninpohja (Rally Finland) and the Col de Sorba (Tour de Corse). A fourteenth, the Proving Ground, is a test park for trying cars and set-ups. Everything is generated procedurally: terrain, textures, sky, particles and sound.
+A point-to-point rally game in a single self-contained HTML file. You drive a rally car against the clock on fourteen real stages, one from each round of the 2026 World Rally Championship, in calendar order. A fifteenth, the Proving Ground, is a test park for trying cars and set-ups. Everything is generated procedurally: terrain, textures, sky, particles and sound.
 
 **Play:** open `index.html` in a modern browser. It loads three.js r186 from jsdelivr and needs no build step or server.
 
 ## Stages
 
-Every stage is laid out from a course: a list of named sections, each a string of straights, corners (radius and heading), crests, kickers, chasms, chicane straights and surface changes, with its own grade. The space stages' courses are designed to roam across their worlds, past landmarks such as a crater rim the road wraps around or a canyon whose walls rise either side of the road. The five Earth stages follow their real roads' named sections in order. The co-driver calls each section by name as you reach it. Every stage runs at Earth gravity (9.81 m/s²), wherever it is set.
+| Round | Rally | Stage | Length | Surface |
+|---|---|---|---|---|
+| 1 | Rallye Monte-Carlo | Col de Turini: La Bollène-Vésubie (690 m) up the hairpins to the 1,604 m col | 13.5 km | Tarmac, snow, ice |
+| 2 | Rally Sweden | Bygdsiljum: Västerbotten forest, snowbanks, a frozen mire | 13.9 km | Snow, ice |
+| 3 | Safari Rally Kenya | Hell's Gate: Fischer's Tower, Central Tower, the gorge, 1,900 m up | 10.4 km | Rocky gravel, fesh-fesh |
+| 4 | Croatia Rally | Platak: bumpy tarmac up through beech and fir to the ski area | 12.5 km | Tarmac |
+| 5 | Rally Islas Canarias | Artenara: the Cruz de Tejeda and the caldera ridge, Gran Canaria | 12.2 km | Tarmac |
+| 6 | Rally de Portugal | Fafe: eucalyptus, granite and the Fafe jump at Pedra Sentada | 11.2 km | Gravel |
+| 7 | Rally Japan | Isegami's Tunnel: very narrow tarmac through the cedar forest | 11.5 km | Tarmac |
+| 8 | Acropolis Rally | Loutraki: rough, rocky mountain gravel above the Gulf of Corinth | 11.8 km | Rocky gravel |
+| 9 | Rally Estonia | Arula: fast sandy gravel and big jumps near Otepää | 11.8 km | Gravel |
+| 10 | Rally Finland | Ouninpohja: blind crests, the Yellow House, Kakaristo | 12.2 km | Gravel |
+| 11 | Rally del Paraguay | Cantera: red earth in Itapúa | 13.7 km | Gravel |
+| 12 | Rally Chile Bío Bío | Rere: pine and eucalyptus plantations south of Concepción | 11.4 km | Gravel |
+| 13 | Rally Italia Sardegna | Monte Lerno: granite, maquis, cork oaks and Micky's Jump | 10.8 km | Sandy gravel |
+| 14 | Rally Saudi Arabia | Khulays: open wadis between black volcanic hills north of Jeddah | 11.3 km | Gravel, sand |
+| Test | Proving Ground | Every surface on one 3.85 km lap | 3.85 km | All six |
 
-The stages are sized for real-size cars: the space roads are 12 to 16 m wide (wide by Earth standards, so there is room to slide) and the Earth roads 8.4 to 9.2 m. Each surface has a realistic grip and rolling resistance: tarmac 1.05, regolith dust 0.74, metal deck plating 0.72, gravel 0.66, packed snow 0.42 and ice 0.30, with loose surfaces dragging more. Studded tyres add 40% grip on snow. Chicane rows leave a wider gap, and the jumps and crests are checked against the real cars' 22 to 32 cm of wheel travel.
+**Scale.** The stages are built 1:1 for real-size cars. Road widths are real (5.6 m on Isegami's Tunnel and Monte Lerno to 10 m in the Saudi desert), hairpins have their real 13 to 16 m radius, and the lengths are real timed distances: the whole stage where it is under 15 km (Cantera's 13.74 km, Khulays' 11.33 km and Fafe's 11.18 km match the real itineraries), otherwise a real-length section of it. Grades are real too, and the mountain climbs rise their real height (914 m up the Turini, 640 m to Platak, 620 m above Loutraki, 480 m on Artenara), with the HUD altimeter and the thin air (Hell's Gate at 1,900 m, the Turini) following them.
 
-| Stage | Character |
-|---|---|
-| Lunar Dust Run | Wide and forgiving regolith roads from Tranquility Base, along Hadley Rille, round a crater rim and over the Apennine crests |
-| Ice Ring Traverse | Slippery ice causeway on a planetary ring under a gas giant: a shepherd moon, the Encke Gap and a chicane maze in the spokes |
-| Wreckage Belt | Tight metal-plated corners through a derelict station: docking bay, hull breach, spine corridor, reactor loop and the cargo maze |
-| Red Canyon Sprint | Fast gravel along rust-red Martian mesas, then down onto a canyon floor between sheer walls and back up to the rim |
-| Europa Fracture Line | Low-grip ice shelf with cliffs on both sides, under a huge Jupiter: chaos terrain, fracture jumps and long sweepers |
-| Foundry Gauntlet | Hairpins on the metal decks of an orbital smelter over Io, a slag bridge jump and crane alley; the hardest space stage |
-| Pikes Peak | The Race to the Clouds, cut to 5.6 km timed: see below |
-| Col de Turini | The Monte-Carlo's night stage up to the 1,604 m col: tarmac, snow and ice, hairpins and stone walls |
-| Vargåsen | Rally Sweden's snow stage through the Värmland forest, snowbanks, a frozen lake and Colin's Crest |
-| Ouninpohja | Rally Finland's fastest gravel: blind crests and jumps through pine and birch, past the Yellow House |
-| Col de Sorba | Tour de Corse tarmac from Ghisoni up the gorge and through the Corsican pines to the 1,311 m col |
-| Event Horizon | A dark moon of Cygnus X-1: ice streams, a crater looped at the photon sphere, hairpins, then flat out to escape velocity |
-| Dyson Swarm | Grippy metal decks of a Dyson swarm around Tabby's Star: collector arrays, a mirror field, a jump between statites, corona hairpins |
-| Proving Ground | The test park: every surface on one 3.85 km lap, with kickers and crests at three sizes, a slalom, a skidpad bend, a braking zone, a chasm and a chicane |
+Each course is a list of the stage's named landmarks in their real order, each with its own grade and surface; between them a seeded `~` stretch fills in the road's everyday character (its corner radii and angles, straights and how often it crests), and the stretches are scaled so the stage comes out at its real length. Map and elevation services weren't used, so individual corners are representative of each road rather than traced from it. The co-driver calls each landmark as you reach it.
 
-**Pikes Peak** follows the real hill climb's named sections in order, from the start line through Engineers Corner, Glen Cove and the W's switchbacks to the summit, each with its own grade. The HUD altimeter climbs from the real start's 9,390 ft to the 14,115 ft summit (the game compresses the 1,440 m climb to about 385 m), and the air thins with it as on the real mountain: about 25 to 35% thinner than at sea level, so there is less drag and downforce, the supercharged and unblown engines lose power in proportion, and the turbo engines hold most of theirs but spool more slowly. The Turini and the Sorba run at their real altitudes too. It is tarmac through the forest and gravel above the treeline after Glen Cove, as when Group B cars raced there (the real road has been paved to the summit since 2011). The look follows the real mountain, which is Pikes Peak granite, coarse and pink-orange, weathering to a reddish gravel called grus: warm grey asphalt with a double yellow centre line, grus shoulders, and a grus and needle-litter floor with grassy clearings under the Engelmann spruce, with aspens low down and gnarled bristlecone pines near the treeline. Above it the tundra is short olive grass with grus showing through, and granite boulder fields spread until they cover nearly everything around Devils Playground, Boulder Park and the summit, with a few snow patches lingering in the hollows. There are no guard rails: the mountain falls away on one side and is cut into on the other. The co-driver calls each section by name. A real road has only one layout, so there is no random seed for this stage.
-
-**Col de Turini** climbs from La Bollène-Vésubie through the chestnut woods and the Forêt de Turini, up the ladder of hairpins (the lacets) to the 1,604 m col, then drops a little way down the north side towards Peïra-Cava, the classic Monte-Carlo stage. The real climb from La Bollène is 15.3 km at 7.2% with 18 hairpins; the game keeps its shape over 4.1 km, with the HUD altimeter running from 690 m to the col. The lower road is dry tarmac with white dashed centre lines; higher up it turns to snow thrown on by spectators and ice in the shade, with ploughed snowbanks. Low stone walls sit on the outside of the tighter hairpins where the ground falls away, and hotels stand at the col.
-
-**Vargåsen** is the Rally Sweden stage near Torsby: packed snow over gravel through snow-laden spruce and pine, between ploughed snowbanks (solid enough to lean the car on, as the real drivers do), past a frozen lake and red wooden houses, with an icy stretch near the end. It finishes over Colin's Crest, named after Colin McRae, where the record is a 45 m jump (Brynildsen, 2016).
-
-**Ouninpohja** is the Rally Finland classic: narrow, fast gravel over blind crests through pine, spruce and birch, past the lakes and the Yellow House jump, down the steps to the Kakaristo junction (where Finnish co-drivers say "it gets faster now") to the Hämepohja finish. The real 33 km stage had 77 take-offs and was won at over 130 km/h average; the game takes its character over 5.2 km.
-
-**Col de Sorba** is the Tour de Corse road from Ghisoni up the Fium'Orbu gorge and through the Corsican pines to the 1,311 m col (the real climb from Ghisoni is 10.1 km at 6.3%), on the island of "10,000 corners": narrow, bumpy tarmac that never stops turning, granite walls on one side and maquis falling away on the other.
-
-The four new real stages were laid out from their roads' named landmarks, lengths, heights and grades as published by the rally organisers and climbing guides (rally histories and stage guides for the Monte-Carlo, Sweden, Finland and Corsica rallies, and cycling climb profiles of the Turini and Sorba). Map and elevation services weren't reachable when they were built, so individual corners are representative of each road rather than traced from it.
-
-**Event Horizon** circles Cygnus X-1, a real black hole of about 21 solar masses that feeds on its blue supergiant companion. The sky draws the hole's shadow ringed by its photon ring, the accretion disk nearly edge-on and brighter on the side spinning towards you, the far side of the disk bent up over the top by gravity, and the stars behind it lensed into an Einstein ring. The blue companion is the sun that lights the stage.
-
-**Dyson Swarm** runs across the decks of a swarm of collectors wrapped around Tabby's Star (KIC 8462852), the real star whose irregular dimming once had astronomers wondering about alien megastructures. Rings of collectors cross the star, seen from behind as dark panels with lit rims and running lights, and through the gaps the far side's inner faces glow in the starlight. Mirror collectors on masts line the road, tilted to the star, and bigger ones hang off in space. The road is deck plating all the way, with a few patches of grit and no ice: on a narrow deck with drops either side, ice made it barely drivable.
+Each surface has a realistic grip and rolling resistance: tarmac 1.05, regolith dust (fesh-fesh and desert sand) 0.74, gravel 0.66, packed snow 0.42 and ice 0.30, with loose surfaces dragging more. Studded tyres add 40% grip on snow and 60% on ice. Every stage runs at Earth gravity (9.81 m/s²).
 
 **Proving Ground** is the test park, a timed lap of a test track in open Finnish-style countryside, for trying a car, a set-up or a driving aid on every surface in the game. From the paddock it runs down a 240 m launch strip into a hard braking zone and a 90° right, through a tarmac slalom and round a 60 m-radius skidpad bend, then onto gravel for three kickers (small, medium and big: lips of 0.7, 1.2 and 1.7 m with longer landings to match) and three crests (1.3, 1.8 and 2.3 m high). After that come a loop on snow and one on ice, a chasm jump over regolith, and a chicane on steel deck plating, before the tarmac finish. Signs mark the skidpad, the kickers, the crest row, the ice rink and the chasm. It has its own leaderboard and ghosts like any stage, but it isn't part of rally mode. Course paths can now size a feature on its own (`J*1.4` is a kicker 40% higher with a longer landing), which is how the test park gets three of each.
 
