@@ -6706,6 +6706,9 @@ function resolveContact(nx, ny, nz, pen, kind, px, py, pz, obj) {
   if (obj) { obj.x -= nx * pen * (1 - share); obj.z -= nz * pen * (1 - share); obj.moving = true; obj.ch.moving = true; }
   // velocity of the car's contact point relative to the obstacle
   _jr.set(px - car.pos.x, py - car.pos.y, pz - car.pos.z);
+  // the collision spheres sit around bonnet height, well above the bumper that really takes the hit; levered
+  // from there a head-on tree or pole flips the car over backwards, so the impulse acts at centre-of-mass height
+  _jt.set(0, 1, 0).applyQuaternion(car.q); _jr.addScaledVector(_jt, -_jr.dot(_jt));
   _jv.crossVectors(car.w, _jr).add(car.vel);
   if (obj) { _jv.x -= obj.vx; _jv.z -= obj.vz; }
   _jn.set(nx, ny, nz);
@@ -6952,6 +6955,14 @@ function physicsTests(build) {
     const ke0 = ke();
     resolveContact(1, 0, 0, 0, 'rock', car.pos.x - 0.9, car.pos.y, car.pos.z + 2);
     check('collision: energy after / before an off-centre hit', ke() / ke0, 0, 1);
+    // ... and a 20 m/s head-on hit on a tree trunk stops the car without flipping it over backwards
+    rig.place(SURF.TARMAC, 20);
+    const bk = TR.colliderBuckets.slice(0, 3), tree = [{ x: 0, z: 6, r: 0.5, y0: -1, y1: 12, kind: 'tree' }];
+    let pitch = 0;
+    for (let b = 0; b < 3; b++) TR.colliderBuckets[b] = tree;
+    try { rig.step(240, () => { collideObstacles(); pitch = Math.max(pitch, Math.abs(_tmp.set(0, 0, 1).applyQuaternion(car.q).y)); }); }
+    finally { for (let b = 0; b < 3; b++) TR.colliderBuckets[b] = bk[b]; }
+    check('collision: peak pitch after a 20 m/s head-on tree hit (deg)', Math.asin(Math.min(1, pitch)) * 180 / Math.PI, 0, 10);
     // timestep: 3 s of throttle and a step steer at 25 m/s, at 120 Hz against 960 Hz
     const stepSteer = (dt) => {
       rig.dt = dt; rig.place(SURF.GRAVEL, 25);
