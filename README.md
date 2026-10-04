@@ -2,7 +2,7 @@
 
 A point-to-point rally game in a single self-contained HTML file. You drive a Group B-inspired rally car against the clock across thirteen stages: eight in space (the Moon, a planetary ring, a derelict station field, a Martian canyon, the ice of Europa, an orbital smelter over Io, a moon of the black hole Cygnus X-1 and a Dyson swarm around Tabby's Star) and five real roads on Earth: the Pikes Peak hill climb, the Col de Turini (Monte-Carlo), Vargåsen (Rally Sweden), Ouninpohja (Rally Finland) and the Col de Sorba (Tour de Corse). A fourteenth, the Proving Ground, is a test park for trying cars and set-ups. Everything is generated procedurally: terrain, textures, sky, particles and sound.
 
-**Play:** open `index.html` in a modern browser. It loads three.js r128 from cdnjs and needs no build step or server.
+**Play:** open `index.html` in a modern browser. It loads three.js r186 from jsdelivr and needs no build step or server.
 
 ## Stages
 

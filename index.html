@@ -1362,6 +1362,7 @@ body.tilt #tCentre{display:flex}
         <button class="opt" data-set="ghost"><span><b>GHOST</b><small>Race against a replay of your best run. Key: G</small></span><i class="switch"></i></button>
         <button class="opt" data-set="line"><span><b>RACING LINE</b><small>The fastest line, green to go, amber to lift, red to brake, with a board at each braking point. BRAKING shows only the lift and brake zones. Key: L</small></span><i class="mode" id="lineMode">FULL</i></button>
         <button class="opt" data-set="hud"><span><b>HUD</b><small>MINIMAL keeps the road clear: time, pace note, speed, gear and revs. FULL adds best and target times, surface, altitude, camera, suspension and damage. Key: H</small></span><i class="mode" id="hudMode">MINIMAL</i></button>
+        <button class="opt" data-set="post"><span><b>POST EFFECTS</b><small>Bloom around the sun and other bright lights, and smoother edges (SMAA). Costs some frame rate.</small></span><i class="switch"></i></button>
         <div class="set-group">SOUND</div>
         <button class="opt" data-set="sound"><span><b>SOUND</b><small>Engine, effects and co-driver. Key: M</small></span><i class="switch"></i></button>
         <button class="opt" data-set="vol"><span><b>VOLUME</b><small>Master volume for the engine, exhaust and effects.</small></span><i class="mode" id="volMode">100%</i></button>
@@ -2962,16 +2963,34 @@ function warpShell(shell, map, P) {
     o.scale.x *= f(new THREE.Vector3(1, 0, 0)); o.scale.y *= f(new THREE.Vector3(0, 1, 0)); o.scale.z *= f(new THREE.Vector3(0, 0, 1));
   }
 }
-/** Small canvas helper for procedural textures. */
-function makeCanvas(w, h, draw) {
+/** Small canvas helper for procedural textures. `aniso` false for textures never seen at a grazing angle. */
+function makeCanvas(w, h, draw, aniso = true) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   draw(c.getContext('2d'), w, h);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  t.anisotropy = aniso ? Math.min(8, renderer.capabilities.getMaxAnisotropy()) : 1;
   return t;
 }
 
+// ---- Post-processing hand-off for the custom shaders ----------------------------
+// They write display colour straight to the screen. With post effects on they draw into a linear HDR buffer that
+// OutputPass then tone-maps (ACES) and sRGB-encodes, so rrOut undoes both first and the colour lands where it did.
+const POST_U = { uPost: { value: 0 }, uPostExposure: { value: 1 } };
+const GLSL_POST = `
+uniform float uPost; uniform float uPostExposure;
+vec3 rrOut(vec3 c) {
+  if (uPost < 0.5) return c;
+  c = clamp(c, 0.0, 1.0);
+  vec3 y = mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
+  const mat3 ACESIn = mat3(vec3(0.59719, 0.07600, 0.02840), vec3(0.35458, 0.90834, 0.13383), vec3(0.04823, 0.01566, 0.83777));
+  const mat3 ACESOut = mat3(vec3(1.60475, -0.10208, -0.00327), vec3(-0.53108, 1.10813, -0.07276), vec3(-0.07367, -0.00605, 1.07602));
+  vec3 v = clamp(inverse(ACESOut) * y, 0.0, 0.95);           // (white comes back as about 3.7: bright, not blinding)
+  vec3 a = 1.0 - 0.983729 * v, b = 0.0245786 - 0.4329510 * v, k = -(0.000090537 + 0.238081 * v);   // RRTAndODTFit, solved for its input
+  vec3 x = (-b + sqrt(b * b - 4.0 * a * k)) / (2.0 * a);
+  return max(inverse(ACESIn) * x, 0.0) * 0.6 / uPostExposure;
+}
+`;
 // ---- Shared GLSL: hash + value noise (2D & 3D) --------------------------------
 const GLSL_NOISE = `
 float rrHash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -3001,6 +3020,7 @@ uniform float uDay; uniform vec3 uZenith; uniform vec3 uHorizon;
 uniform float uHole; uniform vec3 uHoleDir; uniform float uHoleR; uniform float uHoleTilt; uniform vec3 uDisk;   // 1 = black hole, 2 = Dyson swarm
 uniform samplerCube uBaked;
 varying vec3 vDir;
+${GLSL_POST}
 // RR_SKY: 0 = the whole sky (reflection capture), 1 = bake everything but the stars into a cube (alpha = how much of
 // the starlight gets through), 2 = on screen: the baked cube plus the stars, kept sharp
 ${GLSL_NOISE}
@@ -3063,7 +3083,7 @@ void main(){
   vec4 baked = textureCube(uBaked, d0);
   float bandS = exp(-pow(dot(d, normalize(uBand)) * 3.0, 2.0));
   vec3 stars = rrStars(d, 80.0, 0.88, 0.16) + 0.8 * rrStars(d, 170.0, 0.9, 0.2) * (0.6 + bandS);
-  gl_FragColor = vec4(baked.rgb + uStars * stars * baked.a, 1.0);
+  gl_FragColor = vec4(rrOut(baked.rgb + uStars * stars * baked.a), 1.0);
   return;
 #endif
   float vis = 1.0;                         // share of the starlight that reaches the eye here
@@ -3138,7 +3158,7 @@ void main(){
   vec4 wp = modelMatrix * vec4(position, 1.0); vView = normalize(cameraPosition - wp.xyz);
   vec4 p = projectionMatrix * viewMatrix * wp; p.z = min(p.z, p.w * 0.9999); gl_Position = p;
 }`;
-const PLANET_FS = `
+const PLANET_FS = `${GLSL_POST}
 uniform float uType; uniform vec3 uSunDir; uniform vec3 uColA; uniform vec3 uColB; uniform vec3 uColC; uniform vec3 uAtmo; uniform float uTime;
 varying vec3 vN; varying vec3 vObjN; varying vec3 vView;
 ${GLSL_NOISE}
@@ -3176,13 +3196,13 @@ void main(){
   if (uType < 0.5) col += vec3(1.0, 0.75, 0.4) * 0.5 * step(0.8, rrNoise3(o * 60.0)) * smoothstep(0.52, 0.56, rrFbm3(o * 2.6 + 5.0)) * (1.0 - light);
   float rim = pow(1.0 - max(dot(n, vView), 0.0), 3.0);
   col += uAtmo * rim * smoothstep(-0.35, 0.3, ndl) * 1.1;
-  gl_FragColor = vec4(col, 1.0);
+  gl_FragColor = vec4(rrOut(col), 1.0);
 }`;
 const RING_VS = `
 varying vec2 vLocal; varying vec3 vW;
 void main(){ vLocal = position.xy; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz;
   vec4 p = projectionMatrix * viewMatrix * w; p.z = min(p.z, p.w * 0.9999); gl_Position = p; }`;
-const RING_FS = `
+const RING_FS = `${GLSL_POST}
 uniform vec3 uSunDir; uniform vec3 uColA; uniform vec3 uColB; uniform float uInner; uniform float uOuter;
 varying vec2 vLocal; varying vec3 vW;
 ${GLSL_NOISE}
@@ -3196,7 +3216,7 @@ void main(){
   float dist = length(vW - cameraPosition);
   float sparkle = step(0.985, rrHash12(floor(vW.xz * 0.4))) * (1.0 - smoothstep(60.0, 400.0, dist));
   vec3 col = mix(uColA, uColB, bands) * (0.3 + 0.7 * max(uSunDir.y, 0.25)) + sparkle * vec3(0.8, 0.9, 1.0);
-  gl_FragColor = vec4(col, dens * 0.78);
+  gl_FragColor = vec4(rrOut(col), dens * 0.78);
 }`;
 
 const Sky = {
@@ -3208,7 +3228,7 @@ const Sky = {
       uBand: { value: new THREE.Vector3(0, 1, 0) }, uStars: { value: 1 }, uEnv: { value: 0 },
       uDay: { value: 0 }, uZenith: { value: new THREE.Vector3() }, uHorizon: { value: new THREE.Vector3() },
       uHole: { value: 0 }, uHoleDir: { value: new THREE.Vector3(0, 0, 1) }, uHoleR: { value: 0.1 }, uHoleTilt: { value: 0.2 }, uDisk: { value: new THREE.Vector3(1, 0.6, 0.3) },
-      uBaked: { value: null },
+      uBaked: { value: null }, ...POST_U,
     });
     const skyMat = (mode) => new THREE.ShaderMaterial({ uniforms: skyUniforms(), vertexShader: SKY_VS, fragmentShader: SKY_FS,
       defines: { RR_SKY: mode }, side: THREE.BackSide, depthWrite: false, depthTest: false });
@@ -3227,7 +3247,7 @@ const Sky = {
     scene.add(this.mesh);
 
     const planetUniforms = () => ({
-      uType: { value: 0 }, uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uColA: { value: new THREE.Vector3() },
+      ...POST_U, uType: { value: 0 }, uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uColA: { value: new THREE.Vector3() },
       uColB: { value: new THREE.Vector3() }, uColC: { value: new THREE.Vector3() }, uAtmo: { value: new THREE.Vector3() }, uTime: { value: 0 },
     });
     this.planetMat = new THREE.ShaderMaterial({ uniforms: planetUniforms(), vertexShader: PLANET_VS, fragmentShader: PLANET_FS,
@@ -3237,7 +3257,7 @@ const Sky = {
     scene.add(this.planet);
 
     this.ringMat = new THREE.ShaderMaterial({
-      uniforms: { uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uColA: { value: new THREE.Vector3(0.62, 0.55, 0.45) },
+      uniforms: { ...POST_U, uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uColA: { value: new THREE.Vector3(0.62, 0.55, 0.45) },
         uColB: { value: new THREE.Vector3(0.85, 0.82, 0.76) }, uInner: { value: 1 }, uOuter: { value: 2 } },
       vertexShader: RING_VS, fragmentShader: RING_FS, side: THREE.DoubleSide, depthWrite: false, depthTest: false,
       transparent: false, blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
@@ -5728,7 +5748,7 @@ const LINE_VS = `
 attribute float aS; attribute float aV; attribute float aB; attribute float aU; attribute float aSide; attribute float aMark;
 varying float vS; varying float vV; varying float vB; varying float vU; varying float vSide; varying float vMark;
 void main(){ vS = aS; vV = aV; vB = aB; vU = aU; vSide = aSide; vMark = aMark; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
-const LINE_FS = `
+const LINE_FS = `${GLSL_POST}
 uniform float uCarS; uniform float uCarV; uniform float uMode;
 varying float vS; varying float vV; varying float vB; varying float vU; varying float vSide; varying float vMark;
 void main(){
@@ -5751,7 +5771,7 @@ void main(){
     rim = (1.0 - smoothstep(0.2, 0.24, c)) * (1.0 - smoothstep(0.84, 0.96, w));
     body = max(body, 0.22 * (1.0 - smoothstep(0.16, 0.26, w)));   // a faint thread joins the chevrons
   }
-  gl_FragColor = vec4(mix(vec3(0.04, 0.03, 0.02), col, body / max(max(body, rim), 0.001)), max(body * 0.94, rim * 0.6) * fade);
+  gl_FragColor = vec4(rrOut(mix(vec3(0.04, 0.03, 0.02), col, body / max(max(body, rim), 0.001))), max(body * 0.94, rim * 0.6) * fade);
 }`;
 const RacingLine = {
   mesh: null,
@@ -5786,7 +5806,7 @@ const RacingLine = {
     for (const [k, arr] of Object.entries({ aS, aV, aB, aU, aSide, aMark })) geo.setAttribute(k, new THREE.Float32BufferAttribute(arr, 1));
     geo.setIndex(idx);
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uCarS: { value: 0 }, uCarV: { value: 0 }, uMode: { value: 1 } }, vertexShader: LINE_VS, fragmentShader: LINE_FS,
+      uniforms: { ...POST_U, uCarS: { value: 0 }, uCarV: { value: 0 }, uMode: { value: 1 } }, vertexShader: LINE_VS, fragmentShader: LINE_FS,
       transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4,
     });
     const mesh = new THREE.Mesh(geo, mat);
@@ -10557,7 +10577,7 @@ function helmetTexture(i) {
       x.fillStyle = ink; x.fillText(p.name, cx, h * 0.3);
       drawFlag(x, p.nat, cx - 16, h * 0.54, 32, 20);
     }
-  });
+  }, false);   // (round and small on screen: mipmaps yes, anisotropic filtering buys nothing)
   _helmetTex.set(i, t);
   return t;
 }
@@ -10571,7 +10591,7 @@ function suitTexture(i) {
     p.stripes.forEach((col, k) => { x.fillStyle = col; x.fillRect(0, h * (0.42 + k * 0.12), w, h * 0.1); });
     x.fillStyle = p.trim; x.fillRect(0, 0, w, h * 0.14);                               // collar trim
     for (const cx of [0, w]) drawFlag(x, p.nat, cx - 10 + (cx ? -24 : 24), h * 0.2, 20, 13);   // flag on the chest
-  });
+  }, false);
   _suitTex.set(i, t);
   return t;
 }
@@ -10644,13 +10664,13 @@ void main(){
   gl_Position = projectionMatrix * mv;
   gl_PointSize = palpha > 0.002 ? clamp(psize * uScale / max(-mv.z, 0.1), 1.0, 300.0) : 0.0;
 }`;
-const PARTICLE_FS = `
+const PARTICLE_FS = `${GLSL_POST}
 uniform float uSoft;
 varying vec3 vCol; varying float vAlpha;
 void main(){
   vec2 c = gl_PointCoord - 0.5; float d = length(c) * 2.0;
   if (d > 1.0) discard;
-  gl_FragColor = vec4(vCol, vAlpha * pow(1.0 - d, uSoft));
+  gl_FragColor = vec4(rrOut(vCol), vAlpha * pow(1.0 - d, uSoft));
 }`;
 class Particles {
   constructor(max, additive, soft) {
@@ -10663,7 +10683,7 @@ class Particles {
     const mk = (arr, n) => new THREE.BufferAttribute(arr, n).setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('position', mk(this.pos, 3)); geo.setAttribute('pcolor', mk(this.col, 3));
     geo.setAttribute('palpha', mk(this.alpha, 1)); geo.setAttribute('psize', mk(this.size, 1));
-    this.mat = new THREE.ShaderMaterial({ uniforms: { uScale: { value: 500 }, uSoft: { value: soft } }, vertexShader: PARTICLE_VS, fragmentShader: PARTICLE_FS,
+    this.mat = new THREE.ShaderMaterial({ uniforms: { ...POST_U, uScale: { value: 500 }, uSoft: { value: soft } }, vertexShader: PARTICLE_VS, fragmentShader: PARTICLE_FS,
       transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
     this.points = new THREE.Points(geo, this.mat);
     this.points.frustumCulled = false; this.points.renderOrder = additive ? 6 : 5;
@@ -13132,6 +13152,7 @@ const Settings = {
     if (k === 'name') { if (!sideways) document.getElementById('nameInput').focus(); return; }
     if (k === 'line') { cycleLine(); return; }
     if (k === 'hud') { toggleHud(); return; }
+    if (k === 'post') { Post.toggle(); return; }
     if (k === 'vol') { cycleVolume(); return; }
     if (k === 'stab') { cycleStab(); return; }
     if (k === 'tilt') { Tilt.toggle(); return; }
@@ -13142,7 +13163,7 @@ const Settings = {
   activate(sideways) { if (this.view !== 'list') { if (!sideways) this.back(); return; } const r = this.rows()[this.idx]; if (r) this.toggle(r.dataset.set, sideways); },
   refresh() {
     const s = Store.data.settings;
-    const on = { manual: !!s.manual, abs: s.abs !== false, tc: s.tc !== false, cam: Cam.mode === 'bumper', ghost: !!s.ghost, sound: !s.muted, voice: !!s.voice, tilt: !!s.tilt };
+    const on = { manual: !!s.manual, abs: s.abs !== false, tc: s.tc !== false, cam: Cam.mode === 'bumper', ghost: !!s.ghost, post: Post.enabled(), sound: !s.muted, voice: !!s.voice, tilt: !!s.tilt };
     this.rows().forEach((r, i) => { r.classList.toggle('on', !!on[r.dataset.set]); r.classList.toggle('sel', i === this.idx); });
     document.getElementById('setList').classList.toggle('hidden', this.view !== 'list');
     document.getElementById('setControls').classList.toggle('hidden', this.view !== 'controls');
@@ -13333,6 +13354,31 @@ const Menu = {
   },
 };
 
+/* ---- optional post effects: bloom on HDR highlights (the sun, the black hole's disk, stars) and SMAA edge smoothing.
+   On by default on desktop, off on phones and tablets (Settings > POST EFFECTS). ---- */
+const Post = {
+  composer: null,
+  enabled() { const v = Store.data.settings.post; return v == null ? !LOW_SPEC : !!v; },
+  build() {
+    const c = this.composer = new EffectComposer(renderer);
+    c.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.3, 0, 3.4);
+    bloom.compositeMaterial.uniforms.bloomFactors.value = [1, 0.6, 0.25, 0.08, 0.02];   // a tight glow, not a haze over the sky
+    c.addPass(bloom);
+    c.addPass(new OutputPass());
+    c.addPass(new SMAAPass());
+  },
+  apply() {
+    const on = this.enabled();
+    if (on && !this.composer) this.build();
+    POST_U.uPost.value = on ? 1 : 0;
+    POST_U.uPostExposure.value = renderer.toneMappingExposure;
+  },
+  toggle() { Store.data.settings.post = !this.enabled(); Store.save(); this.apply(); Settings.refresh(); },
+  resize() { if (this.composer) { this.composer.setPixelRatio(renderer.getPixelRatio()); this.composer.setSize(window.innerWidth, window.innerHeight); } },
+  render() { if (POST_U.uPost.value) this.composer.render(); else renderer.render(scene, camera); },
+};
+
 /* ---- main loop ---- */
 let lastT = performance.now();
 // Adaptive resolution: drop the pixel ratio when frames run long, creep back up when they don't.
@@ -13348,7 +13394,7 @@ function adaptResolution(rawDt) {
   if (avg > 0.0205 && Res.pr > 0.6) { next = Math.max(0.6, Res.pr - 0.15); Res.hold = 8; Res.good = 0; }
   else if (avg < 0.0178) { if (++Res.good >= 4 && Res.hold === 0 && Res.pr < Res.max) { next = Math.min(Res.max, Res.pr + 0.1); Res.good = 0; } }
   else Res.good = 0;
-  if (next !== Res.pr) { Res.pr = next; renderer.setPixelRatio(next); renderer.setSize(window.innerWidth, window.innerHeight); }
+  if (next !== Res.pr) { Res.pr = next; renderer.setPixelRatio(next); renderer.setSize(window.innerWidth, window.innerHeight); Post.resize(); }
 }
 function frame(now) {
   requestAnimationFrame(frame);
@@ -13358,7 +13404,7 @@ function frame(now) {
   if (!(dt > 0)) return;
   if (dt > 0.05) dt = 0.05;
   adaptResolution(raw);
-  if (update(dt)) renderer.render(scene, camera);
+  if (update(dt)) Post.render();
 }
 /** Advance the whole game by dt seconds. Returns false while nothing is ready to draw. */
 function update(dt) {
@@ -13403,6 +13449,7 @@ function update(dt) {
 
 window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
+  Post.resize();
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
 });
@@ -13421,11 +13468,12 @@ function init() {
   if (IS_TOUCH) document.body.classList.add('touch');
   applyHud();
   HUD.init(); Input.init(); Tilt.init(); Sky.init(); FX.init(); Ghost.init(); Rival.init(); Menu.init();
+  Post.apply();   // (after Sky.init: the reflection capture's planet copies its uniforms without post)
   rebuildCarModel();
   linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
   // Small debugging / automation surface (autopilot lets you watch the AI drive a full stage).
   window.RegolithRally = {
-    AudioSys, EngineSound, Game, car, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
+    AudioSys, EngineSound, Game, car, Post, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig,
     openService, leaveService, startRally, Rally, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
