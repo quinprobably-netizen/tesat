@@ -6559,7 +6559,7 @@ function applyAero(tn, nG, rho) {
    The beams are stepped SB.SUB times per physics step (1200 Hz), which keeps them stiff and stable. The physics test
    rig (RIG_GROUND) always runs the rigid body, so the garage ratings and self-tests are unchanged. */
 const SB = {
-  SUB: 10, FR: [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1], EA: 4e6, C: 2200, YIELD: 0.004, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22,
+  SUB: 10, FR: [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1], EA: 4e6, C: 1200, YIELD: 0.004, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22,
   on: false, ready: false, synced: false, key: null, n: 0, M: 0, ver: 0,
   rest: null, loc: null, m: null, x: null, v: null, fe: null, f: null, off: new THREE.Vector3(),
   ba: null, bb: null, l0: null, l00: null, ok: null, nb: 0, gh: null,
@@ -6585,7 +6585,9 @@ const SB = {
     for (const p of P) { sy += p[1]; sz += p[2]; syy += p[1] * p[1]; szz += p[2] * p[2]; syz += p[1] * p[2]; }
     const det = syy * szz - syz * syz, a = (-sy * szz + sz * syz) / det, b = (-sz * syy + sy * syz) / det;
     this.m = new Float64Array(n); let M = 0;
-    for (let i = 0; i < n; i++) { this.m[i] = Math.max(0.25, 1 + a * P[i][1] + b * P[i][2]); M += this.m[i]; }
+    // (no node much lighter than the rest: a light node on stiff beams shakes itself apart; what's left of the
+    // offset is carried by `off`)
+    for (let i = 0; i < n; i++) { this.m[i] = clamp(1 + a * P[i][1] + b * P[i][2], 0.6, 1.8); M += this.m[i]; }
     this.off.set(0, 0, 0);
     for (let i = 0; i < n; i++) { this.m[i] *= CAR.mass / M; this.off.x += this.m[i] * P[i][0]; this.off.y += this.m[i] * P[i][1]; this.off.z += this.m[i] * P[i][2]; }
     this.M = CAR.mass; this.off.multiplyScalar(1 / this.M);
@@ -6609,6 +6611,12 @@ const SB = {
       this.ys[b] = this.YIELD * (c ? 2.6 : e ? 0.7 : 1); this.ea[b] = this.EA / L[b] * (c ? 1.3 : 1);
       this.deg[i]++; this.deg[j]++;
     }
+    // substeps: enough that the stiffest node (its beams' stiffness and damping against its mass) stays stable
+    const kS = new Float64Array(n), cS = new Float64Array(n);
+    for (let b = 0; b < this.nb; b++) for (const i of [A[b], B[b]]) { kS[i] += this.ea[b]; cS[i] += this.C; }
+    let hMax = 1;
+    for (let i = 0; i < n; i++) hMax = Math.min(hMax, Math.sqrt(0.8 * this.m[i] / kS[i]), this.m[i] / cS[i]);
+    this.sub = clamp(Math.ceil(PHYS_DT / hMax), this.SUB, 32);
     this.mounts = CAR.wheels.map((cw) => this.weights(cw.x, CAR.mountY, cw.z));
     // a point ahead of and above each mount: how the bent body turns the wheel (toe) and leans it (camber)
     this.mFwd = CAR.wheels.map((cw) => this.weights(cw.x, CAR.mountY, cw.z + 0.3));
@@ -6792,10 +6800,10 @@ const SB = {
       const nl = Math.hypot(nx, 1, nz); this.gn[k] = nx / nl; this.gn[k + 1] = 1 / nl; this.gn[k + 2] = nz / nl;
     }
     this.gather();
-    const h = dt / this.SUB, f = this.f, ba = this.ba, bb = this.bb, l0 = this.l0, l00 = this.l00, ok = this.ok, ys = this.ys, ea = this.ea;
+    const h = dt / this.sub, f = this.f, ba = this.ba, bb = this.bb, l0 = this.l0, l00 = this.l00, ok = this.ok, ys = this.ys, ea = this.ea;
     let scrape = 0, sx = 0, sy = 0, sz = 0;
     car.hullContact = false;
-    for (let s = 0; s < this.SUB; s++) {
+    for (let s = 0; s < this.sub; s++) {
       f.set(fe);
       for (let b = 0; b < this.nb; b++) {
         if (!ok[b]) continue;
