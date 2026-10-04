@@ -9123,34 +9123,48 @@ function gbGroupS(K, c) {
   const zsAll = (a, b, step) => { const o = []; for (let z = a; z > b - 1e-6; z -= step) o.push(+z.toFixed(4)); if (o[o.length - 1] > b) o.push(b); return o; };
   K.loft(c.deck.map(([z, yt, w = W, yb = 0.2]) => ({ z, yb, ys: yb + (yt - yb) * 0.5, yt, w, wt: w - 0.07, r: 0.05, crown: 0.03 })),
     { zs: zsAll(NOSE, TAIL, 0.06), bottom: (z, yb) => K.archY(z, yb, AR), side: 4, top: 3 });
-  const G = c.glass, gz0 = G[0][0], gz1 = G[G.length - 1][0];
+  // glasshouse: its sides carry straight on from the body's shoulder (W - 0.07), tumbling home to the roof
+  const GW = W - 0.075;
+  const G = c.glass.map(([z, yb, yt, w, wt]) => yt - yb > 0.15 ? [z, yb, yt, GW, Math.min(wt, GW - 0.08)] : [z, yb, yt, GW, GW - 0.005]);
+  const gz0 = G[0][0], gz1 = G[G.length - 1][0];
   K.loft(G.map(([z, yb, yt, w, wt]) => ({ z, yb, ys: yb + 0.02, yt, w, wt, r: 0.01, crown: yt - yb > 0.15 ? 0.05 : 0.01 })),
     { zs: zsAll(gz0, gz1, 0.1).concat(G.map((s) => s[0])), mat: K.glass, under: null, caps: [null, K.glass], side: 4, top: 3 });
-  const [rz0, rz1] = c.roofZ, rw = c.roofW;
+  const [rz0, rz1] = c.roofZ, rw = Math.max(...G.map((s) => s[2] - s[1] > 0.15 ? s[4] : 0)) + 0.01;
+  const belt = (G[0][1] + G[1][1]) / 2, HW = K.spec.dims[1] / 2;
   K.loft([
     { z: rz0, yb: ROOF - 0.07, ys: ROOF - 0.055, yt: ROOF, w: rw, wt: rw - 0.045, r: 0.01, crown: 0.04 },
     { z: rz1, yb: ROOF - 0.07, ys: ROOF - 0.055, yt: ROOF, w: rw, wt: rw - 0.045, r: 0.01, crown: 0.04 },
   ], { zs: zsAll(rz0, rz1, 0.3).concat([rz1]), side: 2, top: 3 });
-  // interior, cage and the bulkhead in front of the mid engine
+  // interior, cage and the bulkhead behind the seats
   K.rbox(1.4, 0.02, rz0 - rz1 + 0.6, K.dark, 0, 0.62, (rz0 + rz1) / 2);
   K.rbox(1.36, 0.1, 0.2, K.dark, 0, G[0][1] + 0.06, gz0 - 0.12);                      // dash
   K.rbox(1.4, 0.45, 0.04, K.dark, 0, ROOF - 0.3, hz - 0.02);
+  const bz = c.bZ === undefined ? gz1 + 0.08 : c.bZ;            // B pillar (the door's rear edge)
   K.both((sx) => {
     K.rbox(0.42, 0.55, 0.1, K.dark, sx * 0.33, 0.85, hz + 0.12);                      // bucket seats
     K.rtube(sx * 0.6, 0.65, hz + 0.05, sx * 0.58, ROOF - 0.08, hz + 0.08, 0.025, K.dark);
     K.rtube(sx * 0.58, ROOF - 0.08, hz + 0.08, sx * 0.6, ROOF - 0.08, rz0 - 0.05, 0.022, K.dark);
-    K.rtube(sx * (G[0][3] - 0.01), G[0][1] + 0.02, gz0 - 0.02, sx * (rw - 0.01), ROOF - 0.05, rz0 + 0.02, 0.03, K.paint);   // A pillar
-    if (c.sail) { K.rpanel(c.sail, K.paint, 'side', sx * c.sailX, sx); K.rpanel(c.sail, K.paint, 'side', sx * (c.sailX - 0.01), -sx); }
-    // flared arch lips, sill skirt and mud flaps
+    // window frame: A pillar, B pillar, sill rail and the cant rail under the roof
+    K.rtube(sx * (GW - 0.005), G[0][1] + 0.02, gz0 - 0.02, sx * (rw - 0.01), ROOF - 0.05, rz0 + 0.02, 0.032, K.paint);
+    if (c.bZ !== undefined) K.rtube(sx * (GW + 0.002), belt, bz, sx * (rw - 0.005), ROOF - 0.05, bz - 0.04, 0.045, K.paint);
+    K.rtube(sx * (GW + 0.004), belt, gz0 - 0.05, sx * (GW + 0.004), belt, Math.max(bz, gz1 + 0.05), 0.014, K.dark);
+    K.rtube(sx * (rw - 0.005), ROOF - 0.05, rz0, sx * (rw - 0.005), ROOF - 0.05, rz1, 0.016, K.dark);
+    if (c.sail) { const X = c.sailX === undefined ? GW + 0.002 : c.sailX; K.rpanel(c.sail, K.paint, 'side', sx * X, sx); K.rpanel(c.sail, K.paint, 'side', sx * (X - 0.01), -sx); }
+    // door shut lines and handle on the body side
+    for (const z of [gz0 - 0.06, bz].concat(c.rearDoor === undefined ? [] : [c.rearDoor])) K.rtube(sx * (W + 0.002), 0.3, z, sx * (W - 0.055), belt - 0.03, z, 0.008, K.dark);
+    K.rbox(0.02, 0.025, 0.12, K.dark, sx * (W - 0.03), belt - 0.12, bz + 0.15);
+    if (c.rearDoor !== undefined) K.rbox(0.02, 0.025, 0.12, K.dark, sx * (W - 0.03), belt - 0.12, c.rearDoor + 0.15);   // five-door: rear door handle
+    // bulging wheel-arch flares out to the car's full width, sill skirt and mud flaps
     for (const cz of [0, -wb]) {
-      const o = K.rarc(cz, r, AR + 0.05, 0, Math.PI, 14), i = K.rarc(cz, r, AR, Math.PI, 0, 14);
-      K.rpanel(o.concat(i).map(([z, y]) => [z, Math.max(y, 0.2)]), K.paint, 'side', sx * (W + 0.008), sx);
+      const o = K.rarc(cz, r, AR + 0.07, 0, Math.PI, 14), i = K.rarc(cz, r, AR, Math.PI, 0, 14);
+      const fw = Math.max(0.03, HW - W + 0.02);
+      K.rprofile(o.concat(i).map(([z, y]) => [z, Math.max(y, 0.2)]), fw, K.paint, { x: sx * (W - 0.02 + fw / 2), bevel: 0.012 });
       K.rbox(0.2, 0.2, 0.012, K.rubber, sx * 0.72, 0.13, cz - AR - 0.02);
     }
     K.rbox(0.04, 0.08, wb - 2 * AR - 0.12, K.dark, sx * (W - 0.01), 0.24, -wb / 2);
     for (const q of c.intakes || []) K.rpanel(q, K.rubber, 'side', sx * (W + 0.01), sx);
-    K.rbox(0.07, 0.08, 0.13, K.paint, sx * (G[0][3] + 0.14), G[0][1] + 0.12, gz0 - 0.08);   // door mirror on its stalk
-    K.rbox(0.13, 0.025, 0.04, K.dark, sx * (G[0][3] + 0.06), G[0][1] + 0.1, gz0 - 0.08);
+    K.rbox(0.07, 0.08, 0.13, K.paint, sx * (GW + 0.14), G[0][1] + 0.12, gz0 - 0.08);   // door mirror on its stalk
+    K.rbox(0.13, 0.025, 0.04, K.dark, sx * (GW + 0.06), G[0][1] + 0.1, gz0 - 0.08);
   });
   // splitter, bumpers and diffuser
   K.rbox(2 * W - 0.1, 0.025, 0.34, K.dark, 0, 0.17, NOSE - 0.1);
@@ -9185,7 +9199,7 @@ function gbBody_222d(K) {
     deck: [[0.8, 0.5, 0.78, 0.26], [0.74, 0.58, 0.84, 0.22], [0.45, 0.7], [0.0, 0.78], [-0.55, 0.81], [-1.5, 0.84], [-2.3, 0.86], [-2.95, 0.87], [-3.15, 0.86, 0.83, 0.24], [-3.2, 0.82, 0.78, 0.27]],
     glass: [[-0.52, 0.8, 0.83, 0.74, 0.73], [-1.18, 0.85, 1.23, 0.72, 0.62], [-1.8, 0.86, 1.23, 0.72, 0.62], [-1.98, 0.86, 0.95, 0.7, 0.68]],
     roofZ: [-1.15, -1.83], roofW: 0.64,
-    sail: [[-1.8, 1.21], [-2.95, 0.87], [-1.95, 0.86]], sailX: 0.7,
+    sail: [[-1.8, 1.21], [-2.95, 0.87], [-1.95, 0.86]],
     intakes: [[[-1.85, 0.46], [-2.12, 0.46], [-2.12, 0.74], [-1.85, 0.78]]],
   });
   const { NOSE, TAIL } = S;
@@ -9215,7 +9229,7 @@ function gbBody_rs002(K) {
     deck: [[0.75, 0.44, 0.82, 0.24], [0.68, 0.53, 0.88, 0.2], [0.3, 0.68], [0.0, 0.77], [-0.3, 0.79], [-1.2, 0.84], [-2.0, 0.9], [-2.9, 0.93], [-3.3, 0.92, 0.87, 0.24], [-3.35, 0.89, 0.83, 0.27]],
     glass: [[-0.28, 0.78, 0.81, 0.76, 0.75], [-0.95, 0.82, 1.17, 0.72, 0.6], [-1.55, 0.85, 1.17, 0.72, 0.6], [-1.75, 0.88, 0.97, 0.7, 0.68]],
     roofZ: [-0.92, -1.58], roofW: 0.62,
-    sail: [[-1.55, 1.15], [-2.75, 0.93], [-1.75, 0.88]], sailX: 0.72,
+    sail: [[-1.55, 1.15], [-2.75, 0.93], [-1.75, 0.88]],
     intakes: [[[-1.8, 0.42], [-2.3, 0.42], [-2.3, 0.82], [-1.8, 0.82]]],
   });
   const { NOSE, TAIL, ROOF } = S;
@@ -9246,7 +9260,7 @@ function gbBody_ecv(K) {
     deck: [[0.76, 0.56, 0.82, 0.24], [0.7, 0.65, 0.88, 0.2], [0.3, 0.74], [0.0, 0.8], [-0.55, 0.86], [-2.0, 0.9], [-2.95, 0.92], [-3.2, 0.9, 0.86, 0.24], [-3.24, 0.86, 0.82, 0.27]],
     glass: [[-0.55, 0.85, 0.88, 0.8, 0.79], [-1.25, 0.9, 1.29, 0.76, 0.7], [-2.72, 0.92, 1.29, 0.76, 0.7], [-3.0, 0.92, 1.0, 0.74, 0.72]],
     roofZ: [-1.22, -2.75], roofW: 0.72,
-    sail: [[-2.3, 0.92], [-2.98, 0.93], [-2.78, 1.27], [-2.38, 1.27]], sailX: 0.765,
+    sail: [[-2.3, 0.92], [-2.98, 0.93], [-2.78, 1.27], [-2.38, 1.27]],
     intakes: [[[-2.0, 0.5], [-2.3, 0.5], [-2.3, 0.82], [-2.0, 0.84]]],
   });
   const { NOSE, TAIL, ROOF } = S;
@@ -9271,11 +9285,11 @@ function gbBody_ecv(K) {
 // height about 1.425 m (est.). Hawk-eye lamps, hexagon grille, roof vent, wing on the hatch.
 function gbBody_impreza(K) {
   const S = gbGroupS(K, {
-    nose: 0.95, tail: 0.84, roof: 1.425, w: 0.85, hoopZ: -2.0,
+    nose: 0.95, tail: 0.84, roof: 1.425, w: 0.85, bZ: -1.95, rearDoor: -2.75, hoopZ: -2.0,
     deck: [[0.95, 0.7, 0.78, 0.3], [0.88, 0.76, 0.84, 0.21], [0.4, 0.81], [0.0, 0.84], [-0.75, 0.9], [-2.0, 0.92], [-3.1, 0.94], [-3.4, 0.92, 0.8, 0.25], [-3.465, 0.88, 0.76, 0.28]],
     glass: [[-0.72, 0.89, 0.92, 0.78, 0.77], [-1.45, 0.94, 1.41, 0.74, 0.66], [-2.95, 0.95, 1.41, 0.73, 0.66], [-3.3, 0.95, 1.02, 0.71, 0.69]],
     roofZ: [-1.42, -2.98], roofW: 0.68,
-    sail: [[-2.5, 0.95], [-3.3, 0.95], [-3.0, 1.39], [-2.55, 1.39]], sailX: 0.745,
+    sail: [[-2.5, 0.95], [-3.3, 0.95], [-3.0, 1.39], [-2.55, 1.39]],
   });
   const { NOSE, TAIL, ROOF } = S;
   K.rpanel([[-0.22, 0.48], [0.22, 0.48], [0.28, 0.57], [0.2, 0.65], [-0.2, 0.65], [-0.28, 0.57]], K.dark, 'front', NOSE + 0.004, 1);   // hexagon grille
@@ -9295,11 +9309,11 @@ function gbBody_impreza(K) {
 // Citroën Xsara WRC (2001-06): 4.167 m long, 1.77 m wide, 2.555 m wheelbase (Citroën); height 1.38 m (est.).
 function gbBody_xsara(K) {
   const S = gbGroupS(K, {
-    nose: 0.87, tail: 0.742, roof: 1.38, w: 0.83, hoopZ: -1.95,
+    nose: 0.87, tail: 0.742, roof: 1.38, w: 0.83, bZ: -1.9, hoopZ: -1.95,
     deck: [[0.87, 0.7, 0.76, 0.3], [0.8, 0.76, 0.82, 0.21], [0.4, 0.79], [0.0, 0.82], [-0.65, 0.88], [-2.0, 0.9], [-3.0, 0.92], [-3.25, 0.9, 0.78, 0.25], [-3.297, 0.86, 0.74, 0.28]],
     glass: [[-0.62, 0.87, 0.9, 0.76, 0.75], [-1.45, 0.92, 1.37, 0.72, 0.64], [-2.75, 0.93, 1.37, 0.71, 0.64], [-3.17, 0.93, 1.0, 0.69, 0.67]],
     roofZ: [-1.42, -2.78], roofW: 0.66,
-    sail: [[-2.4, 0.93], [-3.17, 0.93], [-2.8, 1.35], [-2.45, 1.35]], sailX: 0.725,
+    sail: [[-2.4, 0.93], [-3.17, 0.93], [-2.8, 1.35], [-2.45, 1.35]],
   });
   const { NOSE, TAIL } = S;
   K.rpanel([[-0.3, 0.5], [0.3, 0.5], [0.3, 0.62], [-0.3, 0.62]], K.dark, 'front', NOSE + 0.004, 1);
@@ -9319,11 +9333,11 @@ function gbBody_xsara(K) {
 // Coupé-like roof sloping into the hatch, big chevron grille, roof scoop, wing on stanchions over the hatch.
 function gbBody_c4(K) {
   const S = gbGroupS(K, {
-    nose: 0.9, tail: 0.766, roof: 1.39, w: 0.85, hoopZ: -2.0,
+    nose: 0.9, tail: 0.766, roof: 1.39, w: 0.85, bZ: -1.95, hoopZ: -2.0,
     deck: [[0.9, 0.7, 0.78, 0.3], [0.83, 0.77, 0.84, 0.21], [0.4, 0.81], [0.0, 0.84], [-0.7, 0.9], [-2.0, 0.92], [-3.05, 0.94], [-3.32, 0.92, 0.8, 0.25], [-3.374, 0.88, 0.76, 0.28]],
     glass: [[-0.68, 0.89, 0.92, 0.77, 0.76], [-1.5, 0.94, 1.38, 0.73, 0.65], [-2.5, 0.95, 1.38, 0.72, 0.65], [-3.2, 0.95, 1.02, 0.7, 0.68]],
     roofZ: [-1.47, -2.55], roofW: 0.67,
-    sail: [[-2.2, 0.95], [-3.2, 0.95], [-2.55, 1.36], [-2.25, 1.36]], sailX: 0.74,
+    sail: [[-2.2, 0.95], [-3.2, 0.95], [-2.55, 1.36], [-2.25, 1.36]],
   });
   const { NOSE, TAIL, ROOF } = S;
   K.rpanel([[-0.42, 0.46], [0.42, 0.46], [0.38, 0.64], [-0.38, 0.64]], K.dark, 'front', NOSE + 0.004, 1);   // wide grille
@@ -9345,11 +9359,11 @@ function gbBody_c4(K) {
 // 2.48 m wheelbase, 1.5 m tracks (Lancia). Upright box, four round lamps in the grille, bonnet louvres, roof spoiler.
 function gbBody_integrale(K) {
   const S = gbGroupS(K, {
-    nose: 0.74, tail: 0.68, roof: 1.365, w: 0.83, hoopZ: -2.0,
+    nose: 0.74, tail: 0.68, roof: 1.365, w: 0.83, bZ: -1.85, rearDoor: -2.55, hoopZ: -2.0,
     deck: [[0.74, 0.7, 0.8, 0.25], [0.7, 0.76, 0.82, 0.21], [0.3, 0.8], [0.0, 0.82], [-0.7, 0.87], [-2.0, 0.89], [-3.0, 0.9], [-3.13, 0.89, 0.8, 0.25], [-3.16, 0.86, 0.78, 0.28]],
     glass: [[-0.7, 0.86, 0.89, 0.76, 0.75], [-1.3, 0.9, 1.355, 0.72, 0.68], [-2.75, 0.91, 1.355, 0.72, 0.68], [-2.98, 0.91, 0.98, 0.71, 0.7]],
     roofZ: [-1.27, -2.78], roofW: 0.7,
-    sail: [[-2.35, 0.91], [-2.98, 0.91], [-2.8, 1.33], [-2.4, 1.33]], sailX: 0.74,
+    sail: [[-2.35, 0.91], [-2.98, 0.91], [-2.8, 1.33], [-2.4, 1.33]],
   });
   const { NOSE, TAIL } = S;
   K.rpanel([[-0.8, 0.5], [0.8, 0.5], [0.8, 0.68], [-0.8, 0.68]], K.dark, 'front', NOSE + 0.004, 1);      // grille and lamp band
