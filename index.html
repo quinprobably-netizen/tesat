@@ -1402,8 +1402,29 @@ body.tilt #tCentre{display:flex}
   <div id="loading" class="overlay">GENERATING STAGE&hellip;</div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+} }
+</script>
 <script>
+// A module that fails to import never runs: say so instead of leaving the loading screen up.
+window.addEventListener('load', () => setTimeout(() => {
+  if (window.__rrBoot) return;
+  document.getElementById('loading').innerHTML =
+    '<div class="panel"><h2>Could not load three.js</h2><p>This game loads three.js from cdn.jsdelivr.net. ' +
+    'Check your internet connection and reload.</p></div>';
+}, 0));
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+window.__rrBoot = true;
 /* =============================================================================
    REGOLITH RALLY — a point-to-point space rally game in a single file.
    Sections:
@@ -1428,12 +1449,6 @@ body.tilt #tCentre{display:flex}
 (function () {
 'use strict';
 
-if (!window.THREE) {
-  document.getElementById('loading').innerHTML =
-    '<div class="panel"><h2>Could not load three.js</h2><p>This game loads three.js r128 from cdnjs.cloudflare.com. ' +
-    'Check your internet connection and reload.</p></div>';
-  return;
-}
 
 /* =============================================================================
    1. UTILITIES
@@ -2784,12 +2799,18 @@ const LOW_SPEC = IS_TOUCH;                         // phones/tablets: fewer pixe
 const SHADOW_SIZE = LOW_SPEC ? 1024 : 2048;        // capped shadow map size
 const SHADOW_EXTENT = 58;                          // half-size (m) of the shadow frustum around the car
 
+// Colours are authored in sRGB and converted to linear explicitly (srgb(), linearizeMaterials), so three's own
+// conversion of hex colours stays off.
+THREE.ColorManagement.enabled = false;
+// Light intensities are tuned in three's old (pre-r155) units, which carried a factor of pi.
+const LIGHT_PI = Math.PI;
+
 const renderer = new THREE.WebGLRenderer({ antialias: !LOW_SPEC, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, LOW_SPEC ? 1.3 : 1.6));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
-renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 document.getElementById('app').prepend(renderer.domElement);
@@ -2826,8 +2847,8 @@ function disposeObject(root) {
 }
 
 /**
- * r128 treats material hex colours as linear; with sRGB output that washes them out.
- * Everything is authored in sRGB, so convert each (non-shader) material colour once.
+ * With three's colour management off, material hex colours are taken as linear; with sRGB output that washes them
+ * out. Everything is authored in sRGB, so convert each (non-shader) material colour once.
  */
 function linearizeMaterials(root) {
   root.traverse((o) => {
@@ -2910,7 +2931,7 @@ function makeCanvas(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   draw(c.getContext('2d'), w, h);
   const t = new THREE.CanvasTexture(c);
-  t.encoding = THREE.sRGBEncoding;
+  t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   return t;
 }
@@ -2976,7 +2997,7 @@ void main(){
     gl_FragColor = vec4(rrDaySky(d), 1.0);
     if (uEnv < 0.5) {                      // tone-mapped like the lit scene, so the fogged terrain meets the sky
       #include <tonemapping_fragment>
-      #include <encodings_fragment>
+      #include <colorspace_fragment>
     }
     return;
   }
@@ -3217,8 +3238,8 @@ const Sky = {
     this.cubeCam.update(renderer, this.envScene);
     scene.environment = this.envRT.texture;
     // Lights.
-    sunLight.color.set(s.sunColor).convertSRGBToLinear(); sunLight.intensity = s.sunIntensity;
-    hemiLight.color.set(def.hemi.sky).convertSRGBToLinear(); hemiLight.groundColor.set(def.hemi.ground).convertSRGBToLinear(); hemiLight.intensity = def.hemi.intensity;
+    sunLight.color.set(s.sunColor).convertSRGBToLinear(); sunLight.intensity = s.sunIntensity * LIGHT_PI;
+    hemiLight.color.set(def.hemi.sky).convertSRGBToLinear(); hemiLight.groundColor.set(def.hemi.ground).convertSRGBToLinear(); hemiLight.intensity = def.hemi.intensity * LIGHT_PI;
   },
   /** Sky, planet and ring are "infinitely far": they follow the camera. */
   update(dt, ringY) {
@@ -4460,7 +4481,6 @@ vec3 rrPerturb(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy, float faceDirection) {
 function makeTerrainMaterial(def) {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0.0, envMapIntensity: def.sky.day ? 0.3 : 0.7 });
   const stripe = def.style === 'platform' ? 1 : 0, det = detailTextures();
-  mat.extensions = { derivatives: true };        // dFdx/dFdy for the bump on WebGL1
   if (def.earth && def.earth.talus) mat.defines = { RR_TALUS: 1 };   // (defines are part of three's program cache key)
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uHW = { value: def.hw };
@@ -4873,12 +4893,12 @@ function buildRocks(rng) {
 }
 
 /* ---- scenery cells: instanced scenery split into squares that can be culled and hidden past the draw distance ----
-   three.js r128 turns frustum culling off on every InstancedMesh (its bounds are the unit model's, not the instances'),
-   so each square gets a bounding sphere around its own instances and culling switched back on. */
+   each square gets a bounding sphere around its own instances, so it can be culled as a whole. (Other instanced
+   meshes have instances that move, so buildStage turns their culling off: three would keep their first bounds.) */
 const DRAW_DIST = LOW_SPEC ? 900 : 1500;   // metres; scenery squares past this (or well into the fog) are hidden
 /** Register an instanced square for culling; `far` scales the draw distance (small things vanish sooner). */
 function cullCell(mesh, ctr, rad, far) {
-  mesh.geometry.boundingSphere = new THREE.Sphere(ctr, rad);
+  mesh.boundingSphere = new THREE.Sphere(ctr, rad);
   mesh.frustumCulled = true;
   TR.cells.push({ mesh, ctr, rad, far });
 }
@@ -10189,7 +10209,7 @@ function buildCarModel(build) {
   }
   const arbVis = makeArb(g, trim, geo);
   // headlight
-  const spot = new THREE.SpotLight(0xe0f4ff, 2.2, 75, 0.5, 0.55, 1.2);
+  const spot = new THREE.SpotLight(0xe0f4ff, 140, 75, 0.5, 0.55, 1.2);   // (physical units: about the old 2.2 at 15 m)
   spot.position.set(0, map.y(0.5), map.z(1.9));
   spot.target.position.set(0, -1.6, 14);
   g.add(spot, spot.target);
@@ -12288,6 +12308,8 @@ function buildStage(def) {
   RacingLine.build();
   buildPaceNotes();
   linearizeMaterials(stageGroup);
+  const culled = new Set(TR.cells.map((c) => c.mesh));
+  stageGroup.traverse((o) => { if (o.isInstancedMesh && !culled.has(o)) o.frustumCulled = false; });
   let minY = Infinity; for (let i = 0; i < TR.N; i++) minY = Math.min(minY, TR.cy[i]);
   TR.ringY = minY - 34;
   HUD.setupStage();
