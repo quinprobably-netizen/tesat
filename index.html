@@ -6559,7 +6559,7 @@ function applyAero(tn, nG, rho) {
    The beams are stepped SB.SUB times per physics step (1200 Hz), which keeps them stiff and stable. The physics test
    rig (RIG_GROUND) always runs the rigid body, so the garage ratings and self-tests are unchanged. */
 const SB = {
-  SUB: 10, EA: 4e6, C: 2200, YIELD: 0.004, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22,
+  SUB: 10, FR: [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1], EA: 4e6, C: 2200, YIELD: 0.004, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22,
   on: false, ready: false, synced: false, key: null, n: 0, M: 0, ver: 0,
   rest: null, loc: null, m: null, x: null, v: null, fe: null, f: null, off: new THREE.Vector3(),
   ba: null, bb: null, l0: null, l00: null, ok: null, nb: 0, gh: null,
@@ -6570,12 +6570,16 @@ const SB = {
     let xm = 0, ym = -1e9, yb = 1e9, z0 = 1e9, z1 = -1e9;
     for (const p of CAR.hull) { xm = Math.max(xm, Math.abs(p[0])); ym = Math.max(ym, p[1]); yb = Math.min(yb, p[1]); z0 = Math.min(z0, p[2]); z1 = Math.max(z1, p[2]); }
     const hw = xm * 0.95, yF = -CAR.cgH + 0.2, yW = Math.max(yF + 0.25, yb), yR = ym - 0.05, P = [];
-    for (let j = 0; j < 5; j++) {
-      const z = lerp(z0 + 0.1, z1 - 0.1, j / 4);
-      for (const s of [1, -1]) { P.push([s * hw, yF, z]); P.push([s * hw, yW, z]); }
+    // rows along the car, closer together in the crumple zones at each end: per row floor and waist, left then right
+    const FR = this.FR, ns = FR.length, fr = [];
+    for (let j = 0; j < ns; j++) {
+      const z = lerp(z0 + 0.05, z1 - 0.05, FR[j]);
+      for (const s of [1, -1]) { P.push([s * hw, yF, z]); P.push([s * hw, yW, z]); fr.push(FR[j], FR[j]); }
     }
-    for (let j = 0; j < 3; j++) { const z = lerp(z0, z1, 0.3 + 0.2 * j); for (const s of [1, -1]) P.push([s * hw * 0.8, yR, z]); }
+    for (let j = 0; j < 3; j++) { const t = 0.3 + 0.2 * j, z = lerp(z0, z1, t); for (const s of [1, -1]) { P.push([s * hw * 0.8, yR, z]); fr.push(-t); } }   // roof: tagged < 0
+    P.push([0, (yF + yW) / 2, z1 + 0.02]); fr.push(1); P.push([0, (yF + yW) / 2, z0 - 0.02]); fr.push(0);   // nose and tail
     const n = this.n = P.length;
+    this.fr = Float64Array.from(fr); this.ns = ns;
     // masses: the whole car's, weighted so the nodes' centre of mass sits at the car's (the origin)
     let sy = 0, sz = 0, syy = 0, szz = 0, syz = 0;
     for (const p of P) { sy += p[1]; sz += p[2]; syy += p[1] * p[1]; szz += p[2] * p[2]; syz += p[1] * p[2]; }
@@ -6587,7 +6591,7 @@ const SB = {
     this.M = CAR.mass; this.off.multiplyScalar(1 / this.M);
     this.rest = new Float64Array(n * 3); P.forEach((p, i) => this.rest.set(p, i * 3));
     this.loc = this.rest.slice(); this.x = new Float64Array(n * 3); this.v = new Float64Array(n * 3);
-    this.fe = new Float64Array(n * 3); this.f = new Float64Array(n * 3); this.gh = new Float64Array(n);
+    this.fe = new Float64Array(n * 3); this.f = new Float64Array(n * 3); this.gh = new Float64Array(n); this.gn = new Float64Array(n * 3);
     // beams between every pair closer than the bracing length: a braced space frame
     const A = [], B = [], L = [], D = 2.0;
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
@@ -6596,7 +6600,26 @@ const SB = {
     }
     this.nb = A.length; this.ba = Int32Array.from(A); this.bb = Int32Array.from(B);
     this.l00 = Float64Array.from(L); this.l0 = this.l00.slice(); this.ok = new Uint8Array(this.nb).fill(1);
+    // strength by region: the cabin (and the roof over it) is a stiff, strong safety cell; the nose and tail crumple
+    const end = (i) => fr[i] >= 0 && (fr[i] <= FR[1] || fr[i] >= FR[ns - 2]), cab = (i) => fr[i] < 0 || (fr[i] >= FR[2] && fr[i] <= FR[ns - 3]);
+    this.ys = new Float64Array(this.nb); this.ea = new Float64Array(this.nb);
+    this.deg = new Float64Array(n); this.lost = new Float64Array(n); this.gone = new Uint8Array(n);
+    for (let b = 0; b < this.nb; b++) {
+      const i = A[b], j = B[b], c = cab(i) && cab(j), e = end(i) || end(j);
+      this.ys[b] = this.YIELD * (c ? 2.6 : e ? 0.7 : 1); this.ea[b] = this.EA / L[b] * (c ? 1.3 : 1);
+      this.deg[i]++; this.deg[j]++;
+    }
     this.mounts = CAR.wheels.map((cw) => this.weights(cw.x, CAR.mountY, cw.z));
+    // a point ahead of and above each mount: how the bent body turns the wheel (toe) and leans it (camber)
+    this.mFwd = CAR.wheels.map((cw) => this.weights(cw.x, CAR.mountY, cw.z + 0.3));
+    this.mUp = CAR.wheels.map((cw) => this.weights(cw.x, CAR.mountY + 0.3, cw.z));
+    this.toe = new Float64Array(4); this.camber = new Float64Array(4); this.broke = 0;
+    // panel samples: points on the side, nose and tail panels between the nodes, each carried by its four corners
+    const S = this.samples = [], id = (j, s, up) => j * 4 + (s > 0 ? 0 : 2) + up;
+    for (const s of [1, -1]) for (let j = 0; j < ns - 1; j++) for (const v of [0.3, 0.75])
+      S.push({ i: [id(j, s, 0), id(j + 1, s, 0), id(j + 1, s, 1), id(j, s, 1)], w: [0.5 * (1 - v), 0.5 * (1 - v), 0.5 * v, 0.5 * v] });
+    for (const j of [0, ns - 1]) for (const u of [0.25, 0.75]) for (const v of [0.3, 0.75])
+      S.push({ i: [id(j, 1, 0), id(j, -1, 0), id(j, -1, 1), id(j, 1, 1)], w: [(1 - u) * (1 - v), u * (1 - v), u * v, (1 - u) * v] });
     this.key = CAR.hull; this.ready = true; this.synced = false; this.ver++;
   },
   /** The 3 rest nodes nearest a car-frame point, inverse-distance weighted. */
@@ -6623,7 +6646,7 @@ const SB = {
   /** Back to the factory shape (service, a new run, a new car). */
   repair() {
     if (!this.ready) return;
-    this.l0.set(this.l00); this.ok.fill(1); this.loc.set(this.rest); this.ver++;
+    this.l0.set(this.l00); this.ok.fill(1); this.loc.set(this.rest); this.lost.fill(0); this.gone.fill(0); this.toldParts = false; this.broke = 0; this.toe.fill(0); this.camber.fill(0); this.ver++;
     if (this.synced) this.place();
   },
   /** Fit the rigid pose to the nodes: centre of mass, best-fit rotation (polar decomposition of the moment matrix,
@@ -6679,9 +6702,38 @@ const SB = {
       moved = Math.max(moved, Math.abs(_sbv.x - L[k]) + Math.abs(_sbv.y - L[k + 1]) + Math.abs(_sbv.z - L[k + 2]));
       L[k] = _sbv.x; L[k + 1] = _sbv.y; L[k + 2] = _sbv.z;
     }
-    if (moved > 0.004) this.ver++;
+    if (moved > 0.004) { this.ver++; this.assess(); }
     // a body that has flown apart (it shouldn't) is put back together rather than left broken
     for (let i = 0; i < this.n * 3; i++) if (!(Math.abs(L[i] - R[i]) < 2.5)) { this.repair(); return; }
+  },
+  /** Car-frame position of rest point wt as the bent body now holds it. */
+  bent(wt, out) {
+    out.set(0, 0, 0);
+    for (let j = 0; j < 3; j++) {
+      const k = wt.i[j] * 3, w = wt.w[j];
+      out.x += w * (this.loc[k] + wt.p[0] - this.rest[k]); out.y += w * (this.loc[k + 1] + wt.p[1] - this.rest[k + 1]); out.z += w * (this.loc[k + 2] + wt.p[2] - this.rest[k + 2]);
+    }
+    return out;
+  },
+  /** What the bent frame means for the car: each wheel's toe and camber from how its mount is twisted, and the
+   *  damage zones (radiator, exhaust, suspension each side) from how far that part of the frame was pushed in. */
+  assess() {
+    for (let k = 0; k < 4; k++) {
+      const m = this.bent(this.mounts[k], _sbF), f = this.bent(this.mFwd[k], _sbT).sub(m);
+      this.toe[k] = clamp(Math.atan2(f.x, f.z), -0.25, 0.25);
+      const u = this.bent(this.mUp[k], _sbT).sub(m);
+      this.camber[k] = clamp(Math.atan2(u.x, u.y), -0.3, 0.3);
+    }
+    const L = this.loc, R = this.rest, fr = this.fr, FR = this.FR;
+    let fz = 0, rz = 0;
+    for (let i = 0; i < this.n; i++) {
+      if (fr[i] < 0) continue;
+      const d = Math.hypot(L[i * 3] - R[i * 3], L[i * 3 + 1] - R[i * 3 + 1], L[i * 3 + 2] - R[i * 3 + 2]);
+      if (fr[i] >= FR[FR.length - 2]) fz = Math.max(fz, d); else if (fr[i] <= FR[1]) rz = Math.max(rz, d);
+    }
+    const Z = car.zones, mv = (k) => { const w = this.mounts[k]; return this.bent(w, _sbF).sub(_sbT.set(w.p[0], w.p[1], w.p[2])).length(); };
+    Z.f = Math.max(Z.f, clamp((fz - 0.04) / 0.3, 0, 1)); Z.r = Math.max(Z.r, clamp((rz - 0.04) / 0.3, 0, 1));
+    Z.l = Math.max(Z.l, clamp((Math.max(mv(0), mv(2)) - 0.02) / 0.12, 0, 1)); Z.rt = Math.max(Z.rt, clamp((Math.max(mv(1), mv(3)) - 0.02) / 0.12, 0, 1));
   },
   /** World position of car-frame point w (from weights()) as the bent body carries it. */
   skin(wt, out) {
@@ -6733,10 +6785,14 @@ const SB = {
       fe[k + 1] += w / M * Fr.y + w * (al.z * dx - al.x * dz);
       fe[k + 2] += w / M * Fr.z + w * (al.x * dy - al.y * dx);
       if (kd > 0) { V[k] -= kd * (wd.y * dz - wd.z * dy); V[k + 1] -= kd * (wd.z * dx - wd.x * dz); V[k + 2] -= kd * (wd.x * dy - wd.y * dx); }
-      this.gh[i] = heightNear(X[k], X[k + 2], car.i);
+      // the ground under the node and its slope, so a bank or a canyon wall pushes the body sideways, not just up
+      const g0 = this.gh[i] = heightNear(X[k], X[k + 2], car.i);
+      const gx = heightNear(X[k] + 0.3, X[k + 2], car.i), gz = heightNear(X[k], X[k + 2] + 0.3, car.i);
+      let nx = gx > VOID_H + 1 ? (g0 - gx) / 0.3 : 0, nz = gz > VOID_H + 1 ? (g0 - gz) / 0.3 : 0;
+      const nl = Math.hypot(nx, 1, nz); this.gn[k] = nx / nl; this.gn[k + 1] = 1 / nl; this.gn[k + 2] = nz / nl;
     }
     this.gather();
-    const h = dt / this.SUB, f = this.f, ba = this.ba, bb = this.bb, l0 = this.l0, l00 = this.l00, ok = this.ok, Y = this.YIELD;
+    const h = dt / this.SUB, f = this.f, ba = this.ba, bb = this.bb, l0 = this.l0, l00 = this.l00, ok = this.ok, ys = this.ys, ea = this.ea;
     let scrape = 0, sx = 0, sy = 0, sz = 0;
     car.hullContact = false;
     for (let s = 0; s < this.SUB; s++) {
@@ -6747,9 +6803,11 @@ const SB = {
         const dx = X[b3] - X[a3], dy = X[b3 + 1] - X[a3 + 1], dz = X[b3 + 2] - X[a3 + 2], L = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1e-6;
         const ux = dx / L, uy = dy / L, uz = dz / L;
         // plastic: past the yield strain the beam sets at its new length; stretched past BREAK it snaps
-        if (L > L00 * (1 + this.BREAK)) { ok[b] = 0; this.ver++; continue; }
-        if (L - l0[b] > Y * L00) l0[b] = L - Y * L00; else if (l0[b] - L > Y * L00) l0[b] = Math.max(0.3 * L00, L + Y * L00);
-        const fs = this.EA / L00 * (L - l0[b]) + this.C * ((V[b3] - V[a3]) * ux + (V[b3 + 1] - V[a3 + 1]) * uy + (V[b3 + 2] - V[a3 + 2]) * uz);
+        // torn apart, or crushed to under half its length (folded flat), it fails
+        if (L > L00 * (1 + this.BREAK) || l0[b] < 0.5 * L00) { ok[b] = 0; this.lost[ba[b]]++; this.lost[bb[b]]++; this.broke++; this.ver++; continue; }
+        const yb = ys[b] * L00;
+        if (L - l0[b] > yb) l0[b] = L - yb; else if (l0[b] - L > yb) l0[b] = L + yb;
+        const fs = ea[b] * (L - l0[b]) + this.C * ((V[b3] - V[a3]) * ux + (V[b3 + 1] - V[a3 + 1]) * uy + (V[b3 + 2] - V[a3 + 2]) * uz);
         f[a3] += fs * ux; f[a3 + 1] += fs * uy; f[a3 + 2] += fs * uz;
         f[b3] -= fs * ux; f[b3 + 1] -= fs * uy; f[b3 + 2] -= fs * uz;
       }
@@ -6757,13 +6815,13 @@ const SB = {
         const k = i * 3, w = m[i], gh = this.gh[i];
         // the ground: a stiff penalty spring with Coulomb friction (where there is ground: chasms have none)
         if (gh > VOID_H + 1) {
-          const pen = gh + 0.04 - X[k + 1];
+          const gnx = this.gn[k], gny = this.gn[k + 1], gnz = this.gn[k + 2], pen = (gh + 0.04 - X[k + 1]) * gny;
           if (pen > 0) {
             car.hullContact = true;
-            const vn = V[k + 1], fn = Math.max(0, this.KG * pen - this.CG * vn);
-            const vt = Math.hypot(V[k], V[k + 2]);
-            if (vt > 1e-4) { const ft = Math.min(this.MU * fn, vt * w / h * 0.5) / vt; f[k] -= V[k] * ft; f[k + 2] -= V[k + 2] * ft; }
-            f[k + 1] += fn;
+            const vn = V[k] * gnx + V[k + 1] * gny + V[k + 2] * gnz, fn = Math.max(0, this.KG * pen - this.CG * vn);
+            const tx = V[k] - vn * gnx, ty = V[k + 1] - vn * gny, tz = V[k + 2] - vn * gnz, vt = Math.hypot(tx, ty, tz);
+            if (vt > 1e-4) { const ft = Math.min(this.MU * fn, vt * w / h * 0.5) / vt; f[k] -= tx * ft; f[k + 1] -= ty * ft; f[k + 2] -= tz * ft; }
+            f[k] += fn * gnx; f[k + 1] += fn * gny; f[k + 2] += fn * gnz;
             if (-vn > scrape) { scrape = -vn; sx = X[k]; sy = X[k + 1]; sz = X[k + 2]; }
           }
         }
@@ -6772,6 +6830,7 @@ const SB = {
         if (this.cand.length || this.blocks.length) this.collide(i);
       }
       if (this.cand.length) this.collideBeams();
+      if (this.cand.length || this.blocks.length) this.collidePanels();
     }
     if (scrape > 5) car.events.push({ type: 'scrape', speed: scrape, x: sx, y: sy, z: sz });
     if (this.hit) car.events.push(this.hit);
@@ -6837,6 +6896,31 @@ const SB = {
       }
     }
   },
+  /** The panels between the nodes: each sample point is tested like a node and its push shared by its corners. */
+  collidePanels() {
+    const X = this.x, R = this.RN * 0.7, p = _sbv;
+    for (const S of this.samples) {
+      const I = S.i, W = S.w;
+      p.set(0, 0, 0);
+      for (let j = 0; j < 4; j++) { const k = I[j] * 3; p.x += W[j] * X[k]; p.y += W[j] * X[k + 1]; p.z += W[j] * X[k + 2]; }
+      let nx = 0, ny = 0, nz = 0, pen = 0, kind = null, brk = null, obj = null;
+      for (const c of this.cand) {
+        if (c.gone) continue;
+        const cy = clamp(p.y, c.y0, c.y1), dx = p.x - c.x, dy = p.y - cy, dz = p.z - c.z, d2 = dx * dx + dy * dy + dz * dz, rr = R + c.r;
+        if (d2 >= rr * rr || d2 < 1e-8) continue;
+        const d = Math.sqrt(d2); nx = dx / d; ny = dy / d; nz = dz / d; pen = rr - d; kind = c.kind; brk = c.brk && BREAK_V[c.kind] ? c : null;
+      }
+      for (const o of this.blocks) {
+        if (o.gone || pen > 0) continue;
+        const ex = Math.cos(o.yaw), ez = -Math.sin(o.yaw), t = clamp((p.x - o.x) * ex + (p.z - o.z) * ez, -BLOCK_HL, BLOCK_HL);
+        const qx = o.x + ex * t, qz = o.z + ez * t, cy = clamp(p.y, o.y, o.y + CHICANE.blockH);
+        const dx = p.x - qx, dy = p.y - cy, dz = p.z - qz, d2 = dx * dx + dy * dy + dz * dz, rr = R + CHICANE.blockD / 2;
+        if (d2 >= rr * rr || d2 < 1e-8) continue;
+        const hl = Math.hypot(dx, dz) || 1; nx = dx / hl; ny = 0; nz = dz / hl; pen = rr - Math.sqrt(d2); kind = 'barrier'; obj = o;
+      }
+      if (pen > 0) for (let j = 0; j < 4; j++) if (W[j] > 0.05) this.contact(I[j], nx, ny, nz, pen * W[j] * 2, kind, brk, obj);
+    }
+  },
   contact(i, nx, ny, nz, pen, kind, brk, obj) {
     const k = i * 3, X = this.x, V = this.v, mi = this.m[i];
     let ux = V[k], uy = V[k + 1], uz = V[k + 2];
@@ -6859,6 +6943,51 @@ const SB = {
     if (-vn > H.speed) Object.assign(H, { speed: -vn, x: X[k] - nx * this.RN, y: X[k + 1], z: X[k + 2] - nz * this.RN, kind, nx, ny, nz });
     if (broke) H.broke = broke;
   },
+  /** Has the frame at node i given way? Half its beams gone, or a nose or tail node shoved in past 30 cm. */
+  loose(i) {
+    if (this.lost[i] >= 0.45 * this.deg[i]) return true;
+    if (this.fr[i] < 0 || (this.fr[i] > this.FR[1] && this.fr[i] < this.FR[this.FR.length - 2])) return false;
+    const k = i * 3; return Math.hypot(this.loc[k] - this.rest[k], this.loc[k + 1] - this.rest[k + 1], this.loc[k + 2] - this.rest[k + 2]) > 0.3;
+  },
+  /** The bodywork hanging from failed nodes tears off: those triangles leave the car's mesh and tumble away as a piece. */
+  cut(o, nodes) {
+    const u = o.userData, g = o.geometry, A = g.attributes.position.array, idx = g.index, I = u.sbI;
+    const tri = idx ? idx.array : null, nt = (tri ? tri.length : A.length / 3) / 3, take = [];
+    for (let t = 0; t < nt; t++) {
+      const a = tri ? tri[t * 3] : t * 3, b = tri ? tri[t * 3 + 1] : t * 3 + 1, c = tri ? tri[t * 3 + 2] : t * 3 + 2;
+      if ((u.sbHide && u.sbHide[t]) || (tri && a === b && b === c)) continue;
+      const na = nodes.includes(I[a * 3]), nb = nodes.includes(I[b * 3]), nc = nodes.includes(I[c * 3]);
+      if (na && nb && nc) take.push(t, a, b, c);
+    }
+    if (!take.length) return;
+    const cnt = take.length / 4, P = new Float32Array(cnt * 9), na = g.attributes.normal, uv = g.attributes.uv;
+    const NN = na ? new Float32Array(cnt * 9) : null, UV = uv ? new Float32Array(cnt * 6) : null;
+    if (tri && !u.sbIdx0) u.sbIdx0 = tri.slice();
+    if (!tri && !u.sbHide) u.sbHide = new Uint8Array(nt);
+    for (let q = 0; q < cnt; q++) {
+      const t = take[q * 4];
+      for (let j = 0; j < 3; j++) {
+        const v = take[q * 4 + 1 + j];
+        P.set(A.subarray(v * 3, v * 3 + 3), q * 9 + j * 3);
+        if (NN) NN.set(na.array.subarray(v * 3, v * 3 + 3), q * 9 + j * 3);
+        if (UV) UV.set(uv.array.subarray(v * 2, v * 2 + 2), q * 6 + j * 2);
+      }
+      if (tri) { tri[t * 3 + 1] = tri[t * 3 + 2] = tri[t * 3]; } else u.sbHide[t] = 1;
+    }
+    if (tri) idx.needsUpdate = true;
+    const pg = new THREE.BufferGeometry();
+    pg.setAttribute('position', new THREE.BufferAttribute(P, 3));
+    if (NN) pg.setAttribute('normal', new THREE.BufferAttribute(NN, 3));
+    if (UV) pg.setAttribute('uv', new THREE.BufferAttribute(UV, 2));
+    pg.computeBoundingSphere();
+    const c = pg.boundingSphere.center.clone(); pg.translate(-c.x, -c.y, -c.z);   // so it tumbles about its own middle
+    const d = new THREE.Mesh(pg, o.material);
+    o.updateMatrixWorld(true); o.matrixWorld.decompose(d.position, d.quaternion, d.scale); d.position.copy(c.applyMatrix4(o.matrixWorld));
+    d.castShadow = true;
+    const R = () => (Math.random() - 0.5) * 4;
+    Debris.add(d, car.vel.x * 0.6 + R(), car.vel.y * 0.5 + 2 + Math.random() * 2, car.vel.z * 0.6 + R(), true);
+    if (Game.state === 'racing' && !this.toldParts) { this.toldParts = true; Game.stats.parts = (Game.stats.parts || 0) + 1; HUD.toast('BODYWORK TORN OFF', '#ffb52e', 1.2); }
+  },
   /** The body mesh follows the bent lattice: each vertex moves with its three nearest nodes. */
   skinMesh(M) {
     if (!M || !M.shell || !this.ready) return;
@@ -6866,7 +6995,10 @@ const SB = {
     if (!bound && S.ver === this.ver) return;
     M.group.updateMatrixWorld(true);
     _sbm.copy(M.group.matrixWorld).invert();
-    const R = this.rest, L = this.loc, n = this.n, any = this.on || this.synced;
+    const R = this.rest, L = this.loc, n = this.n, any = this.on || this.synced, cut = [];
+    if (any) for (let i = 0; i < n; i++) {
+      if (!this.gone[i] && this.loose(i)) { this.gone[i] = 1; cut.push(i); } else if (bound && this.gone[i]) cut.push(i);   // (a rebuilt model loses them again)
+    }
     for (const o of M.shell.children) {
       if (!o.isMesh) continue;
       const g = o.geometry, pa = g.attributes.position;
@@ -6888,7 +7020,11 @@ const SB = {
           u.sbI[v * 3] = i0; u.sbI[v * 3 + 1] = i1; u.sbI[v * 3 + 2] = i2;
           u.sbW[v * 3] = w0 / t; u.sbW[v * 3 + 1] = w1 / t; u.sbW[v * 3 + 2] = w2 / t;
         }
+        // shading: the normals a flat recompute gives for the undamaged shape, so a dent can be shaded as the
+        // change from them (the model's own smoothing is kept wherever the metal hasn't moved)
+        if (g.attributes.normal && u.norig) { pa.array.set(O); g.computeVertexNormals(); u.sbN0 = g.attributes.normal.array.slice(); g.attributes.normal.array.set(u.norig); }
       }
+      if (cut.length && o.material !== M.glass && !Array.isArray(o.material) && o.visible) this.cut(o, cut);
       const A = pa.array, O = u.orig, I = u.sbI, W = u.sbW, e = u.sbR;
       for (let v = 0, cnt = O.length / 3; v < cnt; v++) {
         let dx = 0, dy = 0, dz = 0;
@@ -6900,7 +7036,23 @@ const SB = {
         A[v * 3 + 1] = O[v * 3 + 1] + e[1] * dx + e[5] * dy + e[9] * dz;
         A[v * 3 + 2] = O[v * 3 + 2] + e[2] * dx + e[6] * dy + e[10] * dz;
       }
+      if (u.sbHide) for (let t = 0; t < A.length; t += 9) if (u.sbHide[t / 9]) for (let j = 3; j < 9; j++) A[t + j] = A[t + j % 3];   // torn-off triangles collapse
       pa.needsUpdate = true; g.computeBoundingSphere();
+      const na = g.attributes.normal;
+      if (na && u.sbN0) {
+        const N = na.array, N0 = u.sbN0, NO = u.norig;
+        if (any) {
+          g.computeVertexNormals();                              // the bent shape's own normals
+          for (let i = 0; i < N.length; i += 3) {
+            const mx = A[i] - O[i], my = A[i + 1] - O[i + 1], mz = A[i + 2] - O[i + 2], dm = Math.min(1, Math.hypot(mx, my, mz) * 8);
+            // the model's normal turned by however far the bent surface turned, and crumpled where it moved
+            const h = Math.sin(O[i] * 41.3 + O[i + 2] * 57.1) * 0.5 * dm, h2 = Math.sin(O[i + 1] * 63.7 + O[i] * 29.9) * 0.5 * dm;
+            let x = NO[i] + N[i] - N0[i] + h, y = NO[i + 1] + N[i + 1] - N0[i + 1] + h2, z = NO[i + 2] + N[i + 2] - N0[i + 2] + (h - h2) * 0.5;
+            const l = Math.hypot(x, y, z) || 1; N[i] = x / l; N[i + 1] = y / l; N[i + 2] = z / l;
+          }
+        } else N.set(NO);
+        na.needsUpdate = true;
+      }
     }
     S.key = this.key; S.ver = this.ver;
   },
@@ -7020,7 +7172,8 @@ function stepVehicle(dt, ctl) {
     w.prevGround = true;
     // tyre frame on the ground plane
     _fw.copy(AZ);
-    if (cw.front) { const c = Math.cos(car.steerAngle), s = Math.sin(car.steerAngle); _fw.multiplyScalar(c).addScaledVector(AX, s); }
+    const ang = (cw.front ? car.steerAngle : 0) + (SB.on ? SB.toe[k] : 0);   // a bent corner knocks its wheel's toe out
+    if (ang) { const c = Math.cos(ang), s = Math.sin(ang); _fw.multiplyScalar(c).addScaledVector(AX, s); }
     _fw.addScaledVector(w.n, -_fw.dot(w.n)).normalize();
     _lt.crossVectors(w.n, _fw);                                   // points to the car's left
     _cp.copy(w.mount).addScaledVector(AY, -w.dist);
@@ -7041,6 +7194,7 @@ function stepVehicle(dt, ctl) {
     const N = w.Nt * Math.max(0, AY.dot(w.n)), N0 = CAR.N0[k];
     w.N = N; w.mu = gs.mu * tn.mu[gs.surf];
     w.Fmax = w.mu * N0 * Math.pow(Math.min(N / N0, 3), 0.85);
+    if (SB.on) w.Fmax *= 1 - Math.min(0.35, Math.abs(SB.camber[k]) * 1.5);      // a leaning wheel stands on its edge
     w.rr = gs.rr * N * CAR.radius;                      // rolling resistance torque (N·m)
   }
   car.nGround = nG;
@@ -12322,7 +12476,10 @@ const CarDamage = {
     const M = Game.carModel;
     if (!M || !M.shell) return;
     for (const o of M.shell.children) {
-      const u = o.userData; if (!u.orig) continue;
+      const u = o.userData;
+      if (u.sbIdx0) { o.geometry.index.array.set(u.sbIdx0); o.geometry.index.needsUpdate = true; u.sbIdx0 = null; }   // torn-off bodywork back on
+      u.sbHide = null;
+      if (!u.orig) continue;
       o.geometry.attributes.position.array.set(u.orig); o.geometry.attributes.position.needsUpdate = true;
       if (u.norig) { o.geometry.attributes.normal.array.set(u.norig); o.geometry.attributes.normal.needsUpdate = true; }
     }
@@ -12335,14 +12492,18 @@ const CarDamage = {
     const lx = rx * AX.x + ry * AX.y + rz * AX.z, lz = rx * AZ.x + ry * AZ.y + rz * AZ.z, Z = car.zones;
     const zone = Math.abs(lz) / 2 > Math.abs(lx) / 0.85 ? (lz > 0 ? 'f' : 'r') : (lx > 0 ? 'l' : 'rt');
     const a = amt * car.tune.dmg * 1.6;
-    Z[zone] = Math.min(1, Z[zone] + a);
-    if ((zone === 'f' || zone === 'r') && Math.abs(lx) > 0.45) { const sd = lx > 0 ? 'l' : 'rt'; Z[sd] = Math.min(1, Z[sd] + a * 0.5); }   // a corner bends the wheel there too
-    car.pull = 0.06 * (Z.l - Z.rt);
+    if (SB.on) car.pull = 0;                                   // the soft body's zones come from the bent frame (SB.assess) and its pull from the toe
+    else {
+      Z[zone] = Math.min(1, Z[zone] + a);
+      if ((zone === 'f' || zone === 'r') && Math.abs(lx) > 0.45) { const sd = lx > 0 ? 'l' : 'rt'; Z[sd] = Math.min(1, Z[sd] + a * 0.5); }   // a corner bends the wheel there too
+      car.pull = 0.06 * (Z.l - Z.rt);
+    }
     const W = car.warned || (car.warned = {});
     const warn = (key, text) => { if (!W[key]) { W[key] = true; HUD.toast(text, '#ffb52e', 1.6); } };
     if (Z.f > 0.3) warn('f', 'RADIATOR HIT');
     if (Z.r > 0.3) warn('r', 'EXHAUST DAMAGED');
-    if (Math.abs(Z.l - Z.rt) > 0.25) warn('p' + (Z.l > Z.rt ? 'l' : 'r'), 'SUSPENSION BENT · PULLS ' + (Z.l > Z.rt ? 'LEFT' : 'RIGHT'));
+    if (SB.on) { const t = SB.toe[0] + SB.toe[1]; if (Math.abs(t) > 0.03) warn('p' + (t > 0 ? 'l' : 'r'), 'SUSPENSION BENT · PULLS ' + (t > 0 ? 'LEFT' : 'RIGHT')); }
+    if (Math.abs(Z.l - Z.rt) > 0.25 && !SB.on) warn('p' + (Z.l > Z.rt ? 'l' : 'r'), 'SUSPENSION BENT · PULLS ' + (Z.l > Z.rt ? 'LEFT' : 'RIGHT'));
     // the dent, in the car model's own frame (so it can be put back on a rebuilt model)
     const M = Game.carModel;
     if (M && M.shell && !SB.on) {                              // (the soft body bends the mesh itself)
@@ -12419,7 +12580,14 @@ const Debris = {
     const R = () => (Math.random() - 0.5) * 18;
     this.list.push({ m, v: new THREE.Vector3(vx, vy, vz), w: new THREE.Vector3(R(), R(), R()), life: 8 });
   },
-  remove(i) { scene.remove(this.list[i].m); this.list.splice(i, 1); },
+  /** Any mesh as debris (a part torn off a soft-body car); `own` geometry is freed when it goes. */
+  add(m, vx, vy, vz, own) {
+    if (this.list.length >= 24) this.remove(0);
+    scene.add(m);
+    const R = () => (Math.random() - 0.5) * 8;
+    this.list.push({ m, v: new THREE.Vector3(vx, vy, vz), w: new THREE.Vector3(R(), R(), R()), life: 10, own });
+  },
+  remove(i) { const d = this.list[i]; scene.remove(d.m); if (d.own) d.m.geometry.dispose(); this.list.splice(i, 1); },
   update(dt) {
     const g = TR ? TR.def.gravity : 9.8;
     for (let i = this.list.length - 1; i >= 0; i--) {
@@ -12638,7 +12806,9 @@ function updateCarVisual(dt, ctl) {
       wm.squash.position.y = sq / 2;                                                  // the sidewalls bulging out a little
     }
     poseShock(wm.shock, wm.pivot.position.y);
-    if (cw.front) wm.pivot.rotation.y = car.steerAngle;
+    const sbA = SB.on && SB.ready;
+    wm.pivot.rotation.y = (cw.front ? car.steerAngle : 0) + (sbA ? SB.toe[k] : 0);
+    wm.pivot.rotation.z = sbA ? -SB.camber[k] : 0;
     w.spinAngle = (w.spinAngle + w.om * dt) % TAU;           // each wheel turns at its own solved speed: wheelspin, lock-ups and all
     wm.spin.rotation.x = w.spinAngle;
     if (wm.discMat) {                                        // brake discs heat with the power they soak up and cool off slowly
