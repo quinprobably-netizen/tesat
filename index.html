@@ -2269,6 +2269,7 @@ const GARAGE = {
     { name: 'XSARA WRC', blurb: 'Citroën Xsara WRC, Loeb\'s first title car (2004-05). Torque from very low revs, short and nimble.' },
     { name: 'C4 WRC', blurb: 'Citroën C4 WRC, the most successful World Rally Car (2007-10): four drivers\' titles for Loeb.' },
     { name: 'INTEGRALE', blurb: 'Lancia Delta HF Integrale Evoluzione, 1992 works Group A car. Six makes\' titles in a row for the Delta: boxy, short and tough.' },
+    { name: 'MINI JCW', blurb: 'MINI John Cooper Works WRC (2011) with the restrictor thrown away: a Countryman-shaped brick with Group S power. The tune is fictional.' },
   ] },
   color: { label: 'PAINT', opts: [
     { name: 'BLAZE', hex: 0xff7a1a }, { name: 'NEBULA', hex: 0x8b5cff }, { name: 'COMET', hex: 0x19c8e6 }, { name: 'SOLAR', hex: 0xffd21f },
@@ -2502,6 +2503,16 @@ const CAR_SPECS = [
     kg: 1100, front: 0.47, centre: 'viscous', fdiff: 'lsdF', rdiff: 'torsen',
     wb: 2.48, track: [1.5, 1.5], wf: 0.6, cgH: 0.48, dims: [3.9, 1.77, 1.365], travel: 0.25,
     tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: 'Michelin 15 in gravel' }, disc: [300, 280] },
+  // MINI John Cooper Works WRC (Prodrive, 2011): real chassis on the Countryman (4.11 m long, 1.82 m wide, 2.595 m
+  // wheelbase); its 1.6 L BMW turbo four made about 300 hp through the WRC's 33 mm restrictor. This one is a fictional
+  // unrestricted tune at Group S pace: power, torque curve, 1,050 kg, ratios and height are all estimates
+  { engine: '1.6 L inline-4 turbo (BMW/Prodrive, unrestricted)', cyl: 4, layout: 'inline', pitch: 1.04, hp: 560, hpAt: 7500, nm: 620, nmAt: 5000, redline: 8500, idle: 1000, lag: 0.4, offBoost: 0.55,
+    curve: [[1000, 200], [2000, 330], [3000, 470], [4000, 580], [5000, 620], [6000, 600], [7000, 560], [7500, 532], [8000, 490], [8500, 430]],
+    disp: 1.598, launch: 5000, Ie: 0.09, enginePos: 'front',
+    box: '6-speed Xtrac sequential (ratios est.)', gears: [2.9, 2.15, 1.75, 1.45, 1.24, 1.08], final: 3.7, rev: 2.9, shift: 0.05,
+    kg: 1050, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+    wb: 2.595, track: [1.6, 1.6], wf: 0.57, cgH: 0.5, dims: [4.11, 1.82, 1.53], travel: 0.27,
+    tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [355, 300] },
 ];
 // derived: driveline efficiency (four-wheel drive loses a little more through the extra diffs), clutch capacity, and
 // the revs the engine settles at on a full-throttle standing start while the launch clutch slips
@@ -2562,6 +2573,8 @@ const CAR_AERO = [
     text: 'Front splitter with dive planes, roof scoop, side skirts, rear wing on stanchions over the hatch, rear diffuser' },
   { cda: 0.8, cdaSide: 2.35, claF: 0.04, claR: 0.1, pitch: 0.03, ge: 0.1,
     text: 'Adjustable roof-edge spoiler over the hatch and a deep bumper with brake ducts; little downforce, like all Group A cars' },
+  { cda: 1.08, cdaSide: 2.7, claF: 0.3, claR: 0.52, pitch: 0.08, ge: 0.3,
+    text: 'Deep splitter with dive planes, bonnet vents, side skirts, big roof-edge wing on tall endplates, full-width diffuser (estimated)' },
 ];
 const aeroText = (a) => { const c = a.claF + a.claR, f = Math.round(a.claF / c * 100);
   return `${a.text}. Drag ${a.cda.toFixed(2)} m², ` + (c > 0 ? `downforce ${c.toFixed(2)} m² (${f}% front)` : c < 0 ? `lift ${(-c).toFixed(2)} m² (${f}% front)` : 'no downforce'); };
@@ -2585,7 +2598,7 @@ function drivetrainText(spec) {
    of mass), z by the wheelbase between the wheel arches and by the real length beyond them. The physics
    uses the same numbers: wheel positions, tyre radius, ride height, springs, brakes, inertia and hull. */
 const MODEL = { FZ: 1.38, RZ: -1.30, X: 1.02, GY: -0.87, ARCH: 0.55, archR: 0.52 };
-const MODEL_BOX = [[0.75, 2.218, -2.172], [0.65, 2.636, -2.318], [0.76, 2.088, -1.948], [0.44, 2.2403, -2.0381], [0.67, 2.265, -2.232], [0.8, 2.1356, -1.928], [0.88, 2.616, -2.74], [0.62, 2.32, -1.975], [0.62, 2.23, -1.94], [0.63, 2.286, -2.046], [0.55, 2.338, -2.08], [0.55, 2.098, -2.061], [0.6, 2.3041, -2.3165], [0.6, 2.184, -2.2112], [0.6, 2.2148, -2.1787], [0.6, 2.3499, -2.1576], [0.6, 2.2926, -2.0783], [0.6, 2.3048, -2.0871], [0.6, 2.1797, -2.0348]];
+const MODEL_BOX = [[0.75, 2.218, -2.172], [0.65, 2.636, -2.318], [0.76, 2.088, -1.948], [0.44, 2.2403, -2.0381], [0.67, 2.265, -2.232], [0.8, 2.1356, -1.928], [0.88, 2.616, -2.74], [0.62, 2.32, -1.975], [0.62, 2.23, -1.94], [0.63, 2.286, -2.046], [0.55, 2.338, -2.08], [0.55, 2.098, -2.061], [0.6, 2.3041, -2.3165], [0.6, 2.184, -2.2112], [0.6, 2.2148, -2.1787], [0.6, 2.3499, -2.1576], [0.6, 2.2926, -2.0783], [0.6, 2.3048, -2.0871], [0.6, 2.1797, -2.0348], [0.6, 2.2475, -1.9971]];
 const MODEL_HULL = [[0.95, -0.08, 1.9], [-0.95, -0.08, 1.9], [0.95, -0.08, -1.9], [-0.95, -0.08, -1.9],   // roof corners (y relative to the roof)
   [0.95, -0.32, 2.15], [-0.95, -0.32, 2.15], [0.95, -0.32, -2.0], [-0.95, -0.32, -2.0]];
 function carGeometry(body, mass) {
@@ -9379,9 +9392,33 @@ function gbBody_integrale(K) {
   S.wing(-2.7, -2.98, 1.36, 1.36, 0);                                                     // adjustable roof-edge spoiler
   return S.layout(-1.85);
 }
+// MINI John Cooper Works WRC (2011) on the Countryman: 4.11 m long, 1.82 m wide, 2.595 m wheelbase (MINI); about
+// 1.53 m tall (est.). Upright five-door with a tall flat bonnet, big oval lamps, hexagon grille and a roof-edge wing.
+function gbBody_jcw(K) {
+  const S = gbGroupS(K, {
+    nose: 0.84, tail: 0.675, roof: 1.53, w: 0.85, bZ: -2.0, rearDoor: -2.75, hoopZ: -2.1,
+    deck: [[0.84, 0.74, 0.78, 0.3], [0.78, 0.82, 0.84, 0.21], [0.4, 0.91], [0.0, 0.95], [-0.8, 1.0], [-2.0, 1.02], [-3.1, 1.02], [-3.24, 1.0, 0.8, 0.25], [-3.27, 0.96, 0.76, 0.28]],
+    glass: [[-0.8, 0.99, 1.02, 0, 0], [-1.4, 1.04, 1.52, 0, 0.66], [-3.0, 1.04, 1.52, 0, 0.66], [-3.2, 1.04, 1.12, 0, 0]],
+    roofZ: [-1.37, -3.02],
+  });
+  const { NOSE, TAIL } = S;
+  K.rpanel([[-0.24, 0.4], [0.24, 0.4], [0.32, 0.5], [0.26, 0.62], [-0.26, 0.62], [-0.32, 0.5]], K.dark, 'front', NOSE + 0.006, 1);   // hexagon grille
+  K.rpanel([[-0.62, 0.22], [0.62, 0.22], [0.58, 0.36], [-0.58, 0.36]], K.rubber, 'front', NOSE + 0.035, 1);
+  K.both((sx) => {
+    K.radd(new THREE.CircleGeometry(0.11, 18), K.dark, sx * 0.56, 0.6, NOSE + 0.004);                 // big oval lamp bezels
+    K.radd(new THREE.CircleGeometry(0.095, 18), K.headMat, sx * 0.56, 0.6, NOSE + 0.008);
+    K.rlamp(sx * 0.3, 0.3, NOSE + 0.04, 0.05, K.headMat);
+    K.rbox(0.16, 0.018, 0.22, K.dark, sx * 0.84, 0.3, NOSE - 0.05, 0, 0, sx * 0.25);
+    K.rbox(0.14, 0.012, 0.3, K.dark, sx * 0.3, 0.93, 0.15, 0.06);                                     // bonnet vents
+    K.rpanel([[sx * 0.52, 0.8], [sx * 0.78, 0.8], [sx * 0.76, 1.0], [sx * 0.56, 1.0]], K.tailMat, 'front', TAIL - 0.006, -1);
+  });
+  K.rpanel([[-0.78, 0.5], [0.78, 0.5], [0.76, 0.78], [-0.76, 0.78]], K.dark, 'front', TAIL - 0.003, -1);
+  S.wing(-2.9, -3.28, 1.55, 1.62, 0);
+  return S.layout(-1.95);
+}
 /* Tailpipe x positions (model space) per car, at the builder's thrY and rearZ. */
-const TAILPIPES = [[0.42], [-0.5, 0.5], [0.42], [-0.36, 0.36], [0.42], [-0.32, 0.32], [0.5], [0.3], [0.3], [0.3], [0.3], [0.53], [0.4], [-0.35, 0.35], [0.42], [0.45], [0.42], [0.42], [0.42]];
-const BODY_BUILDERS = [gbBody_twincharger, gbBody_fivepot, gbBody_t16, gbBody_stradale, gbBody_rswedge, gbBody_sixr, gbBody_prerunner, gbBody_yaris, gbBody_i20, gbBody_puma, gbBody_focus, gbBody_mini, gbBody_222d, gbBody_rs002, gbBody_ecv, gbBody_impreza, gbBody_xsara, gbBody_c4, gbBody_integrale];
+const TAILPIPES = [[0.42], [-0.5, 0.5], [0.42], [-0.36, 0.36], [0.42], [-0.32, 0.32], [0.5], [0.3], [0.3], [0.3], [0.3], [0.53], [0.4], [-0.35, 0.35], [0.42], [0.45], [0.42], [0.42], [0.42], [-0.12, 0.12]];
+const BODY_BUILDERS = [gbBody_twincharger, gbBody_fivepot, gbBody_t16, gbBody_stradale, gbBody_rswedge, gbBody_sixr, gbBody_prerunner, gbBody_yaris, gbBody_i20, gbBody_puma, gbBody_focus, gbBody_mini, gbBody_222d, gbBody_rs002, gbBody_ecv, gbBody_impreza, gbBody_xsara, gbBody_c4, gbBody_integrale, gbBody_jcw];
 /* Rally wheels per car: spoke count and width, rim and caliper colours (in GARAGE.body order). */
 const RIM_STYLES = [
   { spokes: 8, spokeW: 0.05, color: 0xf2f2ee, caliper: 0xd8262e },   // TWINCHARGER: white multi-spoke
@@ -9403,6 +9440,7 @@ const RIM_STYLES = [
   { spokes: 5, spokeW: 0.09, color: 0xf2f2ee, caliper: 0xd8262e },   // XSARA WRC: white five-spoke
   { spokes: 5, spokeW: 0.09, color: 0xf2f2ee, caliper: 0xd8262e },   // C4 WRC: white five-spoke
   { spokes: 8, spokeW: 0.05, color: 0xf2f2ee, caliper: 0xd8262e },   // INTEGRALE: white multi-spoke
+  { spokes: 5, spokeW: 0.1, color: 0x1c1c1f, caliper: 0xd8262e },    // MINI JCW: black five-spoke
 ];
 /* ---- works liveries: each car's real rally livery, painted onto one texture atlas that wraps the whole shell.
    Every painted face takes its texture coordinates from where it sits on the car (liveryUV): a face looking
@@ -9773,6 +9811,21 @@ LIVERIES.push(
     top(P) {
       for (const sx of [-1, 1]) { P.rect(2.6, -2.5, sx * 0.3, sx * 0.36, '#3d9ad1'); P.rect(2.6, -2.5, sx * 0.37, sx * 0.43, '#0d2a5c'); P.rect(2.6, -2.5, sx * 0.44, sx * 0.5, '#d6262b'); }
       P.text('MARTINI', 1.6, 0, 0.13, '#111', { rot: 0 });
+    } },
+  { name: 'John Cooper Works (custom)', base: '#c8102e', rim: 0x1c1c1f, num: 37,
+    // JCW chili red, white roof and bonnet stripes, black sills, and #37 for the 1964 Monte Carlo winner
+    side(P, n) {
+      P.rect(2.6, -2.6, 0.12, 0.8, '#f4f4f2');
+      P.rect(2.6, -2.6, -1.0, -0.66, '#15161a');
+      P.band([[2.6, -0.62], [-2.6, -0.62]], 0.03, '#f4f4f2');
+      P.ellipse(0.4, -0.2, 0.15, '#f4f4f2'); P.text(String(n), 0.4, -0.2, 0.13, '#111', { weight: 800, italic: false, w: 0.24 });
+      P.text('JOHN COOPER WORKS', -1.15, -0.42, 0.065, '#f4f4f2', { w: 1.1 });
+      P.text('MINI', 1.75, -0.3, 0.08, '#f4f4f2', { w: 0.35 });
+    },
+    top(P) {
+      P.rect(0.0, -1.85, -1.45, 1.45, '#f4f4f2');
+      for (const x of [-0.22, 0.12]) P.rect(2.6, 0.0, x, x + 0.1, '#f4f4f2');
+      P.text('MINI', -0.9, 0, 0.14, '#c8102e', { rot: -Math.PI / 2, w: 0.6 });
     } },
 );
 
