@@ -7410,6 +7410,7 @@ function makeBodyKit(g, M, add, tube, build, map) {
     const mk = (pos, idx) => { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals(); return geo; };
     const surf = mk(P, I);
     const mats = Array.isArray(o.mat) ? o.mat : [o.mat || K.paint];
+    const realGeos = o.keepReal ? [surf.clone()] : null;          // real-space copies, for projecting decals onto it
     const out = add(K.real(surf), mats[0], 0, 0, 0);
     // flat underside between the two bottom corners
     const U = [], UI = [];
@@ -7423,9 +7424,11 @@ function makeBodyKit(g, M, add, tube, build, map) {
       const { s, h } = secs[j], rg = ring(h), C = [0, (s.yb + s.yt) / 2, s.z], CI = [];
       rg.forEach(([x, y]) => C.push(x, y, s.z)); C.push(-s.wb, s.yb, s.z);       // close along the bottom
       for (let k = 1; k <= rg.length; k++) dir > 0 ? CI.push(0, k + 1, k) : CI.push(0, k, k + 1);
-      add(K.real(mk(C, CI)), caps[e], 0, 0, 0);
+      const cap = mk(C, CI); if (realGeos) realGeos.push(cap.clone());
+      add(K.real(cap), caps[e], 0, 0, 0);
     });
     out.userData.sections = secs.map((q) => q.s);
+    if (realGeos) out.userData.realGeos = realGeos;
     return out;
   };
   return K;
@@ -9427,8 +9430,18 @@ function gbBody_mini(K) {
 /* ---- Group S prototypes and rally hatchbacks (bodies 12-19): each car is one closed shell. The lower body is lofted
    with its box flares built into the same surface, the glasshouse is lofted from the body's own shoulder line (so
    the two always meet), and the roof, pillars, sails and engine decks are painted onto the glass surface. ---- */
+/** Indexed geometries' positions merged into one (for ray casts). */
+function mergeGeos(geos) {
+  const P = [], I = []; let n = 0;
+  for (const g of geos) {
+    const p = g.attributes.position; for (let k = 0; k < p.count; k++) P.push(p.getX(k), p.getY(k), p.getZ(k));
+    if (g.index) for (let k = 0; k < g.index.count; k++) I.push(g.index.getX(k) + n); else for (let k = 0; k < p.count; k++) I.push(k + n);
+    n += p.count;
+  }
+  const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); out.setIndex(I); return out;
+}
 function gsShell(K, c) {
-  const PI = Math.PI, wb = K.wb, r = K.tyreR, AR = r + 0.09, HW = K.spec.dims[1] / 2, lerp = K.lerp;
+  const PI = Math.PI, wb = K.wb, r = K.tyreR, AR = r + (c.arch ?? 0.09), HW = K.spec.dims[1] / 2, lerp = K.lerp;
   const NOSE = c.nose, TAIL = -wb - c.tail;
   const sm = (a, b, x) => { const t = K.clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   /** Station list (nose first) interpolated at z, every key. */
@@ -9453,7 +9466,7 @@ function gsShell(K, c) {
     s.w = Math.max(s.w, lerp(s.w, HW - 0.005, k * fl));
     return s;
   });
-  K.loft(LB, { zs: zsB, bottom: (z, yb) => K.archY(z, yb, AR), side: 4, top: 4 });
+  const bodyMesh = K.loft(LB, { zs: zsB, bottom: (z, yb) => K.archY(z, yb, AR), side: 4, top: 4, keepReal: true });
   /** A point on the lower body's side: T -1 at the bottom corner, 0 at the widest point, 1 at the shoulder. */
   const bSide = (sx, z, T, off = 0.008) => {
     const s = sec(LB, z), yb = K.archY(z, s.yb, AR), wbt = s.w - s.r, yeT = s.yt - s.crown;
@@ -9502,12 +9515,14 @@ function gsShell(K, c) {
   S.cabin = (o) => {
     const [w0, w1] = o.ws, [r0, r1] = o.roof;
     S.top(r0 + 0.04, r1 - 0.02, 0, 1);                                 // roof
-    S.side(r0 + 0.04, r1 - 0.02, 0.84, 1);                             // roof's side rail
-    S.side(w0, r0 + 0.06, (v) => lerp(0.25, 0.8, v), 1);               // A pillars
+    if (o.sides !== false) {                                           // (S.windows paints the sides instead)
+      S.side(r0 + 0.04, r1 - 0.02, 0.84, 1);                           // roof's side rail
+      S.side(w0, r0 + 0.06, (v) => lerp(0.25, 0.8, v), 1);             // A pillars
+      S.side(w0, o.belt === undefined ? r1 : o.belt, 0, 0.05, K.dark, 0.013);   // belt seal under the side glass
+      if (o.b) S.side(o.b[0], o.b[1], 0, 1);
+    }
     S.top(w0, r0 + 0.06, 0, 0.07);
     S.top(w0, w0 - 0.06, 0, 1, K.dark, 0.013);                         // windscreen's lower seal
-    S.side(w0, o.belt === undefined ? r1 : o.belt, 0, 0.05, K.dark, 0.013);   // belt seal under the side glass
-    if (o.b) S.side(o.b[0], o.b[1], 0, 1);
     const hz = o.hoop, roofY = sec(G, (r0 + r1) / 2).yt, seatY = sec(LB, hz).yt - 0.1;
     K.rbox(1.36, 0.1, 0.24, K.dark, 0, sec(LB, w0).yt - 0.02, w0 - 0.18);           // dash
     K.rbox(1.4, 0.02, Math.abs(w0 - hz) + 0.5, K.dark, 0, seatY - 0.3, (w0 + hz) / 2 - 0.2);   // floor
@@ -9556,6 +9571,72 @@ function gsShell(K, c) {
       const ep = [[z0 + 0.02, y + 0.03], [z1 - 0.03, y + 0.16], [z1 - 0.03, y - 0.19], [z0 - ch * 0.45, y - 0.12]];
       K.rpanel(ep, K.dark, 'side', sx * span / 2, sx); K.rpanel(ep, K.dark, 'side', sx * (span / 2 - 0.01), -sx);
     });
+  };
+  /** Window openings on the glasshouse sides: everything on the sides outside the windows is painted (mat), so the
+   *  pillars, the frames and the body colour up to the window line come out of one call. wins: [{ lo, hi }], each a
+   *  window's lower and upper edge as [[z, y], ...] in real metres over the same z span, front first (the edges may
+   *  meet at either end, for a window that tapers to a point). */
+  S.windows = (wins, mat = K.paint) => {
+    const gz0 = G[0].z, gz1 = G[G.length - 1].z;
+    const at = (line, z) => { let i = 0; while (i < line.length - 2 && z < line[i + 1][0]) i++; const [za, ya] = line[i], [zb, yb] = line[i + 1] || line[i]; return za === zb ? ya : ya + (yb - ya) * K.clamp((za - z) / (za - zb), 0, 1); };
+    const tOf = (z, y) => { const q = sec(G, z), top = q.yt - q.crown; return K.clamp((y - q.ys) / Math.max(0.01, top - q.ys), 0, 1); };
+    const ws = wins.slice().sort((a, b) => b.lo[0][0] - a.lo[0][0]);
+    let z = gz0;
+    for (const w of ws) {
+      const zf = w.lo[0][0], zr = w.lo[w.lo.length - 1][0];
+      if (z - zf > 0.005) S.side(z, zf, 0, 1, mat);                                   // pillar / panel ahead of this window
+      S.side(zf, zr, 0, (v) => tOf(lerp(zf, zr, v), at(w.lo, lerp(zf, zr, v))), mat);   // below it
+      S.side(zf, zr, (v) => tOf(lerp(zf, zr, v), at(w.hi, lerp(zf, zr, v))), 1, mat);   // above it
+      z = zr;
+    }
+    if (z - gz1 > 0.005) S.side(z, gz1, 0, 1, mat);
+  };
+  /** A flat shape laid onto the body: pts are a polygon in the view plane ('front'/'rear': [x, y]; 'left'/'right':
+   *  [z, y]; 'top': [x, z]), each point projected along the view onto the lower body's surface (or the plane at the
+   *  nose / tail / side if it misses), lifted off it by off. For lamps, grilles and badges on curved panels. */
+  const rayMesh = new THREE.Mesh(mergeGeos(bodyMesh.userData.realGeos), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  const ray = new THREE.Raycaster(), rO = new THREE.Vector3(), rD = new THREE.Vector3();
+  S.decal = (pts, mat, axis = 'front', off = 0.006) => {
+    // triangulate the outline, then split each triangle into a fine grid so it follows the surface between corners
+    const tri0 = THREE.ShapeUtils.triangulateShape(pts.map(([a, b]) => new THREE.Vector2(a, b)), []);
+    const P = [], tri = [];
+    for (const [i0, i1, i2] of tri0) {
+      const A = pts[i0], B = pts[i1], C = pts[i2], n = Math.max(1, Math.ceil(Math.max(Math.hypot(B[0] - A[0], B[1] - A[1]), Math.hypot(C[0] - B[0], C[1] - B[1]), Math.hypot(A[0] - C[0], A[1] - C[1])) / 0.03));
+      const base = P.length, idx = (u, v) => base + u * (n + 1) - (u * (u - 1)) / 2 + v;       // row u has n + 1 - u points
+      for (let u = 0; u <= n; u++) for (let v = 0; v <= n - u; v++) P.push([A[0] + (B[0] - A[0]) * u / n + (C[0] - A[0]) * v / n, A[1] + (B[1] - A[1]) * u / n + (C[1] - A[1]) * v / n]);
+      for (let u = 0; u < n; u++) for (let v = 0; v < n - u; v++) { tri.push([idx(u, v), idx(u + 1, v), idx(u, v + 1)]); if (v < n - u - 1) tri.push([idx(u + 1, v), idx(u + 1, v + 1), idx(u, v + 1)]); }
+    }
+    const V = [];
+    for (const [a, b] of P) {
+      let hit;
+      if (axis === 'front' || axis === 'rear') { const f = axis === 'front' ? 1 : -1; rO.set(a, b, f > 0 ? NOSE + 1 : TAIL - 1); rD.set(0, 0, -f); ray.set(rO, rD); hit = ray.intersectObject(rayMesh)[0]; V.push(a, b, hit ? hit.point.z + f * off : (f > 0 ? NOSE : TAIL) + f * off); }
+      else if (axis === 'left' || axis === 'right') { const f = axis === 'left' ? 1 : -1; rO.set(f * 3, b, a); rD.set(-f, 0, 0); ray.set(rO, rD); hit = ray.intersectObject(rayMesh)[0]; V.push(hit ? hit.point.x + f * off : f * (HW + off), b, a); }
+      else { rO.set(a, 3, b); rD.set(0, -1, 0); ray.set(rO, rD); hit = ray.intersectObject(rayMesh)[0]; V.push(a, hit ? hit.point.y + off : 1, b); }
+    }
+    // each triangle faces the viewer, whichever way the outline was wound
+    const want = axis === 'front' ? [0, 0, 1] : axis === 'rear' ? [0, 0, -1] : axis === 'left' ? [1, 0, 0] : axis === 'right' ? [-1, 0, 0] : [0, 1, 0];
+    const I = [];
+    for (const [i, j, k] of tri) {
+      const ax = V[j * 3] - V[i * 3], ay = V[j * 3 + 1] - V[i * 3 + 1], az = V[j * 3 + 2] - V[i * 3 + 2], bx = V[k * 3] - V[i * 3], by = V[k * 3 + 1] - V[i * 3 + 1], bz = V[k * 3 + 2] - V[i * 3 + 2];
+      const nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+      if (nx * want[0] + ny * want[1] + nz * want[2] >= 0) I.push(i, j, k); else I.push(i, k, j);
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(V, 3)); geo.setIndex(I); geo.computeVertexNormals();
+    return K.radd(geo, mat);
+  };
+  /** A round lamp in a housing, facing along the view (front / rear), set into the body where it sits at (x, y): the
+   *  lens stands just proud of the surface's highest point under it and the housing runs back to its lowest. */
+  S.lamp = (x, y, rr, mat, axis = 'front', ring = 0.018) => {
+    const f = axis === 'front' ? 1 : -1; let zMax = -9 * f, zMin = 9 * f;
+    for (let k = 0; k <= 8; k++) {
+      const a = k / 8 * Math.PI * 2, px = k === 8 ? x : x + Math.cos(a) * rr, py = k === 8 ? y : y + Math.sin(a) * rr;
+      rO.set(px, py, f > 0 ? NOSE + 1 : TAIL - 1); rD.set(0, 0, -f); ray.set(rO, rD); const h = ray.intersectObject(rayMesh)[0];
+      const zz = h ? h.point.z : (f > 0 ? NOSE : TAIL);
+      if (f > 0) { zMax = Math.max(zMax, zz); zMin = Math.min(zMin, zz); } else { zMax = Math.min(zMax, zz); zMin = Math.max(zMin, zz); }
+    }
+    const zl = zMax + f * 0.008, depth = Math.abs(zl - zMin) + 0.02;
+    K.radd(new THREE.CylinderGeometry(rr + ring, rr + ring, depth, 18), K.dark, x, y, zl - f * depth / 2, Math.PI / 2, 0, 0);
+    K.radd(new THREE.CircleGeometry(rr, 18), mat, x, y, zl + f * 0.002, 0, f > 0 ? 0 : Math.PI, 0);
   };
   S.layout = (seatZ, roofZ) => {
     const ry = sec(G, roofZ).yt;
@@ -10318,6 +10399,33 @@ LIVERIES.forEach((l, i) => { if (l.num == null) l.num = [4, 1, 5, 3, 2, 6, 8][i]
  *  details (K, S, c) for the car's own lamps, grilles and vents; lamps 'none' and grille false leave those to it, and
  *  tailLamps false / rearPanel false the tail's. openRear: the 2017 rules' cut-away rear bumper over the diffuser;
  *  bigWing [z0, z1, y, span]: the 2017 twin-plane wing off the roof's trailing edge (S.bigWing). */
+/** A shape traced off a blueprint: silhouettes as 'z:y z:y ...' strings in real metres (z forward from the front axle,
+ *  y up from the ground). T: top (the side view's top edge), bot (the body's bottom edge, bridged across the arches),
+ *  plan (plan-view half width), belt (the shoulder under the side windows, cowl to the glass's end), cowl, roof
+ *  [front, rear], glassEnd (z), and section shaping: ys (height of the widest point), tum (how far the shoulder is in
+ *  from the widest point), crown, roofW (the glasshouse's top half width), gcrown; each a number or a 'z:v' string.
+ *  The overhangs are stretched to the car's real length (dims) and everything lifted by dy. Returns the shape fields
+ *  gsCar needs (body, glass, nose, tail, ws, roofEnd, back, hood, belt). */
+function traceShape(T, sp) {
+  const wb = sp.wb, L = sp.dims[0], dy = T.dy || 0;
+  const parse = (v) => (typeof v === 'number' ? [[0, v]] : v.trim().split(/\s+/).map((q) => q.split(':').map(Number)));
+  const top0 = parse(T.top), zN0 = Math.max(...top0.map((q) => q[0])), zT0 = Math.min(...top0.map((q) => q[0]));
+  const k = (L - wb) / (zN0 - zT0 - wb), sz = (z) => (z > 0 ? z * k : z < -wb ? -wb + (z + wb) * k : z);
+  const arr = (v) => parse(v).map(([z, y]) => [sz(z), y]).sort((a, b) => b[0] - a[0]);
+  const at = (A, z) => { if (A.length === 1) return A[0][1]; if (z >= A[0][0]) return A[0][1]; if (z <= A[A.length - 1][0]) return A[A.length - 1][1]; let i = 0; while (z < A[i + 1][0]) i++; const [za, ya] = A[i], [zb, yb] = A[i + 1]; return ya + (yb - ya) * (za - z) / (za - zb); };
+  const top = arr(T.top), bot = arr(T.bot), plan = arr(T.plan), belt = arr(T.belt), ys = arr(T.ys ?? 0.55), tum = arr(T.tum ?? 0.08);
+  const crown = arr(T.crown ?? 0.04), roofW = arr(T.roofW ?? 0.6), gcrown = arr(T.gcrown ?? 0.05);
+  const NOSE = sz(zN0), TAIL = sz(zT0), cowl = sz(T.cowl), gEnd = sz(T.glassEnd), rf = sz(T.roof[0]), rr = sz(T.roof[1]);
+  const zsFor = (z0, z1, step, extra) => { const o = []; for (let z = z0; z > z1 + 0.01; z -= step) o.push(z); o.push(z1); return [...new Set(o.concat(extra.filter((q) => q < z0 && q > z1)))].sort((a, b) => b - a); };
+  const body = () => zsFor(NOSE, TAIL, 0.06, [cowl, gEnd, cowl + 0.02, gEnd - 0.02]).map((z) => {
+    const inGlass = z <= cowl && z >= gEnd, yt0 = inGlass ? at(belt, z) : at(top, z), yb = at(bot, z);
+    const yt = Math.max(yt0, yb + 0.04), w = at(plan, z), y5 = Math.min(Math.max(at(ys, z), yb + 0.03), yt - 0.02);
+    return [z, yb + dy, y5 + dy, yt + dy, w, Math.max(0.05, w - at(tum, z)), Math.min(at(crown, z), (yt - y5) * 0.6)];
+  });
+  const glass = () => zsFor(cowl, gEnd, 0.05, [rf, rr]).map((z) => [z, at(top, z) + dy, at(roofW, z), at(gcrown, z)]);
+  return { body, glass, nose: NOSE, tail: -wb - TAIL, ws: [cowl, rf], roofEnd: rr, back: [gEnd, at(top, gEnd) + dy],
+    hood: [at(top, NOSE - 0.12) + dy, at(top, cowl) + dy], belt: at(belt, gEnd) + dy, at: (name, z) => at({ top, bot, plan, belt }[name], z) + (name === 'plan' ? 0 : dy) };
+}
 function gsCar(K, d) {
   const wb = K.wb, HW = K.spec.dims[1] / 2, H = K.spec.dims[2], lerp = K.lerp;
   const T = -wb - d.tail, [w0, w1] = d.ws, r2 = d.roofEnd, [zE, yE] = d.back, [hN, hC] = d.hood, belt = d.belt;
@@ -10333,17 +10441,21 @@ function gsCar(K, d) {
     [0.4, 0.2, 0.55, lerp(hN + lift, hC, 0.6), HW - 0.04, HW - 0.1, 0.06], [w0 + 0.02, 0.21, 0.6, hC, HW - 0.04, HW - 0.09, 0.04],
     [kz, 0.22, 0.62, ky, HW - 0.04, HW - 0.09, 0.04], [T + 0.3, 0.24, 0.64, belt, HW - 0.04, HW - 0.11, 0.04],
     [T + tr, 0.27, 0.62, belt - 0.02, HW - 0.07, HW - 0.16, 0.04], [T, 0.31, 0.6, belt - 0.06, HW - 0.12, HW - 0.22, 0.03]];
-  const S = gsShell(K, { nose: d.nose, tail: d.tail, flare: d.flare ?? 1, flareRun: d.flareRun ?? 0.3, body, glass });
+  const S = gsShell(K, { nose: d.nose, tail: d.tail, flare: d.flare ?? 1, flareRun: d.flareRun ?? 0.3, body, glass, arch: d.arch });
   const { NOSE, TAIL } = S;
-  Object.assign(c, { S, NOSE, TAIL, W: HW - 0.34, ly: hN - 0.09 });
-  S.cabin({ ws: [w0, w1], roof: [w1, r2], b: [d.b, d.b - 0.08], hoop: d.hoop || d.b - 0.05 });
+  Object.assign(c, { S, NOSE, TAIL, W: HW - 0.34, ly: hN - 0.09, tr: d.tr });
+  const wins = typeof d.windows === 'function' ? d.windows(c) : d.windows;
+  S.cabin({ ws: [w0, w1], roof: [w1, r2], b: [d.b, d.b - 0.08], hoop: d.hoop || d.b - 0.05, sides: !wins });
+  if (wins) S.windows(wins);
   if (d.mid) {
-    S.side(d.b - 0.08, zE, 0, 1);                                      // sails from the B pillar to the tail
-    S.top(r2, r2 - 0.06, 0, 1); S.top(r2 - 0.06, r2 - 0.26, 0, 0.18);  // roof's edge and the rear window's frame
-    S.top(r2 - 0.26, zE, 0, 1);                                        // engine deck
-    for (let z = r2 - 0.34; z > zE + 0.12; z -= 0.09) S.top(z, z - 0.04, 0.3, 0.85, K.dark, 0.014);   // its louvres
+    if (!wins) S.side(d.b - 0.08, zE, 0, 1);                           // sails from the B pillar to the tail
+    S.top(r2, r2 - 0.06, 0, 1); S.top(r2 - 0.06, r2 - (d.backlight ?? 0.26), 0, 0.18);   // roof's edge and the rear window's frame
+    if (d.deck !== false) {
+      S.top(r2 - (d.backlight ?? 0.26), zE, 0, 1);                     // engine deck
+      for (let z = r2 - (d.backlight ?? 0.26) - 0.08; z > zE + 0.12; z -= 0.09) S.top(z, z - 0.04, 0.3, 0.85, K.dark, 0.014);   // its louvres
+    }
   } else {
-    S.side(r2 - 0.3, zE, 0, 1);                                        // C pillar
+    if (!wins) S.side(r2 - 0.3, zE, 0, 1);                             // C pillar
     S.top(r2, r2 - 0.05, 0, 1); S.top(r2 - 0.05, zE, 0, 0.14); S.top(zE + 0.06, zE, 0, 1);   // hatch glass frame
   }
   (d.shuts || [w0 - 0.02, d.b - 0.04]).forEach((z, i) => S.shut(z, i < 2));
@@ -10380,7 +10492,7 @@ function gsCar(K, d) {
   }
   if (d.louvres) for (let i = 0; i < 4; i++) S.bodyTop(0.3 - i * 0.09, 0.26 - i * 0.09, 0.4, 0.74, K.dark, 0.012);
   if (d.details) d.details(K, S, c);
-  S.aero(d.aero);
+  if (d.aero !== false) S.aero(d.aero);
   if (d.wing) S.wing(...d.wing);
   if (d.bigWing) S.bigWing(...d.bigWing);
   return S.layout(d.b + 0.12, (w1 + r2) / 2);                         // seat just ahead of the B pillar
@@ -10440,22 +10552,43 @@ const NEW_CARS = [
       wb: 2.53, track: [1.5, 1.5], wf: 0.46, cgH: 0.45, dims: [4.0, 1.76, 1.32], travel: 0.25,
       tyre: { r: 0.33, w: 0.195, rim: 16, kg: 20, size: 'Michelin 16 in gravel' }, disc: [300, 300] },
     aero: { cda: 0.8, cdaSide: 2.3, claF: 0.2, claR: 0.4, pitch: 0.07, ge: 0.3, text: 'Four-lamp pod on the nose, chin splitter, roof-top engine air intake, roof-height rear wing on the tail, rear diffuser' },
-    shape: { nose: 0.8, tail: 0.67, hood: [0.56, 0.8], rake: 0.12, lift: 0.07, belt: 1.04, waist: [-1.85, 1.0], ws: [-0.55, -1.2], roofEnd: -1.95, back: [-2.45, 1.04],
-      mid: true, b: -1.8, lamps: 'none', tailLamps: false, intakes: [-1.9, -2.2], flareRun: 0.32, wing: [-2.98, -3.2, 1.17, 1.66, 1.04],
+    // traced off a four-view blueprint: the side view's top and bottom edges, the plan view's widths and the side
+    // windows' outlines, with the lamps and panels laid onto the bodywork where the front and rear views put them
+    shape: { trace: { top: '0.823:0.469 0.773:0.495 0.723:0.576 0.673:0.634 0.623:0.723 0.573:0.732 0.523:0.745 0.473:0.754 0.423:0.763 0.373:0.772 0.323:0.781 0.273:0.785 0.223:0.794 0.173:0.803 0.123:0.812 0.073:0.817 0.023:0.821 -0.027:0.83 -0.077:0.835 -0.127:0.843 -0.177:0.848 -0.227:0.852 -0.277:0.852 -0.327:0.857 -0.377:0.879 -0.427:0.91 -0.477:0.942 -0.527:0.973 -0.577:1.004 -0.627:1.035 -0.677:1.062 -0.727:1.089 -0.777:1.116 -0.827:1.143 -0.877:1.165 -0.927:1.192 -0.977:1.205 -1.027:1.223 -1.077:1.227 -1.127:1.236 -1.177:1.241 -1.227:1.241 -1.277:1.241 -1.327:1.241 -1.377:1.241 -1.427:1.245 -1.477:1.245 -1.527:1.245 -1.577:1.245 -1.627:1.245 -1.677:1.245 -1.727:1.245 -1.777:1.244 -1.827:1.244 -1.877:1.244 -1.927:1.244 -1.977:1.244 -2.027:1.244 -2.077:1.244 -2.127:1.241 -2.177:1.151 -2.227:1.134 -2.277:1.111 -2.327:1.093 -2.377:1.076 -2.427:1.058 -2.477:1.04 -2.527:1.018 -2.577:1 -2.627:0.982 -2.677:0.973 -2.727:0.986 -2.777:0.991 -2.827:1.004 -2.877:1.013 -2.927:1.022 -2.977:1.031 -3.027:1.04 -3.077:1.049 -3.123:1.053',
+        bot: '0.823:0.116 0.773:0.116 0.723:0.116 0.673:0.116 0.623:0.116 0.573:0.116 0.523:0.116 0.473:0.116 0.423:0.116 0.373:0.12 0.323:0.123 0.273:0.127 0.223:0.13 0.173:0.133 0.123:0.137 0.073:0.14 0.023:0.143 -0.027:0.147 -0.077:0.15 -0.127:0.154 -0.177:0.157 -0.227:0.16 -0.277:0.164 -0.327:0.167 -0.377:0.17 -0.427:0.174 -0.477:0.174 -0.527:0.174 -0.577:0.174 -0.627:0.174 -0.677:0.174 -0.727:0.174 -0.777:0.174 -0.827:0.174 -0.877:0.174 -0.927:0.174 -0.977:0.174 -1.027:0.174 -1.077:0.174 -1.127:0.174 -1.177:0.174 -1.227:0.174 -1.277:0.174 -1.327:0.174 -1.377:0.174 -1.427:0.174 -1.477:0.174 -1.527:0.174 -1.577:0.174 -1.627:0.174 -1.677:0.174 -1.727:0.174 -1.777:0.174 -1.827:0.174 -1.877:0.174 -1.927:0.174 -1.977:0.174 -2.027:0.174 -2.077:0.174 -2.127:0.176 -2.177:0.18 -2.227:0.185 -2.277:0.19 -2.327:0.195 -2.377:0.2 -2.427:0.205 -2.477:0.21 -2.527:0.214 -2.577:0.219 -2.627:0.224 -2.677:0.229 -2.727:0.234 -2.777:0.239 -2.827:0.243 -2.877:0.248 -2.927:0.253 -2.977:0.272 -3.027:0.241 -3.077:0.272 -3.123:0.317',
+        plan: '0.823:0.511 0.773:0.645 0.723:0.716 0.673:0.745 0.623:0.763 0.573:0.779 0.523:0.79 0.473:0.808 0.423:0.824 0.373:0.839 0.323:0.85 0.273:0.859 0.223:0.866 0.173:0.868 0.123:0.87 0.073:0.87 0.023:0.875 -0.027:0.875 -0.077:0.875 -0.127:0.875 -0.177:0.873 -0.227:0.87 -0.277:0.868 -0.327:0.857 -0.377:0.837 -0.427:0.835 -0.477:0.835 -0.527:0.835 -0.577:0.835 -0.627:0.835 -0.677:0.835 -0.727:0.844 -0.777:0.842 -0.827:0.841 -0.877:0.839 -0.927:0.837 -0.977:0.835 -1.027:0.835 -1.077:0.835 -1.127:0.835 -1.177:0.835 -1.227:0.835 -1.277:0.835 -1.327:0.835 -1.377:0.835 -1.427:0.835 -1.477:0.844 -1.527:0.844 -1.577:0.844 -1.627:0.835 -1.677:0.835 -1.727:0.835 -1.777:0.835 -1.827:0.835 -1.877:0.835 -1.927:0.835 -1.977:0.835 -2.027:0.837 -2.077:0.839 -2.127:0.85 -2.177:0.866 -2.227:0.87 -2.277:0.873 -2.327:0.875 -2.377:0.87 -2.427:0.866 -2.477:0.866 -2.527:0.862 -2.577:0.857 -2.627:0.853 -2.677:0.85 -2.727:0.848 -2.777:0.841 -2.827:0.835 -2.877:0.819 -2.927:0.806 -2.977:0.786 -3.027:0.754 -3.077:0.661 -3.123:0.379',
+        belt: '-0.36:0.815 -0.62:0.795 -1.0:0.81 -1.65:0.845 -1.9:0.875 -2.25:0.9',
+        cowl: -0.36, roof: [-1.1, -1.68], glassEnd: -2.25,
+        ys: '0.82:0.3 0.6:0.48 0:0.56 -1.5:0.58 -2.6:0.6 -3.12:0.62', tum: '0.82:0.12 0.3:0.1 -0.4:0.06 -0.8:0.03 -1.9:0.03 -2.5:0.05 -3.12:0.08',
+        crown: '0.82:0.03 0.4:0.06 -0.3:0.05 -0.34:0.015 -2.25:0.015 -2.32:0.03 -3.12:0.03',
+        roofW: '-0.36:0.72 -1.1:0.6 -1.68:0.6 -2.25:0.68', gcrown: '-0.36:0.05 -1.1:0.06 -1.68:0.06 -2.25:0.03' },
+      mid: true, arch: 0.065, flare: 0, b: -1.66, backlight: 0.57, deck: false, lamps: 'none', grille: false, tailLamps: false, rearPanel: false,
+      shuts: [-0.44, -1.66], intakes: [-1.72, -1.98], wing: [-2.95, -3.2, 1.2, 1.66, 1.06], aero: { planes: false },
+      windows: [{ lo: [[-0.615, 0.78], [-1.645, 0.83]], hi: [[-0.615, 0.78], [-0.78, 0.97], [-0.94, 1.1], [-1.16, 1.148], [-1.645, 1.148]] },
+        { lo: [[-1.69, 0.845], [-1.86, 0.875]], hi: [[-1.69, 1.16], [-1.86, 0.88]] }],
       details(K, S, c) {
-        // Ghia's nose: one round headlamp in each corner and the works cars' pod of four spot lamps across the front of the
-        // bonnet, a wide intake below, bonnet vents; the big periscope intake on the back of the roof; behind the cabin a
-        // steep rear window onto a flat engine deck, a spoiler across the tail and a full-width band of tail lamps
-        S.bodyTop(0.22, 0.02, 0.45, 0.8, K.dark, 0.012);
-        const pz = c.NOSE - 0.14, py = S.sec(S.LB, pz).yt + 0.05;
+        // Ghia's nose: a round headlamp in a pod at each corner of the bonnet, round driving lamps and slots in the bumper,
+        // and the works cars' pod of four spot lamps on the bonnet's leading edge; the periscope intake on the roof, its
+        // duct running down the rear window; a spoiler across the tail over a full-width band of lamps and three vents
+        const circ = (cx, cy, r, n = 18) => Array.from({ length: n }, (_, i) => [cx + Math.cos(i / n * Math.PI * 2) * r, cy + Math.sin(i / n * Math.PI * 2) * r]);
+        const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+        K.both((sx) => {
+          S.lamp(sx * 0.565, 0.6, 0.105, K.headMat); S.lamp(sx * 0.35, 0.32, 0.088, K.headMat);
+          S.decal(rect(sx * 0.46, 0.31, sx * 0.79, 0.38), K.dark, 'front'); S.decal(rect(sx * 0.43, 0.19, sx * 0.81, 0.26), K.dark, 'front');
+          S.decal(rect(sx * 0.4, 0.585, sx * 0.745, 0.72), K.tailMat, 'rear', 0.008);
+        });
+        S.decal(rect(-0.25, 0.31, 0.25, 0.38), K.dark, 'front');
+        S.decal(rect(-0.76, 0.565, 0.76, 0.74), K.dark, 'rear', 0.005);
+        for (const [a, bq] of [[-0.6, -0.2], [-0.17, 0.17], [0.2, 0.6]]) S.decal(rect(a, 0.33, bq, 0.46), K.dark, 'rear');
+        S.bodyTop(0.22, 0.02, 0.45, 0.8, K.dark, 0.012);                                     // bonnet vents
+        const pz = c.NOSE - 0.2, py = S.sec(S.LB, pz).yt + 0.05;                              // works lamp pod
         K.rbox(0.96, 0.15, 0.16, K.paint, 0, py, pz);
         for (const x of [-0.345, -0.115, 0.115, 0.345]) K.rlamp(x, py, pz + 0.082, 0.062, K.headMat);
-        K.both((sx) => K.rlamp(sx * (c.W + 0.1), c.ly, c.NOSE + 0.006, 0.075, K.headMat));
-        K.rpanel([[-(c.HW - 0.17), c.belt - 0.33], [c.HW - 0.17, c.belt - 0.33], [c.HW - 0.22, c.belt - 0.14], [-(c.HW - 0.22), c.belt - 0.14]], K.dark, 'front', c.TAIL - 0.005, -1);
-        K.both((sx) => K.rpanel([[sx * 0.3, c.belt - 0.31], [sx * (c.HW - 0.19), c.belt - 0.31], [sx * (c.HW - 0.23), c.belt - 0.16], [sx * 0.3, c.belt - 0.16]], K.tailMat, 'front', c.TAIL - 0.007, -1));
-        const ry = S.sec(S.G, -1.72).yt;
-        K.rbox(0.44, 0.13, 0.62, K.paint, 0, ry + 0.05, -1.8);
-        K.rpanel([[-0.18, ry + 0.0], [0.18, ry + 0.0], [0.18, ry + 0.1], [-0.18, ry + 0.1]], K.dark, 'front', -1.488, 1);
+        K.rprofile([[-1.6, 1.215], [-1.6, 1.31], [-1.95, 1.275], [-1.95, 1.2]], 0.76, K.paint, { bevel: 0.02 });   // roof intake
+        K.rpanel([[-0.32, 1.235], [0.32, 1.235], [0.32, 1.295], [-0.32, 1.295]], K.dark, 'front', -1.596, 1);
+        K.rprofile([[-1.9, 1.2], [-1.9, 1.275], [-2.62, 0.98], [-2.62, 0.9]], 0.4, K.paint, { bevel: 0.015 });   // its duct
+        const ty = c.tr.at('top', c.TAIL + 0.1);
+        K.rbox(1.46, 0.06, 0.18, K.paint, 0, ty + 0.03, c.TAIL + 0.09, -0.08);                 // tail spoiler
       } },
     rim: { spokes: 8, spokeW: 0.06, color: 0xf2f2ee, caliper: 0xe6a21a }, pipes: [0.42],
     livery: { name: 'Ford Motorsport, 1986', base: '#f6f6f2', rim: 0xf2f2ee, num: 4,
@@ -10696,23 +10829,41 @@ const NEW_CARS = [
       disp: 1.598, launch: 4500, Ie: 0.08, enginePos: 'front',
       box: '6-speed Sadev sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05,
       kg: 1190, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
-      wb: 2.54, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.128, 1.875, 1.4], travel: 0.27,
+      wb: 2.54, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.128, 1.875, 1.47], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     aero: { cda: 1.02, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, swan-neck twin-plane rear wing, full-width diffuser' },
-    shape: { nose: 0.88, tail: 0.708, hood: [0.78, 0.97], rake: 0.06, lift: 0.03, noseW: 0.07, noseYs: 0.56, belt: 1.0, ws: [-0.42, -1.22], crown: 0.06, roofEnd: -2.8,
-      back: [-3.12, 0.99], b: -1.45, shuts: [-0.44, -1.48, -2.32], lamps: 'none', grille: false, scoop: -1.7, flareRun: 0.4, openRear: true, bigWing: [-2.78, -3.36, 1.36, 1.8],
+    // traced off a side and front view of the C3 (2016-) hatchback, the WRC's wider flares, bumpers and aero added
+    shape: { trace: { top: '0.821:0.656 0.771:0.753 0.721:0.838 0.671:0.894 0.621:0.925 0.571:0.946 0.521:0.963 0.471:0.977 0.421:0.989 0.371:0.998 0.321:1.01 0.271:1.019 0.221:1.029 0.171:1.036 0.121:1.043 0.071:1.048 0.021:1.052 -0.029:1.055 -0.079:1.064 -0.129:1.085 -0.179:1.107 -0.229:1.13 -0.279:1.152 -0.329:1.173 -0.379:1.194 -0.429:1.215 -0.479:1.234 -0.529:1.255 -0.579:1.277 -0.629:1.296 -0.679:1.317 -0.729:1.336 -0.779:1.355 -0.829:1.371 -0.879:1.39 -0.929:1.404 -0.979:1.433 -1.029:1.451 -1.079:1.466 -1.129:1.475 -1.179:1.484 -1.229:1.482 -1.279:1.482 -1.329:1.482 -1.379:1.484 -1.429:1.487 -1.479:1.489 -1.529:1.494 -1.579:1.496 -1.629:1.499 -1.679:1.501 -1.729:1.501 -1.779:1.501 -1.829:1.501 -1.879:1.499 -1.929:1.496 -1.979:1.492 -2.029:1.484 -2.079:1.48 -2.129:1.473 -2.179:1.466 -2.229:1.456 -2.279:1.447 -2.329:1.435 -2.379:1.428 -2.429:1.418 -2.479:1.411 -2.529:1.404 -2.579:1.402 -2.629:1.392 -2.679:1.336 -2.729:1.291 -2.779:1.248 -2.829:1.201 -2.879:1.156 -2.929:1.107 -2.979:1.057 -3.029:1.017 -3.079:0.838 -3.129:0.76 -3.179:0.528 -3.229:0.45 -3.279:0.40',
+        bot: '0.821:0.198 0.771:0.191 0.721:0.198 0.671:0.191 0.621:0.188 0.571:0.186 0.521:0.184 0.471:0.181 0.421:0.181 0.371:0.18 0.321:0.181 0.271:0.181 0.221:0.182 0.171:0.183 0.121:0.184 0.071:0.184 0.021:0.185 -0.029:0.186 -0.079:0.187 -0.129:0.187 -0.179:0.188 -0.229:0.189 -0.279:0.189 -0.329:0.19 -0.379:0.191 -0.429:0.191 -0.479:0.193 -0.529:0.193 -0.579:0.196 -0.629:0.196 -0.679:0.196 -0.729:0.198 -0.779:0.198 -0.829:0.2 -0.879:0.2 -0.929:0.2 -0.979:0.203 -1.029:0.203 -1.079:0.205 -1.129:0.205 -1.179:0.205 -1.229:0.207 -1.279:0.207 -1.329:0.207 -1.379:0.21 -1.429:0.21 -1.479:0.212 -1.529:0.212 -1.579:0.212 -1.629:0.214 -1.679:0.214 -1.729:0.217 -1.779:0.217 -1.829:0.217 -1.879:0.219 -1.929:0.219 -1.979:0.222 -2.029:0.222 -2.079:0.222 -2.129:0.224 -2.179:0.225 -2.229:0.226 -2.279:0.228 -2.329:0.229 -2.379:0.231 -2.429:0.232 -2.479:0.234 -2.529:0.235 -2.579:0.237 -2.629:0.238 -2.679:0.24 -2.729:0.241 -2.779:0.243 -2.829:0.244 -2.879:0.246 -2.929:0.247 -2.979:0.25 -3.029:0.25 -3.079:0.276 -3.129:0.288 -3.179:0.318 -3.229:0.288 -3.279:0.318',
+        plan: '0.83:0.3 0.8:0.55 0.74:0.7 0.64:0.8 0.54:0.86 0.44:0.9 0.3:0.93 0:0.9375 -0.3:0.93 -0.5:0.89 -0.7:0.875 -1.8:0.875 -2.0:0.89 -2.25:0.93 -2.54:0.9375 -2.8:0.93 -3.0:0.9 -3.15:0.86 -3.25:0.78 -3.28:0.6',
+        belt: '-0.2:1.0 -0.345:0.995 -0.61:1.005 -1.4:1.03 -2.21:1.07 -2.33:1.095 -2.96:1.06',
+        cowl: -0.2, roof: [-1.18, -2.64], glassEnd: -2.96,
+        ys: '0.82:0.42 0.5:0.5 0:0.55 -1.5:0.6 -2.6:0.62 -3.1:0.6 -3.28:0.45', tum: '0.82:0.12 0.5:0.12 0:0.15 -0.5:0.1 -1.0:0.08 -2.0:0.1 -2.54:0.15 -3.0:0.12 -3.28:0.1',
+        crown: '0.82:0.03 0.5:0.06 -0.1:0.06 -0.2:0.015 -2.96:0.015 -3.02:0.03', roofW: '-0.2:0.68 -1.18:0.6 -2.64:0.58 -2.96:0.62', gcrown: '-0.2:0.05 -1.18:0.07 -2.64:0.06 -2.96:0.04' },
+      arch: 0.07, flare: 0, b: -1.45, shuts: [-0.42, -1.43, -2.33], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, scoop: -1.75,
+      bigWing: [-2.62, -3.4, 1.4, 1.84], aero: { planes: false },
+      windows: [{ lo: [[-0.345, 0.99], [-1.4, 1.024]], hi: [[-0.345, 0.99], [-0.62, 1.16], [-0.92, 1.332], [-1.15, 1.37], [-1.4, 1.382]] },
+        { lo: [[-1.62, 1.034], [-2.21, 1.066], [-2.31, 1.09]], hi: [[-1.62, 1.39], [-2.05, 1.36], [-2.29, 1.32], [-2.31, 1.09]] }],
       details(K, S, c) {
-        // the C3's split face: slim lamps up at the bonnet line running into the chevrons, round main lamps down in the bumper,
-        // big corner intakes; a black C pillar for the floating roof; wide tail lamps on the rear corners
-        K.rpanel([[-0.5, 0.28], [0.5, 0.28], [0.46, 0.5], [-0.46, 0.5]], K.dark, 'front', c.NOSE + 0.004, 1);
-        K.both((sx) => K.rpanel([[sx * 0.4, c.belt - 0.25], [sx * (c.HW - 0.16), c.belt - 0.22], [sx * (c.HW - 0.22), c.belt - 0.11], [sx * 0.42, c.belt - 0.13]], K.tailMat, 'front', c.TAIL - 0.006, -1));
-        for (const y of [c.hN - 0.07, c.hN - 0.035]) K.rpanel([[-0.24, y - 0.015], [0, y + 0.015], [0.24, y - 0.015], [0.24, y], [0, y + 0.03], [-0.24, y]], K.trim, 'front', c.NOSE + 0.008, 1);
+        // the C3's split face: slim DRLs up at the bonnet's edge running into the double chevron, the main lamps in
+        // rounded modules below; the WRC's big black mouth with the Citroën Racing plate and corner intakes; the 3D tail
+        // lamps on the rear corners, the bumper cut away over the diffuser
+        const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
         K.both((sx) => {
-          K.rpanel([[sx * 0.26, c.hN - 0.06], [sx * (c.W + 0.22), c.hN - 0.05], [sx * (c.W + 0.2), c.hN - 0.02], [sx * 0.26, c.hN - 0.04]], K.headMat, 'front', c.NOSE + 0.006, 1);
-          K.rlamp(sx * 0.6, 0.52, c.NOSE + 0.008, 0.06, K.headMat);
-          K.rpanel([[sx * 0.54, 0.28], [sx * (c.W + 0.22), 0.28], [sx * (c.W + 0.22), 0.44], [sx * 0.54, 0.44]], K.rubber, 'front', c.NOSE + 0.005, 1);
+          S.decal([[sx * 0.488, 0.795], [sx * 0.724, 0.86], [sx * 0.724, 0.9], [sx * 0.488, 0.832]], K.headMat, 'front', 0.008);
+          S.decal(rect(sx * 0.462, 0.59, sx * 0.737, 0.75), K.dark, 'front');
+          S.lamp(sx * 0.54, 0.67, 0.05, K.headMat); S.lamp(sx * 0.66, 0.67, 0.05, K.headMat);
+          S.decal(rect(sx * 0.64, 0.21, sx * 0.88, 0.5), K.dark, 'front');
+          S.decal([[sx * 0.42, 0.84], [sx * 0.8, 0.86], [sx * 0.84, 1.03], [sx * 0.46, 1.03]], K.tailMat, 'rear', 0.008);
+          S.decal([[-2.73, 1.05], [-3.01, 1.05], [-3.01, 0.82], [-2.86, 0.82]], K.tailMat, sx > 0 ? 'left' : 'right', 0.006);
         });
-        S.side(-2.5, -2.82, 0, 1, K.dark, 0.014);
+        for (const dy of [0, 0.035]) S.decal([[-0.48, 0.8 + dy], [0, 0.855 + dy], [0.48, 0.8 + dy], [0.48, 0.818 + dy], [0, 0.873 + dy], [-0.48, 0.818 + dy]], K.trim, 'front', 0.01);
+        S.decal(rect(-0.6, 0.2, 0.6, 0.52), K.dark, 'front');
+        S.decal(rect(-0.17, 0.33, 0.17, 0.42), K.trim, 'front', 0.012);
+        S.decal(rect(-0.75, 0.15, 0.75, 0.56), K.dark, 'rear');                                 // open rear
+        for (const x of [-0.6, -0.3, 0, 0.3, 0.6]) K.rbox(0.014, 0.26, 0.42, K.dark, x, 0.3, c.TAIL + 0.15);
+        S.decal(rect(-0.25, 0.62, 0.25, 0.72), K.trim, 'rear', 0.008);
+        S.side(-2.31, -2.45, 0, 1, K.dark, 0.012);                                              // the black C pillar
       } },
     rim: { spokes: 5, spokeW: 0.09, color: 0xf2f2ee, caliper: 0xd8262e }, pipes: [0.45],
     livery: { name: 'Citroën Total WRT, 2017', base: '#d4202a', rim: 0xf2f2ee, num: 7,
@@ -10859,6 +11010,7 @@ const NEW_CARS = [
 ];
 for (const c of NEW_CARS) {
   const sp = c.spec, d = c.shape;
+  if (d.trace) { const tr = traceShape(d.trace, sp); for (const k in tr) if (d[k] === undefined || ['body', 'glass', 'nose', 'tail'].includes(k)) d[k] = tr[k]; d.tr = tr; }
   if (Math.abs(d.nose + d.tail + sp.wb - sp.dims[0]) > 0.005) console.warn(c.name + ': overhangs and wheelbase do not add up to the length');
   sp.eta = sp.front && sp.front < 1 ? 0.88 : 0.91; sp.clutchT = 1.6 * Math.max(...sp.curve.map((q) => q[1])); sp.steer = 1;
   sp.launchEq = sp.launch;
