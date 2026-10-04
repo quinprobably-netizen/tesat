@@ -1146,6 +1146,33 @@ body.tilt #tCentre{display:flex}
 @media (max-height:500px) and (orientation:landscape){
   .sgroup{padding:4px 8px 3px;margin-top:3px} .sgroup b{font-size:17px} .sgroup small{font-size:11px}
 }
+/* garage, simplified: one row of tabs, the cars as a plain list, key facts up front, the full spec sheet folded away */
+#garage .gar-hint{display:none}
+#garage .gar-tabs{display:flex;flex-direction:row;gap:4px;margin-bottom:10px}
+#garage .gar-tabs button{flex:1;padding:8px 2px!important}
+#garage .gar-opts.body{grid-template-columns:1fr;gap:4px}
+#garage .gar-opts.body .gtile{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:0;padding:4px 12px}
+#garage .gar-opts.body .gtile b{margin:0;font-size:17px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#garage .gar-opts.body{flex:1 1 auto;min-height:0;grid-auto-rows:max-content;align-content:start}
+#garage .gar-desc{flex:none;max-height:40%;overflow:auto}
+#garage .gar-opts.body .pi-badge{margin:0;flex:none}
+#garage .gar-key{margin-top:6px;color:var(--neon-cyan);font-family:var(--display)}
+#garage .gar-more{margin-top:6px}
+#garage .gar-more summary{cursor:pointer;color:var(--neon-pink);font-family:var(--display);letter-spacing:.06em;list-style:none}
+#garage .gar-more summary::before{content:'\25B8  '}
+#garage .gar-more[open] summary::before{content:'\25BE  '}
+#garage .gs-name{font-family:var(--display);font-size:22px;color:var(--neon-yel);margin-bottom:6px;letter-spacing:.04em}
+@media (max-width:760px),(max-height:500px) and (orientation:landscape){
+  #garage .gar-tabs button{font-size:12px;letter-spacing:.02em!important}
+  #garage .gar-opts.body{grid-template-columns:1fr 1fr}
+  #garage .gar-opts.body .gtile{padding:6px 8px}
+  #garage .gar-opts.body .gtile b{font-size:14px}
+  #garage .gar-desc{max-height:none}
+  #garage .gar-opts.body{flex:none;overflow:visible}
+  #garage .gar-stats .sbars{display:none}
+  #garage .gs-name{font-size:16px;margin-bottom:2px}
+  #garage .gar-stats .pi-row{margin-bottom:0}
+}
 </style>
 </head>
 <body>
@@ -2183,7 +2210,7 @@ const GARAGE = {
      Looks only. `helmet`: base colour, `bands` ([colour, from, to] as latitude 0 = crown .. 1 = chin),
      an optional `crest` stripe over the top, and an optional `cross` (Nordic cross on the crown). `kind`: full-face,
      open-face with goggles (1960s) or off-road with a peak. `nat` picks the flag; `stripes` go across the suit. */
-  pilot: { label: 'PILOT', opts: [
+  pilot: { label: 'DRIVER', opts: [
     { name: 'TOIVONEN', full: 'Henri Toivonen', nat: 'FIN', cls: 'FIN · DELTA S4', kind: 'full', skin: '#e9c2a4', hair: '#5a3a22',
       helmet: { base: '#f4f4f2', bands: [['#0b2a5b', 0.36, 0.41], ['#3fa0dc', 0.41, 0.45], ['#d6282b', 0.45, 0.49]] },
       suit: '#f4f4f2', trim: '#0b2a5b', stripes: ['#0b2a5b', '#3fa0dc', '#d6282b'], visor: '#7fb6e6', bg: '#16325e',
@@ -2285,7 +2312,7 @@ const GARAGE = {
     { name: 'AMBER', css: '255,180,60', hex: 0xffb43c }, { name: 'WHITE', css: '235,240,255', hex: 0xebf0ff }, { name: 'OFF', css: null, hex: 0x000000 },
   ] },
 };
-const GARAGE_KEYS = ['pilot', 'body', 'color', 'decal', 'glow'];
+const GARAGE_KEYS = ['body', 'pilot', 'color', 'decal', 'glow'];
 const BUILD_PARTS = ['body'];
 const DEFAULT_BUILD = { pilot: 0, body: 0, color: GARAGE.color.opts.findIndex((o) => o.works), decal: 0, glow: 0 };
 function cleanBuild(b) {
@@ -12291,7 +12318,7 @@ function decalPreview(decal, color) {
 
 /* ---- garage: pick a pilot and vehicle parts with a live 3D preview ---- */
 const Garage = {
-  from: 'home', tab: 0, preview: null, yaw: 2.4, drag: null,
+  from: 'home', tab: 0, preview: null, yaw: 2.4, drag: null, specsOpen: false,
   open(from) {
     this.from = from || 'home';
     for (const id of ['menu', 'home', 'pause', 'finish', 'service', 'settings']) document.getElementById(id).classList.add('hidden');
@@ -12320,50 +12347,58 @@ const Garage = {
     this.render();
   },
   cycle(dir) {
-    const k = GARAGE_KEYS[this.tab], n = GARAGE[k].opts.length;
-    this.pick(k, (Store.data.garage[k] + dir + n) % n);
+    const k = GARAGE_KEYS[this.tab], ord = this.order(k), n = ord.length;
+    this.pick(k, ord[(ord.indexOf(Store.data.garage[k]) + dir + n) % n]);
+  },
+  /** Option indexes in display order: cars by PI, highest first; everything else as listed. */
+  order(k) {
+    const ids = GARAGE[k].opts.map((o, v) => v);
+    if (k !== 'body') return ids;
+    const b = Store.data.garage, pi = ids.map((v) => ratingsFor(Object.assign({}, b, { body: v })).pi);
+    return ids.sort((x, y) => pi[y] - pi[x] || x - y);
   },
   setTab(t) { this.tab = (t + GARAGE_KEYS.length) % GARAGE_KEYS.length; this.preview = null; this.render(); },
   render() {
     const b = Store.data.garage, k = GARAGE_KEYS[this.tab], cat = GARAGE[k];
-    document.getElementById('garTabs').innerHTML = [['BUILD', BUILD_PARTS], ['LOOKS', GARAGE_KEYS.filter((key) => !BUILD_PARTS.includes(key))]].map(([label, keys]) =>
-      `<div class="gar-tg"><span>${label}</span><div style="grid-template-columns:repeat(${keys.length},1fr)">` +
-      keys.map((key) => { const i = GARAGE_KEYS.indexOf(key); return `<button data-tab="${i}" class="${i === this.tab ? 'on' : ''}">${GARAGE[key].label}</button>`; }).join('') + '</div></div>').join('');
+    document.getElementById('garTabs').innerHTML = GARAGE_KEYS.map((key, i) => `<button data-tab="${i}" class="${i === this.tab ? 'on' : ''}">${GARAGE[key].label}</button>`).join('');
     document.getElementById('garOpts').className = 'gar-opts ' + k;
-    document.getElementById('garOpts').innerHTML = cat.opts.map((o, v) => {
+    document.getElementById('garOpts').innerHTML = this.order(k).map((v) => {
+      const o = cat.opts[v];
       const sel = b[k] === v ? ' sel' : '';
       if (k === 'color') return `<button class="gtile sw${sel}" data-v="${v}" style="--c:#${new THREE.Color(o.hex).getHexString()}"><i></i><b>${o.name}</b></button>`;
       if (k === 'glow') return `<button class="gtile sw${sel}" data-v="${v}" style="--c:${o.css ? 'rgb(' + o.css + ')' : 'transparent'}"><i class="${o.css ? 'gl' : 'off'}"></i><b>${o.name}</b></button>`;
       if (k === 'decal') return `<button class="gtile dc${sel}" data-v="${v}"><img src="${decalPreview(v, b.color)}" alt=""><b>${o.name}</b></button>`;
       const Rv = BUILD_PARTS.includes(k) ? ratingsFor(Object.assign({}, b, { [k]: v })) : null;
       if (k === 'pilot') return `<button class="gtile pt${sel}" data-v="${v}"><img src="${pilotPortrait(v)}" alt=""><b>${o.name}</b><small>${o.cls}</small></button>`;
-      if (k === 'body') { const sp = CAR_SPECS[v]; return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b><small>${sp.hp} HP · ${sp.kg} KG · ${!sp.front ? 'RWD' : sp.front >= 1 ? 'FWD' : '4WD'}</small>${piBadge(Rv, true)}</button>`; }
+      if (k === 'body') return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b>${piBadge(Rv, true)}</button>`;
       return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b>${piBadge(Rv, true)}<div class="chips">${partChips(k, o)}</div></button>`;
     }).join('');
     const cur = cat.opts[b[k]];
-    const cosmetic = { color: 'Paint job for the body, wings and wheel arches. Chrome and copper are extra shiny. WORKS is the car\'s own rally livery.', decal: 'Livery pattern for the sides and roof (on WORKS paint, over the sides only).', glow: 'Colour of the underglow and hover pad lights.' };
+    const cosmetic = { color: 'WORKS is the car\'s own rally livery.', decal: 'Shows over the sides and roof.', glow: 'Underglow colour.' };
     if (k === 'pilot') cosmetic.pilot = `<b>${cur.full}</b> ${cur.blurb}`;
-    let desc = cosmetic[k] ? cosmetic[k] + ' <em>Looks only, no effect on performance.</em>' : `<b>${cur.name}</b> ${cur.blurb}`;
+    let desc = cosmetic[k] ? cosmetic[k] + ' <em>Looks only.</em>' : `<b>${cur.name}</b> ${cur.blurb}`;
     if (k === 'body') {
-      const sp = CAR_SPECS[b.body];
-      desc += `<div class="gar-spec"><span class="wide"><i>ENGINE</i>${sp.engine}</span><span><i>POWER</i>${sp.hp} hp · ${sp.hpAt} rpm</span><span><i>TORQUE</i>${sp.nm} N·m · ${sp.nmAt} rpm</span>` +
+      const sp = CAR_SPECS[b.body], drive = !sp.front ? 'RWD' : sp.front >= 1 ? 'FWD' : '4WD';
+      desc += `<div class="gar-key">${sp.hp} HP · ${sp.kg} KG · ${drive}</div>`;
+      desc += `<details class="gar-more"${this.specsOpen ? ' open' : ''}><summary>FULL SPECS</summary><div class="gar-spec"><span class="wide"><i>ENGINE</i>${sp.engine}</span><span><i>POWER</i>${sp.hp} hp · ${sp.hpAt} rpm</span><span><i>TORQUE</i>${sp.nm} N·m · ${sp.nmAt} rpm</span>` +
         `<span><i>REDLINE</i>${sp.redline} rpm</span><span><i>WEIGHT</i>${sp.kg} kg · ${Math.round(sp.wf * 100)}% front</span>` +
         `<span class="wide"><i>GEARBOX</i>${sp.box}: ${sp.gears.map((q) => q.toFixed(2)).join(' · ')}, final ${sp.final.toFixed(2)}</span>` +
         `<span class="wide"><i>DRIVETRAIN</i>${drivetrainText(sp)}</span>` +
         `<span class="wide"><i>CHASSIS</i>${sp.dims[0].toFixed(2)} × ${sp.dims[1].toFixed(2)} × ${sp.dims[2].toFixed(2)} m, wheelbase ${sp.wb.toFixed(2)} m, ${Math.round(sp.travel * 1000)} mm travel, ${(sp.unsprung || [sp.tyre.kg + 22, sp.tyre.kg + 22]).map(Math.round).join('/')} kg unsprung a corner</span>` +
         `<span class="wide"><i>TYRES</i>${sp.tyre.size}, brakes ${sp.disc[0]}/${sp.disc[1]} mm</span>` +
-        `<span class="wide"><i>AERO</i>${aeroText(CAR_AERO[b.body])}</span></div>`;
+        `<span class="wide"><i>AERO</i>${aeroText(CAR_AERO[b.body])}</span></div></details>`;
     }
-    document.getElementById('garDesc').innerHTML = desc;
+    const gd = document.getElementById('garDesc');
+    gd.innerHTML = desc;
+    const more = gd.querySelector('.gar-more');
+    if (more) more.addEventListener('toggle', () => { this.specsOpen = more.open; });
     this.renderStats();
   },
   renderStats() {
-    const b = Store.data.garage, p = GARAGE.pilot.opts[b.pilot], R = ratingsFor(b);
+    const b = Store.data.garage, R = ratingsFor(b);
     let cmp = null;
     if (this.preview) cmp = ratingsFor(Object.assign({}, b, this.preview));
-    document.getElementById('garStats').innerHTML =
-      `<div class="ride-head"><img src="${pilotPortrait(b.pilot)}" alt=""><div><b>${p.name}</b><small>${p.cls}</small><div class="ride-parts">${rideSummary(b)}</div></div></div>` +
-      ratingsHTML(R, cmp);
+    document.getElementById('garStats').innerHTML = `<div class="gs-name">${GARAGE.body.opts[b.body].name}</div>` + ratingsHTML(R, cmp);
   },
   /** Orbit camera around the parked car, framed to the right of (or above) the parts panel. */
   updateCamera(dt) {
