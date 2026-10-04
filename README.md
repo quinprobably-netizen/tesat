@@ -47,6 +47,8 @@ The four new real stages were laid out from their roads' named landmarks, length
 
 **Ground textures** are generated once when the game starts: two tileable detail maps (stones, crack networks, fine grain, mottling, wind ripples, grass, aggregate chips and crust) that the terrain shader reads at several scales and rotations, so no tile repeats visibly. Each surface turns them into its own look and a height for bump lighting: pebbles and dust on regolith, pressure cracks and frost on ice, plates, rivets and scratches on metal decks, loose stones swept out of the wheel tracks on gravel, aggregate, sealed cracks and repair patches on tarmac, and wind-rippled powder glazed in the tyre tracks on snow. Beside an Earth road the ground reads as grass, soil and scree or snow; on Pikes Peak there are also boulder fields, whose rounded, blocky boulders are drawn in the shader at two sizes. Fine detail and bump fade out as they shrink below a few pixels so the ground doesn't shimmer.
 
+**Soft-body crashes** (Settings > SOFT-BODY, on by default): the car's body is a frame of 26 nodes joined by about 200 beams, in the way BeamNG builds its cars, stepped at 1,200 Hz. The wheels, tyres and powertrain push on the nodes nearest where they act, and the nodes and beams meet the ground and scenery themselves, so a hit lands on the corner that hit. A beam pushed past its yield strain stays bent, and one stretched far enough snaps. The body mesh follows the bent frame, and a bent corner moves its wheel. Hitting a post crushes the nose about 6 cm at 36 km/h, 20 cm at 72 km/h and 50 cm at 126 km/h. Turned off, the car is the rigid body with dents. The physics self-tests and garage ratings always use the rigid body.
+
 Hazards:
 - **Craters.**
 - **Kicker ramps and crests.**
