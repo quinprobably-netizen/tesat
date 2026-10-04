@@ -10295,10 +10295,372 @@ LIVERIES.push(
 
 LIVERIES.forEach((l, i) => { if (l.num == null) l.num = [4, 1, 5, 3, 2, 6, 8][i]; });
 
-/* Only the MINI stays in the garage: trim every list indexed like GARAGE.body down to its entry. */
+/* ---- the garage's rally cars, built from scratch: one parametric shell (gsCar) on gsShell, and for each car its
+   spec, aero, rims, tailpipes and works livery. Figures are the makers' where published; (est.) marks estimates,
+   and the Group S prototypes (the class cancelled in 1986 before any of them raced) are mostly estimated. ---- */
+/** A rally shell from a few numbers (real metres, z 0 at the front axle, -wb at the rear, y up from the ground).
+ *  d: nose, tail (overhangs), hood [y at nose, y at cowl], belt (shoulder y at the tail), ws [cowl z, roof front z],
+ *  roofEnd (z), back [z, y] where the glass ends, mid (engine behind the cabin: sails and a louvred deck),
+ *  b (B pillar z), shuts (door lines z), lamps, scoop (roof scoop z), intakes (side intakes z0, z1), wing [z0, z1, y, span, base]. */
+function gsCar(K, d) {
+  const wb = K.wb, HW = K.spec.dims[1] / 2, H = K.spec.dims[2], lerp = K.lerp;
+  const T = -wb - d.tail, [w0, w1] = d.ws, r2 = d.roofEnd, [zE, yE] = d.back, [hN, hC] = d.hood, belt = d.belt;
+  const midZ = (w0 + T + 0.3) / 2;
+  const glass = [[w0, hC + 0.01, HW - 0.11, 0.01], [w1, H - 0.01, HW - 0.25, 0.05], [r2, H, HW - 0.26, 0.05]];
+  if (d.mid) glass.push([r2 - 0.12, H - 0.12, HW - 0.28, -0.08], [r2 - 0.26, yE + 0.08, HW - 0.27, -0.2], [lerp(r2 - 0.26, zE, 0.6), yE + 0.03, HW - 0.22, -0.1], [zE, yE, HW - 0.16, 0]);
+  else glass.push([r2 - 0.16, H - 0.11, HW - 0.25, 0.04], [zE, yE, HW - 0.2, 0.02]);
+  const S = gsShell(K, {
+    nose: d.nose, tail: d.tail, flare: 1, flareRun: 0.3,
+    body: [[d.nose, 0.28, 0.42, hN, HW - 0.16, HW - 0.28, 0.03], [d.nose - 0.07, 0.2, 0.48, hN + 0.09, HW - 0.06, HW - 0.16, 0.05],
+      [0.4, 0.2, 0.55, lerp(hN + 0.09, hC, 0.6), HW - 0.04, HW - 0.1, 0.06], [w0 + 0.02, 0.21, 0.6, hC, HW - 0.04, HW - 0.09, 0.04],
+      [midZ, 0.22, 0.62, lerp(hC, belt, 0.5) + 0.01, HW - 0.04, HW - 0.09, 0.04], [T + 0.3, 0.24, 0.64, belt, HW - 0.04, HW - 0.11, 0.04],
+      [T + 0.06, 0.27, 0.62, belt - 0.02, HW - 0.07, HW - 0.16, 0.04], [T, 0.31, 0.6, belt - 0.06, HW - 0.12, HW - 0.22, 0.03]],
+    glass,
+  });
+  const { NOSE, TAIL } = S;
+  S.cabin({ ws: [w0, w1], roof: [w1, r2], b: [d.b, d.b - 0.08], hoop: d.hoop || d.b - 0.05 });
+  if (d.mid) {
+    S.side(d.b - 0.08, zE, 0, 1);                                      // sails from the B pillar to the tail
+    S.top(r2, r2 - 0.06, 0, 1); S.top(r2 - 0.06, r2 - 0.26, 0, 0.18);  // roof's edge and the rear window's frame
+    S.top(r2 - 0.26, zE, 0, 1);                                        // engine deck
+    for (let z = r2 - 0.34; z > zE + 0.12; z -= 0.09) S.top(z, z - 0.04, 0.3, 0.85, K.dark, 0.014);   // its louvres
+  } else {
+    S.side(r2 - 0.3, zE, 0, 1);                                        // C pillar
+    S.top(r2, r2 - 0.05, 0, 1); S.top(r2 - 0.05, zE, 0, 0.14); S.top(zE + 0.06, zE, 0, 1);   // hatch glass frame
+  }
+  (d.shuts || [w0 - 0.02, d.b - 0.04]).forEach((z, i) => S.shut(z, i < 2));
+  if (d.intakes) S.bodySide(d.intakes[0], d.intakes[1], 0.1, 0.75, K.dark);
+  // nose: grille, lamps, lower intake
+  const ly = hN - 0.09, W = HW - 0.34;
+  K.rpanel([[-W, 0.29], [W, 0.29], [W - 0.04, 0.43], [-W + 0.04, 0.43]], K.rubber, 'front', NOSE + 0.004, 1);
+  K.rpanel([[-0.26, ly - 0.06], [0.26, ly - 0.06], [0.26, ly + 0.04], [-0.26, ly + 0.04]], K.dark, 'front', NOSE + 0.004, 1);
+  K.both((sx) => {
+    if (d.lamps === 'round2') { K.rlamp(sx * 0.38, ly, NOSE + 0.01, 0.06, K.headMat); K.rlamp(sx * 0.56, ly, NOSE + 0.01, 0.06, K.headMat); }
+    else if (d.lamps === 'popup') {
+      S.bodyTop(0.6, 0.3, 0.12, 0.42, K.dark, 0.012);                  // the closed pop-up pods' shut lines
+      K.rlamp(sx * 0.3, 0.38, NOSE + 0.08, 0.075, K.headMat); K.rlamp(sx * 0.52, 0.38, NOSE + 0.08, 0.075, K.headMat);   // spot-lamp pod
+    } else if (d.lamps === 'slim') K.rpanel([[sx * 0.3, ly - 0.02], [sx * (W + 0.2), ly - 0.01], [sx * (W + 0.22), ly + 0.05], [sx * 0.34, ly + 0.04]], K.headMat, 'front', NOSE + 0.006, 1);
+    else K.rpanel([[sx * 0.32, ly - 0.04], [sx * (W + 0.18), ly - 0.04], [sx * (W + 0.18), ly + 0.04], [sx * 0.32, ly + 0.04]], K.headMat, 'front', NOSE + 0.006, 1);
+    K.rlamp(sx * (W - 0.06), 0.36, NOSE + 0.006, 0.045, K.headMat);
+    K.rpanel([[sx * 0.44, belt - 0.26], [sx * (HW - 0.2), belt - 0.26], [sx * (HW - 0.22), belt - 0.12], [sx * 0.46, belt - 0.12]], K.tailMat, 'front', TAIL - 0.006, -1);
+  });
+  K.rpanel([[-(HW - 0.22), 0.42], [HW - 0.22, 0.42], [HW - 0.24, belt - 0.3], [-(HW - 0.24), belt - 0.3]], K.dark, 'front', TAIL - 0.004, -1);
+  if (d.scoop != null) {
+    const sy = S.sec(S.G, d.scoop).yt;
+    K.rbox(0.34, 0.05, 0.4, K.paint, 0, sy + 0.015, d.scoop);
+    K.rpanel([[-0.15, sy], [0.15, sy], [0.15, sy + 0.04], [-0.15, sy + 0.04]], K.dark, 'front', d.scoop + 0.202, 1);
+  }
+  if (d.louvres) for (let i = 0; i < 4; i++) S.bodyTop(0.3 - i * 0.09, 0.26 - i * 0.09, 0.4, 0.74, K.dark, 0.012);
+  S.aero();
+  if (d.wing) S.wing(...d.wing);
+  return S.layout(d.b + 0.12, (w1 + r2) / 2);                         // seat just ahead of the B pillar
+}
+const NEW_CARS = [
+  { name: 'RS 002', blurb: 'Audi Sport quattro RS 002 (1987), Audi\'s Group S prototype: the S1\'s turbo five turned round behind the driver in a low carbon-kevlar wedge. Two prototypes were built on a tube frame and Group S was cancelled before either raced. Specs mostly estimated.',
+    // the S1 E2's 2,110 cc turbo five, mid-mounted; about 700 bhp claimed; tube frame, two built;
+    // no weight or dimensions were published (est.)
+    spec: { engine: '2.1 L inline-5, turbo (mid-mounted)', cyl: 5, layout: 'inline', pitch: 1.09, hp: 690, hpAt: 8000, nm: 660, nmAt: 6500, redline: 8400, idle: 1000, lag: 0.7, offBoost: 0.5,
+      curve: [[1000, 190], [2000, 250], [3000, 330], [4000, 480], [5000, 610], [6000, 650], [6500, 660], [7500, 630], [8000, 614], [8400, 560]],
+      disp: 2.11, launch: 5500, Ie: 0.13, enginePos: 'mid',
+      box: '5-speed manual (S1 ratios)', gears: [3.111, 2.273, 1.706, 1.318, 0.962], final: 4.571, rev: 3.5, shift: 0.12,
+      kg: 1000, front: 0.45, centre: 'torsen', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.5, track: [1.56, 1.56], wf: 0.41, cgH: 0.42, dims: [4.1, 1.9, 1.18], travel: 0.25,
+      tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [330, 300] },
+    aero: { cda: 0.82, cdaSide: 2.3, claF: 0.22, claR: 0.44, pitch: 0.07, ge: 0.35, text: 'Low wedge nose with a full-width splitter, flat underbody into a rear diffuser, tall rear wing on the engine cover' },
+    shape: { nose: 0.85, tail: 0.75, hood: [0.48, 0.74], belt: 0.86, ws: [-0.45, -1.05], roofEnd: -1.75, back: [-3.1, 0.86], mid: true, b: -1.62, lamps: 'rect', intakes: [-1.72, -1.98], wing: [-2.95, -3.25, 1.2, 1.7, 0.86] },
+    rim: { spokes: 6, spokeW: 0.09, color: 0xe2e4e8, caliper: 0xd8262e }, pipes: [-0.35, 0.35],
+    livery: { name: 'Audi Sport (custom)', base: '#f4f4f0', rim: 0xe2e4e8, num: 1,
+      side(P, n) {
+        [['#d71920', 0], ['#7d8086', 0.08], ['#1a1a1c', 0.16]].forEach(([col, o]) => P.poly([[2.6 - o, -0.62], [2.6 - o, -0.55], [-2.6, -0.1 - o], [-2.6, -0.17 - o]], col));
+        P.plate(n, 0.7, -0.15);
+        for (let k = 0; k < 4; k++) P.ellipse(-0.5 + k * 0.085, -0.2, 0.06, '#1a1a1c', 0.013);
+        P.text('AUDI SPORT', 1.6, -0.75, 0.06, '#1a1a1c', { w: 0.6 });
+        P.text('RS 002', -1.4, 0.15, 0.08, '#1a1a1c', { w: 0.45 });
+      },
+      top(P) { [['#d71920', -0.12], ['#7d8086', -0.04], ['#1a1a1c', 0.04]].forEach(([col, x]) => P.rect(2.6, -2.6, x, x + 0.06, col)); } } },
+  { name: 'RS200', blurb: 'Ford RS200 (1986), the Group B works car: a Ghia-styled mid-engined coupé with the gearbox up front for balance and a 1.8 L Cosworth BDT turbo.',
+    // 1,803 cc BDT, 444 bhp at 8,000 rpm and 490 N·m (361 lb ft) at 5,500 in works
+    // tune (Ford); 2.53 m wheelbase, 4.0 m long, 1.76 m wide, 1.32 m tall; gearbox
+    // at the front, 37/63 viscous centre; 1,050 kg works weight; ratios and the rest of the curve (est.)
+    spec: { engine: '1.8 L inline-4 turbo (Cosworth BDT)', cyl: 4, layout: 'inline', pitch: 1.03, hp: 444, hpAt: 8000, nm: 490, nmAt: 5500, redline: 8500, idle: 1000, lag: 0.55, offBoost: 0.55,
+      curve: [[1000, 160], [2000, 210], [3000, 280], [4000, 390], [5000, 470], [5500, 490], [6500, 470], [7500, 420], [8000, 391], [8500, 350]],
+      disp: 1.803, launch: 5000, Ie: 0.1, enginePos: 'mid',
+      box: '5-speed FF Developments, front-mounted (ratios est.)', gears: [2.75, 1.85, 1.38, 1.1, 0.9], final: 4.9, rev: 2.8, shift: 0.12,
+      kg: 1050, front: 0.37, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.53, track: [1.5, 1.5], wf: 0.46, cgH: 0.45, dims: [4.0, 1.76, 1.32], travel: 0.25,
+      tyre: { r: 0.33, w: 0.195, rim: 16, kg: 20, size: 'Michelin 16 in gravel' }, disc: [300, 300] },
+    aero: { cda: 0.8, cdaSide: 2.3, claF: 0.2, claR: 0.4, pitch: 0.07, ge: 0.3, text: 'Chin splitter, roof-top engine air intake, roof-height rear wing on the tail, rear diffuser' },
+    shape: { nose: 0.8, tail: 0.67, hood: [0.55, 0.8], belt: 0.92, ws: [-0.5, -1.2], roofEnd: -1.95, back: [-3.05, 0.92], mid: true, b: -1.8, lamps: 'round2', scoop: -1.75, intakes: [-1.9, -2.15], wing: [-2.95, -3.18, 1.3, 1.6, 0.92] },
+    rim: { spokes: 8, spokeW: 0.06, color: 0xf2f2ee, caliper: 0xe6a21a }, pipes: [0.42],
+    livery: { name: 'Ford Motorsport, 1986', base: '#f6f6f2', rim: 0xf2f2ee, num: 4,
+      side(P, n) {
+        P.band([[2.6, -0.5], [-2.6, -0.5]], 0.07, '#13306e'); P.band([[2.6, -0.42], [-2.6, -0.42]], 0.025, '#d6202a');
+        P.plate(n, 0.55, -0.15);
+        P.text('FORD', -0.15, -0.15, 0.1, '#13306e', { w: 0.4 });
+        P.text('RS200', 0.55, -0.35, 0.05, '#13306e', { w: 0.35 });
+      },
+      top(P) { P.rect(2.6, -2.6, -0.1, 0.1, '#13306e'); P.rect(2.6, -2.6, 0.12, 0.16, '#d6202a'); P.rect(2.6, -2.6, -0.16, -0.12, '#d6202a'); } } },
+  { name: 'SAMARA S', blurb: 'Lada Samara S-proto (1989), VAZ\'s Group S-style evolution of the Samara EVA: tube frame, fibreglass Samara-shaped body, mid-mounted turbo four and permanent four-wheel drive. Never homologated; most specs estimated.',
+    // the EVA's tube frame, fibreglass body and mid-mounted turbo four, plus permanent four-wheel drive and about 350 hp
+    // (50 more than the EVA); displacement, weight, ratios and dimensions (est.)
+    spec: { engine: '1.6 L inline-4 turbo (mid-mounted, est.)', cyl: 4, layout: 'inline', pitch: 0.98, hp: 350, hpAt: 7000, nm: 400, nmAt: 4500, redline: 7800, idle: 950, lag: 0.6, offBoost: 0.5,
+      curve: [[1000, 130], [2000, 190], [3000, 280], [4000, 375], [4500, 400], [5500, 390], [6500, 370], [7000, 356], [7800, 300]],
+      disp: 1.6, launch: 4500, Ie: 0.1, enginePos: 'mid',
+      box: '5-speed dog box (ratios est.)', gears: [2.9, 1.95, 1.45, 1.15, 0.94], final: 4.7, rev: 3.0, shift: 0.13,
+      kg: 980, front: 0.35, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.46, track: [1.48, 1.48], wf: 0.42, cgH: 0.46, dims: [4.0, 1.8, 1.3], travel: 0.25,
+      tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [280, 280] },
+    aero: { cda: 0.86, cdaSide: 2.4, claF: 0.14, claR: 0.3, pitch: 0.06, ge: 0.3, text: 'Chin splitter, side intakes for the mid engine, wing on the hatch, rear diffuser' },
+    shape: { nose: 0.82, tail: 0.72, hood: [0.6, 0.86], belt: 0.94, ws: [-0.6, -1.3], roofEnd: -2.3, back: [-3.05, 0.95], b: -1.85, lamps: 'rect', intakes: [-2.0, -2.3], wing: [-2.9, -3.15, 1.33, 1.6, 0] },
+    rim: { spokes: 5, spokeW: 0.1, color: 0xf2f2ee, caliper: 0xd8262e }, pipes: [0.4],
+    livery: { name: 'Lada Sport (custom)', base: '#f4f4f2', rim: 0xf2f2ee, num: 7,
+      side(P, n) {
+        P.poly([[2.6, -1.0], [2.6, -0.62], [-2.6, -0.2], [-2.6, -1.0]], '#d6202a');
+        P.band([[2.6, -0.55], [-2.6, -0.13]], 0.06, '#1b3f9a');
+        P.plate(n, 0.5, 0.0);
+        P.text('LADA', -0.9, 0.15, 0.12, '#d6202a', { w: 0.6 });
+        P.text('S-PROTO', 1.4, -0.85, 0.06, '#f4f4f2', { w: 0.5 });
+      },
+      top(P) { P.rect(2.6, -2.6, -0.06, 0.06, '#d6202a'); P.rect(2.6, -2.6, 0.08, 0.14, '#1b3f9a'); } } },
+  { name: 'ECV', blurb: 'Lancia ECV (1986), the Delta S4\'s Group S successor: a carbon-kevlar honeycomb tub and the twin-turbo Triflux four, 600 CV with almost no lag.',
+    // Triflux 1,759 cc twin-turbo, 600 CV at 8,000 rpm, 538 N·m at 5,000 (Lancia); S4 wheelbase and tracks; S4 gearbox
+    // and viscous centre, 930 kg (est.)
+    spec: { engine: '1.8 L inline-4 (Triflux), twin-turbo', cyl: 4, layout: 'inline', pitch: 1, hp: 592, hpAt: 8000, nm: 538, nmAt: 5000, redline: 8600, idle: 1000, lag: 0.35, offBoost: 0.6,
+      curve: [[1000, 220], [2000, 300], [3000, 410], [4000, 500], [5000, 538], [6000, 535], [7000, 525], [8000, 527], [8600, 480]],
+      disp: 1.759, launch: 5000, Ie: 0.1, enginePos: 'mid',
+      box: '5-speed Hewland dog box (S4 ratios)', gears: [2.538, 1.706, 1.25, 1.0, 0.84], final: 5.55, rev: 2.8, shift: 0.1,
+      kg: 930, front: 0.3, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.44, track: [1.51, 1.535], wf: 0.43, cgH: 0.44, dims: [4.0, 1.88, 1.33], travel: 0.25,
+      tyre: { r: 0.33, w: 0.195, rim: 16, kg: 20, size: 'Pirelli 660-16 gravel' }, disc: [300, 300] },
+    aero: { cda: 0.86, cdaSide: 2.4, claF: 0.16, claR: 0.34, pitch: 0.06, ge: 0.35, text: 'Front splitter, roof intake, hatch spoiler, side skirts, rear diffuser' },
+    shape: { nose: 0.8, tail: 0.76, hood: [0.64, 0.88], belt: 0.92, ws: [-0.66, -1.3], roofEnd: -2.75, back: [-3.05, 0.93], b: -1.8, lamps: 'round2', scoop: -1.55, intakes: [-2.4, -2.62], wing: [-2.75, -3.0, 1.36, 1.5, 0] },
+    rim: { spokes: 8, spokeW: 0.05, color: 0xf2f2ee, caliper: 0xd8262e }, pipes: [0.42],
+    livery: { name: 'Martini Lancia, 1986', base: '#f4f4f0', rim: 0xf2f2ee, num: 1,
+      side(P, n) { martini(P, [[2.6, -0.35], [-2.6, -0.35]], 0.045); P.plate(n, 0.35, 0.0); P.text('MARTINI', -1.2, 0.0, 0.09, '#111', { w: 0.8 }); P.text('ECV', 1.7, -0.1, 0.07, '#0d2a5c', { w: 0.3 }); },
+      top(P) { for (const sx of [-1, 1]) { P.rect(2.6, -2.5, sx * 0.3, sx * 0.36, '#3d9ad1'); P.rect(2.6, -2.5, sx * 0.37, sx * 0.43, '#0d2a5c'); P.rect(2.6, -2.5, sx * 0.44, sx * 0.5, '#d6262b'); } } } },
+  { name: 'ECV II', blurb: 'Lancia ECV2 (1988), the second Group S study: the ECV\'s tub and Triflux engine under a smooth, low, wind-tunnel body. Body by Carlo Gaino\'s Synthesis Design; a show and test car only.',
+    // the ECV's carbon tub, Triflux engine (600 CV at 8,000 rpm) and running gear, 910 kg (Lancia); body size (est.)
+    spec: { engine: '1.8 L inline-4 (Triflux), twin-turbo', cyl: 4, layout: 'inline', pitch: 1, hp: 592, hpAt: 8000, nm: 538, nmAt: 5000, redline: 8600, idle: 1000, lag: 0.35, offBoost: 0.6,
+      curve: [[1000, 220], [2000, 300], [3000, 410], [4000, 500], [5000, 538], [6000, 535], [7000, 525], [8000, 527], [8600, 480]],
+      disp: 1.759, launch: 5000, Ie: 0.1, enginePos: 'mid',
+      box: '6-speed dog box (ratios est.)', gears: [2.538, 1.85, 1.43, 1.17, 0.98, 0.84], final: 5.5, rev: 2.8, shift: 0.1,
+      kg: 910, front: 0.3, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.44, track: [1.53, 1.55], wf: 0.43, cgH: 0.43, dims: [4.05, 1.9, 1.3], travel: 0.25,
+      tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [305, 300] },
+    aero: { cda: 0.74, cdaSide: 2.3, claF: 0.18, claR: 0.32, pitch: 0.06, ge: 0.45, text: 'Smooth faired body with flush glass, integrated splitter, full underbody and diffuser, low spoiler on the tail' },
+    shape: { nose: 0.86, tail: 0.75, hood: [0.58, 0.86], belt: 0.93, ws: [-0.6, -1.4], roofEnd: -2.4, back: [-3.05, 0.95], b: -1.85, lamps: 'slim', intakes: [-2.3, -2.55], wing: [-2.98, -3.15, 1.02, 1.7, 0] },
+    rim: { spokes: 5, spokeW: 0.09, color: 0xe8e8ec, caliper: 0xd8262e }, pipes: [-0.3, 0.3],
+    livery: { name: 'Martini Lancia ECV2 (custom)', base: '#f4f4f0', rim: 0xe8e8ec, num: 2,
+      side(P, n) { martini(P, [[2.6, -0.62], [0.2, -0.45], [-2.6, 0.05]], 0.05); P.plate(n, 0.6, -0.05); P.text('MARTINI', -1.3, -0.35, 0.09, '#111', { w: 0.8 }); P.text('LANCIA', 1.7, -0.2, 0.06, '#0d2a5c', { w: 0.4 }); },
+      top(P) { P.rect(2.6, -2.6, -0.04, 0.04, '#0d2a5c'); P.rect(2.6, -2.6, -0.1, -0.06, '#3d9ad1'); P.rect(2.6, -2.6, 0.06, 0.1, '#d6262b'); } } },
+  { name: '222D', blurb: 'Toyota 222D (1985-86), Toyota Team Europe\'s Group S prototype: an MR2 turned into a mid-engined four-wheel-drive missile. Cancelled with the class; some specs estimated.',
+    // 503E 2,140 cc turbo four, about 600 PS (Toyota; some claims higher); MR2 (AW11) 2.32 m wheelbase; weight, tracks,
+    // ratios and the curve (est.)
+    spec: { engine: '2.1 L inline-4 (503E), turbo', cyl: 4, layout: 'inline', pitch: 1.02, hp: 592, hpAt: 8000, nm: 560, nmAt: 6000, redline: 8800, idle: 1000, lag: 0.6, offBoost: 0.5,
+      curve: [[1000, 150], [2000, 200], [3000, 280], [4000, 400], [5000, 510], [6000, 560], [7000, 545], [8000, 527], [8800, 470]],
+      disp: 2.14, launch: 5000, Ie: 0.1, enginePos: 'mid',
+      box: '5-speed dog box (ratios est.)', gears: [2.538, 1.706, 1.25, 1.0, 0.84], final: 5.3, rev: 2.8, shift: 0.1,
+      kg: 950, front: 0.35, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.32, track: [1.53, 1.53], wf: 0.42, cgH: 0.44, dims: [4.0, 1.83, 1.24], travel: 0.25,
+      tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [300, 300] },
+    aero: { cda: 0.8, cdaSide: 2.3, claF: 0.16, claR: 0.38, pitch: 0.06, ge: 0.3, text: 'Spot-lamp pod over a chin splitter, side intakes, louvred engine deck, tall rear wing on stanchions' },
+    shape: { nose: 0.86, tail: 0.82, hood: [0.5, 0.76], belt: 0.86, ws: [-0.44, -1.0], roofEnd: -1.74, back: [-3.0, 0.86], mid: true, b: -1.62, lamps: 'popup', intakes: [-1.72, -2.0], wing: [-2.85, -3.12, 1.2, 1.65, 0.86] },
+    rim: { spokes: 8, spokeW: 0.05, color: 0xe8e8ea, caliper: 0xd8262e }, pipes: [0.42],
+    livery: { name: 'Toyota Team Europe (custom)', base: '#f4f4f2', rim: 0xe8e8ea, num: 22,
+      side(P, n) {
+        P.poly([[2.6, -1.0], [2.6, -0.62], [0.9, -0.62], [-0.9, -0.1], [-2.6, 0.2], [-2.6, -1.0]], '#15161a');
+        P.band([[2.6, -0.55], [0.95, -0.55], [-0.85, -0.03], [-2.6, 0.28]], 0.06, '#d6202a');
+        P.plate(n, 0.45, -0.15);
+        P.text('TOYOTA', -1.0, -0.42, 0.1, '#f4f4f2', { w: 0.9 }); P.text('TTE', 1.75, -0.25, 0.08, '#d6202a', { w: 0.35 });
+      },
+      top(P) { P.rect(2.6, -2.6, -0.2, -0.08, '#d6202a'); P.rect(2.6, -2.6, 0.08, 0.2, '#d6202a'); } } },
+  { name: 'KADETT 4X4', blurb: 'Opel Kadett Rallye 4x4 (Kadett 4S, 1986), Opel\'s Group S study on the Kadett E built by outside tuners: a Zakspeed 1.9 L turbo four mounted lengthways, Xtrac four-wheel drive, about 500 hp claimed. A prototype only; some specs estimated.',
+    // Kadett E body (4.0 m long, 2.52 m wheelbase); Zakspeed 1,860 cc turbo four, longitudinal, about 500 hp claimed,
+    // Xtrac 4WD gearbox; torque curve, weight, ratios and drive split (est.)
+    spec: { engine: '1.9 L inline-4 turbo (Zakspeed)', cyl: 4, layout: 'inline', pitch: 1.0, hp: 493, hpAt: 8000, nm: 500, nmAt: 6000, redline: 8500, idle: 1000, lag: 0.7, offBoost: 0.45,
+      curve: [[1000, 140], [2000, 180], [3000, 250], [4000, 360], [5000, 460], [6000, 500], [7000, 480], [8000, 439], [8500, 390]],
+      disp: 1.86, launch: 5500, Ie: 0.1, enginePos: 'front',
+      box: '5-speed Xtrac (ratios est.)', gears: [2.8, 1.95, 1.5, 1.2, 1.0], final: 4.4, rev: 3.0, shift: 0.13,
+      kg: 1050, front: 0.4, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.52, track: [1.47, 1.47], wf: 0.57, cgH: 0.48, dims: [4.0, 1.78, 1.39], travel: 0.25,
+      tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [300, 280] },
+    aero: { cda: 0.9, cdaSide: 2.5, claF: 0.1, claR: 0.24, pitch: 0.05, ge: 0.25, text: 'Air dam with a splitter lip, bonnet scoop for the intercooler, roof-edge spoiler, side skirts' },
+    shape: { nose: 0.8, tail: 0.68, hood: [0.62, 0.88], belt: 0.94, ws: [-0.66, -1.32], roofEnd: -2.75, back: [-3.05, 0.95], b: -1.85, lamps: 'rect', scoop: -1.6, wing: [-2.72, -2.98, 1.41, 1.4, 0] },
+    rim: { spokes: 6, spokeW: 0.08, color: 0xf2f2ee, caliper: 0xd8262e }, pipes: [0.42],
+    livery: { name: 'Opel Motorsport (custom)', base: '#f5c400', rim: 0xf2f2ee, num: 9,
+      side(P, n) {
+        P.rect(2.6, -2.6, -1.0, -0.5, '#15161a'); P.band([[2.6, -0.45], [-2.6, -0.45]], 0.04, '#f4f4f2');
+        P.plate(n, 0.45, -0.15);
+        P.text('OPEL', -0.3, -0.2, 0.1, '#15161a', { w: 0.45 }); P.text('KADETT 4S', 1.6, -0.35, 0.06, '#15161a', { w: 0.6 });
+      },
+      top(P) { P.rect(2.6, -2.6, -0.08, 0.08, '#15161a'); } } },
+  { name: 'ASTRA 4S', blurb: 'Vauxhall Astra 4S (1986), GM Dealer Sport\'s Group S contender: a 2.4 L sixteen-valve four mounted lengthways, Xtrac four-wheel drive and Kevlar panels at 960 kg. It ran once, in the last round of the 1986 British championship.',
+    // Astra Mk2 body (4.0 m long, 2.52 m wheelbase); 2.4 L 16-valve four, 340 bhp, longitudinal, Xtrac 4WD, Kevlar
+    // panels, 960 kg (GM Dealer Sport); torque curve, ratios and drive split (est.)
+    spec: { engine: '2.4 L inline-4, 16-valve', cyl: 4, layout: 'inline', pitch: 0.96, hp: 340, hpAt: 7500, nm: 340, nmAt: 5500, redline: 8000, idle: 950, lag: 0, offBoost: 1,
+      curve: [[1000, 180], [2000, 225], [3000, 265], [4000, 300], [5000, 330], [5500, 340], [6500, 335], [7500, 319], [8000, 290]],
+      disp: 2.42, launch: 5000, Ie: 0.12, enginePos: 'front',
+      box: '5-speed Xtrac (ratios est.)', gears: [2.8, 1.95, 1.5, 1.2, 1.0], final: 4.4, rev: 3.0, shift: 0.13,
+      kg: 960, front: 0.4, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.52, track: [1.47, 1.47], wf: 0.58, cgH: 0.48, dims: [4.0, 1.78, 1.39], travel: 0.25,
+      tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [300, 280] },
+    aero: { cda: 0.92, cdaSide: 2.5, claF: 0.12, claR: 0.28, pitch: 0.05, ge: 0.25, text: 'Air dam with a splitter lip, bonnet louvres, rear wing on the hatch, side skirts' },
+    shape: { nose: 0.8, tail: 0.68, hood: [0.62, 0.88], belt: 0.94, ws: [-0.66, -1.32], roofEnd: -2.75, back: [-3.05, 0.95], b: -1.85, lamps: 'rect', louvres: true, wing: [-2.85, -3.12, 1.2, 1.6, 0.94] },
+    rim: { spokes: 8, spokeW: 0.05, color: 0xc9ccd2, caliper: 0xd8262e }, pipes: [0.42],
+    livery: { name: 'Vauxhall Motorsport (custom)', base: '#f4f4f2', rim: 0xc9ccd2, num: 10,
+      side(P, n) {
+        P.poly([[2.6, -1.0], [2.6, -0.7], [0.0, -0.55], [-2.6, -0.3], [-2.6, -1.0]], '#c8102e');
+        P.band([[2.6, -0.62], [0.0, -0.47], [-2.6, -0.22]], 0.05, '#13306e');
+        P.plate(n, 0.6, -0.1);
+        P.text('VAUXHALL', -0.45, -0.25, 0.08, '#13306e', { w: 0.6 }); P.text('ASTRA 4S', 0.6, -0.4, 0.06, '#13306e', { w: 0.5 });
+      },
+      top(P) { P.rect(2.6, -2.6, -0.1, 0.1, '#c8102e'); } } },
+  { name: 'IBIZA BIMOTOR', blurb: 'SEAT Ibiza Bimotor (1986-87): two System Porsche 1.5 L fours, one driving each axle, for four-wheel drive with no centre shaft. Two Ibiza front ends joined in the middle, one shifter for both boxes; it won Spanish rallies for Josep María Servià. Ratios estimated.',
+    // Ibiza Mk1: 3.64 m long, 2.44 m wheelbase (SEAT); two transverse 1,461 cc engines, each on its own
+    // gearbox, about 140 hp each (SEAT), 280 hp together;
+    // with no shaft between the axles each engine's torque reaches only its own axle: an open 50/50 split. Weight (est.)
+    spec: { engine: 'Twin 1.5 L inline-4s (System Porsche), one per axle', cyl: 4, layout: 'inline', pitch: 0.94, hp: 280, hpAt: 7200, nm: 310, nmAt: 5500, redline: 7800, idle: 950, lag: 0, offBoost: 1,
+      curve: [[1000, 160], [2000, 205], [3000, 245], [4000, 278], [5000, 302], [5500, 310], [6500, 296], [7200, 274], [7800, 240]],
+      disp: 2.922, launch: 5000, Ie: 0.14, enginePos: 'front',
+      box: 'Two 5-speed boxes, linked shift (ratios est.)', gears: [3.0, 2.05, 1.55, 1.22, 1.0], final: 4.6, rev: 3.1, shift: 0.15,
+      kg: 1080, front: 0.5, centre: 'open', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.44, track: [1.42, 1.42], wf: 0.52, cgH: 0.5, dims: [3.64, 1.72, 1.39], travel: 0.22,
+      tyre: { r: 0.31, w: 0.185, rim: 15, kg: 18, size: '15 in gravel (est.)' }, disc: [260, 260] },
+    aero: { cda: 0.9, cdaSide: 2.3, claF: 0.06, claR: 0.16, pitch: 0.04, ge: 0.2, text: 'Air dam, rear-engine intakes in the rear quarters, roof-edge spoiler' },
+    shape: { nose: 0.64, tail: 0.56, hood: [0.62, 0.88], belt: 0.94, ws: [-0.62, -1.3], roofEnd: -2.6, back: [-2.88, 0.95], b: -1.8, lamps: 'rect', intakes: [-2.2, -2.5], wing: [-2.6, -2.85, 1.41, 1.4, 0] },
+    rim: { spokes: 4, spokeW: 0.1, color: 0xf2f2ee, caliper: 0x2a2a2a }, pipes: [-0.35, 0.35],
+    livery: { name: 'SEAT Sport (custom)', base: '#c8102e', rim: 0xf2f2ee, num: 12,
+      side(P, n) {
+        P.band([[2.6, -0.5], [-2.6, -0.5]], 0.12, '#f5c400');
+        P.plate(n, 0.45, -0.1);
+        P.text('SEAT', -0.9, -0.1, 0.12, '#f5c400', { w: 0.5 }); P.text('BIMOTOR', 1.55, -0.2, 0.06, '#f5c400', { w: 0.5 });
+      },
+      top(P) { P.rect(2.6, -2.6, -0.1, 0.1, '#f5c400'); } } },
+  { name: 'C3 WRC', blurb: 'Citroën C3 WRC (2017-19), a World Rally Car of the wide-body 2017 rules: 1.6 turbo through a 36 mm restrictor, active centre diff and the biggest aero of the era.',
+    // 1.6 L turbo, 380 hp at 6,000 rpm (Citroën; its quoted 400 N·m
+    // cannot make that, so the curve holds the 450 N·m it needs); 4.128 m long, 1.875 m wide, 2.54 m wheelbase,
+    // 1,190 kg minimum; height, ratios and tracks (est.); the active centre is modelled as a viscous coupling
+    spec: { engine: '1.6 L inline-4 turbo, 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.04, hp: 380, hpAt: 6000, nm: 450, nmAt: 4500, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
+      curve: [[1000, 200], [2000, 310], [3000, 390], [4000, 435], [4500, 450], [5000, 450], [6000, 450], [7000, 360], [8000, 290]],
+      disp: 1.598, launch: 4500, Ie: 0.08, enginePos: 'front',
+      box: '6-speed Sadev sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05,
+      kg: 1190, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.54, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.128, 1.875, 1.4], travel: 0.27,
+      tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
+    aero: { cda: 1.02, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, swan-neck twin-plane rear wing, full-width diffuser' },
+    shape: { nose: 0.88, tail: 0.708, hood: [0.66, 0.92], belt: 0.97, ws: [-0.72, -1.45], roofEnd: -2.85, back: [-3.12, 0.98], b: -1.95, shuts: [-0.74, -1.98, -2.6], lamps: 'slim', scoop: -1.7, wing: [-2.95, -3.28, 1.22, 1.75, 0.98] },
+    rim: { spokes: 5, spokeW: 0.09, color: 0xf2f2ee, caliper: 0xd8262e }, pipes: [0.45],
+    livery: { name: 'Citroën Total WRT, 2017', base: '#f4f4f2', rim: 0xf2f2ee, num: 7,
+      side(P, n) {
+        P.poly([[2.6, -1.0], [2.6, 0.6], [1.2, 0.6], [0.2, -0.5], [-2.6, -0.6], [-2.6, -1.0]], '#c8102e');
+        P.band([[-2.6, -0.66], [0.2, -0.56], [1.25, 0.55]], 0.04, '#15161a');
+        P.plate(n, -0.4, -0.15);
+        P.text('CITROËN', -0.4, -0.45, 0.07, '#c8102e', { w: 0.6 }); P.text('TOTAL', 1.6, -0.6, 0.07, '#f4f4f2', { w: 0.4 });
+      },
+      top(P) { P.rect(2.6, 1.2, -1.45, 1.45, '#c8102e'); for (const o of [0, 0.3]) P.poly([[-0.2 - o, -0.5], [0.05 - o, 0], [-0.2 - o, 0.5], [-0.35 - o, 0.5], [-0.1 - o, 0], [-0.35 - o, -0.5]], '#c8102e'); } } },
+  { name: 'FIESTA WRC', blurb: 'Ford Fiesta WRC (2017-21) by M-Sport, Ogier\'s 2017 and 2018 title car: the EcoBoost 1.6 turbo, Ricardo sequential and the 2017 wide-body aero.',
+    // 1.6 L EcoBoost turbo, 380 hp at 6,000 rpm, 450 N·m (M-Sport); 4.13 m long, 1.875 m wide, 2.493 m wheelbase,
+    // 1,190 kg minimum; height, ratios and tracks (est.)
+    spec: { engine: '1.6 L inline-4 turbo (EcoBoost), 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.03, hp: 380, hpAt: 6000, nm: 450, nmAt: 4500, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
+      curve: [[1000, 210], [2000, 320], [3000, 410], [4000, 445], [4500, 450], [5000, 450], [6000, 450], [7000, 360], [8000, 285]],
+      disp: 1.6, launch: 4500, Ie: 0.08, enginePos: 'front',
+      box: '6-speed Ricardo sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05,
+      kg: 1190, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.493, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.13, 1.875, 1.42], travel: 0.27,
+      tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
+    aero: { cda: 1.0, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, tall rear wing on the hatch, full-width diffuser' },
+    shape: { nose: 0.85, tail: 0.787, hood: [0.64, 0.92], belt: 0.98, ws: [-0.72, -1.45], roofEnd: -2.9, back: [-3.17, 0.99], b: -1.95, shuts: [-0.74, -1.98], lamps: 'slim', wing: [-2.98, -3.3, 1.3, 1.75, 0.99] },
+    rim: { spokes: 6, spokeW: 0.08, color: 0xe8e8ec, caliper: 0xe6a21a }, pipes: [0.45],
+    livery: { name: 'M-Sport Ford WRT, 2017', base: '#0b1c48', rim: 0xe8e8ec, num: 1,
+      side(P, n) {
+        P.poly([[2.6, -1.0], [2.6, -0.4], [0.6, -0.65], [-2.6, -0.2], [-2.6, -1.0]], '#f4f4f2');
+        P.band([[2.6, -0.32], [0.6, -0.57], [-2.6, -0.12]], 0.03, '#d6202a');
+        P.plate(n, 0.5, -0.25);
+        P.text('FORD', -0.3, -0.25, 0.1, '#f4f4f2', { w: 0.45 }); P.text('M-SPORT', 1.5, -0.75, 0.07, '#0b1c48', { w: 0.6 });
+      },
+      top(P) { P.rect(2.6, -2.6, -0.06, 0.06, '#f4f4f2'); P.text('FORD', 1.6, 0, 0.13, '#f4f4f2', { rot: Math.PI / 2, w: 0.6 }); } } },
+  { name: 'IMPREZA WRC', blurb: 'Subaru Impreza WRC2008, the GE hatchback on the WRX STI: an EJ20 flat-four turbo with 650 N·m from 4,000 rpm, long travel and Subaru\'s gold wheels.',
+    // EJ20 flat-four turbo, 300 bhp at 5,500 rpm, 650 N·m at 4,000 (Subaru); 4.415 m long, 1.8 m wide, 2.625 m wheelbase,
+    // 1,230 kg; active centre modelled as a viscous coupling; ratios (est.)
+    spec: { engine: '2.0 L flat-4 turbo (EJ20)', cyl: 4, layout: 'flat', pitch: 0.95, hp: 300, hpAt: 5500, nm: 650, nmAt: 4000, redline: 7000, idle: 1000, lag: 0.35, offBoost: 0.6,
+      curve: [[1000, 250], [2000, 450], [3000, 600], [4000, 650], [4500, 620], [5000, 520], [5500, 390], [6000, 330], [6500, 290], [7000, 250]],
+      disp: 1.994, launch: 4000, Ie: 0.1, enginePos: 'front',
+      box: '6-speed Prodrive sequential (ratios est.)', gears: [3.0, 2.25, 1.8, 1.5, 1.27, 1.1], final: 4.0, rev: 2.9, shift: 0.06,
+      kg: 1230, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.625, track: [1.55, 1.55], wf: 0.57, cgH: 0.46, dims: [4.415, 1.8, 1.425], travel: 0.27,
+      tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Pirelli 15 in gravel' }, disc: [300, 300] },
+    aero: { cda: 0.92, cdaSide: 2.6, claF: 0.18, claR: 0.34, pitch: 0.07, ge: 0.25, text: 'Front splitter with dive planes, bonnet scoop, roof vent, rear wing over the hatch, rear diffuser' },
+    shape: { nose: 0.95, tail: 0.84, hood: [0.62, 0.91], belt: 0.95, ws: [-0.74, -1.45], roofEnd: -2.95, back: [-3.3, 0.99], b: -1.9, shuts: [-0.76, -1.95, -2.68], lamps: 'slim', scoop: -1.9, louvres: true, wing: [-2.86, -3.24, 1.45, 1.5, 0] },
+    rim: { spokes: 6, spokeW: 0.08, color: 0xd4af37, caliper: 0xd8262e }, pipes: [0.45],
+    livery: { name: 'Subaru World Rally Team, 2008', base: '#1c3f94', rim: 0xd4af37, num: 5,
+      side(P, n) {
+        P.band([[2.6, -0.69], [0.6, -0.56], [-2.6, -0.21]], 0.05, '#c9ccd2');
+        P.plate(n, 0.9, -0.15);
+        const star = (z, a, r) => P.poly(Array.from({ length: 10 }, (_, i) => { const t = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r * 0.42 : r; return [z + Math.cos(t) * q, a + Math.sin(t) * q]; }), '#f4f4f2');
+        star(0.15, -0.15, 0.12); [[-0.15, -0.05], [-0.3, -0.18], [-0.12, -0.3], [-0.42, -0.02], [-0.5, -0.24]].forEach(([z, a]) => star(z, a, 0.05));
+        P.text('SUBARU', -1.4, -0.15, 0.1, '#f4f4f2', { w: 0.85 });
+      },
+      top(P) { P.text('SUBARU', -0.6, 0, 0.13, '#f4f4f2', { rot: -Math.PI / 2, w: 0.9 }); } } },
+  { name: 'YARIS WRC', blurb: 'Toyota Yaris WRC (2017-21) by Tommi Mäkinen Racing: the 2018 makers\' champion and Tänak\'s 2019 title car. Short, wide and packed with aero.',
+    // 1.6 L turbo, 380 hp at 6,000 rpm (Toyota; its quoted 425 N·m
+    // cannot make that, so the curve holds the 450 N·m it needs); 4.085 m long, 1.875 m wide, 2.511 m wheelbase,
+    // 1,190 kg minimum; height, ratios and tracks (est.)
+    spec: { engine: '1.6 L inline-4 turbo, 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.05, hp: 380, hpAt: 6000, nm: 450, nmAt: 5000, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
+      curve: [[1000, 200], [2000, 300], [3000, 390], [4000, 430], [5000, 450], [6000, 450], [7000, 360], [8000, 285]],
+      disp: 1.6, launch: 4500, Ie: 0.08, enginePos: 'front',
+      box: '6-speed Xtrac sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05,
+      kg: 1190, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.511, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.085, 1.875, 1.42], travel: 0.27,
+      tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
+    aero: { cda: 1.04, cdaSide: 2.7, claF: 0.28, claR: 0.44, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with stacked dive planes, louvred front arches, side skirts, swan-neck rear wing on tall endplates, full-width diffuser' },
+    shape: { nose: 0.86, tail: 0.714, hood: [0.64, 0.92], belt: 0.98, ws: [-0.7, -1.42], roofEnd: -2.8, back: [-3.1, 0.99], b: -1.92, shuts: [-0.72, -1.95, -2.55], lamps: 'slim', scoop: -1.7, wing: [-2.9, -3.24, 1.24, 1.75, 0.99] },
+    rim: { spokes: 5, spokeW: 0.1, color: 0x1c1c1f, caliper: 0xd8262e }, pipes: [0.45],
+    livery: { name: 'Toyota Gazoo Racing WRT, 2018', base: '#f4f4f2', rim: 0x1c1c1f, num: 8,
+      side(P, n) {
+        P.poly([[2.6, -0.9], [2.6, -0.55], [1.0, -0.6], [0.25, -0.38], [-0.05, 0.1], [-0.3, 0.75], [-2.6, 0.75], [-2.6, -0.9]], '#15161a');
+        P.poly([[1.0, -0.6], [0.25, -0.38], [-0.05, 0.1], [-0.3, 0.75], [-0.18, 0.75], [0.07, 0.1], [0.37, -0.36], [1.1, -0.55]], '#d6202a');
+        P.plate(n, 0.6, -0.15);
+        P.text('TOYOTA GAZOO RACING', -0.6, -0.65, 0.055, '#f4f4f2', { w: 0.95 }); P.text('GR', -0.9, -0.15, 0.17, '#d6202a', { weight: 900 });
+      },
+      top(P) { P.rect(0.0, -2.6, -1.45, 1.45, '#15161a'); P.rect(0.12, 0.0, -1.45, 1.45, '#d6202a'); } } },
+  { name: 'POLO R WRC', blurb: 'Volkswagen Polo R WRC (2013-16): four makers\' and four drivers\' titles in four years for Ogier. A 1.6 TSI through the 33 mm restrictor, short and nimble.',
+    // 1.6 L TSI turbo, 318 hp at 6,250 rpm, 425 N·m at 5,000 (Volkswagen); 3.976 m long, 1.82 m wide, 2.48 m wheelbase,
+    // 1,200 kg minimum; height, ratios and tracks (est.)
+    spec: { engine: '1.6 L inline-4 turbo (TSI), 33 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.04, hp: 318, hpAt: 6250, nm: 425, nmAt: 5000, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
+      curve: [[1000, 200], [2000, 300], [3000, 380], [4000, 415], [5000, 425], [6250, 362], [7000, 310], [8000, 250]],
+      disp: 1.598, launch: 4500, Ie: 0.08, enginePos: 'front',
+      box: '6-speed Ricardo sequential (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.3, rev: 2.9, shift: 0.06,
+      kg: 1200, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      wb: 2.48, track: [1.58, 1.58], wf: 0.56, cgH: 0.45, dims: [3.976, 1.82, 1.37], travel: 0.26,
+      tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
+    aero: { cda: 0.88, cdaSide: 2.5, claF: 0.18, claR: 0.36, pitch: 0.07, ge: 0.25, text: 'Front splitter with corner dive planes, side skirts, rear wing on the hatch top, rear diffuser' },
+    shape: { nose: 0.8, tail: 0.696, hood: [0.62, 0.9], belt: 0.95, ws: [-0.7, -1.4], roofEnd: -2.75, back: [-3.03, 0.96], b: -1.9, shuts: [-0.72, -1.93], lamps: 'slim', scoop: -1.65, wing: [-2.78, -3.1, 1.38, 1.5, 0] },
+    rim: { spokes: 5, spokeW: 0.09, color: 0xc9ccd2, caliper: 0xd8262e }, pipes: [0.45],
+    livery: { name: 'Volkswagen Motorsport, 2015', base: '#f4f4f2', rim: 0xc9ccd2, num: 1,
+      side(P, n) {
+        for (let k = 0; k < 5; k++) P.poly([[1.5 - k * 0.5, -1.0], [1.8 - k * 0.5, -1.0], [0.9 - k * 0.5, 0.6], [0.6 - k * 0.5, 0.6]], k % 2 ? '#1b9ad6' : '#0b1c48');
+        P.plate(n, 0.45, -0.15);
+        P.text('VOLKSWAGEN', 0.45, -0.5, 0.06, '#0b1c48', { w: 0.6 }); P.text('POLO R WRC', 0.45, 0.04, 0.05, '#0b1c48', { w: 0.45 });
+      },
+      top(P) { P.rect(2.6, -2.6, -0.06, 0.06, '#0b1c48'); P.rect(2.6, -2.6, 0.08, 0.12, '#1b9ad6'); P.rect(2.6, -2.6, -0.12, -0.08, '#1b9ad6'); } } },
+];
+for (const c of NEW_CARS) {
+  const sp = c.spec, d = c.shape;
+  if (Math.abs(d.nose + d.tail + sp.wb - sp.dims[0]) > 0.005) console.warn(c.name + ': overhangs and wheelbase do not add up to the length');
+  sp.eta = sp.front && sp.front < 1 ? 0.88 : 0.91; sp.clutchT = 1.6 * Math.max(...sp.curve.map((q) => q[1])); sp.steer = 1;
+  sp.launchEq = sp.launch;
+  for (let rpm = sp.idle * 1.05; rpm < sp.launch; rpm += 25) if (sp.clutchT * smoothstep(sp.idle * 1.05, sp.launch, rpm) >= engineTorque(sp, rpm)) { sp.launchEq = rpm; break; }
+  const sz = sp.wb / (MODEL.FZ - MODEL.RZ);
+  GARAGE.body.opts.push({ name: c.name, blurb: c.blurb, fresh: true });
+  CAR_SPECS.push(sp); CAR_AERO.push(c.aero); RIM_STYLES.push(c.rim); TAILPIPES.push(c.pipes); LIVERIES.push(c.livery);
+  MODEL_BOX.push([0.6, +(MODEL.FZ + d.nose / sz).toFixed(4), +(MODEL.RZ - d.tail / sz).toFixed(4)]);
+  BODY_BUILDERS.push((K) => gsCar(K, d));
+}
+
+/* The garage holds the MINI and the cars above: trim every list indexed like GARAGE.body down to those. */
 {
-  const keep = GARAGE.body.opts.findIndex((o) => o.name === 'MINI');
-  for (const a of [GARAGE.body.opts, CAR_SPECS, CAR_AERO, MODEL_BOX, TAILPIPES, BODY_BUILDERS, RIM_STYLES, LIVERIES]) a.splice(0, a.length, a[keep]);
+  const keep = GARAGE.body.opts.map((o, i) => (o.fresh || o.name === 'MINI' ? i : -1)).filter((i) => i >= 0);
+  for (const a of [GARAGE.body.opts, CAR_SPECS, CAR_AERO, MODEL_BOX, TAILPIPES, BODY_BUILDERS, RIM_STYLES, LIVERIES]) a.splice(0, a.length, ...keep.map((i) => a[i]));
 }
 
 function buildCarModel(build) {
