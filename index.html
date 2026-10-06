@@ -7946,10 +7946,17 @@ function makeBodyKit(g, M, add, tube, build, map) {
     const R0 = ring(secs[0].h), nR = R0.length;
     const P = [], I = [];
     secs.forEach(({ s, h }) => ring(h).forEach(([x, y]) => P.push(x, y, s.z)));
-    for (let j = 0; j < secs.length - 1; j++) for (let k = 0; k < nR - 1; k++) {
-      const a = j * nR + k, b = a + 1, c = a + nR, d = c + 1;
-      I.push(a, b, c, b, d, c);
-    }
+    const Lh = (nR + 1) / 2, t0 = Lh - 1 - nT, t1 = Lh - 2 + nT;   // the top's quads (centre line at Lh - 1)
+    const quads = (open) => {
+      const I = [];
+      for (let j = 0; j < secs.length - 1; j++) for (let k = 0; k < nR - 1; k++) {
+        if (open && k >= t0 && k <= t1 && secs[j].s.z <= open[0] && secs[j + 1].s.z >= open[1]) continue;
+        const a = j * nR + k, b = a + 1, c = a + nR, d = c + 1;
+        I.push(a, b, c, b, d, c);
+      }
+      return I;
+    };
+    I.push(...quads(null));
     const mk = (pos, idx) => { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals(); return geo; };
     const surf = mk(P, I);
     const mats = Array.isArray(o.mat) ? o.mat : [o.mat || K.paint];
@@ -7971,6 +7978,7 @@ function makeBodyKit(g, M, add, tube, build, map) {
       add(K.real(cap), caps[e], 0, 0, 0);
     });
     out.userData.sections = secs.map((q) => q.s);
+    out.userData.openTop = (z0, z1) => out.geometry.setIndex(quads([z0, z1]));   // leave the top off between z0 and z1 (a cabin)
     if (realGeos) out.userData.realGeos = realGeos;
     return out;
   };
@@ -9853,7 +9861,7 @@ function gbBody_mini(K) {
   const zsRange = (a, b, n) => Array.from({ length: n + 1 }, (_, i) => a + (b - a) * i / n);
   const both = K.both, amber = new THREE.MeshBasicMaterial({ color: 0xf59a1c, toneMapped: false });
   // ---- lower body: rounded nose with the lamp-carrying wings, flat bonnet, barrel sides, short boot ----
-  K.loft([
+  const lower = K.loft([
     { z: NOSE, yb: 0.36, ys: 0.6, yt: 0.78, w: 0.6, wt: 0.54, r: 0.04, crown: 0.02 },
     { z: NOSE - 0.04, yb: 0.3, ys: 0.6, yt: 0.805, w: 0.67, wt: 0.6, r: 0.06, crown: 0.025 },
     { z: 0.3, yb: BOT + 0.02, ys: 0.6, yt: 0.83, w: 0.7, wt: 0.635, r: 0.06, crown: 0.03 },
@@ -9961,8 +9969,12 @@ function gbBody_mini(K) {
   K.rpanel([[-0.39, 0.47], [0.39, 0.47], [0.41, 0.79], [-0.41, 0.79]], K.paint, 'front', TAIL - 0.004, -1);
   K.rpanel([[-0.2, 0.47], [0.2, 0.47], [0.2, 0.6], [-0.2, 0.6]], K.dark, 'front', TAIL - 0.01, -1);       // hinged plate
   K.rbox(0.16, 0.02, 0.02, K.trim, 0, 0.66, TAIL - 0.01);                                             // boot handle
-  // interior: dash shelf, seats, cage hoop
+  // interior: dash shelf, seats, cage hoop; the cabin is open down to the floor (no body lid at the belt line), with
+  // a footwell bulkhead and dark door cards, for the cockpit camera
   K.rbox(1.2, 0.08, 0.2, K.dark, 0, BELT - 0.04, WS0 - 0.12);
+  lower.userData.openTop(WS0 - 0.04, -1.6);
+  K.rbox(1.2, BELT - 0.58, 0.02, K.dark, 0, (BELT + 0.42) / 2 + 0.04, WS0 - 0.15);
+  both((s) => K.rbox(0.02, BELT - 0.52, 1.25, K.dark, s * 0.63, (BELT + 0.48) / 2, -0.98));
   K.rbox(1.24, 0.02, 1.45, K.dark, 0, 0.5, -1.025);                                                  // (stops short of the rear wheels)
   both((s) => K.rbox(0.42, 0.5, 0.1, K.dark, s * 0.3, 0.8, -1.42));
   K.rtube(0.52, 0.55, -1.25, 0.5, GUT - 0.04, -1.25, 0.02, K.dark); K.rtube(-0.52, 0.55, -1.25, -0.5, GUT - 0.04, -1.25, 0.02, K.dark);
@@ -10073,6 +10085,18 @@ function gsShell(K, c) {
     const hz = o.hoop, roofY = sec(G, (r0 + r1) / 2).yt, seatY = sec(LB, hz).yt - 0.1;
     K.rbox(1.36, 0.1, 0.24, K.dark, 0, sec(LB, w0).yt - 0.02, w0 - 0.18);           // dash
     K.rbox(1.4, 0.02, Math.abs(w0 - hz) + 0.5, K.dark, 0, seatY - 0.3, (w0 + hz) / 2 - 0.2);   // floor
+    // the cabin is open down to the floor (the cockpit camera sits in it): no body lid at the belt line, a footwell
+    // bulkhead under the dash and dark door cards inside the body sides
+    // (kept clear of the wheel arches, so the tyres don't show inside)
+    const o0 = Math.min(w0 - 0.04, -AR - 0.03), o1 = Math.max(hz - 0.08, -wb + AR + 0.03);
+    bodyMesh.userData.openTop(o0, o1);
+    const dy = sec(LB, w0).yt - 0.07;
+    K.rbox(1.36, dy - (seatY - 0.3), 0.02, K.dark, 0, (dy + seatY - 0.3) / 2, o0 - 0.03);
+    for (let i = 0, n = 4; i < n; i++) {
+      const za = lerp(o0 - 0.01, o1, i / n), zb = lerp(o0 - 0.01, o1, (i + 1) / n), A = sec(LB, za), B = sec(LB, zb);
+      const x = Math.min(A.wt, B.wt) - 0.03, top = Math.min(A.yt - A.crown, B.yt - B.crown) - 0.01, bot = seatY - 0.3;
+      K.both((sx) => K.rbox(0.02, top - bot, za - zb + 0.01, K.dark, sx * x, (top + bot) / 2, (za + zb) / 2));
+    }
     K.both((sx) => {
       K.rbox(0.42, 0.55, 0.1, K.dark, sx * 0.33, seatY + 0.05, hz + 0.12);            // bucket seats
       K.rtube(sx * 0.6, seatY - 0.2, hz, sx * 0.58, roofY - 0.1, hz + 0.03, 0.025, K.dark);   // main hoop
@@ -15482,11 +15506,17 @@ const Dash = {
     const g = this.g = new THREE.Group(); g.visible = false; M.group.add(g);
     const dark = new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.8 }), glove = new THREE.MeshStandardMaterial({ color: 0x202226, roughness: 0.7 });
     const suit = new THREE.MeshStandardMaterial({ color: new THREE.Color(GARAGE.pilot.opts[Store.data.garage.pilot].suit), roughness: 0.75 });
-    const dash = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.1, 0.32), dark); dash.position.set(0, e.y - 0.3, e.z + 0.78); g.add(dash);
     const cv = document.createElement('canvas'); cv.width = 320; cv.height = 128; this.ctx = cv.getContext('2d');
     this.tex = new THREE.CanvasTexture(cv); this.tex.colorSpace = THREE.SRGBColorSpace;
     const gauge = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.144), new THREE.MeshBasicMaterial({ map: this.tex, toneMapped: false }));
-    gauge.position.set(e.x, e.y - 0.2, e.z + 0.66); gauge.rotation.set(-0.3, Math.PI, 0); g.add(gauge);
+    // the gauges sit on the face of the car's own dash: cast from the eye toward where they'd be, stop just short
+    const dir = _tmp.set(0, -0.2, 0.66).normalize(), parts = [];
+    M.shell.traverse((o) => { if (o.isMesh && !o.material.transparent && !o.userData.keep) parts.push(o); });
+    M.pilot.traverse((o) => { const k = parts.indexOf(o); if (k >= 0) parts.splice(k, 1); });
+    M.group.updateMatrixWorld(true);
+    const ray = new THREE.Raycaster(e.clone().applyMatrix4(M.group.matrixWorld), dir.clone().transformDirection(M.group.matrixWorld), 0.3, 0.69);
+    const hit = ray.intersectObjects(parts, false)[0], gd = hit ? hit.distance - 0.015 : 0.69;
+    gauge.position.copy(e).addScaledVector(dir, gd); gauge.rotation.set(-0.3, Math.PI, 0); g.add(gauge);
     const w = this.wheel = new THREE.Group(); w.position.set(e.x, e.y - 0.27, e.z + 0.5); w.rotation.x = 0.3; g.add(w);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(0.175, 0.017, 8, 28), dark); w.add(rim);
     for (const a of [Math.PI / 2, -Math.PI / 6, Math.PI * 7 / 6]) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.022, 0.012), dark); sp.position.set(Math.cos(a) * 0.08, Math.sin(a) * 0.08, 0); sp.rotation.z = a; w.add(sp); }
@@ -15504,6 +15534,8 @@ const Dash = {
     const inside = Cam.mode === 'cockpit' && Game.state !== 'garage' && Game.state !== 'photo';
     if (inside !== this.mode) {
       this.mode = inside; this.g.visible = inside; M.pilot.visible = !inside;
+      if (M.under.userData.on == null) M.under.userData.on = M.under.visible;
+      M.under.visible = !inside && M.under.userData.on;                // no underglow seen from the seat
       M.shell.traverse((o) => { if (o.isMesh && o.material && !o.material.isMeshBasicMaterial && o !== M.under) { o.material.side = inside ? THREE.DoubleSide : THREE.FrontSide; o.material.needsUpdate = true; } });
       if (M.glass) { if (M.glass.userData.op == null) M.glass.userData.op = M.glass.opacity; M.glass.opacity = inside && !car.glassBroken ? 0.12 : car.glassBroken ? 0.82 : M.glass.userData.op; }
     }
@@ -16136,7 +16168,7 @@ function init() {
   linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
   // Small debugging / automation surface (autopilot lets you watch the AI drive a full stage).
   window.RegolithRally = {
-    AudioSys, EngineSound, Game, car, Post, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
+    AudioSys, EngineSound, Game, Cam, car, Post, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB,
     openService, leaveService, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
