@@ -200,8 +200,7 @@ td.good{color:var(--good)} td.bad{color:var(--bad)}
 .gar-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow:auto;flex:1;align-content:start;padding:2px}
 .gar-opts.pilot{grid-template-columns:repeat(4,minmax(0,1fr))}
 .gar-opts.color{grid-template-columns:repeat(4,1fr)}
-.gar-opts.glow,.gar-opts.decal{grid-template-columns:repeat(3,1fr)}
-.gtile.sw i.gl{box-shadow:0 0 16px var(--c)} .gtile.sw i.off{background:repeating-linear-gradient(45deg,#333 0 4px,#222 4px 8px)}
+.gar-opts.decal{grid-template-columns:repeat(3,1fr)}
 .gtile.dc{text-align:center;padding:6px} .gtile.dc img{width:100%;aspect-ratio:2;border-radius:6px;display:block;margin-bottom:5px}
 .gar-desc em{color:var(--dim);font-style:normal}
 .gtile{pointer-events:auto;text-align:left;border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:10px;padding:10px;transition:border-color .12s,transform .12s}
@@ -734,7 +733,7 @@ body.touch #prompts{display:none}
   .gar-tg:first-child{flex:2} .gar-tg:last-child{flex:4}
   .gar-tabs button{font-size:11.5px;padding:6px 1px!important;letter-spacing:.04em!important}
   .gar-opts{grid-template-columns:repeat(3,1fr);gap:5px}
-  .gar-opts.pilot{grid-template-columns:repeat(4,minmax(0,1fr))} .gar-opts.color{grid-template-columns:repeat(6,1fr)} .gar-opts.glow,.gar-opts.decal{grid-template-columns:repeat(3,1fr)}
+  .gar-opts.pilot{grid-template-columns:repeat(4,minmax(0,1fr))} .gar-opts.color{grid-template-columns:repeat(6,1fr)} .gar-opts.decal{grid-template-columns:repeat(3,1fr)}
   .gtile{padding:6px 7px}
   .gtile b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .gtile small{font-size:9.5px;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -2058,7 +2057,7 @@ const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
 const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
 /* ---- garage: pilot + car (chosen in the garage, kept for every stage) ----
    The car sets the physics, on its own real tyres and its own aero package (CAR_AERO). The pilot (a real
-   rally driver), paint, decal and glow are looks only: every pilot weighs the same. Each build
+   rally driver), paint and decal are looks only: every pilot weighs the same. Each build
    is rated from what those physics give it (see perfRatings): six ratings and a PI with a class. */
 const GARAGE = {
   /* Pilots are stylised avatars of real rally drivers, one per car in the same order, then four more legends.
@@ -2163,15 +2162,11 @@ const GARAGE = {
   decal: { label: 'DECAL', opts: [
     { name: 'CLEAN' }, { name: 'STRIPES' }, { name: 'FLAMES' }, { name: 'CHECKER' }, { name: 'BOLT' }, { name: 'STARS' },
   ] },
-  glow: { label: 'GLOW', opts: [
-    { name: 'CYAN', css: '120,240,255', hex: 0x78f0ff }, { name: 'MAGENTA', css: '255,80,216', hex: 0xff50d8 }, { name: 'LIME', css: '150,255,90', hex: 0x96ff5a },
-    { name: 'AMBER', css: '255,180,60', hex: 0xffb43c }, { name: 'WHITE', css: '235,240,255', hex: 0xebf0ff }, { name: 'OFF', css: null, hex: 0x000000 },
-  ] },
 };
-const GARAGE_KEYS = ['body', 'pilot', 'color', 'decal', 'glow'];
-const GARAGE_TABS = ['body', 'pilot', 'livery', 'glow'];   // paint, pattern and layers share the one LIVERY tab
+const GARAGE_KEYS = ['body', 'pilot', 'color', 'decal'];
+const GARAGE_TABS = ['body', 'pilot', 'livery'];   // paint, pattern and layers share the one LIVERY tab
 const BUILD_PARTS = ['body'];
-const DEFAULT_BUILD = { pilot: 0, body: 0, color: GARAGE.color.opts.findIndex((o) => o.works), decal: 0, glow: 0 };
+const DEFAULT_BUILD = { pilot: 0, body: 0, color: GARAGE.color.opts.findIndex((o) => o.works), decal: 0 };
 function cleanBuild(b) {
   const out = Object.assign({}, DEFAULT_BUILD);
   if (b && typeof b === 'object') for (const k of GARAGE_KEYS) { const v = b[k]; if (Number.isInteger(v) && v >= 0 && v < GARAGE[k].opts.length) out[k] = v; }
@@ -11832,16 +11827,6 @@ function buildCarModel(build) {
   P.position.set(spec.seatX, seatY, seatZ);
   P.scale.setScalar(spec.pilotScale);
   shell.add(P);
-  // hover-tech underglow
-  const glowOpt = GARAGE.glow.opts[build.glow], glowCss = glowOpt.css || '0,0,0';
-  const glowTex = makeCanvas(64, 128, (c, w, h) => {
-    const grd = c.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, w / 2);
-    grd.addColorStop(0, `rgba(${glowCss},0.9)`); grd.addColorStop(1, `rgba(${glowCss},0)`);
-    c.fillStyle = grd; c.save(); c.scale(1, 2); c.fillRect(0, 0, w, h / 2); c.restore();
-  });
-  const under = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 5.2), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55, toneMapped: false }));
-  under.rotation.x = -Math.PI / 2; under.position.y = -0.37; shell.add(under);
-  under.userData.keep = true; under.visible = !!glowOpt.css;
   if (atlas) for (const o of shell.children) if (Array.isArray(o.material) && o.material.every((m) => m === paint)) o.material = paint;   // one material, so the parts merge
   mergeStatic(shell);                                       // ~40 static parts → one mesh per material
   if (atlas) for (const o of shell.children) if (o.isMesh && o.material === paint) liveryUV(o, liveryFrameF);   // the livery wraps the whole body
@@ -11899,7 +11884,7 @@ function buildCarModel(build) {
   spot.position.set(0, map.y(0.5), map.z(1.9));
   spot.target.position.set(0, -1.6, 14);
   g.add(spot, spot.target);
-  const model = { group: g, wheels, flames, tailMat, tip, under, spot, pilot: P, arb: arbVis, compMax: wheelRoom(shell, geo, W), shell, paint, glass };
+  const model = { group: g, wheels, flames, tailMat, tip, spot, pilot: P, arb: arbVis, compMax: wheelRoom(shell, geo, W), shell, paint, glass };
   if (arbVis) poseArb(arbVis, wheels);
   return model;
 }
@@ -13833,7 +13818,6 @@ function updateCarVisual(dt, ctl) {
   M.tailMat.color.setRGB(ctl.brake > 0 ? 0.35 + 0.65 * ctl.brake : 0.12, 0.004, 0.006);
   if (M.arb) poseArb(M.arb, M.wheels);
   M.tip.visible = false;                                    // rally cars carry a plain roof aerial
-  M.under.material.opacity = 0.35 + 0.15 * Math.sin(Game.clock * 3);
 }
 
 /* ---- pace note triggering ---- */
@@ -14791,7 +14775,6 @@ const Garage = {
       const o = cat.opts[v];
       const sel = b[k] === v ? ' sel' : '';
       if (k === 'color') return `<button class="gtile sw${sel}" data-v="${v}" style="--c:#${new THREE.Color(o.hex).getHexString()}"><i></i><b>${o.name}</b></button>`;
-      if (k === 'glow') return `<button class="gtile sw${sel}" data-v="${v}" style="--c:${o.css ? 'rgb(' + o.css + ')' : 'transparent'}"><i class="${o.css ? 'gl' : 'off'}"></i><b>${o.name}</b></button>`;
       if (k === 'decal') return `<button class="gtile dc${sel}" data-v="${v}"><img src="${decalPreview(v, b.color)}" alt=""><b>${o.name}</b></button>`;
       const Rv = BUILD_PARTS.includes(k) ? ratingsFor(Object.assign({}, b, { [k]: v })) : null;
       if (k === 'pilot') return `<button class="gtile pt${sel}" data-v="${v}"><img src="${pilotPortrait(v)}" alt=""><b>${o.name}</b><small>${o.cls}</small></button>`;
@@ -14799,7 +14782,7 @@ const Garage = {
       return `<button class="gtile${sel}" data-v="${v}"><b>${o.name}</b>${piBadge(Rv, true)}<div class="chips">${partChips(k, o)}</div></button>`;
     }).join('');
     const cur = cat.opts[b[k]];
-    const cosmetic = { color: 'WORKS is the car\'s own rally livery.', decal: 'Shows over the sides and roof.', glow: 'Underglow colour.' };
+    const cosmetic = { color: 'WORKS is the car\'s own rally livery.', decal: 'Shows over the sides and roof.' };
     if (k === 'pilot') cosmetic.pilot = `<b>${cur.full}</b> ${cur.blurb}`;
     let desc = cosmetic[k] ? cosmetic[k] + ' <em>Looks only.</em>' : `<b>${cur.name}</b> ${cur.blurb}`;
     if (k === 'body') {
@@ -15534,9 +15517,7 @@ const Dash = {
     const inside = Cam.mode === 'cockpit' && Game.state !== 'garage' && Game.state !== 'photo';
     if (inside !== this.mode) {
       this.mode = inside; this.g.visible = inside; M.pilot.visible = !inside;
-      if (M.under.userData.on == null) M.under.userData.on = M.under.visible;
-      M.under.visible = !inside && M.under.userData.on;                // no underglow seen from the seat
-      M.shell.traverse((o) => { if (o.isMesh && o.material && !o.material.isMeshBasicMaterial && o !== M.under) { o.material.side = inside ? THREE.DoubleSide : THREE.FrontSide; o.material.needsUpdate = true; } });
+      M.shell.traverse((o) => { if (o.isMesh && o.material && !o.material.isMeshBasicMaterial) { o.material.side = inside ? THREE.DoubleSide : THREE.FrontSide; o.material.needsUpdate = true; } });
       if (M.glass) { if (M.glass.userData.op == null) M.glass.userData.op = M.glass.opacity; M.glass.opacity = inside && !car.glassBroken ? 0.12 : car.glassBroken ? 0.82 : M.glass.userData.op; }
     }
     if (!inside) return;
