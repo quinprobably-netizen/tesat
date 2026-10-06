@@ -924,16 +924,13 @@ body.tilt #tCentre{display:flex}
 #phScrub{flex:1;min-width:160px}
 #app.ph-hide #photo{opacity:0}
 #noteBtn{position:absolute;right:16px;top:45%;z-index:20;font-size:16px;padding:12px 16px}
-.liv-ed{position:absolute;left:12px;top:64px;bottom:12px;width:min(480px,94vw);overflow:auto;text-align:left;padding:12px 14px;z-index:5}
-#garage.ed .gar-panel,#garage.ed .gar-stats{display:none}
 .le-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0}
 .le-row>b{min-width:62px;font-size:12px;letter-spacing:.1em}
 .le-layers{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .sw{display:inline-block;width:20px;height:20px;border:2px solid rgba(255,255,255,.25);cursor:pointer;vertical-align:middle;margin-right:4px}
 .sw.on{border-color:var(--neon-yel)}
 .le-sl{display:flex;flex-direction:column;font-size:11px;letter-spacing:.08em;width:46%}
-#garLivery{margin-left:10px}
-@media (max-width:700px){.hub-cols{grid-template-columns:1fr}.liv-ed{top:52px;left:6px}.ph-help{display:none}}
+@media (max-width:700px){.hub-cols{grid-template-columns:1fr}.ph-help{display:none}}
 /* ---- modern finish: the minimal HUD, stage groups, simplified garage and events screens in the same look ---- */
 body.hud-min #timerBox{border-radius:var(--r-sm);background:rgba(10,12,18,.5);box-shadow:none}
 body.hud-min #timer{text-shadow:0 1px 4px rgba(0,0,0,.6)}
@@ -960,6 +957,28 @@ body.hud-min .pn svg *{stroke:var(--text)!important}
 .sw{border-radius:50%}
 .sw.on{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
 #photo{background:linear-gradient(transparent,rgba(5,7,11,.85))}
+/* LIVERY tab: base paint, pattern and layers in one scrolling column */
+.gar-opts.livery{display:block}
+.lv-sec{margin:0 0 14px}
+.lv-sec h4{margin:0 0 8px;font:600 11px/1 var(--body);letter-spacing:.14em;color:var(--neon-pink)}
+.lv-sec h4 small{opacity:.6;margin-left:6px}
+.lv-grid{display:grid;gap:6px}
+.lv-grid.base{grid-template-columns:repeat(auto-fill,minmax(64px,1fr))}
+.lv-grid.pat{grid-template-columns:repeat(3,1fr)}
+.gtile.lvb{text-align:center;padding:8px 4px;display:block;width:auto;height:auto;margin:0}
+.gtile.lvb i{display:block;width:30px;height:30px;margin:0 auto 5px;border-radius:50%;background:var(--c);border:2px solid rgba(255,255,255,.3)}
+.gtile.lvb b{font-size:10px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gtile.lvb i.wk{background:linear-gradient(135deg,var(--c) 0 42%,#e8322e 42% 52%,#1d4fd8 52% 62%,var(--c) 62%)}
+.lv-add,.lv-layers,.lv-cols{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.lv-add .mini,.lv-layers .mini{font-size:11px;padding:6px 10px}
+.lv-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.lv-c{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.25);padding:0;cursor:pointer}
+.lv-c.on,.lv-c.pad-focus{border-color:var(--accent)}
+.lv-edit{background:rgba(255,255,255,.04);border-radius:10px;padding:8px 10px;margin:8px 0}
+.lv-sls{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:6px 0}
+.lv-sl,.lv-txt{display:flex;flex-direction:column;gap:3px;font-size:10px;letter-spacing:.1em;opacity:.9}
+.lv-txt{margin:6px 0}
+.lv-share{border-top:1px solid rgba(255,255,255,.08);padding-top:8px;margin-top:10px}
 </style>
 </head>
 <body>
@@ -1042,17 +1061,13 @@ body.hud-min .pn svg *{stroke:var(--text)!important}
 
   <!-- ======================= GARAGE ======================= -->
   <div id="garage" class="overlay hidden">
-    <div class="gar-top"><button class="mini" id="garBack">&#9666; DONE</button><h2>GARAGE</h2><button class="mini" id="garLivery">EDIT LIVERY</button><span class="gar-hint">&uarr;&darr; CATEGORY &nbsp; &larr;&rarr; CHOOSE &nbsp; DRAG TO SPIN</span></div>
+    <div class="gar-top"><button class="mini" id="garBack">&#9666; DONE</button><h2>GARAGE</h2><span class="gar-hint">&uarr;&darr; CATEGORY &nbsp; &larr;&rarr; CHOOSE &nbsp; DRAG TO SPIN</span></div>
     <div class="panel gar-panel">
       <div class="gar-tabs" id="garTabs"></div>
       <div class="gar-opts" id="garOpts"></div>
       <div class="gar-desc" id="garDesc"></div>
     </div>
     <div class="panel gar-stats" id="garStats"></div>
-    <div class="panel liv-ed hidden" id="livEd">
-      <div class="set-top"><button class="mini" id="livEdDone">&#9666; DONE</button><h2>LIVERY</h2><button class="mini" id="livEdCode">COPY CODE</button><button class="mini" id="livEdImport">IMPORT</button></div>
-      <div id="livEdBody"></div>
-    </div>
   </div>
 
   <!-- ======================= STAGE SELECT ======================= -->
@@ -2154,6 +2169,7 @@ const GARAGE = {
   ] },
 };
 const GARAGE_KEYS = ['body', 'pilot', 'color', 'decal', 'glow'];
+const GARAGE_TABS = ['body', 'pilot', 'livery', 'glow'];   // paint, pattern and layers share the one LIVERY tab
 const BUILD_PARTS = ['body'];
 const DEFAULT_BUILD = { pilot: 0, body: 0, color: GARAGE.color.opts.findIndex((o) => o.works), decal: 0, glow: 0 };
 function cleanBuild(b) {
@@ -10655,18 +10671,19 @@ const LIVERIES = [
 ];
 /** The atlas texture for a car's works livery. */
 const LIV_CACHE = new Map();
-function liveryAtlas(body, num, decal) {
-  const key = body + ':' + num + ':' + (decal || 0) + ':' + liveryKey(body);
+function liveryAtlas(body, num, decal, solid) {
+  const key = body + ':' + num + ':' + (decal || 0) + ':' + liveryKey(body) + ':' + (solid || '');
   if (LIV_CACHE.has(key)) return LIV_CACHE.get(key);
   const L = LIVERIES[body], F = liveryFrame(body), CL = customLivery(body);
   const tex = makeCanvas(LIV.W, 2 * LIV.S + LIV.T, (c) => {
     for (const side of [0, 1, 'top']) {
       const P = liveryPainter(c, F, side);
       c.save(); c.beginPath(); c.rect(0, side === 'top' ? 2 * LIV.S : side * LIV.S, LIV.W, side === 'top' ? LIV.T : LIV.S); c.clip();
-      P.fill(CL && CL.plain ? CL.plain : L.base);
-      if (!(CL && CL.plain)) { if (side === 'top') { if (L.top) L.top(P, num); } else L.side(P, num); }
+      const base = solid || (CL && CL.plain);
+      P.fill(base || L.base);
+      if (!base) { if (side === 'top') { if (L.top) L.top(P, num); } else L.side(P, num); }
       if (CL) drawLiveryLayers(c, CL, side);
-      if (decal && side !== 'top') { c.translate(0, side * LIV.S); drawDecal(c, LIV.W, LIV.S, decal, '#15171b', false); }   // a chosen decal goes over the works livery's sides
+      if (decal && side !== 'top') { c.translate(0, side * LIV.S); drawDecal(c, LIV.W, LIV.S, decal, solid && new THREE.Color(solid).getHSL({}).l <= 0.6 ? '#f2f2f2' : '#15171b', false); }   // a chosen decal goes over the works livery's sides
       c.restore();
     }
   });
@@ -11715,7 +11732,9 @@ function buildCarModel(build) {
   const works = !!paintOpt.works;
   let paint = new THREE.MeshStandardMaterial({ color: accentHex, metalness: works ? 0.35 : metal, roughness: works ? 0.38 : rough });
   let liveryFrameF = null;
-  if (works) { const at = liveryAtlas(body, LIVERIES[body].num, build.decal); paint.map = at.tex; paint.color.set(0xffffff); liveryFrameF = at.F; }
+  const CLb = customLivery(body), solid = !works && CLb && CLb.layers && CLb.layers.length ? '#' + new THREE.Color(paintOpt.hex).getHexString() : null;
+  const atlas = !!(works || solid);
+  if (atlas) { const at = liveryAtlas(body, LIVERIES[body].num, build.decal, solid); paint.map = at.tex; paint.color.set(0xffffff); liveryFrameF = at.F; }
   const dark = new THREE.MeshStandardMaterial({ color: 0x1b1e24, metalness: 0.5, roughness: 0.55 });
   const trim = new THREE.MeshStandardMaterial({ color: 0xcfd5de, metalness: 0.85, roughness: 0.25 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x0c2036, metalness: 0.9, roughness: 0.06, envMapIntensity: 2.2, transparent: true, opacity: 0.55, depthWrite: false });
@@ -11733,9 +11752,9 @@ function buildCarModel(build) {
     c.fillStyle = numCss === '#f2f2f2' ? '#111' : '#f2f2f2'; c.font = 'italic 900 42px "Segoe UI", system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText(String((build.pilot * 11 + 7) % 100).padStart(2, '0'), w * 0.5, h * 0.35);
   });
-  const side = works ? paint : new THREE.MeshStandardMaterial({ map: livery, metalness: metal, roughness: rough });
+  const side = atlas ? paint : new THREE.MeshStandardMaterial({ map: livery, metalness: metal, roughness: rough });
   const topTex = makeCanvas(128, 256, (c, w, h) => { c.fillStyle = accentCss; c.fillRect(0, 0, w, h); drawDecal(c, w, h, build.decal, numCss, true); });
-  const top = works ? paint : new THREE.MeshStandardMaterial({ map: topTex, metalness: metal, roughness: rough });
+  const top = atlas ? paint : new THREE.MeshStandardMaterial({ map: topTex, metalness: metal, roughness: rough });
   const add = (geo, mat, x, y, z, rx, ry, rz) => {
     const mm = new THREE.Mesh(geo, mat); mm.position.set(x, y, z); mm.rotation.set(rx || 0, ry || 0, rz || 0);
     mm.castShadow = true; mm.receiveShadow = true; shell.add(mm); return mm;
@@ -11781,9 +11800,9 @@ function buildCarModel(build) {
   const under = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 5.2), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55, toneMapped: false }));
   under.rotation.x = -Math.PI / 2; under.position.y = -0.37; shell.add(under);
   under.userData.keep = true; under.visible = !!glowOpt.css;
-  if (works) for (const o of shell.children) if (Array.isArray(o.material) && o.material.every((m) => m === paint)) o.material = paint;   // one material, so the parts merge
+  if (atlas) for (const o of shell.children) if (Array.isArray(o.material) && o.material.every((m) => m === paint)) o.material = paint;   // one material, so the parts merge
   mergeStatic(shell);                                       // ~40 static parts → one mesh per material
-  if (works) for (const o of shell.children) if (o.isMesh && o.material === paint) liveryUV(o, liveryFrameF);   // the livery wraps the whole body
+  if (atlas) for (const o of shell.children) if (o.isMesh && o.material === paint) liveryUV(o, liveryFrameF);   // the livery wraps the whole body
   warpShell(shell, map, P);                                 // onto the real car's length, width, height and wheelbase
   // ---- wheels: pivot (steer + suspension) → spin group (tyre, rim, brake disc). The caliper rides on the
   // pivot, so it steers and moves with the hub but doesn't spin. ----
@@ -14151,8 +14170,6 @@ const PadNav = {
     if (this.vis('modal')) return this.vis('modal');
     if (this.vis('hub')) return this.vis('hub');
     if (Game.state === 'photo') return document.getElementById('photo');
-    const gar = this.vis('garage');
-    if (gar && gar.classList.contains('ed')) return document.getElementById('livEd');
     if (Settings.from) return null;
     if (Game.state === 'service') return this.vis('service');
     if (Game.state === 'finished' && Game.finishShown) return this.vis('finish');
@@ -14238,7 +14255,6 @@ const PadNav = {
     if (a === 'gearUp' || a === 'gearDown') return this.tabs(root, a === 'gearUp' ? 1 : -1);
     if (a === 'back') {
       if (root.id === 'hub') { Hub.close(); this.set(null); return true; }
-      if (root.id === 'livEd') { document.getElementById('livEdDone').click(); this.set(null); return true; }
       this.set(null);
       return false;
     }
@@ -14258,7 +14274,7 @@ const Prompts = {
     if (Settings.from) return [['UD', 'MOVE'], ['LR', 'CHANGE'], ['B', 'BACK']];
     if (st === 'menu' && Menu.screen === 'home') return [['UD', 'MOVE'], ['A', 'SELECT']];
     if (st === 'menu') return [['UD', 'STAGE'], ['A', 'DRIVE'], ['B', 'HOME']];
-    if (st === 'garage') return v('garage').classList.contains('ed') ? [['DPAD', 'MOVE'], ['A', 'SELECT'], ['B', 'DONE']] : [['LBRB', 'CATEGORY'], ['LR', 'CHOOSE'], ['A', 'DONE']];
+    if (st === 'garage') return GARAGE_TABS[Garage.tab] === 'livery' ? [['LBRB', 'CATEGORY'], ['DPAD', 'MOVE'], ['A', 'SELECT']] : [['LBRB', 'CATEGORY'], ['LR', 'CHOOSE'], ['A', 'DONE']];
     if (st === 'service') return [['DPAD', 'MOVE'], ['A', PadNav.cur ? 'SELECT' : 'START STAGE'], ['B', 'LEAVE']];
     if (st === 'paused') return [['UD', 'MOVE'], ['A', 'SELECT'], ['B', 'RESUME']];
     if (st === 'finished' && Game.finishShown) return [['A', PadNav.cur ? 'SELECT' : 'CONTINUE'], ['DPAD', 'MOVE'], ['B', 'STAGE SELECT']];
@@ -14696,7 +14712,6 @@ const Garage = {
   },
   close() {
     camera.clearViewOffset();
-    if (!document.getElementById('livEd').classList.contains('hidden')) LiveryEd.close();
     document.getElementById('garage').classList.add('hidden');
     enterMenu(this.from);
   },
@@ -14710,7 +14725,7 @@ const Garage = {
     this.render();
   },
   cycle(dir) {
-    const k = GARAGE_KEYS[this.tab], ord = this.order(k), n = ord.length;
+    const t = GARAGE_TABS[this.tab], k = t === 'livery' ? 'color' : t, ord = this.order(k), n = ord.length;
     this.pick(k, ord[(ord.indexOf(Store.data.garage[k]) + dir + n) % n]);
   },
   /** Option indexes in display order: cars by PI, highest first; everything else as listed. */
@@ -14720,11 +14735,16 @@ const Garage = {
     const b = Store.data.garage, pi = ids.map((v) => ratingsFor(Object.assign({}, b, { body: v })).pi);
     return ids.sort((x, y) => pi[y] - pi[x] || x - y);
   },
-  setTab(t) { this.tab = (t + GARAGE_KEYS.length) % GARAGE_KEYS.length; this.preview = null; this.render(); },
+  setTab(t) { this.tab = (t + GARAGE_TABS.length) % GARAGE_TABS.length; this.preview = null; this.render(); },
   render() {
-    const b = Store.data.garage, k = GARAGE_KEYS[this.tab], cat = GARAGE[k];
-    document.getElementById('garTabs').innerHTML = GARAGE_KEYS.map((key, i) => `<button data-tab="${i}" class="${i === this.tab ? 'on' : ''}">${GARAGE[key].label}</button>`).join('');
+    const b = Store.data.garage, k = GARAGE_TABS[this.tab], cat = GARAGE[k];
+    document.getElementById('garTabs').innerHTML = GARAGE_TABS.map((key, i) => `<button data-tab="${i}" class="${i === this.tab ? 'on' : ''}">${GARAGE[key] ? GARAGE[key].label : 'LIVERY'}</button>`).join('');
     document.getElementById('garOpts').className = 'gar-opts ' + k;
+    if (k === 'livery') {
+      document.getElementById('garOpts').innerHTML = LiveryEd.html();
+      document.getElementById('garDesc').innerHTML = 'Pick a base, a pattern and your own layers. Saved per car. <em>Looks only.</em>';
+      this.renderStats(); return;
+    }
     document.getElementById('garOpts').innerHTML = this.order(k).map((v) => {
       const o = cat.opts[v];
       const sel = b[k] === v ? ' sel' : '';
@@ -14780,9 +14800,9 @@ const Garage = {
     const el = document.getElementById('garage');
     document.getElementById('garTabs').addEventListener('click', (e) => { const t = e.target.closest('[data-tab]'); if (t) this.setTab(+t.dataset.tab); });
     const opts = document.getElementById('garOpts');
-    opts.addEventListener('click', (e) => { const t = e.target.closest('[data-v]'); if (t) this.pick(GARAGE_KEYS[this.tab], +t.dataset.v); });
+    opts.addEventListener('click', (e) => { if (GARAGE_TABS[this.tab] === 'livery') return; const t = e.target.closest('[data-v]'); if (t) this.pick(GARAGE_TABS[this.tab], +t.dataset.v); });
     opts.addEventListener('pointerover', (e) => {
-      const t = e.target.closest('[data-v]'), k = GARAGE_KEYS[this.tab];
+      const t = e.target.closest('[data-v]'), k = GARAGE_TABS[this.tab];
       const pv = t && BUILD_PARTS.includes(k) ? { [k]: +t.dataset.v } : null;
       if (JSON.stringify(pv) !== JSON.stringify(this.preview)) { this.preview = pv; this.renderStats(); }
     });
@@ -15531,73 +15551,79 @@ function drawLiveryLayers(c, L, side) {
   }
 }
 const LiveryEd = {
-  sel: -1, timer: null,
+  sel: -1, timer: null, last: -1,
   body() { return Store.data.garage.body; },
   data() { const D = Store.data.livery || (Store.data.livery = {}), b = this.body(); return D[b] || (D[b] = { plain: null, layers: [] }); },
-  open() {
-    const g = Store.data.garage, w = GARAGE.color.opts.findIndex((o) => o.works);
-    if (g.color !== w) { g.color = w; rebuildCarModel(); }
-    document.getElementById('livEd').classList.remove('hidden');
-    document.getElementById('garage').classList.add('ed');
-    this.sel = this.data().layers.length - 1; this.render();
-  },
-  close() { document.getElementById('livEd').classList.add('hidden'); document.getElementById('garage').classList.remove('ed'); Store.save(); if (Garage.render) Garage.render(); },
-  changed() {
+  /** Redraw the car's paint after a change (the atlas for this car is rebuilt). */
+  refresh(ms) {
     Store.save();
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => { for (const k of [...LIV_CACHE.keys()]) if (k.startsWith(this.body() + ':')) LIV_CACHE.delete(k); rebuildCarModel(); }, 120);
-    this.render();
+    this.timer = setTimeout(() => { for (const k of [...LIV_CACHE.keys()]) if (k.startsWith(this.body() + ':')) LIV_CACHE.delete(k); rebuildCarModel(); }, ms);
   },
+  changed() { this.refresh(120); Garage.render(); },
   add(t) {
     const L = this.data().layers; if (L.length >= 16) return;
     L.push({ t, c: t === 'num' ? '#111317' : LIV_COLORS[2 + L.length % 10], z: 0.5, y: t === 'stripe' ? 0.62 : 0.5, s: t === 'roof' ? 0.25 : t === 'stripe' ? 0.08 : 0.16, r: 0, txt: t === 'num' ? '7' : t === 'text' ? 'RALLY' : '' });
     this.sel = L.length - 1; this.changed();
   },
-  render() {
-    const D = this.data(), L = D.layers, cur = L[this.sel];
-    const sw = (attr, val) => LIV_COLORS.map((c) => `<i class="sw${val === c ? ' on' : ''}" data-${attr}="${c}" style="background:${c}"></i>`).join('');
-    const slider = (k, label, min, max, step) => `<label class="le-sl">${label}<input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${cur[k] || 0}"></label>`;
-    document.getElementById('livEdBody').innerHTML =
-      `<div class="le-row"><b>BASE</b><button class="mini${D.plain ? '' : ' on'}" data-base="works">WORKS ART</button>${sw('plain', D.plain)}</div>` +
-      `<div class="le-row"><b>ADD</b>${Object.keys(LIV_KINDS).map((t) => `<button class="mini" data-add="${t}">${LIV_KINDS[t]}</button>`).join('')}</div>` +
-      `<div class="le-layers">${L.map((l, i) => `<button class="mini${i === this.sel ? ' on' : ''}" data-sel="${i}"><i class="sw" style="background:${l.c}"></i>${i + 1} ${LIV_KINDS[l.t]}</button>`).join('') || '<em>No layers yet: add one above.</em>'}</div>` +
-      (cur ? `<div class="le-row"><b>COLOUR</b>${sw('col', cur.c)}</div>` +
-        `<div class="le-row">${slider('z', 'FRONT ↔ BACK', 0, 1, 0.01)}${slider('y', 'UP ↕ DOWN', 0, 1, 0.01)}${slider('s', 'SIZE', 0.02, 0.6, 0.01)}${slider('r', 'ANGLE', -1.2, 1.2, 0.02)}</div>` +
-        (cur.t === 'num' || cur.t === 'text' ? `<div class="le-row"><b>TEXT</b><input class="field" id="leTxt" maxlength="18" value="${esc(cur.txt || '')}"></div>` : '') +
-        `<div class="le-row"><button class="mini" data-mv="-1">&#9650; DOWN A LAYER</button><button class="mini" data-mv="1">&#9660; UP A LAYER</button><button class="mini" data-del="1">&#10005; DELETE</button></div>` : '');
+  /** The LIVERY tab: base paint (the works livery or a colour), a pattern, then your own layers. */
+  html() {
+    const g = Store.data.garage, D = this.data(), L = D.layers;
+    if (this.last !== g.body) { this.last = g.body; this.sel = L.length - 1; }
+    const cur = L[this.sel];
+    const base = GARAGE.color.opts.map((o, v) => {
+      const on = g.color === v && !D.plain ? ' sel' : '', c = o.works ? LIVERIES[g.body].base : '#' + new THREE.Color(o.hex).getHexString();
+      return `<button class="gtile lvb${on}" data-base="${v}" style="--c:${c}"><i${o.works ? ' class="wk"' : ''}></i><b>${o.name}</b></button>`;
+    }).join('');
+    const pat = GARAGE.decal.opts.map((o, v) => `<button class="gtile dc${g.decal === v ? ' sel' : ''}" data-dec="${v}"><img src="${decalPreview(v, g.color)}" alt=""><b>${o.name}</b></button>`).join('');
+    const sw = (val) => LIV_COLORS.map((c) => `<button class="lv-c${val === c ? ' on' : ''}" data-col="${c}" style="background:${c}" aria-label="${c}"></button>`).join('');
+    const slider = (k, label, min, max, step) => `<label class="lv-sl">${label}<input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${cur[k] || 0}"></label>`;
+    return `<section class="lv-sec"><h4>BASE</h4><div class="lv-grid base">${base}</div></section>` +
+      `<section class="lv-sec"><h4>PATTERN</h4><div class="lv-grid pat">${pat}</div></section>` +
+      `<section class="lv-sec"><h4>LAYERS <small>${L.length}/16</small></h4>` +
+      `<div class="lv-add">${Object.keys(LIV_KINDS).map((t) => `<button class="mini" data-add="${t}">+ ${LIV_KINDS[t]}</button>`).join('')}</div>` +
+      `<div class="lv-layers">${L.map((l, i) => `<button class="mini${i === this.sel ? ' on' : ''}" data-sel="${i}"><i class="lv-dot" style="background:${l.c}"></i>${i + 1} ${LIV_KINDS[l.t]}</button>`).join('') || '<em>No layers yet. Add a stripe, number or text above.</em>'}</div>` +
+      (cur ? `<div class="lv-edit"><div class="lv-cols">${sw(cur.c)}</div>` +
+        `<div class="lv-sls">${slider('z', 'FRONT ↔ BACK', 0, 1, 0.01)}${slider('y', 'UP ↕ DOWN', 0, 1, 0.01)}${slider('s', 'SIZE', 0.02, 0.6, 0.01)}${slider('r', 'ANGLE', -1.2, 1.2, 0.02)}</div>` +
+        (cur.t === 'num' || cur.t === 'text' ? `<label class="lv-txt">TEXT <input class="field" id="leTxt" maxlength="18" value="${esc(cur.txt || '')}"></label>` : '') +
+        `<div class="lv-add"><button class="mini" data-mv="-1">&#9664; BACK A LAYER</button><button class="mini" data-mv="1">FORWARD A LAYER &#9654;</button><button class="mini" data-del="1">&#10005; DELETE</button></div></div>` : '') +
+      `<div class="lv-add lv-share"><button class="mini" data-code="1">COPY LIVERY CODE</button><button class="mini" data-imp="1">IMPORT CODE</button></div></section>`;
   },
-  init() {
-    const el = document.getElementById('livEdBody');
-    el.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-add],[data-sel],[data-col],[data-plain],[data-base],[data-mv],[data-del]'); if (!b) return;
-      const D = this.data(), L = D.layers, d = b.dataset;
-      if (d.add) this.add(d.add);
-      else if (d.sel) { this.sel = +d.sel; this.render(); }
-      else if (d.col && L[this.sel]) { L[this.sel].c = d.col; this.changed(); }
-      else if (d.plain) { D.plain = d.plain; this.changed(); }
-      else if (d.base) { D.plain = null; this.changed(); }
-      else if (d.mv && L[this.sel]) { const j = this.sel + +d.mv; if (j >= 0 && j < L.length) { [L[j], L[this.sel]] = [L[this.sel], L[j]]; this.sel = j; this.changed(); } }
-      else if (d.del && L[this.sel]) { L.splice(this.sel, 1); this.sel = Math.min(this.sel, L.length - 1); this.changed(); }
-    });
-    el.addEventListener('input', (e) => {
-      const L = this.data().layers[this.sel]; if (!L) return;
-      if (e.target.dataset.k) { L[e.target.dataset.k] = +e.target.value; Store.save(); clearTimeout(this.timer); this.timer = setTimeout(() => this.changed(), 60); }
-      else if (e.target.id === 'leTxt') { L.txt = e.target.value.toUpperCase(); clearTimeout(this.timer); this.timer = setTimeout(() => { Store.save(); for (const k of [...LIV_CACHE.keys()]) if (k.startsWith(this.body() + ':')) LIV_CACHE.delete(k); rebuildCarModel(); }, 300); }
-    });
-    const on = (id, fn) => document.getElementById(id).addEventListener('click', (e) => { e.preventDefault(); fn(); });
-    on('livEdDone', () => this.close());
-    on('garLivery', () => this.open());
-    on('livEdCode', () => copyText('LV1.' + btoa(unescape(encodeURIComponent(JSON.stringify(this.data())))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), 'LIVERY CODE', document.getElementById('livEdCode')));
-    on('livEdImport', () => Modal.open('IMPORT LIVERY CODE', '', 'LOAD', (txt) => {
+  code() { return 'LV1.' + btoa(unescape(encodeURIComponent(JSON.stringify(this.data())))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
+  importCode() {
+    Modal.open('IMPORT LIVERY CODE', '', 'LOAD', (txt) => {
       try {
         const t = String(txt).trim(); if (!t.startsWith('LV1.')) throw new Error('Not a livery code.');
         const o = JSON.parse(decodeURIComponent(escape(unb64u(t.slice(4)))));
         const ok = (l) => l && LIV_KINDS[l.t] && [l.z, l.y, l.s].every((v) => typeof v === 'number');
         const layers = (Array.isArray(o.layers) ? o.layers : []).filter(ok).slice(0, 16).map((l) => ({ t: l.t, c: /^#[0-9a-f]{6}$/i.test(l.c) ? l.c : '#e8322e', z: clamp(l.z, 0, 1), y: clamp(l.y, 0, 1), s: clamp(l.s, 0.02, 0.6), r: clamp(+l.r || 0, -1.2, 1.2), txt: String(l.txt || '').slice(0, 18).toUpperCase() }));
-        Store.data.livery[this.body()] = { plain: /^#[0-9a-f]{6}$/i.test(o.plain) ? o.plain : null, layers };
+        this.data(); Store.data.livery[this.body()] = { plain: /^#[0-9a-f]{6}$/i.test(o.plain) ? o.plain : null, layers };
         Modal.close(); this.sel = layers.length - 1; this.changed();
       } catch (err) { Modal.msg(err.message || 'That code didn\'t read.'); }
-    }, 'Paste a livery code. It goes on the car you have in the garage.'));
+    }, 'Paste a livery code. It goes on the car you have in the garage.');
+  },
+  init() {
+    const el = document.getElementById('garOpts'), here = () => GARAGE_TABS[Garage.tab] === 'livery';
+    el.addEventListener('click', (e) => {
+      if (!here()) return;
+      const b = e.target.closest('button'); if (!b) return;
+      const D = this.data(), L = D.layers, d = b.dataset;
+      if (d.base) { const had = D.plain; D.plain = null; if (Store.data.garage.color !== +d.base) Garage.pick('color', +d.base); else if (had) this.changed(); }
+      else if (d.dec) Garage.pick('decal', +d.dec);
+      else if (d.add) this.add(d.add);
+      else if (d.sel) { this.sel = +d.sel; Garage.render(); }
+      else if (d.col && L[this.sel]) { L[this.sel].c = d.col; this.changed(); }
+      else if (d.mv && L[this.sel]) { const j = this.sel + +d.mv; if (j >= 0 && j < L.length) { [L[j], L[this.sel]] = [L[this.sel], L[j]]; this.sel = j; this.changed(); } }
+      else if (d.del && L[this.sel]) { L.splice(this.sel, 1); this.sel = Math.min(this.sel, L.length - 1); this.changed(); }
+      else if (d.code) copyText(this.code(), 'LIVERY CODE', b);
+      else if (d.imp) this.importCode();
+    });
+    el.addEventListener('input', (e) => {
+      if (!here()) return;
+      const L = this.data().layers[this.sel]; if (!L) return;
+      if (e.target.dataset.k) { L[e.target.dataset.k] = +e.target.value; this.refresh(60); }
+      else if (e.target.id === 'leTxt') { L.txt = e.target.value.toUpperCase(); this.refresh(300); }
+    });
   },
 };
 
