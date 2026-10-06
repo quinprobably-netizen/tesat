@@ -2063,29 +2063,30 @@ const GARAGE = {
   /* Pilots are stylised avatars of real rally drivers, one per car in the same order, then four more legends.
      Looks only. `helmet`: base colour, `bands` ([colour, from, to] as latitude 0 = crown .. 1 = chin),
      an optional `crest` stripe over the top, and an optional `cross` (Nordic cross on the crown). `kind`: full-face,
-     open-face with goggles (1960s) or off-road with a peak. `nat` picks the flag; `stripes` go across the suit. */
+     open-face with goggles (1960s) or off-road with a peak. `nat` picks the flag; `stripes` go across the suit.
+     `cod`: their real co-driver and flag (Stewart drove the Baja alone), who rides alongside outside a career. */
   pilot: { label: 'DRIVER', opts: [
-    { name: 'TOIVONEN', full: 'Henri Toivonen', nat: 'FIN', cls: 'FIN · DELTA S4', kind: 'full', skin: '#e9c2a4', hair: '#5a3a22',
+    { name: 'TOIVONEN', cod: ['Sergio Cresto', 'ITA'], full: 'Henri Toivonen', nat: 'FIN', cls: 'FIN · DELTA S4', kind: 'full', skin: '#e9c2a4', hair: '#5a3a22',
       helmet: { base: '#f4f4f2', bands: [['#0b2a5b', 0.36, 0.41], ['#3fa0dc', 0.41, 0.45], ['#d6282b', 0.45, 0.49]] },
       suit: '#f4f4f2', trim: '#0b2a5b', stripes: ['#0b2a5b', '#3fa0dc', '#d6282b'], visor: '#7fb6e6', bg: '#16325e',
       blurb: 'Won the Delta S4\'s debut, the 1985 RAC Rally, then the 1986 Monte Carlo. Martini colours.' },
-    { name: 'MOUTON', full: 'Michèle Mouton', nat: 'FRA', cls: 'FRA · QUATTRO', kind: 'full', skin: '#efcdb4', hair: '#3b2416',
+    { name: 'MOUTON', cod: ['Fabrizia Pons', 'ITA'], full: 'Michèle Mouton', nat: 'FRA', cls: 'FRA · QUATTRO', kind: 'full', skin: '#efcdb4', hair: '#3b2416',
       helmet: { base: '#f4f4f2', bands: [['#1d3f94', 0.34, 0.39], ['#f4f4f2', 0.39, 0.43], ['#d82a2f', 0.43, 0.48]], crest: '#d82a2f' },
       suit: '#f2f2f0', trim: '#c8102e', stripes: ['#c8102e', '#1b1b1b'], visor: '#c9a46a', bg: '#4a1a20',
       blurb: 'Four WRC wins for Audi and 1982 runner-up. Won Pikes Peak in the Sport quattro S1 in 1985.' },
-    { name: 'VATANEN', full: 'Ari Vatanen', nat: 'FIN', cls: 'FIN · 205 T16', kind: 'full', skin: '#ebc6a8', hair: '#c9a86a',
+    { name: 'VATANEN', cod: ['Terry Harryman', 'GBR'], full: 'Ari Vatanen', nat: 'FIN', cls: 'FIN · 205 T16', kind: 'full', skin: '#ebc6a8', hair: '#c9a86a',
       helmet: { base: '#f4f4f2', bands: [['#1c4fa0', 0.4, 0.48]], cross: '#1c4fa0' },
       suit: '#f4f4f2', trim: '#1c4fa0', stripes: ['#1c4fa0', '#f2c200', '#d6282b'], visor: '#8fc3ea', bg: '#1a2f5c',
       blurb: '1981 world champion and the 205 T16\'s lead driver. Later won Pikes Peak and the Dakar for Peugeot.' },
-    { name: 'RÖHRL', full: 'Walter Röhrl', nat: 'GER', cls: 'GER · 037', kind: 'full', skin: '#e7c0a0', hair: '#6b5440',
+    { name: 'RÖHRL', cod: ['Christian Geistdörfer', 'GER'], full: 'Walter Röhrl', nat: 'GER', cls: 'GER · 037', kind: 'full', skin: '#e7c0a0', hair: '#6b5440',
       helmet: { base: '#f4f4f2', bands: [['#151515', 0.38, 0.41], ['#d0101a', 0.41, 0.44], ['#f2c200', 0.44, 0.47]], crest: '#151515' },
       suit: '#f4f4f2', trim: '#0b2a5b', stripes: ['#0b2a5b', '#3fa0dc', '#d6282b'], visor: '#b9c7d6', bg: '#2a2a32',
       blurb: 'World champion in 1980 and 1982. Won the 1983 Monte Carlo in the Lancia 037.' },
-    { name: 'BLOMQVIST', full: 'Stig Blomqvist', nat: 'SWE', cls: 'SWE · RS200', kind: 'full', skin: '#ecc8aa', hair: '#d8c08a',
+    { name: 'BLOMQVIST', cod: ['Bruno Berglund', 'SWE'], full: 'Stig Blomqvist', nat: 'SWE', cls: 'SWE · RS200', kind: 'full', skin: '#ecc8aa', hair: '#d8c08a',
       helmet: { base: '#f2c200', bands: [['#0a5ca8', 0.36, 0.46]], crest: '#0a5ca8' },
       suit: '#f4f4f2', trim: '#0a3a8a', stripes: ['#0a3a8a', '#4a90d9'], visor: '#6fa8dc', bg: '#0f3258',
       blurb: '1984 world champion. Drove the Ford RS200 in its only Group B season, 1986.' },
-    { name: 'POND', full: 'Tony Pond', nat: 'GBR', cls: 'GBR · METRO 6R4', kind: 'full', skin: '#ebc3a5', hair: '#4a3020',
+    { name: 'POND', cod: ['Rob Arthur', 'GBR'], full: 'Tony Pond', nat: 'GBR', cls: 'GBR · METRO 6R4', kind: 'full', skin: '#ebc3a5', hair: '#4a3020',
       helmet: { base: '#f4f4f2', bands: [['#c8102e', 0.36, 0.42], ['#012169', 0.42, 0.48]] },
       suit: '#f4f4f2', trim: '#c8102e', stripes: ['#c8102e', '#012169'], visor: '#9ab6d6', bg: '#2a1f4e',
       blurb: 'Austin Rover works driver. Took the Metro 6R4 to third on its debut, the 1985 RAC Rally.' },
@@ -2093,39 +2094,39 @@ const GARAGE = {
       helmet: { base: '#f4f4f2', bands: [['#c8102e', 0.3, 0.38], ['#0a3161', 0.38, 0.46]], crest: '#c8102e' },
       suit: '#d01c1f', trim: '#f4f4f2', stripes: ['#f4f4f2', '#1b1b1b'], visor: '#e0a030', bg: '#5a2a14',
       blurb: 'Off-road legend who won the Baja 1000 outright in Toyota trucks, famous for driving it solo.' },
-    { name: 'ROVANPERÄ', full: 'Kalle Rovanperä', nat: 'FIN', cls: 'FIN · GR YARIS', kind: 'full', skin: '#efcfb6', hair: '#c9a873',
+    { name: 'ROVANPERÄ', cod: ['Jonne Halttunen', 'FIN'], full: 'Kalle Rovanperä', nat: 'FIN', cls: 'FIN · GR YARIS', kind: 'full', skin: '#efcfb6', hair: '#c9a873',
       helmet: { base: '#141414', bands: [['#eb0a1e', 0.4, 0.45], ['#f4f4f2', 0.45, 0.48]], crest: '#eb0a1e' },
       suit: '#1a1a1a', trim: '#eb0a1e', stripes: ['#eb0a1e', '#f4f4f2'], visor: '#5c6670', bg: '#3c1014',
       blurb: 'The youngest world champion ever in 2022, then again in 2023, in the GR Yaris Rally1.' },
-    { name: 'NEUVILLE', full: 'Thierry Neuville', nat: 'BEL', cls: 'BEL · I20 N', kind: 'full', skin: '#e9c4a6', hair: '#3a2a1c',
+    { name: 'NEUVILLE', cod: ['Martijn Wydaeghe', 'BEL'], full: 'Thierry Neuville', nat: 'BEL', cls: 'BEL · I20 N', kind: 'full', skin: '#e9c4a6', hair: '#3a2a1c',
       helmet: { base: '#14161c', bands: [['#f2c200', 0.38, 0.43], ['#d0101a', 0.43, 0.48]], crest: '#f2c200' },
       suit: '#0b1f3f', trim: '#00aad2', stripes: ['#00aad2', '#e8622c'], visor: '#7d8ea0', bg: '#0c2240',
       blurb: '2024 world champion with Hyundai in the i20 N Rally1.' },
-    { name: 'TÄNAK', full: 'Ott Tänak', nat: 'EST', cls: 'EST · PUMA', kind: 'full', skin: '#ecc8aa', hair: '#2a2420',
+    { name: 'TÄNAK', cod: ['Martin Järveoja', 'EST'], full: 'Ott Tänak', nat: 'EST', cls: 'EST · PUMA', kind: 'full', skin: '#ecc8aa', hair: '#2a2420',
       helmet: { base: '#f4f4f2', bands: [['#0072ce', 0.36, 0.41], ['#141414', 0.41, 0.46]], crest: '#0072ce' },
       suit: '#0d2a5c', trim: '#f4f4f2', stripes: ['#f4f4f2', '#4a90d9'], visor: '#7aa0c8', bg: '#10264a',
       blurb: '2019 world champion. Led M-Sport Ford in the Puma Rally1 in 2023.' },
-    { name: 'GRÖNHOLM', full: 'Marcus Grönholm', nat: 'FIN', cls: 'FIN · FOCUS WRC', kind: 'full', skin: '#ecc6a6', hair: '#b08a5a',
+    { name: 'GRÖNHOLM', cod: ['Timo Rautiainen', 'FIN'], full: 'Marcus Grönholm', nat: 'FIN', cls: 'FIN · FOCUS WRC', kind: 'full', skin: '#ecc6a6', hair: '#b08a5a',
       helmet: { base: '#f4f4f2', bands: [['#003580', 0.42, 0.48]], cross: '#003580' },
       suit: '#f4f4f2', trim: '#00843d', stripes: ['#00843d', '#7ac143', '#0a3a8a'], visor: '#8fc3ea', bg: '#123a2a',
       blurb: 'Champion in 2000 and 2002. Won Ford the 2006 makes\' title in the Focus RS WRC 06.' },
-    { name: 'HOPKIRK', full: 'Paddy Hopkirk', nat: 'GBR', cls: 'GBR · MINI', kind: 'open', skin: '#efc9ab', hair: '#2a1e16',
+    { name: 'HOPKIRK', cod: ['Henry Liddon', 'GBR'], full: 'Paddy Hopkirk', nat: 'GBR', cls: 'GBR · MINI', kind: 'open', skin: '#efc9ab', hair: '#2a1e16',
       helmet: { base: '#f4f4f2', bands: [['#1b1b1b', 0.46, 0.5]] },
       suit: '#2b3a55', trim: '#c8102e', stripes: [], visor: '#6a8aa0', bg: '#4a1c1c',
       blurb: 'Won the 1964 Monte Carlo Rally in the Mini Cooper S, car 37.' },
-    { name: 'McRAE', full: 'Colin McRae', nat: 'SCO', cls: 'SCO · 1995 CHAMP', kind: 'full', skin: '#efc6a6', hair: '#b0542a',
+    { name: 'McRAE', cod: ['Derek Ringer', 'SCO'], full: 'Colin McRae', nat: 'SCO', cls: 'SCO · 1995 CHAMP', kind: 'full', skin: '#efc6a6', hair: '#b0542a',
       helmet: { base: '#0a3a9a', bands: [['#f2c200', 0.38, 0.44], ['#f4f4f2', 0.44, 0.47]], crest: '#f4f4f2' },
       suit: '#0a3a9a', trim: '#f2c200', stripes: ['#f2c200', '#f4f4f2'], visor: '#d8b24a', bg: '#0a2a6a',
       blurb: '1995 world champion in the blue and yellow Subaru. Flat out or bust.' },
-    { name: 'OGIER', full: 'Sébastien Ogier', nat: 'FRA', cls: 'FRA · 8× CHAMP', kind: 'full', skin: '#e9c4a6', hair: '#2a1e16',
+    { name: 'OGIER', cod: ['Julien Ingrassia', 'FRA'], full: 'Sébastien Ogier', nat: 'FRA', cls: 'FRA · 8× CHAMP', kind: 'full', skin: '#e9c4a6', hair: '#2a1e16',
       helmet: { base: '#f4f4f2', bands: [['#141414', 0.36, 0.42], ['#002395', 0.42, 0.45], ['#ed2939', 0.45, 0.48]], crest: '#141414' },
       suit: '#1a1a1a', trim: '#eb0a1e', stripes: ['#eb0a1e', '#f4f4f2'], visor: '#6c7884', bg: '#1c1c2a',
       blurb: 'Eight world titles with VW, M-Sport and Toyota.' },
-    { name: 'MIKKOLA', full: 'Hannu Mikkola', nat: 'FIN', cls: 'FIN · 1983 CHAMP', kind: 'full', skin: '#ebc4a4', hair: '#7a5a3a',
+    { name: 'MIKKOLA', cod: ['Arne Hertz', 'SWE'], full: 'Hannu Mikkola', nat: 'FIN', cls: 'FIN · 1983 CHAMP', kind: 'full', skin: '#ebc4a4', hair: '#7a5a3a',
       helmet: { base: '#f4f4f2', bands: [['#c8102e', 0.38, 0.44]], cross: '#003580' },
       suit: '#f4f4f2', trim: '#c8102e', stripes: ['#c8102e', '#1b1b1b'], visor: '#c9a46a', bg: '#3a1418',
       blurb: '1983 world champion in the Audi quattro. Won the 1000 Lakes seven times.' },
-    { name: 'LOEB', full: 'Sébastien Loeb', nat: 'FRA', cls: 'FRA · 9× CHAMP', kind: 'full', skin: '#e9c4a6', hair: '#3a2a1c',
+    { name: 'LOEB', cod: ['Daniel Elena', 'MON'], full: 'Sébastien Loeb', nat: 'FRA', cls: 'FRA · 9× CHAMP', kind: 'full', skin: '#e9c4a6', hair: '#3a2a1c',
       helmet: { base: '#f4f4f2', bands: [['#d01c1f', 0.36, 0.44], ['#141414', 0.44, 0.47]], crest: '#d01c1f' },
       suit: '#f2f2f0', trim: '#d01c1f', stripes: ['#d01c1f', '#141414'], visor: '#8a96a4', bg: '#4a1418',
       blurb: 'Nine world titles in a row with Citroën, 2004 to 2012.' },
@@ -2770,7 +2771,7 @@ function mergeStatic(group) {
 /**
  * Map a car shell drawn in the shared model space onto the real car (see carGeometry): merged meshes have their
  * vertices moved through the map (normals follow the local stretch); kept meshes and groups move to their mapped
- * position and stretch along the world axes; the pilot `P` only scales uniformly so the driver keeps his shape.
+ * position and stretch along the world axes; the crew (driver `P` and co-driver) only scale uniformly so they keep their shape.
  */
 function warpShell(shell, map, P) {
   const v = new THREE.Vector3(), e = new THREE.Vector3(), q = new THREE.Quaternion();
@@ -2792,7 +2793,7 @@ function warpShell(shell, map, P) {
     }
     const zs = map.zs(o.position.z);
     o.position.set(map.x(o.position.x), map.y(o.position.y), map.z(o.position.z));
-    if (o === P) { o.scale.multiplyScalar(Math.cbrt(map.sx * map.sy * zs)); continue; }
+    if (o.userData.crew) { o.scale.multiplyScalar(Math.cbrt(map.sx * map.sy * zs)); continue; }
     q.copy(o.quaternion);                                   // each local axis stretches by how much it points along x, y and z
     const f = (ax) => { e.copy(ax).applyQuaternion(q); return Math.hypot(e.x * map.sx, e.y * map.sy, e.z * zs); };
     o.scale.x *= f(new THREE.Vector3(1, 0, 0)); o.scale.y *= f(new THREE.Vector3(0, 1, 0)); o.scale.z *= f(new THREE.Vector3(0, 0, 1));
@@ -11823,14 +11824,16 @@ function buildCarModel(build) {
     flames.push(fl);
   }
   // ---- pilot, in the driver's seat (left-hand drive) ----
-  const P = buildPilotHead(build.pilot);
-  P.position.set(spec.seatX, seatY, seatZ);
-  P.scale.setScalar(spec.pilotScale);
-  shell.add(P);
+  const P = buildCrewMember(build.pilot, false), C = buildCrewMember(build.pilot, true);   // and the co-driver on the other side
+  P.position.set(spec.seatX, seatY, seatZ); C.position.set(-spec.seatX, seatY, seatZ);
+  P.scale.setScalar(spec.pilotScale); C.scale.setScalar(spec.pilotScale);
+  shell.add(P, C);
   if (atlas) for (const o of shell.children) if (Array.isArray(o.material) && o.material.every((m) => m === paint)) o.material = paint;   // one material, so the parts merge
   mergeStatic(shell);                                       // ~40 static parts → one mesh per material
   if (atlas) for (const o of shell.children) if (o.isMesh && o.material === paint) liveryUV(o, liveryFrameF);   // the livery wraps the whole body
   warpShell(shell, map, P);                                 // onto the real car's length, width, height and wheelbase
+  // the crew are modelled in metres: bring them to real size, their helmet tops where the seat was tuned to put them
+  for (const o of [P, C]) { o.position.y += 0.61 * o.scale.x - 0.54 * CREW.size; o.scale.setScalar(CREW.size); }
   // ---- wheels: pivot (steer + suspension) → spin group (tyre, rim, brake disc). The caliper rides on the
   // pivot, so it steers and moves with the hub but doesn't spin. ----
   const wheels = [];
@@ -11884,7 +11887,7 @@ function buildCarModel(build) {
   spot.position.set(0, map.y(0.5), map.z(1.9));
   spot.target.position.set(0, -1.6, 14);
   g.add(spot, spot.target);
-  const model = { group: g, wheels, flames, tailMat, tip, spot, pilot: P, arb: arbVis, compMax: wheelRoom(shell, geo, W), shell, paint, glass };
+  const model = { group: g, wheels, flames, tailMat, tip, spot, pilot: P, cod: C, arb: arbVis, compMax: wheelRoom(shell, geo, W), shell, paint, glass };
   if (arbVis) poseArb(arbVis, wheels);
   return model;
 }
@@ -12025,6 +12028,8 @@ function drawFlag(x, nat, px, py, w, h) {
     case 'GER': fill('#141414', 0, 0, 1, 1 / 3); fill('#dd0000', 0, 1 / 3, 1, 1 / 3); fill('#ffce00', 0, 2 / 3, 1, 1 / 3); break;
     case 'EST': fill('#0072ce', 0, 0, 1, 1 / 3); fill('#141414', 0, 1 / 3, 1, 1 / 3); fill('#ffffff', 0, 2 / 3, 1, 1 / 3); break;
     case 'SCO': fill('#005eb8', 0, 0, 1, 1); diag('#ffffff', h * 0.22); break;
+    case 'ITA': fill('#009246', 0, 0, 1 / 3, 1); fill('#ffffff', 1 / 3, 0, 1 / 3, 1); fill('#ce2b37', 2 / 3, 0, 1 / 3, 1); break;
+    case 'MON': fill('#ce1126', 0, 0, 1, 0.5); fill('#ffffff', 0, 0.5, 1, 0.5); break;
     case 'USA':
       for (let k = 0; k < 7; k++) fill(k % 2 ? '#ffffff' : '#b22234', 0, k / 7, 1, 1 / 7);
       fill('#3c3b6e', 0, 0, 0.42, 4 / 7); break;
@@ -12050,68 +12055,220 @@ function paintHelmet(x, hm, w, h, ty, crestW, cols) {
   if (hm.cross) { for (const cx of cols.crest) stripe(hm.cross, cx, 0.36); for (const cx of cols.side) stripe(hm.cross, cx, 0.36); }
 }
 const _helmetTex = new Map();
-/** The helmet as an equirectangular texture for a THREE.SphereGeometry (front +z is u = 0.25). */
-function helmetTexture(i) {
-  if (_helmetTex.has(i)) return _helmetTex.get(i);
-  const p = GARAGE.pilot.opts[i];
+/** A helmet as an equirectangular texture for a THREE.SphereGeometry (front +z is u = 0.25): design `hm`, with the
+ *  wearer's surname and flag on both sides. `key` caches it. */
+function helmetTexture(key, hm, name, nat) {
+  if (_helmetTex.has(key)) return _helmetTex.get(key);
   const t = makeCanvas(512, 256, (x, w, h) => {
-    paintHelmet(x, p.helmet, w, h, (v) => v * h, (v) => (w * 0.022) / Math.max(Math.sin(Math.PI * v), 0.12),
+    paintHelmet(x, hm, w, h, (v) => v * h, (v) => (w * 0.022) / Math.max(Math.sin(Math.PI * v), 0.12),
       { crest: [w * 0.25, w * 0.75], side: [0, w * 0.5, w] });
-    // name and flag on both sides of the shell
     x.font = 'italic 800 22px "Barlow Condensed", "Segoe UI", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-    const ink = new THREE.Color(p.helmet.base).getHSL({}).l > 0.55 ? '#15171b' : '#f2f2f2';
+    const ink = new THREE.Color(hm.base).getHSL({}).l > 0.55 ? '#15171b' : '#f2f2f2';
     for (const cx of [w * 0.5, 0, w]) {
-      x.fillStyle = ink; x.fillText(p.name, cx, h * 0.3);
-      drawFlag(x, p.nat, cx - 16, h * 0.54, 32, 20);
+      x.fillStyle = ink; x.fillText(name, cx, h * 0.3);
+      drawFlag(x, nat, cx - 16, h * 0.54, 32, 20);
     }
   }, false);   // (round and small on screen: mipmaps yes, anisotropic filtering buys nothing)
-  _helmetTex.set(i, t);
+  _helmetTex.set(key, t);
   return t;
 }
 const _suitTex = new Map();
-/** Race suit for the shoulders (a cylinder: front +z is u = 0). Team stripes run across the chest. */
-function suitTexture(i) {
-  if (_suitTex.has(i)) return _suitTex.get(i);
+/** Race suit for the torso (a lathe: u = 0 is the chest, u = 0.25 the left side; v runs waist to collar):
+ *  the team stripes slant across the chest, a flag on the left breast, the name on the right, trim at collar and belt. */
+function suitTexture(i, name) {
+  const key = i + ':' + name;
+  if (_suitTex.has(key)) return _suitTex.get(key);
   const p = GARAGE.pilot.opts[i];
-  const t = makeCanvas(256, 64, (x, w, h) => {
+  const t = makeCanvas(512, 256, (x, w, h) => {
     x.fillStyle = p.suit; x.fillRect(0, 0, w, h);
-    p.stripes.forEach((col, k) => { x.fillStyle = col; x.fillRect(0, h * (0.42 + k * 0.12), w, h * 0.1); });
-    x.fillStyle = p.trim; x.fillRect(0, 0, w, h * 0.14);                               // collar trim
-    for (const cx of [0, w]) drawFlag(x, p.nat, cx - 10 + (cx ? -24 : 24), h * 0.2, 20, 13);   // flag on the chest
+    p.stripes.forEach((col, k) => {                     // across the front, rising toward the left shoulder
+      x.fillStyle = col; x.beginPath();
+      const y0 = h * (0.62 + k * 0.08), y1 = h * (0.3 + k * 0.08), t0 = h * 0.055;
+      for (const off of [0, w]) { x.moveTo(off - w * 0.22, y0); x.lineTo(off + w * 0.22, y1); x.lineTo(off + w * 0.22, y1 + t0); x.lineTo(off - w * 0.22, y0 + t0); }
+      x.fill();
+    });
+    x.fillStyle = p.trim; x.fillRect(0, 0, w, h * 0.07); x.fillRect(0, h * 0.86, w, h * 0.06);   // collar and belt line
+    x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(w * 0.497, h * 0.07, w * 0.006, h * 0.79);     // back seam
+    drawFlag(x, p.nat, w * 0.04, h * 0.16, 30, 19);
+    const ink = new THREE.Color(p.suit).getHSL({}).l > 0.55 ? '#15171b' : '#f2f2f2';
+    x.font = 'italic 800 18px "Barlow Condensed", "Segoe UI", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = ink; x.fillText(name, w * 0.93, h * 0.22);
   }, false);
-  _suitTex.set(i, t);
+  _suitTex.set(key, t);
   return t;
 }
-/** A small 3D bust of the chosen driver (about 0.6 m tall): suit, HANS collar and their helmet. */
-function buildPilotHead(i) {
+/** Who sits on the right of seat `i`'s driver: in a career event the co-driver hired, otherwise the driver's real one.
+ *  null when they drove alone (Stewart, solo in the Baja). */
+function crewCodriver(i) {
+  if (typeof Rally !== 'undefined' && Rally.active && Rally.kind === 'career') { const c = CODRIVERS[Career.data().cod] || CODRIVERS[0]; return { full: c.full, nat: c.nat }; }
+  const c = GARAGE.pilot.opts[i].cod;
+  return c ? { full: c[0], nat: c[1] } : null;
+}
+/** The co-driver's helmet: the team's base colour with the driver's first band. */
+const codHelmet = (p) => ({ base: p.helmet.base, bands: [[p.helmet.bands[0][0], 0.4, 0.47]], crest: p.helmet.crest });
+const surname = (full) => full.split(' ').pop().toUpperCase();
+
+/* ---- the crew: driver and co-driver at real proportions (scale 1 = an average adult), each in an FIA bucket seat with
+   a HANS device and a four-point harness. The eye point (0, 0.37, 0.08) is where the cockpit camera sits; shoulders are
+   at y 0.14, hips at -0.32. The driver's gloves ride a steering wheel that turns with the front wheels (two-bone arms,
+   elbows out); the co-driver reads off a note book on their lap. Both lean with the cornering load. Looks only. */
+const CREW = { size: 0.97, wheel: new THREE.Vector3(0, 0.12, 0.48), shoulder: [0.19, 0.46, 0], upper: 0.29, fore: 0.27 };
+function buildCrewMember(i, codriver) {
   const p = GARAGE.pilot.opts[i], g = new THREE.Group();
-  const suit = new THREE.MeshStandardMaterial({ map: suitTexture(i), metalness: 0.05, roughness: 0.7 });
-  const shell = new THREE.MeshStandardMaterial({ map: helmetTexture(i), metalness: 0.25, roughness: 0.28 });
-  const base = new THREE.MeshStandardMaterial({ color: p.helmet.base, metalness: 0.25, roughness: 0.28 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x15171b, metalness: 0.3, roughness: 0.6 });
-  const visor = new THREE.MeshStandardMaterial({ color: p.visor, metalness: 0.9, roughness: 0.08, emissive: p.visor, emissiveIntensity: 0.12 });
-  const skin = new THREE.MeshStandardMaterial({ color: p.skin, roughness: 0.75 });
-  const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
-  add(new THREE.CylinderGeometry(0.2, 0.3, 0.26, 16), suit, 0, 0.05, 0);                // shoulders
-  const hans = add(new THREE.TorusGeometry(0.19, 0.04, 6, 18), dark, 0, 0.18, -0.02); hans.rotation.x = Math.PI / 2;
-  add(new THREE.SphereGeometry(0.24, 24, 16), shell, 0, 0.37, 0);                         // helmet
-  // the face opening: a band around the front, as an arc of a slightly bigger sphere
-  const front = (r, mat, t0, t1, half) => add(new THREE.SphereGeometry(r, 18, 6, Math.PI / 2 - half, half * 2, t0 * Math.PI, (t1 - t0) * Math.PI), mat, 0, 0.37, 0);
-  if (p.kind === 'open') {        // 1960s open-face helmet: the face shows, goggles up on the brow
-    front(0.243, skin, 0.42, 0.72, 0.5);
-    add(new THREE.TorusGeometry(0.236, 0.016, 6, 28), dark, 0, 0.42, 0).rotation.x = Math.PI / 2;    // goggle strap
-    for (const sx of [-0.07, 0.07]) add(new THREE.CylinderGeometry(0.045, 0.045, 0.03, 12), visor, sx, 0.5, 0.21).rotation.x = Math.PI / 2 - 0.4;
-  } else {
-    front(0.246, visor, 0.4, 0.56, 0.62);                                                  // visor
-    if (p.kind === 'mx') {        // off-road: a peak over the visor and a long chin bar
-      const peak = add(new THREE.BoxGeometry(0.24, 0.02, 0.16), new THREE.MeshStandardMaterial({ color: p.helmet.crest || p.trim, roughness: 0.4 }), 0, 0.53, 0.22); peak.rotation.x = 0.25;
-      const chin = add(new THREE.BoxGeometry(0.16, 0.08, 0.1), base, 0, 0.24, 0.22); chin.rotation.x = -0.3;
-    }
+  const who = codriver ? crewCodriver(i) : { full: p.full, nat: p.nat };
+  const M = (o) => new THREE.MeshStandardMaterial(o);
+  const suitP = M({ color: p.suit, roughness: 0.8 }), trimM = M({ color: p.trim, roughness: 0.6 });
+  const suitM = M({ map: suitTexture(i, surname(who ? who.full : p.full)), roughness: 0.8 });
+  const carbon = M({ color: 0x17191e, roughness: 0.45, metalness: 0.3 }), seatM = M({ color: 0x1b1c21, roughness: 0.92 });
+  const belt = M({ color: 0xc81e28, roughness: 0.7 }), steel = M({ color: 0xc0c6d0, metalness: 0.85, roughness: 0.3 });
+  const glove = M({ color: p.trim, roughness: 0.75 }), balaclava = M({ color: 0x2b2d33, roughness: 0.9 });
+  const add = (geo, mat, x, y, z, par) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; (par || g).add(m); return m; };
+  const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+  // bucket seat with side bolsters and head wings
+  const seat = new THREE.Group(); g.add(seat);
+  add(box(0.46, 0.82, 0.06), seatM, 0, 0.04, -0.19, seat).rotation.x = -0.08;
+  for (const sx of [-1, 1]) {
+    add(box(0.06, 0.5, 0.2), seatM, sx * 0.22, -0.12, -0.11, seat);
+    add(box(0.05, 0.26, 0.2), seatM, sx * 0.2, 0.42, -0.1, seat);
+    add(box(0.07, 0.1, 0.46), seatM, sx * 0.2, -0.36, 0.08, seat);
   }
+  add(box(0.42, 0.06, 0.46), seatM, 0, -0.4, 0.08, seat);
+  mergeStatic(seat);
+  // legs: thighs along the cushion, shins down toward the pedals
+  const limb = (r, a, b, mat) => {
+    const len = a.distanceTo(b), m = add(new THREE.CapsuleGeometry(r, Math.max(len - 2 * r, 0.01), 3, 10), mat, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+    m.quaternion.setFromUnitVectors(UP, b.clone().sub(a).normalize()); return m;
+  };
+  const legs = new THREE.Group(); g.add(legs);
+  for (const sx of [-1, 1]) {
+    const hip = new THREE.Vector3(sx * 0.1, -0.31, 0.02), knee = new THREE.Vector3(sx * 0.13, -0.24, 0.42), foot = new THREE.Vector3(sx * 0.14, -0.55, 0.62);
+    legs.add(limb(0.075, hip, knee, suitP)); legs.add(limb(0.055, knee, foot, suitP));
+  }
+  mergeStatic(legs);
+  // torso, pivoting at the hips so it can lean
+  const T = new THREE.Group(); T.position.set(0, -0.32, -0.06); g.add(T);
+  const prof = [[0.001, -0.02], [0.13, 0], [0.14, 0.12], [0.155, 0.3], [0.165, 0.42], [0.15, 0.48], [0.09, 0.53], [0.055, 0.56]].map(([r, y]) => new THREE.Vector2(r, y));
+  const tg = new THREE.LatheGeometry(prof, 22); tg.scale(1.3, 1, 0.82);
+  add(tg, suitM, 0, 0, 0, T);
+  for (const sx of [-1, 1]) {
+    add(new THREE.SphereGeometry(0.068, 12, 8), suitP, sx * CREW.shoulder[0], CREW.shoulder[1], 0, T);
+    add(box(0.05, 0.5, 0.014), belt, sx * 0.075, 0.22, 0.128, T).rotation.z = sx * 0.06;       // shoulder straps
+    add(box(0.05, 0.014, 0.26), belt, sx * 0.08, 0.5, -0.0, T);
+    add(box(0.05, 0.16, 0.014), belt, sx * 0.07, 0.07, 0.124, T).rotation.z = -sx * 0.5;       // lap belt
+  }
+  add(new THREE.CylinderGeometry(0.036, 0.036, 0.016, 14), steel, 0, 0.04, 0.132, T).rotation.x = Math.PI / 2;   // the buckle
+  mergeStatic(T);
+  // neck, HANS yoke on the shoulders and its collar behind the head (hidden with the head in the cockpit view)
+  const collar = new THREE.Group(); T.add(collar);
+  add(new THREE.CylinderGeometry(0.05, 0.055, 0.1, 12), balaclava, 0, 0.58, 0.02, collar);
+  const yoke = add(new THREE.TorusGeometry(0.11, 0.028, 6, 18, Math.PI * 1.25), carbon, 0, 0.53, -0.01, collar);
+  yoke.rotation.set(Math.PI / 2, 0, Math.PI * 0.875);
+  add(box(0.15, 0.11, 0.035), carbon, 0, 0.58, -0.1, collar).rotation.x = -0.15;
+  for (const sx of [-1, 1]) add(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 4), carbon, sx * 0.08, 0.63, -0.07, collar).rotation.z = sx * 0.6;   // tethers
+  mergeStatic(collar);
+  // head and helmet
+  const H = new THREE.Group(); H.position.set(0, 0.71, 0.06); T.add(H);
+  const hm = codriver ? codHelmet(p) : p.helmet;
+  const shellM = M({ map: who ? helmetTexture(codriver ? 'c' + i + who.full : 'p' + i, hm, surname(who.full), who.nat) : null, color: who ? 0xffffff : hm.base, metalness: 0.25, roughness: 0.28 });
+  const baseM = M({ color: hm.base, metalness: 0.25, roughness: 0.28 });
+  const visor = M({ color: p.visor, metalness: 0.9, roughness: 0.08, emissive: p.visor, emissiveIntensity: 0.12 });
+  const skin = M({ color: p.skin, roughness: 0.75 });
+  const sph = (r, mat, ...seg) => { const m = add(new THREE.SphereGeometry(r, ...seg), mat, 0, 0, 0, H); m.scale.set(0.94, 1, 1.08); return m; };
+  sph(0.145, shellM, 28, 18);
+  const front = (r, mat, t0, t1, half) => sph(r, mat, 20, 6, Math.PI / 2 - half, half * 2, t0 * Math.PI, (t1 - t0) * Math.PI);
+  const kind = codriver ? 'full' : p.kind;
+  if (kind === 'open') {        // 1960s open-face helmet: the face shows, goggles up on the brow
+    front(0.147, skin, 0.42, 0.74, 0.55);
+    add(new THREE.TorusGeometry(0.142, 0.01, 6, 28), carbon, 0, 0.05, 0, H).rotation.x = Math.PI / 2;    // goggle strap
+    for (const sx of [-0.045, 0.045]) add(new THREE.CylinderGeometry(0.028, 0.028, 0.02, 12), visor, sx, 0.08, 0.135, H).rotation.x = Math.PI / 2 - 0.4;
+  } else {
+    front(0.149, visor, 0.38, 0.55, 0.62);                                                         // visor
+    for (const sx of [-1, 1]) add(new THREE.CylinderGeometry(0.022, 0.022, 0.012, 12), carbon, sx * 0.137, 0.0, 0.03, H).rotation.z = Math.PI / 2;   // visor pivots
+    add(box(0.05, 0.022, 0.02), carbon, 0, -0.085, 0.148, H).rotation.x = 0.5;                       // chin vent
+    if (kind === 'mx') {        // off-road: a peak over the visor and a long chin bar
+      add(box(0.17, 0.012, 0.11), M({ color: hm.crest || p.trim, roughness: 0.4 }), 0, 0.1, 0.15, H).rotation.x = 0.25;
+      add(box(0.1, 0.05, 0.07), baseM, 0, -0.1, 0.15, H).rotation.x = -0.3;
+    } else add(box(0.1, 0.02, 0.05), baseM, 0, 0.12, -0.12, H).rotation.x = 0.7;                // rear spoiler
+  }
+  add(new THREE.TorusGeometry(0.09, 0.018, 6, 18), carbon, 0, -0.125, -0.01, H).rotation.x = Math.PI / 2;   // neck roll
+  // arms: upper arm and forearm with a trim cuff, a glove at the end; posed every frame (poseCrew)
+  const arms = [-1, 1].map((sd) => {
+    const up = add(new THREE.CapsuleGeometry(0.047, CREW.upper - 0.094, 3, 10), suitP, 0, 0, 0);
+    const fo = add(new THREE.CapsuleGeometry(0.04, CREW.fore - 0.08, 3, 10), suitP, 0, 0, 0);
+    add(new THREE.CylinderGeometry(0.044, 0.044, 0.05, 10), trimM, 0, CREW.fore / 2 - 0.05, 0, fo);
+    const hand = add(new THREE.SphereGeometry(0.042, 10, 8), glove, 0, 0, 0); hand.scale.set(0.85, 1.3, 0.7);
+    return { sd, up, fo, hand };
+  });
+  const crew = { g, T, H, collar, arms, codriver, lean: 0, look: 0, who: codriver ? null : '', helmetMat: shellM, suitMat: suitM };
+  if (!codriver) {                // the steering wheel, three spokes and a yellow top mark, on a short column
+    const W = new THREE.Group(); W.position.copy(CREW.wheel); W.rotation.x = 0.3; g.add(W);
+    add(new THREE.CylinderGeometry(0.02, 0.025, 0.3, 8), carbon, 0, 0, 0.16, W).rotation.x = Math.PI / 2;
+    const spin = new THREE.Group(); W.add(spin);
+    add(new THREE.TorusGeometry(0.175, 0.017, 8, 28), carbon, 0, 0, 0, spin);
+    for (const a of [Math.PI / 2, -Math.PI / 6, Math.PI * 7 / 6]) add(box(0.16, 0.022, 0.012), carbon, Math.cos(a + Math.PI) * 0.08, Math.sin(a + Math.PI) * 0.08, 0, spin).rotation.z = a;
+    add(new THREE.CylinderGeometry(0.045, 0.045, 0.03, 14), carbon, 0, 0, -0.005, spin).rotation.x = Math.PI / 2;
+    add(box(0.02, 0.035, 0.022), M({ color: 0xffd23d, roughness: 0.5 }), 0, 0.175, 0, spin);
+    crew.wheel = W; crew.spin = spin;
+  } else {                        // the pace-note book, tilted up off the lap
+    const B = new THREE.Group(); B.position.set(0, -0.1, 0.32); B.rotation.x = -0.55; g.add(B);
+    add(box(0.22, 0.014, 0.3), trimM, 0, 0, 0, B);
+    add(box(0.2, 0.004, 0.28), M({ color: 0xf2efe6, roughness: 0.9 }), 0, 0.009, 0, B);
+    crew.book = B; H.rotation.x = 0.35;
+  }
+  g.userData.crew = crew;
+  poseCrew(crew, 0, 0, 0);
   return g;
 }
+const _ik = { d: new THREE.Vector3(), n: new THREE.Vector3(), e: new THREE.Vector3(), h: new THREE.Vector3(), s: new THREE.Vector3(), t: new THREE.Vector3(), pole: new THREE.Vector3() };
+function crewSeg(m, a, b) { m.position.addVectors(a, b).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(UP, _ik.s.subVectors(b, a).normalize()); }
+/** Two-bone arm from shoulder `S` to hand target `T` (both in the crew group), elbow toward `pole`. */
+function crewArm(arm, S, T, pole) {
+  const a = CREW.upper, b = CREW.fore, d = _ik.d.subVectors(T, S);
+  const L = clamp(d.length(), Math.abs(a - b) + 1e-3, a + b - 1e-3); d.normalize();
+  const x = (a * a - b * b + L * L) / (2 * L), h = Math.sqrt(Math.max(a * a - x * x, 0));
+  const n = _ik.n.copy(pole).addScaledVector(d, -pole.dot(d)).normalize();
+  const E = _ik.e.copy(S).addScaledVector(d, x).addScaledVector(n, h), Hd = _ik.h.copy(S).addScaledVector(d, L);
+  crewSeg(arm.up, S, E); crewSeg(arm.fo, E, Hd);
+  arm.hand.position.copy(Hd); arm.hand.quaternion.copy(arm.fo.quaternion);
+}
+/** Pose one crew member: `steer` (front wheel angle, + left), `lat` (sideways load, m/s², + toward the left), dt to smooth. */
+function poseCrew(c, steer, lat, dt) {
+  const k = dt ? Math.min(1, dt * 5) : 1;
+  c.lean += (clamp(lat * 0.014, -0.2, 0.2) - c.lean) * k;               // the body rolls away from the turn
+  c.T.rotation.z = c.lean; c.H.rotation.z = -c.lean * 0.6;               // and the head stays nearer level
+  if (!c.codriver) { c.look += (clamp(steer * 1.2, -0.45, 0.45) - c.look) * k; c.H.rotation.y = c.look; }
+  c.T.updateMatrix();
+  let wa = 0;
+  if (c.spin) { wa = -steer * 11; c.spin.rotation.z = wa; c.wheel.updateMatrix(); }
+  const ha = clamp(wa, -1.3, 1.3);                                      // past ~75° the hands shuffle and stay put
+  for (const arm of c.arms) {
+    const S = _ik.s.set(arm.sd * CREW.shoulder[0], CREW.shoulder[1], CREW.shoulder[2]).applyMatrix4(c.T.matrix).clone();
+    const tgt = _ik.t;
+    if (c.wheel) { const a = (arm.sd > 0 ? 0 : Math.PI) + ha; tgt.set(Math.cos(a) * 0.168, Math.sin(a) * 0.168 + 0.02, -0.02).applyMatrix4(c.wheel.matrix); }
+    else { c.book.updateMatrix(); tgt.set(arm.sd * 0.12, 0.02, -0.02).applyMatrix4(c.book.matrix); }
+    crewArm(arm, S, tgt, _ik.pole.set(arm.sd * 1, -0.8, -0.3));
+  }
+}
+const _crewW = new THREE.Vector3();
+/** Every frame: both occupants follow the steering and the cornering load; the co-driver is whoever sits there now. */
+function updateCrew(M, dt) {
+  const lat = clamp(car.w.y * car.speed, -30, 30);
+  if (M.pilot) poseCrew(M.pilot.userData.crew, car.steerAngle, lat, dt);
+  if (M.cod) {
+    const c = M.cod.userData.crew, who = crewCodriver(Store.data.garage.pilot);
+    if ((who ? who.full : '') !== c.who) {            // a career event swaps in the hired co-driver (and back)
+      c.who = who ? who.full : ''; M.cod.visible = !!who;
+      if (who) {
+        const i = Store.data.garage.pilot, p = GARAGE.pilot.opts[i];
+        c.helmetMat.map = helmetTexture('c' + i + who.full, codHelmet(p), surname(who.full), who.nat); c.helmetMat.color.set(0xffffff); c.helmetMat.needsUpdate = true;
+        c.suitMat.map = suitTexture(i, surname(who.full)); c.suitMat.needsUpdate = true;
+      }
+    }
+    if (M.cod.visible) poseCrew(c, car.steerAngle, lat, dt);
+  }
+}
 // the livery text is drawn on a canvas, which doesn't wait for web fonts: redraw once the livery font has loaded
-if (document.fonts && document.fonts.load) document.fonts.load('italic 800 20px "Barlow Condensed"').then(() => { LIV_CACHE.clear(); _helmetTex.clear(); if (Game.carModel) rebuildCarModel(); }).catch(() => {});
+if (document.fonts && document.fonts.load) document.fonts.load('italic 800 20px "Barlow Condensed"').then(() => { LIV_CACHE.clear(); _helmetTex.clear(); _suitTex.clear(); if (Game.carModel) rebuildCarModel(); }).catch(() => {});
 /** Swap the player's car model for the current garage build. */
 function rebuildCarModel() {
   setCarTune(tuneFor(DEFAULT_SETUP, Store.data.garage));   // the physics follows the car on show (the stage setup applies at the start)
@@ -13817,6 +13974,7 @@ function updateCarVisual(dt, ctl) {
   for (const f of M.flames) { f.visible = car.backfire > 0; if (f.visible) f.scale.set(1, 1, 0.6 + Math.random() * 0.8); }
   M.tailMat.color.setRGB(ctl.brake > 0 ? 0.35 + 0.65 * ctl.brake : 0.12, 0.004, 0.006);
   if (M.arb) poseArb(M.arb, M.wheels);
+  updateCrew(M, dt);
   M.tip.visible = false;                                    // rally cars carry a plain roof aerial
 }
 
@@ -14783,7 +14941,7 @@ const Garage = {
     }).join('');
     const cur = cat.opts[b[k]];
     const cosmetic = { color: 'WORKS is the car\'s own rally livery.', decal: 'Shows over the sides and roof.' };
-    if (k === 'pilot') cosmetic.pilot = `<b>${cur.full}</b> ${cur.blurb}`;
+    if (k === 'pilot') cosmetic.pilot = `<b>${cur.full}</b> ${cur.blurb}` + (cur.cod ? ` Co-driver: ${cur.cod[0]}.` : ' Drives alone.');
     let desc = cosmetic[k] ? cosmetic[k] + ' <em>Looks only.</em>' : `<b>${cur.name}</b> ${cur.blurb}`;
     if (k === 'body') {
       const sp = CAR_SPECS[b.body], drive = !sp.front ? 'RWD' : sp.front >= 1 ? 'FWD' : '4WD';
@@ -15259,9 +15417,9 @@ const Raid = {
 /* ---- the co-driver: three to hire (career), the odd wrong call when the notes weren't checked on a recce, and the
    driver's own caution notes added on a recce ---- */
 const CODRIVERS = [
-  { name: 'ROOKIE', full: 'Sam Okafor', err: 0.1, pitch: 1.15, rate: 1.2, cost: 0, blurb: 'Keen, quick to talk and wrong about one call in ten.' },
-  { name: 'CLUB', full: 'Maija Lehtonen', err: 0.035, pitch: 1.05, rate: 1.3, cost: 18000, blurb: 'Ten years in national rallies. Rarely wrong.' },
-  { name: 'WORKS', full: 'Paul Rennick', err: 0.008, pitch: 0.92, rate: 1.35, cost: 70000, blurb: 'A works team regular: calm, on time, almost never wrong.' },
+  { name: 'ROOKIE', full: 'Sam Okafor', nat: 'GBR', err: 0.1, pitch: 1.15, rate: 1.2, cost: 0, blurb: 'Keen, quick to talk and wrong about one call in ten.' },
+  { name: 'CLUB', full: 'Maija Lehtonen', nat: 'FIN', err: 0.035, pitch: 1.05, rate: 1.3, cost: 18000, blurb: 'Ten years in national rallies. Rarely wrong.' },
+  { name: 'WORKS', full: 'Paul Rennick', nat: 'GBR', err: 0.008, pitch: 0.92, rate: 1.35, cost: 70000, blurb: 'A works team regular: calm, on time, almost never wrong.' },
 ];
 const CoDriver = {
   current() { return CODRIVERS[Rally.active && Rally.kind === 'career' ? Career.data().cod : 2]; },
@@ -15479,34 +15637,25 @@ const Photo = {
   },
 };
 
-/* ---- cockpit view: the driver's eyes behind a working dash (rev counter, speed, gear, warning lights), a wheel that
-   turns with the front wheels and the driver's arms on it; the body shows from inside ---- */
+/* ---- cockpit view: the driver's eyes behind a working dash (rev counter, speed, gear, warning lights), the driver's own
+   arms, wheel and body (buildCrewMember) below the eye and the co-driver alongside; the shell shows from inside ---- */
 const Dash = {
-  model: null, g: null, wheel: null, arms: [], hands: [], shoulders: [], tex: null, ctx: null, t: 0, eyeP: new THREE.Vector3(), mode: null,
+  model: null, g: null, tex: null, ctx: null, t: 0, eyeP: new THREE.Vector3(), mode: null,
   build(M) {
     this.model = M;
-    const p = M.pilot, s = p.scale.y, e = this.eyeP.set(p.position.x, p.position.y + 0.42 * s, p.position.z + 0.08 * s);
+    const p = M.pilot, s = p.scale.y, e = this.eyeP.set(p.position.x, p.position.y + 0.37 * s, p.position.z + 0.08 * s);
     const g = this.g = new THREE.Group(); g.visible = false; M.group.add(g);
-    const dark = new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.8 }), glove = new THREE.MeshStandardMaterial({ color: 0x202226, roughness: 0.7 });
-    const suit = new THREE.MeshStandardMaterial({ color: new THREE.Color(GARAGE.pilot.opts[Store.data.garage.pilot].suit), roughness: 0.75 });
     const cv = document.createElement('canvas'); cv.width = 320; cv.height = 128; this.ctx = cv.getContext('2d');
     this.tex = new THREE.CanvasTexture(cv); this.tex.colorSpace = THREE.SRGBColorSpace;
     const gauge = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.144), new THREE.MeshBasicMaterial({ map: this.tex, toneMapped: false }));
     // the gauges sit on the face of the car's own dash: cast from the eye toward where they'd be, stop just short
-    const dir = _tmp.set(0, -0.2, 0.66).normalize(), parts = [];
-    M.shell.traverse((o) => { if (o.isMesh && !o.material.transparent && !o.userData.keep) parts.push(o); });
-    M.pilot.traverse((o) => { const k = parts.indexOf(o); if (k >= 0) parts.splice(k, 1); });
+    const dir = _tmp.set(0, -0.2, 0.66).normalize(), parts = [], crew = new Set();
+    for (const c of [M.pilot, M.cod]) if (c) c.traverse((o) => crew.add(o));
+    M.shell.traverse((o) => { if (o.isMesh && !o.material.transparent && !o.userData.keep && !crew.has(o)) parts.push(o); });
     M.group.updateMatrixWorld(true);
     const ray = new THREE.Raycaster(e.clone().applyMatrix4(M.group.matrixWorld), dir.clone().transformDirection(M.group.matrixWorld), 0.3, 0.69);
     const hit = ray.intersectObjects(parts, false)[0], gd = hit ? hit.distance - 0.015 : 0.69;
     gauge.position.copy(e).addScaledVector(dir, gd); gauge.rotation.set(-0.3, Math.PI, 0); g.add(gauge);
-    const w = this.wheel = new THREE.Group(); w.position.set(e.x, e.y - 0.27, e.z + 0.5); w.rotation.x = 0.3; g.add(w);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.175, 0.017, 8, 28), dark); w.add(rim);
-    for (const a of [Math.PI / 2, -Math.PI / 6, Math.PI * 7 / 6]) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.022, 0.012), dark); sp.position.set(Math.cos(a) * 0.08, Math.sin(a) * 0.08, 0); sp.rotation.z = a; w.add(sp); }
-    const mark = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.035, 0.022), new THREE.MeshBasicMaterial({ color: 0xffd23d })); mark.position.set(0, 0.175, 0); w.add(mark);
-    this.hands = [-1, 1].map((sd) => { const h = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), glove); h.position.set(sd * 0.168, 0.02, -0.01); w.add(h); return h; });
-    this.shoulders = [-1, 1].map((sd) => new THREE.Vector3(e.x + sd * 0.19, e.y - 0.36, e.z - 0.12));
-    this.arms = [0, 1].map(() => { const a = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 1, 8), suit); g.add(a); return a; });
     linearizeMaterials(g);
   },
   eye() { return this.eyeP; },
@@ -15516,20 +15665,12 @@ const Dash = {
     if (this.model !== M) { this.build(M); this.mode = null; }
     const inside = Cam.mode === 'cockpit' && Game.state !== 'garage' && Game.state !== 'photo';
     if (inside !== this.mode) {
-      this.mode = inside; this.g.visible = inside; M.pilot.visible = !inside;
+      this.mode = inside; this.g.visible = inside;
+      const c = M.pilot.userData.crew; c.H.visible = c.collar.visible = !inside;   // the driver's own body, arms and wheel stay
       M.shell.traverse((o) => { if (o.isMesh && o.material && !o.material.isMeshBasicMaterial) { o.material.side = inside ? THREE.DoubleSide : THREE.FrontSide; o.material.needsUpdate = true; } });
       if (M.glass) { if (M.glass.userData.op == null) M.glass.userData.op = M.glass.opacity; M.glass.opacity = inside && !car.glassBroken ? 0.12 : car.glassBroken ? 0.82 : M.glass.userData.op; }
     }
     if (!inside) return;
-    this.wheel.rotation.z = -car.steerAngle * 11;
-    this.wheel.updateMatrix();
-    for (let i = 0; i < 2; i++) {
-      const h = this.hands[i].getWorldPosition(_tmp2), a = this.arms[i];
-      this.g.worldToLocal(h);
-      const sh = this.shoulders[i], len = sh.distanceTo(h);
-      a.position.copy(sh).add(h).multiplyScalar(0.5); a.scale.set(1, len, 1);
-      a.quaternion.setFromUnitVectors(UP, _tmp.copy(h).sub(sh).normalize());
-    }
     this.t -= dt; if (this.t > 0) return; this.t = 0.06;
     const c = this.ctx, W = 320, H = 128, rpm = clamp(car.rpm, 0, 1.05);
     c.fillStyle = '#07080b'; c.fillRect(0, 0, W, H);
