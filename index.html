@@ -1173,6 +1173,39 @@ body.tilt #tCentre{display:flex}
   #garage .gs-name{font-size:16px;margin-bottom:2px}
   #garage .gar-stats .pi-row{margin-bottom:0}
 }
+/* ---- events screen, photo mode, livery editor, service time ---- */
+.hub-panel{width:min(1100px,96vw);max-height:92vh;overflow:auto;text-align:left;padding:16px 20px}
+#hubTabs{margin:8px 0 10px}
+.hub-head{margin:8px 0;font-size:14px;letter-spacing:.05em;line-height:1.6}
+.hub-cols{display:grid;grid-template-columns:1.25fr 1fr;gap:18px}
+.hub-cols h4{margin:12px 0 6px;color:var(--neon-pink);letter-spacing:.12em}
+.hub-note{font-size:13px;opacity:.85;line-height:1.5;margin:8px 0}
+.era{margin-bottom:10px}.era.lock{opacity:.45}
+.ev-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.ev-row span{flex:1;display:flex;flex-direction:column}.ev-row small{opacity:.75;font-size:12px}
+.medal-t{font-style:normal;color:var(--neon-yel);font-weight:800;letter-spacing:.08em}
+.ev-table{width:100%;margin-top:6px}.ev-table tr.me td{color:var(--neon-yel)}
+.live-code{width:100%;height:58px;margin:6px 0;font-size:10px;word-break:break-all}
+.mini.off{opacity:.4;pointer-events:none}.mini.on{outline:2px solid var(--neon-yel)}
+.svc-time{margin-top:6px}.svc-fix{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+#photo{position:absolute;left:0;right:0;bottom:0;z-index:30;display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:linear-gradient(transparent,rgba(0,0,0,.75))}
+#photo.hidden{display:none}
+.ph-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px;letter-spacing:.06em}
+.ph-bar b{min-width:44px;display:inline-block;text-align:center}
+.ph-help{opacity:.7}
+#phScrub{flex:1;min-width:160px}
+#app.ph-hide #photo{opacity:0}
+#noteBtn{position:absolute;right:16px;top:45%;z-index:20;font-size:16px;padding:12px 16px}
+.liv-ed{position:absolute;left:12px;top:64px;bottom:12px;width:min(480px,94vw);overflow:auto;text-align:left;padding:12px 14px;z-index:5}
+#garage.ed .gar-panel,#garage.ed .gar-stats{display:none}
+.le-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0}
+.le-row>b{min-width:62px;font-size:12px;letter-spacing:.1em}
+.le-layers{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.sw{display:inline-block;width:20px;height:20px;border:2px solid rgba(255,255,255,.25);cursor:pointer;vertical-align:middle;margin-right:4px}
+.sw.on{border-color:var(--neon-yel)}
+.le-sl{display:flex;flex-direction:column;font-size:11px;letter-spacing:.08em;width:46%}
+#garLivery{margin-left:10px}
+@media (max-width:700px){.hub-cols{grid-template-columns:1fr}.liv-ed{top:52px;left:6px}.ph-help{display:none}}
 </style>
 </head>
 <body>
@@ -1216,6 +1249,7 @@ body.tilt #tCentre{display:flex}
   </div>
 
   <!-- ======================= TOUCH CONTROLS ======================= -->
+  <button class="mini hidden" id="noteBtn">+ NOTE</button>
   <div id="touch" class="hidden">
     <div id="tSteer"><div id="tKnob"></div><span>STEER</span></div>
     <div id="tPedals">
@@ -1242,6 +1276,7 @@ body.tilt #tCentre{display:flex}
         <div class="home-nav" id="homeNav">
           <button class="hbtn" data-go="play"><b>PLAY</b><small>Pick a stage and race the clock</small></button>
           <button class="hbtn" data-go="rally"><b>RALLY</b><small id="homeRally">Every stage back to back</small></button>
+          <button class="hbtn" data-go="events"><b>EVENTS</b><small>Career, weekly championship, hillclimbs, desert raid, live races</small></button>
           <button class="hbtn" data-go="garage"><b>GARAGE</b><small>Pilot, car, parts and paint</small></button>
           <button class="hbtn" data-go="settings"><b>SETTINGS</b><small>Gears, ABS, traction control, camera, sound and controls</small></button>
         </div>
@@ -1253,13 +1288,17 @@ body.tilt #tCentre{display:flex}
 
   <!-- ======================= GARAGE ======================= -->
   <div id="garage" class="overlay hidden">
-    <div class="gar-top"><button class="mini" id="garBack">&#9666; DONE</button><h2>GARAGE</h2><span class="gar-hint">&uarr;&darr; CATEGORY &nbsp; &larr;&rarr; CHOOSE &nbsp; DRAG TO SPIN</span></div>
+    <div class="gar-top"><button class="mini" id="garBack">&#9666; DONE</button><h2>GARAGE</h2><button class="mini" id="garLivery">EDIT LIVERY</button><span class="gar-hint">&uarr;&darr; CATEGORY &nbsp; &larr;&rarr; CHOOSE &nbsp; DRAG TO SPIN</span></div>
     <div class="panel gar-panel">
       <div class="gar-tabs" id="garTabs"></div>
       <div class="gar-opts" id="garOpts"></div>
       <div class="gar-desc" id="garDesc"></div>
     </div>
     <div class="panel gar-stats" id="garStats"></div>
+    <div class="panel liv-ed hidden" id="livEd">
+      <div class="set-top"><button class="mini" id="livEdDone">&#9666; DONE</button><h2>LIVERY</h2><button class="mini" id="livEdCode">COPY CODE</button><button class="mini" id="livEdImport">IMPORT</button></div>
+      <div id="livEdBody"></div>
+    </div>
   </div>
 
   <!-- ======================= STAGE SELECT ======================= -->
@@ -1301,6 +1340,7 @@ body.tilt #tCentre{display:flex}
         <button class="btn" id="resumeBtn">RESUME</button>
         <button class="btn alt" id="restartBtn">RESTART</button>
         <button class="btn alt" id="pauseSettings">SETTINGS</button>
+        <button class="btn alt" id="pausePhoto">PHOTO MODE</button>
         <button class="btn alt" id="menuBtn">QUIT TO STAGE SELECT</button>
       </div>
     </div>
@@ -1319,6 +1359,7 @@ body.tilt #tCentre{display:flex}
         <div class="vlist">
           <button class="btn" id="retryBtn">RETRY &#8635;</button>
           <button class="btn alt" id="nextBtn">NEXT STAGE &#9656;</button>
+          <button class="btn alt" id="replayBtn">REPLAY &amp; PHOTO</button>
           <button class="btn alt" id="finMenuBtn">STAGE SELECT</button>
         </div>
       </div>
@@ -1337,10 +1378,12 @@ body.tilt #tCentre{display:flex}
       <div class="sub" id="svcStage" style="text-align:center"></div>
       <div class="svc-ride" id="svcRide"></div>
       <div id="svcRally" class="svc-rally hidden"></div>
+      <div id="svcCond"></div>
       <div id="svcRows"></div>
       <div class="row">
         <button class="btn" id="svcGo">TO THE START &#9656;</button>
         <button class="btn alt" id="svcRec">USE RECOMMENDED &#9733;</button>
+        <button class="btn alt" id="svcRecce">RECCE &#9656;</button>
       </div>
     </div>
   </div>
@@ -1359,7 +1402,7 @@ body.tilt #tCentre{display:flex}
         <button class="opt touch-only" data-set="tiltSens"><span><b>TILT SENSITIVITY</b><small>How far you turn the phone for full lock: LOW 30&deg;, MEDIUM 20&deg;, HIGH 12&deg;.</small></span><i class="mode" id="tiltMode">MEDIUM</i></button>
         <button class="opt" data-set="soft"><span><b>SOFT-BODY</b><small>The car is a frame of nodes and beams, as in BeamNG: hits crumple the body where they land and bend it for good, and a bent corner moves its wheel. Off: a rigid body with dents.</small></span><i class="switch"></i></button>
         <div class="set-group">VIEW</div>
-        <button class="opt" data-set="cam"><span><b>BUMPER CAM</b><small>Drive from the front bumper instead of behind the car. Key: C</small></span><i class="switch"></i></button>
+        <button class="opt" data-set="cam"><span><b>CAMERA</b><small>CHASE behind the car, COCKPIT from the driver's seat with a working dash, or BUMPER. Key: C</small></span><i class="mode" id="camMode">CHASE</i></button>
         <button class="opt" data-set="ghost"><span><b>GHOST</b><small>Race against a replay of your best run. Key: G</small></span><i class="switch"></i></button>
         <button class="opt" data-set="line"><span><b>RACING LINE</b><small>The fastest line, green to go, amber to lift, red to brake, with a board at each braking point. BRAKING shows only the lift and brake zones. Key: L</small></span><i class="mode" id="lineMode">FULL</i></button>
         <button class="opt" data-set="hud"><span><b>HUD</b><small>MINIMAL keeps the road clear: time, pace note, speed, gear and revs. FULL adds best and target times, surface, altitude, camera, suspension and damage. Key: H</small></span><i class="mode" id="hudMode">MINIMAL</i></button>
@@ -1389,6 +1432,28 @@ body.tilt #tCentre{display:flex}
         <div class="ctl-tips">Turbo cars build boost as the revs rise, so keep them on the boil. Missing a checkpoint sends you back to the last one (+5 s); passing a chicane row on the wrong side costs +5 s.</div>
       </div>
     </div>
+  </div>
+
+  <!-- ======================= EVENTS ======================= -->
+  <div id="hub" class="overlay hidden">
+    <div class="panel hub-panel">
+      <div class="set-top"><button class="mini" id="hubBack">&#9666; HOME</button><h2>EVENTS</h2></div>
+      <div class="tabs" id="hubTabs"></div>
+      <div id="hubBody"></div>
+    </div>
+  </div>
+
+  <!-- ======================= PHOTO MODE ======================= -->
+  <div id="photo" class="hidden">
+    <div class="ph-bar">
+      <button class="mini" id="phExit">&#9666; EXIT</button>
+      <span>FOV <button class="mini" id="phFovDn">&minus;</button><b id="phFov">50&deg;</b><button class="mini" id="phFovUp">+</button></span>
+      <span>DEPTH OF FIELD <button class="mini" id="phBlurBtn"><b id="phBlur">OFF</b></button> FOCUS <button class="mini" id="phFocusDn">NEAR</button><button class="mini" id="phFocusUp">FAR</button></span>
+      <button class="mini" id="phHide">HIDE</button>
+      <button class="mini" id="phSave">SAVE PNG</button>
+      <span class="ph-help">DRAG OR ARROWS: ORBIT · WHEEL OR Z / X: ZOOM</span>
+    </div>
+    <div class="ph-bar" id="phReplay"><button class="mini" id="phPlay">&#9654;</button><input type="range" id="phScrub" min="0" max="100" step="0.1" value="0"><b id="phTime">0:00.00</b><button class="mini" id="phSpeedBtn"><b id="phSpeed">1x</b></button></div>
   </div>
 
   <!-- ======================= GHOST CODE MODAL ======================= -->
@@ -1426,6 +1491,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 window.__rrBoot = true;
 /* =============================================================================
    REGOLITH RALLY — a point-to-point space rally game in a single file.
@@ -1550,7 +1616,8 @@ const Store = {
       if (d && typeof d === 'object') {
         if (d.best && typeof d.best === 'object') this.data.best = d.best;
         if (d.settings && typeof d.settings === 'object') Object.assign(this.data.settings, d.settings);
-        for (const k of ['targets', 'setups', 'boards', 'rival']) if (d[k] && typeof d[k] === 'object') this.data[k] = d[k];
+        for (const k of ['targets', 'setups', 'boards', 'rival', 'career', 'recce', 'myNotes', 'livery', 'weekly', 'cond', 'climbBest', 'raidBest']) if (d[k] && typeof d[k] === 'object') this.data[k] = d[k];
+        if (typeof d.raidSeed === 'number') this.data.raidSeed = d.raidSeed;
         if (d.rallyBest && typeof d.rallyBest === 'object') this.data.rallyBest = d.rallyBest;
         if (d.rallyBestClassic && typeof d.rallyBestClassic === 'object') this.data.rallyBestClassic = d.rallyBestClassic;
         this.data.garage = d.garage;
@@ -1583,7 +1650,8 @@ const Store = {
     catch (e) {
       // Probably quota: retry without ghost replays, which are the bulk of the data.
       try {
-        const slim = { best: {}, settings: this.data.settings, targets: this.data.targets, setups: this.data.setups, rallyBest: this.data.rallyBest, garage: this.data.garage, boards: {}, rival: {}, era: this.data.era, archive: this.data.archive };
+        const slim = { best: {}, settings: this.data.settings, targets: this.data.targets, setups: this.data.setups, rallyBest: this.data.rallyBest, garage: this.data.garage, boards: {}, rival: {}, era: this.data.era, archive: this.data.archive,
+          career: this.data.career, recce: this.data.recce, myNotes: this.data.myNotes, livery: this.data.livery, weekly: this.data.weekly, cond: this.data.cond, climbBest: this.data.climbBest, raidBest: this.data.raidBest, raidSeed: this.data.raidSeed };
         for (const k in this.data.boards) slim.boards[k] = this.data.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own }));
         for (const k in this.data.best) { const b = this.data.best[k]; slim.best[k] = { time: b.time, splits: b.splits }; }
         window.localStorage.setItem(this.key, JSON.stringify(slim));
@@ -1797,12 +1865,22 @@ const KHULAYS_COURSE = [
   { name: 'FINISH', grade: 0, path: 'S190' },
 ];
 const sign3 = (a, b, c) => [[a, a.length > 10 ? 58 : 68], [b, 44], [c, 38]];
+/* Real roads traced from OpenStreetMap, with heights from SRTM (30 m) elevation data: the road's curvature every 10 m
+   (1e-4 per metre, + = left) and its height every 50 m, from the start line to the finish. The named sections sit where
+   their real altitudes are, so they are close to, not exactly at, the real landmarks. Built by planTrace. */
+const PIKES_TRACE = { len: 19975, k: '60,74,83,90,94,91,76,69,54,38,24,10,5,4,1,0,-2,-7,-10,-6,-1,2,3,2,0,0,0,5,30,89,139,149,145,138,134,140,137,122,89,38,9,2,-8,-33,-64,-92,-105,-88,-74,-76,-64,-36,-13,-10,-13,-8,-2,0,0,-1,-1,0,2,6,3,-17,-41,-56,-71,-89,-103,-101,-111,-114,-80,-38,-11,-2,-2,-8,-14,-18,-28,-43,-55,-57,-47,-37,-41,-49,-49,-32,-10,7,14,16,29,43,56,119,166,117,94,98,53,12,1,1,7,24,35,20,5,0,0,0,0,9,53,131,133,57,26,68,116,82,28,19,26,17,4,1,1,2,1,-11,-66,-160,-161,-67,-11,1,0,-37,-159,-221,-117,-27,-28,-93,-132,-86,-67,-97,-74,-22,2,27,58,50,30,73,150,129,58,55,65,33,2,-30,-78,-81,-25,49,119,108,65,90,104,50,10,-1,-13,-54,-94,-79,-69,-83,-53,-16,-14,-38,-47,-23,2,52,164,208,132,97,82,60,83,86,39,6,-9,-35,-50,-30,-9,-11,-39,-66,-79,-87,-59,-28,-38,-46,-23,0,28,85,136,184,193,146,125,90,37,-27,-91,-141,-178,-136,-84,-86,-98,-96,-107,-108,-62,-63,-109,-89,-29,-4,0,1,15,61,102,83,94,159,140,86,69,44,48,111,176,208,192,132,16,-126,-192,-182,-183,-184,-198,-201,-171,-87,-44,-52,-37,-11,-1,0,0,0,-1,-5,-16,-15,21,89,122,138,225,247,195,145,68,36,51,41,10,-8,-19,-30,-51,-89,-132,-149,-106,-67,-49,-28,-33,-40,-21,-7,-23,-79,-114,-68,-17,-3,-6,-9,-5,-1,0,0,0,0,0,0,-5,-24,-47,-39,-34,-77,-98,-58,-47,-65,-46,-13,-1,2,12,29,28,12,11,43,81,74,54,38,15,20,111,320,507,564,505,276,11,-118,-162,-232,-257,-200,-169,-174,-138,-56,-12,-14,-32,-35,-41,-98,-146,-142,-129,-99,-100,-98,-46,-16,-26,-36,-21,-5,0,0,0,0,0,1,2,12,60,123,104,61,80,85,62,65,61,57,59,32,8,5,15,22,27,33,46,67,50,15,2,0,0,0,0,0,0,0,2,4,4,1,0,0,-3,-15,-32,-28,-10,-1,3,11,22,58,113,129,145,185,210,215,195,130,58,2,-48,-78,-63,-55,-81,-67,-43,-77,-100,-57,-30,-44,-43,-28,-41,-52,-23,28,87,107,108,123,121,88,34,6,1,1,-10,-53,-99,-71,-8,19,14,4,2,16,75,148,142,150,185,135,73,53,28,-73,-244,-454,-603,-613,-511,-316,-112,-18,-3,-16,-52,-76,-82,-86,-46,23,93,103,63,78,119,147,190,144,62,68,94,59,15,2,0,0,0,-3,-23,-66,-78,-41,-27,-38,-29,-17,-26,-29,-14,-3,0,0,-2,-19,-74,-121,-119,-163,-212,-224,-229,-170,-160,-153,-72,-24,-36,-44,-21,5,51,120,163,209,233,223,198,184,137,55,35,67,70,43,84,188,203,166,184,135,86,149,175,96,90,187,192,78,-13,-102,-202,-221,-156,-107,-60,-21,-1,47,115,134,144,135,61,11,0,-9,-69,-245,-486,-643,-610,-441,-274,-130,-33,-4,0,3,10,12,9,26,89,136,115,105,118,173,192,128,144,174,96,22,6,23,46,36,11,1,0,-1,-4,-15,-25,-47,-92,-90,-39,-23,-43,-44,-19,-3,0,0,0,0,0,0,0,0,-1,-5,-16,-23,-22,-37,-47,-26,-6,0,1,9,36,61,43,20,27,32,12,-18,-46,-40,-11,22,81,203,423,691,809,589,225,15,-55,-62,-49,-55,-45,-40,-69,-76,-81,-149,-251,-349,-395,-345,-225,-129,-76,-47,-20,-4,0,3,16,33,29,15,26,42,33,26,45,55,65,67,42,52,90,86,86,109,112,111,26,-149,-285,-305,-260,-184,-61,19,21,10,32,82,95,69,50,32,31,34,23,25,33,21,5,2,9,29,29,-17,-67,-85,-106,-122,-119,-86,-63,-84,-112,-161,-165,-139,-149,-128,-129,-190,-271,-286,-258,-234,-152,-51,-12,-3,12,63,150,209,239,292,312,301,304,312,349,328,230,180,153,65,-47,-120,-166,-155,-133,-97,-38,44,130,146,136,89,24,-13,-53,-70,-51,-50,-44,-23,-24,-32,-20,-4,9,34,58,68,54,-12,-106,-215,-382,-543,-603,-550,-404,-220,-43,30,17,5,22,84,144,142,164,176,147,116,82,125,201,264,341,357,320,254,203,125,48,-13,-68,-47,42,59,22,10,14,1,-53,-120,-131,-127,-109,-46,-6,9,16,17,35,76,105,137,125,49,-16,-80,-120,-78,-36,-57,-77,-43,-10,-2,-6,-13,-10,-3,-1,-6,-35,-78,-71,-18,38,78,75,80,81,16,-58,-65,-26,-4,-1,-8,-48,-121,-183,-226,-244,-177,-59,14,40,40,44,38,8,-21,-28,-14,-3,-1,-5,-18,-25,-23,-43,-63,-26,76,233,409,572,667,617,451,278,121,6,-54,-74,-68,-88,-101,-66,-51,-43,-32,-39,-37,-43,-83,-86,-37,-6,3,12,19,12,3,-2,-19,-54,-67,-59,-73,-75,-65,-63,-83,-95,-51,5,65,106,85,82,99,85,131,236,284,274,222,129,69,77,68,64,102,92,35,6,9,37,63,42,-4,-50,-64,-37,-28,-47,-75,-81,-59,-45,-37,-60,-89,-59,-16,-3,-10,-44,-79,-58,-16,4,17,18,-10,-64,-85,-46,-27,-66,-94,-55,-14,-5,-15,-23,-20,-35,-78,-81,-35,-9,-20,-56,-63,-29,-8,-15,-38,-41,-21,-29,-97,-204,-369,-601,-737,-614,-352,-103,77,105,88,124,107,45,18,16,51,112,106,45,28,57,60,26,7,21,80,134,131,137,174,181,122,45,7,0,-1,-5,-17,-23,-13,-3,0,0,0,0,0,0,-1,-2,-3,-2,-1,0,3,16,39,38,15,3,0,0,0,5,19,31,21,6,1,-2,-25,-86,-124,-104,-93,-84,-92,-113,-147,-183,-119,111,446,767,874,635,268,61,9,17,45,48,22,15,49,101,139,127,51,-17,-76,-207,-404,-539,-558,-484,-360,-217,-141,-116,-56,-12,-4,-21,-50,-48,-19,-3,-4,-25,-73,-88,-59,-75,-104,-65,-16,11,79,223,417,659,781,581,226,17,-46,-93,-111,-117,-144,-128,-139,-159,-101,-58,-40,-16,-3,0,0,0,0,0,0,0,0,0,-1,-5,-12,-18,-46,-91,-77,-27,-4,0,0,4,16,24,15,4,3,17,39,34,-19,-151,-376,-601,-686,-583,-401,-196,-42,22,38,21,5,1,3,8,9,4,3,17,59,81,45,11,7,33,69,57,19,3,6,28,65,143,349,665,895,716,259,-12,-54,-61,-92,-88,-58,-79,-90,-59,-52,-46,-20,-3,0,0,0,0,-2,-12,-42,-129,-376,-706,-792,-571,-290,-107,-16,42,98,88,35,20,39,50,81,154,168,160,206,238,192,100,49,19,1,-14,-36,-40,-47,-97,-121,-99,-98,-67,-20,-2,2,3,1,0,1,3,9,18,41,58,37,9,-2,-7,-5,16,91,284,602,806,680,353,115,27,-4,-28,-42,-29,-21,-16,6,29,21,-34,-149,-346,-567,-621,-505,-329,-136,-6,55,70,104,177,154,95,110,119,107,79,59,55,35,22,9,-6,-10,-5,-1,0,0,0,0,0,-1,-2,-3,-10,-40,-75,-78,-79,-69,-43,-44,-40,-16,-3,0,0,0,0,0,0,-1,-6,-14,-12,-5,-1,0,0,4,17,31,23,13,23,36,44,62,57,49,69,78,101,114,59,13,1,0,0,0,5,27,55,43,14,6,27,73,80,36,7,8,40,87,77,28,4,1,9,27,33,16,3,0,0,0,0,0,1,7,13,10,3,0,-2,-10,-25,-37,-83,-153,-147,-145,-171,-141,-115,-77,-48,-56,-42,-13,-1,0,0,0,-1,-6,-20,-29,-17,-6,-14,-33,-34,-15,-4,-6,-14,-13,-5,-1,0,0,0,0,1,5,17,22,13,16,34,41,52,76,64,63,105,100,71,66,54,70,91,56,14,1,-6,-22,-29,-16,-3,0,0,-1,-8,-31,-50,-41,-59,-115,-109,-61,-64,-89,-118,-119,-92,-106,-94,-37,-7,-5,-13,-14,-6,-1,2,15,39,42,27,45,80,73,74,103,88,86,121,133,141,107,72,81,68,49,36,15,3,0,0,0,0,1,3,6,5,6,29,83,102,72,71,70,65,74,57,51,67,62,58,54,55,60,35,10,4,3,1,0,1,4,6,5,3,8,14,21,29,22,-11,-51,-75,-83,-89,-84,-72,-78,-82,-69,-64,-74,-81,-67,-33,-9,-1,2,2,1,0,1,1,1,0,1,3,4,1,-2,-3,-1,0,-2,-29,-133,-348,-554,-592,-479,-306,-129,1,89,133,131,119,105,81,51,20,2,-6,-9,-10,12,50,78,114,168,234,274,241,202,212,187,110,32,-30,-76,-107,-129,-146,-133,-91,-59,-42,-30,-12,40,128,237,350,393,330,198,84,27,5,-7,-34,-63,-42,-84,-211,-246,-232,-218,-185,-138,-78,-23,-9,-15,-35,-52,-57,-83,-109,-97,-56,-20,-5,0,2,1,-1,1,14,31,46,65,78,58,37,34,23,6,-5,-9,-9,-11,-16,-27,-47,-52,-41,-71,-122,-134,-93,-37,-2,19,42,59,60,45,25,12,7,3,-1,-4,-4,-2,-3,-5,-3,-1,0,0,0,3,7,7,2,-4,-12,-12,-7,-12,-19,-14,-3,9,19,15,10,25,64,118,134,88,68,93,97,68,56,73,90,104,113,94,44,1,-32,-57,-64,-54,-30,3,37,55,42,23,16,8,-5,-21,-26,-13,-1,9,17,9,-11,-29,-40,-33,-22,-16,-13,-9,-3,16,37,38,24,7,-9,-24,-22,-8,0,21,123,363,659,750,539,246,73,22,10,-23,-51,-56,-47,-22,-5,1,16,64,116,105,37,-22,-37,-26,-11,-3,-1,-1,-3,-8,-10,-5,0,3,5,-4,-34,-68,-76,-67,-57,-51,-50,-49,-35,-38,-56,-72,-88,-94,-80,-67,-67,-65,-56,-45,-19,11,21,20,22,20,-1,-64,-207,-403,-596,-746,-691,-413,-116,51,103,93,55,38,45,50,65,78,75,81,104,123,130,135,120,88,81,102,118,84,31,15,25,26,18,15,20,31,52,97,95,39',
+  h: '2862,2864,2869,2870,2868,2867,2866,2867,2866,2864,2864,2867,2871,2875,2878,2879,2881,2879,2874,2870,2868,2869,2872,2876,2876,2878,2882,2884,2886,2883,2883,2885,2886,2885,2890,2892,2892,2893,2894,2894,2895,2895,2893,2893,2893,2894,2895,2897,2896,2902,2905,2910,2912,2911,2913,2910,2909,2914,2916,2920,2928,2931,2936,2939,2942,2945,2947,2948,2949,2951,2958,2963,2967,2974,2977,2980,2985,2991,2998,3003,3005,3006,3012,3018,3024,3030,3033,3038,3042,3047,3051,3057,3063,3066,3073,3076,3082,3088,3094,3101,3104,3108,3116,3116,3121,3124,3126,3135,3145,3152,3156,3163,3165,3169,3170,3170,3176,3180,3186,3194,3198,3202,3211,3213,3222,3227,3231,3231,3234,3240,3246,3253,3257,3261,3267,3275,3282,3285,3290,3294,3298,3302,3304,3306,3312,3317,3325,3335,3341,3345,3343,3349,3353,3360,3367,3371,3374,3379,3383,3386,3387,3385,3388,3396,3400,3408,3411,3417,3422,3424,3432,3432,3434,3442,3445,3454,3460,3461,3467,3476,3479,3485,3492,3494,3495,3498,3502,3511,3516,3519,3518,3521,3532,3533,3530,3537,3541,3547,3549,3554,3557,3565,3570,3575,3579,3582,3585,3591,3595,3596,3603,3609,3612,3618,3624,3628,3628,3641,3645,3650,3654,3658,3662,3670,3676,3678,3683,3692,3698,3700,3703,3714,3712,3723,3723,3726,3734,3734,3731,3742,3749,3748,3752,3760,3767,3772,3774,3774,3777,3791,3797,3802,3804,3814,3814,3821,3815,3826,3833,3835,3839,3848,3848,3853,3865,3864,3872,3873,3888,3895,3894,3901,3903,3903,3914,3913,3920,3924,3934,3940,3944,3945,3943,3945,3951,3951,3950,3953,3952,3953,3952,3950,3949,3949,3949,3947,3947,3944,3944,3942,3939,3934,3935,3946,3950,3955,3958,3964,3974,3973,3975,3980,3982,3984,3984,3987,3989,3989,3991,3998,3996,3995,3994,3994,3997,3999,4000,4001,4002,4001,4001,3999,3999,3998,4000,4005,4010,4014,4018,4021,4027,4032,4037,4038,4045,4050,4057,4060,4065,4070,4075,4082,4089,4090,4093,4099,4103,4109,4116,4125,4128,4128,4134,4144,4146,4149,4157,4159,4163,4169,4173,4182,4186,4191,4197,4202,4206,4212,4216,4220,4226,4228,4236,4241,4246,4248,4252,4258,4263,4264,4270,4275,4273,4281,4284,4284,4287,4290,4294,4297',
+  secs: [{ name: "START LINE", at: 0, surf: SURF.TARMAC }, { name: "ENGINEER'S CORNER", at: 2450 }, { name: "PICNIC GROUNDS", at: 3550 }, { name: "BROWN BUSH", at: 5450 }, { name: "SKI AREA", at: 6900 }, { name: "GLEN COVE", at: 9100, surf: SURF.GRAVEL }, { name: "COVE CREEK", at: 10500 }, { name: "DEVIL'S PLAYGROUND", at: 13450 }, { name: "BOTTOMLESS PIT", at: 15350 }, { name: "BOULDER PARK", at: 18200 }, { name: "OLYMPIC", at: 19400 }, { name: "SUMMIT", at: 19850 }] };
+const TURINI_TRACE = { len: 11805, k: '175,76,-167,-237,-110,-22,-13,-48,-56,111,358,300,-159,-430,-341,-219,-188,-175,-53,110,163,93,-13,-80,-51,54,150,218,236,158,-16,-313,-658,-841,-735,-461,-229,-104,-69,-59,-38,-19,-3,22,79,212,343,383,315,172,115,145,155,113,74,66,40,-42,-140,-190,-213,-247,-272,-207,-83,-19,-17,-45,-85,-110,-79,-14,29,54,62,58,56,56,45,20,-1,-17,-33,-40,-37,-20,11,44,62,55,3,-63,-84,-63,-29,-6,10,48,110,131,51,-59,-93,-80,-95,-124,-139,-130,-76,-23,-3,0,0,5,42,159,321,411,422,385,264,131,70,40,14,2,4,27,90,141,79,-56,-141,-156,-173,-224,-268,-257,-197,-119,-10,100,166,234,320,313,199,92,42,40,86,130,106,10,-100,-151,-163,-202,-245,-233,-121,66,214,246,104,-116,-156,42,182,-53,-436,-554,-443,-240,40,241,247,141,42,-18,-39,-23,-5,0,2,23,115,256,234,-24,-275,-337,-288,-220,-155,-110,-94,-96,-87,-83,-102,-102,-8,219,447,570,600,467,237,72,4,-44,-125,-184,-187,-152,-60,92,238,307,343,364,290,144,39,2,-22,-70,-127,-160,-155,-110,-50,-25,-63,-130,-109,15,75,39,8,1,0,0,0,0,-4,-28,-80,-95,13,195,198,-88,-367,-419,-283,-74,148,363,411,233,-78,-322,-342,-209,-56,59,162,236,243,207,145,58,-16,-46,-31,-14,-48,-188,-365,-423,-376,-230,-67,45,160,267,287,190,69,22,48,121,210,258,203,79,-26,-87,-99,-86,-76,-58,-32,-9,5,23,38,37,35,48,80,105,11,-251,-458,-497,-441,-322,-155,27,193,328,394,398,332,200,65,-36,-105,-119,-84,-33,-6,0,0,-2,-17,-73,-155,-174,-96,-15,22,26,26,72,129,51,-178,-318,-303,-260,-78,159,173,51,-8,116,466,793,882,707,362,48,-142,-250,-241,-111,-19,20,104,249,375,412,308,102,-83,-197,-286,-335,-289,-117,80,214,234,221,191,118,43,1,-37,-91,-116,-128,-193,-426,-835,-994,-607,-92,182,225,133,37,-1,-33,-102,-176,-179,-123,-68,-8,88,242,354,321,167,-32,-196,-257,-276,-257,-135,37,181,223,184,156,106,11,25,261,682,957,771,339,47,-123,-256,-284,-215,-122,-28,66,159,222,220,200,228,209,29,-294,-677,-910,-842,-534,-171,56,65,-34,-124,-178,-220,-249,-197,-67,76,225,304,279,209,107,28,4,13,75,177,167,50,-38,-96,-108,-78,-35,-6,20,75,113,51,-104,-274,-349,-311,-186,-46,83,236,267,78,-141,-198,-111,-29,-4,-8,-38,-85,-97,-72,-119,-278,-385,-412,-461,-426,-262,-96,-19,-5,-2,47,161,190,90,28,39,92,168,202,115,-53,-143,-96,-26,-3,3,24,66,74,34,10,21,51,72,88,57,-31,-78,-35,62,157,240,268,218,153,130,135,124,107,87,65,35,9,1,4,21,49,47,19,3,-4,-24,-61,-85,-82,-47,-13,-1,0,4,25,68,100,85,36,1,-35,-108,-184,-217,-192,-57,225,588,862,884,598,188,-77,-117,-28,88,193,195,98,15,-49,-120,-138,-102,-49,-11,-1,0,0,0,0,0,0,0,0,3,19,54,86,87,20,-170,-475,-701,-761,-705,-466,-153,36,87,82,54,27,31,35,16,3,0,0,4,18,30,29,42,64,44,1,-54,-112,-114,-94,-87,-57,-18,5,53,163,237,160,50,7,-1,-13,-58,-122,-131,-75,-22,-4,-7,-28,-46,-32,-17,-38,-99,-217,-363,-439,-440,-363,-215,-72,-10,12,44,60,33,7,2,12,44,73,79,101,125,88,-18,-172,-314,-255,12,242,268,136,-25,-92,-28,81,125,66,-11,-94,-163,-173,-158,-104,11,174,343,439,455,354,123,-85,-140,-75,-17,-2,0,0,0,0,-2,-5,-7,-4,-1,0,0,1,15,106,356,693,909,821,462,75,-168,-192,-85,-16,-1,0,0,0,-2,-13,-43,-55,-26,10,61,85,-55,-419,-843,-989,-716,-291,-27,55,70,97,107,57,13,3,12,31,33,27,59,120,156,159,116,44,-1,-27,-39,-38,-51,-104,-192,-260,-301,-324,-249,-33,214,365,338,178,49,6,-1,-17,-87,-229,-360,-389,-323,-218,-107,-29,-4,-7,-38,-84,-32,148,315,361,283,121,-39,-149,-213,-222,-110,96,284,366,304,158,41,-19,-84,-146,-156,-129,-88,-36,-6,9,51,143,227,241,208,146,64,14,1,0,0,-2,-12,-24,-19,-6,-1,0,0,-2,-14,-41,-49,-28,-28,-51,-45,-16,-2,0,4,23,77,148,165,93,24,5,22,82,153,200,259,271,222,214,189,112,61,44,34,0,-34,0,77,120,181,232,170,68,9,-4,2,13,21,14,7,9,9,12,46,104,134,167,215,212,103,-142,-463,-652,-653,-562,-415,-262,-161,-98,-52,-46,-41,-47,-81,-74,-30,-17,-38,-45,-24,-20,-34,-28,-6,1,3,36,111,170,192,205,207,200,187,135,61,-17,-126,-247,-327,-360,-325,-206,-80,-15,0,3,11,19,15,15,32,42,34,35,53,68,52,45,41,5,-26,-9,47,77,65,59,71,90,114,106,76,71,86,165,287,328,232,104,43,24,11,3,-10,-67,-173,-258,-276,-208,-61,80,161,176,29,-197,-337,-358,-269,-119,49,172,249,319,321,256,190,99,-58,-296,-493,-522,-519,-506,-361,-142,20,164,318,393,392,360,271,163,98,52,30,45,46,6,-93,-293,-460,-468,-433,-404,-256,33,292,404,406,369,228,4,-213,-396,-478,-440,-304,-118,22,116,157,136,66,15,1,2,24,107,233,301,308,288,228,164,153,110,2,-123,-252,-352,-392,-355,-214,-67,-9,1,15,60,120,162,174,166,160,150,140,135,93,61,81,70,26,4,-1,-12,-76,-219,-335,-316,-240,-160,-72,-77,-212,-331,-303,-193,-32,116,125,42,-26,-88,-137,-140,-120,-104,-55,-12,18,115,314,472,496,402,237,93,23,30,104,180,206,198,127,51,6,-108,-302,-431,-430,-295,-68,150,291,288,148,-9',
+  h: '690,694,694,693,697,704,711,715,717,714,716,720,729,737,740,740,742,746,750,758,765,774,763,735,725,749,764,791,798,779,778,784,793,801,840,838,839,834,842,842,831,824,822,836,840,846,852,855,860,865,868,873,870,880,881,891,902,905,896,901,912,918,923,930,930,920,924,932,940,946,953,957,953,960,963,975,968,973,983,979,982,990,1000,1003,1010,1021,1020,1024,1030,1032,1035,1027,1037,1047,1043,1047,1051,1059,1062,1068,1070,1082,1087,1087,1086,1079,1085,1103,1110,1103,1103,1096,1107,1112,1117,1121,1124,1128,1138,1147,1152,1146,1147,1149,1154,1156,1154,1155,1163,1172,1180,1184,1186,1185,1198,1209,1212,1217,1227,1218,1212,1215,1231,1237,1239,1239,1233,1242,1246,1245,1243,1247,1252,1263,1264,1264,1272,1274,1278,1282,1293,1302,1296,1304,1329,1338,1334,1318,1327,1321,1339,1335,1331,1341,1345,1349,1353,1355,1362,1369,1373,1383,1386,1390,1394,1396,1399,1401,1407,1409,1415,1416,1417,1423,1436,1442,1445,1451,1451,1450,1449,1453,1461,1472,1481,1479,1484,1482,1492,1500,1493,1498,1511,1519,1511,1517,1527,1521,1523,1524,1535,1543,1537,1538,1550,1558,1564,1569,1571,1574,1576,1571,1575,1583,1593,1596,1600',
+  secs: [{ name: "LA BOLLÈNE-VÉSUBIE", at: 0, surf: SURF.TARMAC }, { name: "CHESTNUT WOODS", at: 1650 }, { name: "FIRST HAIRPINS", at: 4100 }, { name: "FORÊT DE TURINI", at: 6750 }, { name: "THE LACETS", at: 8800 }, { name: "UPPER FOREST", at: 10200 }, { name: "COL DE TURINI", at: 11700 }] };
+
 const WRC_STAGES = [
   wrcStage({
     id: 'wrc-monte', name: 'Col de Turini', region: 'RALLYE MONTE-CARLO · ROUND 1', seed: 1911, letter: 'M',
-    blurb: "The Monte's most famous road, at full length: up from La Bollène-Vésubie through the chestnut woods and the Turini forest, a ladder of 14 m hairpins to the 1,604 m col. Tarmac, with snow thrown on by the fans and ice in the shade. Studs help where it's white; low stone walls wait on the outside of the hairpins.",
-    length: 13600, hw: 3.1, roadLines: 2, roadRough: 0.04, offRR: 0.32,
-    course: TURINI_COURSE, altitude: [690, 1604], altUnit: 'M', climb: 914, surfLabel: 'TARMAC · SNOW · ICE',
+    blurb: "The Monte's most famous road, traced from map data: up from La Bollène-Vésubie through the chestnut woods and the Turini forest, a ladder of 14 m hairpins to the 1,604 m col. Tarmac, with snow thrown on by the fans and ice in the shade. Studs help where it's white; low stone walls wait on the outside of the hairpins.",
+    length: TURINI_TRACE.len + 285, hw: 3.1, roadLines: 2, roadRough: 0.04, offRR: 0.32,
+    trace: TURINI_TRACE, course: TURINI_COURSE, altitude: [690, 1604], altUnit: 'M', climb: 914, surfLabel: 'TARMAC · SNOW · ICE',
     fill: { r: [22, 140], ang: [20, 95], s: [12, 70], dev: 70 },
     surf: { base: SURF.TARMAC, off: SURF.SNOW, patches: [SURF.SNOW, SURF.SNOW, SURF.ICE], patchChance: 0.22, patchLen: [20, 55] },
     crest: { h: 1.0, L: 40, landing: 50 }, rocksKm: 40,
@@ -2051,14 +2129,40 @@ const STAGES = [
         { at: 'ICE RINK', lines: [['ICE RINK', 70], ['STUDS ADVISED', 40], ['', 30]] }, { at: 'CHASM', lines: [['CHASM', 70], ['FLAT OUT', 44], ['REGOLITH', 36]] }],
       houses: [{ at: 'start', n: 2, wall: 0xd6d2c8, roof: 0x3a3e44, big: 1 }] },
   },
+  {
+    // The Race to the Clouds at full length, traced from map data: 19.98 km from the start line at mile 7 to the summit.
+    id: 'pikes', name: 'Pikes Peak', region: 'COLORADO, USA · HILLCLIMB', seed: 1916, letter: 'Q', hill: true,
+    blurb: "The Race to the Clouds at full length, traced from map data: 156 turns over 20 km from the start line at 9,390 ft to the 14,115 ft summit. Tarmac through the forest, then gravel above Glen Cove as when the Group B cars raced here, and no guard rails. Thin air takes a third of the engine's breath by the top.",
+    length: PIKES_TRACE.len + 285, ...EARTH,
+    hw: 3.6, ribbon: 150, shoulder: 8, style: 'mountain', offRR: 0.3,
+    trace: PIKES_TRACE, course: [], real: true, altitude: [9390, 14115], altUnit: 'FT', climb: 1440, surfLabel: 'TARMAC · GRAVEL', roadLines: 1,
+    roadRough: 0.05,
+    surf: { base: SURF.TARMAC, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
+    features: [], crest: { h: 1.2, L: 46, landing: 60 }, ramp: { H: 1.0, L: 12, landing: 70 },
+    craterClusters: 0, meteorZones: 0, chicanes: 0, dontCut: 0,
+    checkpoints: 12, rocks: 1600, targetFactor: 1.05,
+    sky: { day: true, sunDir: [0.62, 0.55, 0.42], sunColor: 0xfff1dc, sunIntensity: 3.1, sunSize: 1.0, zenith: [0.07, 0.2, 0.52], horizon: [0.5, 0.62, 0.76], fog: [420, 5200] },
+    planet: null,
+    hemi: { sky: 0xa8c8f0, ground: 0x5a4c3c, intensity: 0.65 },
+    colors: {
+      road: 0x504e4c, roadDark: 0x3e3c3b, off: 0x4a5a32, offB: 0x7d6a5c, offC: 0x74704c,
+      surf: [0x9c978d, 0xbfe3f5, 0x9aa2ab, 0x9e7c64, 0x504e4c, 0xeef2f6], rock: 0x9e8474, marker: [0xff8a1a, 0xf4f4f0], accent: 0xffb21a,
+      forest: 0x3a4a2a, tundra: 0x5c5e3a, granite: 0xa8866f, snow: 0xeef2f6, floor: 0x5e4c3a, grass: 0x52633a, grus: 0x9e7c64,
+    },
+    earth: { fall: 1, ridges: 1, trees: ['spruce', 'spruce', 'spruce', 'aspen', 'bristlecone'], density: 30000, treeline: 0.46, snowLine: 0.8, ground: 'alpine',
+      grus: 1.4, talus: true, boulders: 3000,
+      signs: [{ at: 'start', lines: [['PIKES PEAK', 70], ['HIGHWAY', 58], ['ELEV 9,390 FT', 40]] }, { at: 'finish', lines: [['PIKES PEAK', 70], ['SUMMIT', 58], ['ELEV 14,115 FT', 40]] }],
+      summitHouse: true },
+  },
 ];
-/** The stages run back to back in a rally (all but the test park, which comes last). */
-const RALLY_STAGES = STAGES.filter((d) => !d.test).length;
+/** The stages run back to back in a rally (the WRC rounds: not the test park or the hillclimbs). */
+const RALLY_STAGES = STAGES.filter((d) => !d.test && !d.hill).length;
 // stage select groups (display order only; stage indexes, saves and boards are unchanged)
-const stageWorld = (d) => d.test ? 'test' : d.earth ? 'earth' : 'space';
+const stageWorld = (d) => d.test ? 'test' : d.hill ? 'climb' : d.earth ? 'earth' : 'space';
 const STAGE_GROUPS = [
   { key: 'space', label: 'SPACE', sub: 'OFF-WORLD STAGES' },
   { key: 'earth', label: 'WRC 2026', sub: 'ONE STAGE FROM EVERY ROUND' },
+  { key: 'climb', label: 'HILLCLIMB', sub: 'RACE TO THE CLOUDS' },
   { key: 'test', label: 'TEST', sub: 'PROVING GROUND' },
 ].map((g) => ({ ...g, idx: STAGES.map((d, i) => i).filter((i) => stageWorld(STAGES[i]) === g.key) }));
 const STAGE_ORDER = STAGE_GROUPS.flatMap((g) => g.idx);
@@ -2111,7 +2215,7 @@ const RECOMMENDED = [{ susp: 1, damp: 1, arb: 1, gear: 0, tyre: 1 }, { susp: 1, 
   { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 }, { susp: 0, damp: 0, arb: 0, gear: 0, tyre: 0 }, { susp: 1, damp: 1, arb: 0, gear: 2, tyre: 0 },
   { susp: 0, damp: 1, arb: 0, gear: 2, tyre: 0 }, { susp: 1, damp: 1, arb: 1, gear: 2, tyre: 0 }, { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 },
   { susp: 0, damp: 0, arb: 0, gear: 0, tyre: 0 }, { susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 },
-  { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 }];
+  { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 }, { susp: 1, damp: 1, arb: 1, gear: 0, tyre: 0 }];
 const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
 const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
 /* ---- garage: pilot + car (chosen in the garage, kept for every stage) ----
@@ -3557,6 +3661,39 @@ function planTrack(def, seed) {
   P.straight(190, null);                      // finish straight + run-off
   return P;
 }
+/** Plan a traced real road (def.trace): its own curvature behind a start straight and ahead of a finish run-off.
+ *  The corners the co-driver calls are found in the curvature: runs one way tighter than a 400 m radius. */
+function planTrace(def) {
+  const P = makePlan(def), T = def.trace, K = T.k.split(',').map((v) => +v * 1e-4);
+  P.straight(95, null);
+  const i0 = P.k.length, s0 = i0 * DS, n = Math.round((K.length - 1) * 10 / DS);
+  for (let i = 0; i < n; i++) { const x = i * DS / 10, a = Math.floor(x); P.k.push(lerp(K[a], K[Math.min(a + 1, K.length - 1)], x - a)); }
+  const i1 = P.k.length, segs = [], k = P.k, TH = 1 / 400;
+  let i = i0, last = i0;
+  const straight = (a, b) => { if (b > a) segs.push({ type: 'straight', s0: a * DS, s1: b * DS, feature: null }); };
+  while (i < i1) {
+    if (Math.abs(k[i]) < TH) { i++; continue; }
+    const dir = Math.sign(k[i]), a = i;
+    let b = i;
+    while (b < i1 && (Math.sign(k[b]) === dir && Math.abs(k[b]) >= TH * 0.6 || (b + 3 < i1 && Math.sign(k[b + 3]) === dir && Math.abs(k[b + 3]) >= TH))) b++;
+    let ang = 0, peak = a, kmax1 = 0, kmax2 = 0;
+    const mid = (a + b) >> 1;
+    for (let j = a; j < b; j++) { const q = Math.abs(k[j]); ang += q * DS; if (q > Math.abs(k[peak])) peak = j; if (j < mid) kmax1 = Math.max(kmax1, q); else kmax2 = Math.max(kmax2, q); }
+    if (ang > 0.12) {
+      straight(last, a);
+      segs.push({ type: 'corner', s0: a * DS, s1: b * DS, dir, R1: 1 / Math.max(kmax1, kmax2 * 0.5, 1e-4), R2: 1 / Math.max(kmax2, kmax1 * 0.5, 1e-4), angle: ang, apexS: peak * DS });
+      last = b;
+    }
+    i = b + 1;
+  }
+  straight(last, i1);
+  P.segs.push(...segs);
+  P.straight(190, null);
+  let surf = def.surf.base;
+  const secs = T.secs.map((q) => { if (q.surf !== undefined) surf = q.surf; return { name: q.name, s: s0 + q.at, grade: 0, surf, walls: q.walls || 0 }; });
+  P.heights = T.h.split(',').map(Number); P.traceS0 = s0;
+  return Object.assign(P, { secs, marks: [], landmarks: [], zones: [], fillLen: 0 });
+}
 /** Plan a scripted course (a real road, or a designed stage): its sections in order, each a run of straights,
  *  crests, jumps and corners. Path tokens: S<m> straight; C crest, J kicker ramp, X chasm jump (each a straight
  *  sized by the stage's own feature, or scaled by a factor: J*1.5 is half as high again and flies further);
@@ -3665,7 +3802,8 @@ function checkSeparation(g, minDist, minGap) {
 
 function generateTrack(def) {
   let plan = null, geo = null, attempts = 0;
-  if (def.course) { plan = planCourse(def); geo = integrateCenterline(plan.k); }
+  if (def.trace) { plan = planTrace(def); geo = integrateCenterline(plan.k); }
+  else if (def.course) { plan = planCourse(def); geo = integrateCenterline(plan.k); }
   else for (; attempts < 80; attempts++) {
     plan = planTrack(def, def.seed + attempts * 7919);
     geo = integrateCenterline(plan.k);
@@ -3692,7 +3830,11 @@ function generateTrack(def) {
     tr.rx[i] = -tr.tz[i]; tr.rz[i] = tr.tx[i];             // right-hand lateral vector
   }
   // ---- Elevation: smoothed large-scale terrain under the centreline (or a scripted climb), plus designed crests ----
-  if (tr.secs) {
+  if (plan.heights) {                                   // a traced road: its real heights, every 50 m
+    const H = plan.heights, raw = new Float64Array(N);
+    for (let i = 0; i < N; i++) { const x = clamp((i * DS - plan.traceS0) / 50, 0, H.length - 1), a = Math.min(Math.floor(x), H.length - 2); raw[i] = lerp(H[a], H[a + 1], x - a) - H[0]; }
+    tr.cy = boxBlur(boxBlur(raw, 6), 6);
+  } else if (tr.secs) {
     const gr = new Float64Array(N);                       // each section's grade, eased into the next, summed up the road
     for (const sc of tr.secs) for (let i = Math.round(sc.s / DS); i < N; i++) gr[i] = sc.grade;
     const ge = boxBlur(boxBlur(gr, 12), 12);
@@ -6374,7 +6516,7 @@ function drivelineStep(dt, ctl, G, th0) {
   diffCpl(C[3], sp.rdiff, Tin * (1 - s), power);
   // a brake that holds its wheel holds it where it stopped: the coupling aims to wind back any creep since it locked
   for (let k = 0; k < 4; k++) { const c = C[4 + k]; setCpl(c, W[k].Tb > 1, DRIVE.Kc, W[k].Tb); c.tgt = c.on ? -W[k].bAng * 30 : 0; }
-  const dmg = 1 - 0.15 * car.damage - 0.4 * Math.max(0, car.heat - 0.3);   // a holed radiator cooks the engine
+  const dmg = (1 - 0.15 * car.damage - 0.4 * Math.max(0, car.heat - 0.3)) * Raid.engineMul();   // a holed radiator cooks the engine; an empty tank starves it
   // each tyre's lengthwise contact-patch deflection κ' (see TYRE) over a substep, linear in the wheel's new speed ω:
   // κ' = kt·(1 − k) + (ωr − v)·g, and the effective slip κe = κ' + c·(ωr − v − |v|·κ') adds the low-speed damping
   const TK = DL.tk;
@@ -7152,7 +7294,7 @@ function stepVehicle(dt, ctl) {
     w.taE = w.ta + w.wl * (w.vLat - ax * w.ta) / TYRE.vd;
     // load sensitivity: grip grows less than linearly with load, so weight transfer and bumps don't snap the car around
     const N = w.Nt * Math.max(0, AY.dot(w.n)), N0 = CAR.N0[k];
-    w.N = N; w.mu = gs.mu * tn.mu[gs.surf];
+    w.N = N; w.mu = gs.mu * tn.mu[gs.surf] * Cond.mu[gs.surf];
     w.Fmax = w.mu * N0 * Math.pow(Math.min(N / N0, 3), 0.85);
     if (SB.on) w.Fmax *= 1 - Math.min(0.35, Math.abs(SB.camber[k]) * 1.5);      // a leaning wheel stands on its edge
     w.rr = gs.rr * N * CAR.radius;                      // rolling resistance torque (N·m)
@@ -10578,15 +10720,16 @@ const LIVERIES = [
 /** The atlas texture for a car's works livery. */
 const LIV_CACHE = new Map();
 function liveryAtlas(body, num, decal) {
-  const key = body + ':' + num + ':' + (decal || 0);
+  const key = body + ':' + num + ':' + (decal || 0) + ':' + liveryKey(body);
   if (LIV_CACHE.has(key)) return LIV_CACHE.get(key);
-  const L = LIVERIES[body], F = liveryFrame(body);
+  const L = LIVERIES[body], F = liveryFrame(body), CL = customLivery(body);
   const tex = makeCanvas(LIV.W, 2 * LIV.S + LIV.T, (c) => {
     for (const side of [0, 1, 'top']) {
       const P = liveryPainter(c, F, side);
       c.save(); c.beginPath(); c.rect(0, side === 'top' ? 2 * LIV.S : side * LIV.S, LIV.W, side === 'top' ? LIV.T : LIV.S); c.clip();
-      P.fill(L.base);
-      if (side === 'top') { if (L.top) L.top(P, num); } else L.side(P, num);
+      P.fill(CL && CL.plain ? CL.plain : L.base);
+      if (!(CL && CL.plain)) { if (side === 'top') { if (L.top) L.top(P, num); } else L.side(P, num); }
+      if (CL) drawLiveryLayers(c, CL, side);
       if (decal && side !== 'top') { c.translate(0, side * LIV.S); drawDecal(c, LIV.W, LIV.S, decal, '#15171b', false); }   // a chosen decal goes over the works livery's sides
       c.restore();
     }
@@ -11997,6 +12140,7 @@ function rebuildCarModel() {
   linearizeMaterials(Game.carModel.group);
   updateCarVisual(0, IDLE_CTL);
   CarDamage.reapply();
+  Cond.lamps();
 }
 function buildGhostModel(color) {
   const g = new THREE.Group();
@@ -12152,7 +12296,7 @@ const Input = {
       AudioSys.unlock();
       this.keys.add(e.code);
       if (e.repeat) return;
-      const map = { KeyR: 'reset', KeyC: 'camera', KeyE: 'gearUp', KeyQ: 'gearDown', Escape: 'pause', KeyP: 'pause', KeyM: 'mute', KeyV: 'voice', KeyG: 'ghost', KeyL: 'line', KeyH: 'hud',
+      const map = { KeyR: 'reset', KeyC: 'camera', KeyE: 'gearUp', KeyQ: 'gearDown', Escape: 'pause', KeyP: 'pause', KeyM: 'mute', KeyV: 'voice', KeyG: 'ghost', KeyL: 'line', KeyH: 'hud', KeyN: 'note',
         Enter: 'confirm', NumpadEnter: 'confirm', ArrowLeft: 'navLeft', ArrowRight: 'navRight', KeyA: 'navLeft', KeyD: 'navRight',
         ArrowUp: 'navUp', ArrowDown: 'navDown', KeyW: 'navUp', KeyS: 'navDown' };
       if ((e.code === 'Enter' || e.code === 'NumpadEnter') && e.target && e.target.matches && e.target.matches('button')) return;   // the button's own click handles it
@@ -12385,6 +12529,15 @@ const Cam = {
       this.look.set(P.x + this.yawDir.x * 3.5, this.carY + 1.1, P.z + this.yawDir.z * 3.5);
       camera.lookAt(this.look);
       fovT = 62 + Math.min(sp, 70) * 0.3;
+    } else if (this.mode === 'cockpit' && Game.carModel) {
+      _tmp2.copy(Dash.eye()).applyQuaternion(Draw.q).add(P).addScaledVector(this.lag, 0.22);   // the helmet rides the g-forces
+      camera.position.copy(_tmp2);
+      _q.copy(Draw.q).multiply(this.flipQ);
+      if (instant) this.bq.copy(_q); else this.bq.slerp(_q, 1 - Math.exp(-14 * dt));
+      camera.quaternion.copy(this.bq);
+      camera.rotateY(-clamp(car.steerAngle, -0.6, 0.6) * 0.35);                                 // eyes into the corner
+      camera.rotateX(-0.12);
+      fovT = 74 + Math.min(sp, 70) * 0.1;
     } else {
       _tmp2.set(0, 0.78, 1.25).applyQuaternion(Draw.q).add(P).addScaledVector(this.lag, 0.12);   // the driver's head moves a little with the g-forces
       camera.position.copy(_tmp2);
@@ -12397,7 +12550,7 @@ const Cam = {
     camera.fov = this.fov;
     // shake: smooth noise (a few sine waves at unrelated rates) rather than a random jump every frame, so it
     // reads the same at any frame rate: a decaying jolt from landings and hits, plus a fine rumble from the road
-    const jolt = this.shake * 0.3, hum = Math.min(0.05, this.rough * 0.06 * Math.min(1, sp / 15));
+    const jolt = this.shake * 0.3, hum = Math.min(0.05, this.rough * 0.06 * Math.min(1, sp / 15)) * (this.mode === 'cockpit' ? 0.5 : 1);
     if (jolt + hum > 0.001) {
       const t = this.t, n = (f, p) => Math.sin(t * f + p) * 0.6 + Math.sin(t * f * 2.31 + p * 1.7) * 0.4;
       camera.position.x += n(31, 0) * jolt + n(41, 1.3) * hum;
@@ -12558,7 +12711,7 @@ const AudioSys = {
       // Pace notes queue behind the current call, but never pile up: stale queued calls are dropped.
       if (interrupt || speechSynthesis.pending) speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1.3; u.pitch = 0.95; u.volume = 0.95;
+      u.rate = this.rate || 1.3; u.pitch = this.pitch || 0.95; u.volume = 0.95;
       if (this.voiceObj) u.voice = this.voiceObj;
       speechSynthesis.speak(u);
     } catch (e) { /* speech unavailable */ }
@@ -12834,6 +12987,7 @@ function buildPaceNotes() {
     if (sc.s < TR.startS + 20 || sc.s > TR.finishS - 150) continue;
     raw.push({ s: sc.s - 6, end: sc.s + 4, kind: 'section', icon: '⚑', text: sc.name });
   }
+  for (const s of CoDriver.mine(def)) if (s > TR.startS + 30 && s < TR.finishS - 80) raw.push({ s: s - 40, end: s + 10, kind: 'icon', icon: '!', text: 'CAUTION', speak: 'caution' });
   raw.push({ s: TR.finishS - 70, end: TR.finishS, kind: 'icon', icon: '▶', text: 'FLAT TO FINISH' });
   raw.sort((a, b) => a.s - b.s);
   // group near-simultaneous notes into one call ("left 3 into right 4", "jump, crater left")
@@ -12979,7 +13133,7 @@ const HUD = {
     }
     this.el.gripFill.style.width = clamp(w0.mu / 0.9 * 100, 5, 100).toFixed(0) + '%';
     this.el.driftTag.style.opacity = car.drifting && Game.state === 'racing' ? 1 : 0;
-    this.set('camVal', Cam.mode === 'chase' ? 'CHASE' : 'BUMPER');
+    this.set('camVal', Cam.mode.toUpperCase());
     const span = TR.finishS - TR.startS;
     const prog = clamp((car.s - TR.startS) / span, 0, 1);
     this.el.progFill.style.width = (prog * 100).toFixed(2) + '%';
@@ -12990,7 +13144,9 @@ const HUD = {
     const rp = Rival.progress();
     this.el.progRival.classList.toggle('hidden', rp === null);
     if (rp !== null) this.el.progRival.style.left = (clamp((rp - TR.startS) / span, 0, 1) * 100).toFixed(2) + '%';
-    this.setHTML('infoBox', Rally.active ? `RALLY <b>${Rally.stage + 1}/${RALLY_STAGES}</b><br>TOTAL <b>${fmtTime(Rally.total + Rally.servicePen + Game.time)}</b>` : '');
+    const rg = RivalGap.html();
+    this.setHTML('infoBox', (Rally.active ? `${Rally.title} <b>${Rally.stage + 1}/${Rally.list.length}</b><br>TOTAL <b>${fmtTime(Rally.total + Rally.servicePen + Game.time)}</b>` : Game.recce ? 'RECCE <b>60 KM/H</b>' : '') +
+      (Raid.on ? `<br>FUEL <b>${Raid.fuel.toFixed(1)} L</b> TYRES <b>${Math.round((1 - Raid.wear) * 100)}%</b>` : '') + (rg ? (Rally.active || Game.recce ? '<br>' : '') + rg : ''));
     this.set('cpLabel', Game.nextGate >= TR.gates.length - 1 ? 'FINISH' : 'CP ' + Game.nextGate + '/' + (TR.gates.length - 1));
     this.set('timer', fmtTime(Game.time));
     this.set('penalty', Game.penalty > 0 ? '+' + Game.penalty.toFixed(0) + 's PENALTY' : '');
@@ -13171,11 +13327,9 @@ function copyText(text, what, btn) {
 }
 
 /* ---- rally mode: every stage back to back, damage carries over, service between stages ---- */
-const Rally = { active: false, stage: 0, total: 0, results: [], damage: 0, servicePen: 0, serviced: false, done: false, isBest: false };
-function startRally() {
-  Object.assign(Rally, { active: true, stage: 0, total: 0, results: [], damage: 0, servicePen: 0, serviced: false, done: false, isBest: false });
-  if (Game.def === STAGES[0]) openService(); else loadStage(0, openService);
-}
+const Rally = { active: false, kind: 'rally', title: 'RALLY', list: [], cond: [], stage: 0, total: 0, results: [], damage: 0, servicePen: 0, svcUsed: 0, svcMin: 30,
+  serviced: false, done: false, isBest: false, field: [], place: 0, diff: 1, ev: null };
+function startRally() { startEvent({ kind: 'rally', title: 'RALLY', list: STAGES.map((d, i) => i).slice(0, RALLY_STAGES), svcMin: 30 }); }
 function currentSetup() {
   const st = Store.data.setups[Game.stageIdx];
   return Object.assign({}, DEFAULT_SETUP, st && typeof st === 'object' ? st : {});
@@ -13197,12 +13351,18 @@ const Service = {
     const rb = document.getElementById('svcRally');
     rb.classList.toggle('hidden', !Rally.active);
     if (Rally.active) {
-      const cost = Math.round(Rally.damage * 100 * 0.4);
-      rb.innerHTML = `RALLY STAGE <b>${Rally.stage + 1}/${RALLY_STAGES}</b> · TOTAL <b>${fmtTime(Rally.total + Rally.servicePen)}</b>` +
+      rb.innerHTML = `${Rally.title} · STAGE <b>${Rally.stage + 1}/${Rally.list.length}</b> · TOTAL <b>${fmtTime(Rally.total + Rally.servicePen)}</b>` +
+        (Rally.kind !== 'rally' && Rally.kind !== 'weekly' && Rally.stage ? ` · <b>${ordinal(Rally.place)}</b>` : '') +
         (Rally.servicePen ? ` · SERVICE PENALTY <b>+${Rally.servicePen}s</b>` : '') +
-        `<br>DAMAGE AFTER THE CREW'S FREE 40% REPAIR: <b>${Math.round(Rally.damage * 100)}%</b>` +
-        (Rally.damage > 0.005 ? ` <button class="mini" id="svcRepair">FULL REPAIR  +${cost}s</button>` : ' · CAR IS PRISTINE');
+        ` · DAMAGE <b>${Math.round(car.damage * 100)}%</b>` + (Raid.on ? ` · FUEL <b>${Math.round(Raid.fuel)} L</b> · TYRES <b>${Math.round((1 - Raid.wear) * 100)}%</b>` : '') + Repairs.html();
     }
+    const fixed = Rally.active && Rally.cond[Rally.stage], cd = fixed || Cond.pick();
+    document.getElementById('svcCond').innerHTML = (fixed ? `<div class="setrow"><span>CONDITIONS</span><div class="seg"><button class="on">${WEATHER_NAMES[cd.w]} · ${cd.t.toUpperCase()}</button></div><em>Set by the event.</em></div>` :
+      `<div class="setrow"><span>WEATHER</span><div class="seg">${WEATHERS.map((w) => `<button data-cw="${w}" class="${cd.w === w ? 'on' : ''}">${WEATHER_NAMES[w]}</button>`).join('')}</div><em>${{ clear: 'Dry.', rain: 'Wet all the way: tarmac loses about a third of its grip, gravel much less.', fog: 'Fog: you see 150 m, so trust the notes.', snow: 'Snow falling: slippery tarmac and gravel.', changing: 'Dry at the start; rain (or snow, high up) sets in partway along the stage.' }[cd.w]}</em></div>` +
+      `<div class="setrow"><span>TIME</span><div class="seg">${TIMES.map((t) => `<button data-ct="${t}" class="${cd.t === t ? 'on' : ''}">${t.toUpperCase()}</button>`).join('')}</div><em>${{ day: 'Daylight.', dusk: 'The sun low and in your eyes; headlights on.', night: 'Dark: the headlights and a light pod show the road.' }[cd.t]}</em></div>`);
+    const rc = Store.data.recce && Store.data.recce[def.id], mine = CoDriver.mine(def).length;
+    document.getElementById('svcRecce').classList.toggle('hidden', Rally.active);
+    document.getElementById('svcRecce').innerHTML = (rc ? 'RECCE AGAIN' : 'RECCE') + (mine ? ` (${mine} NOTES)` : '') + ' &#9656;';
     document.getElementById('svcBack').textContent = Rally.active ? '\u25C2 ABANDON RALLY' : '\u25C2 STAGES';
     const gb = Store.data.garage;
     document.getElementById('svcRide').innerHTML = piBadge(ratingsFor(gb, su), true) + ' ' + GARAGE.pilot.opts[gb.pilot].name + ' · ' + rideSummary(gb) + ' <em>(PI with this setup)</em>';
@@ -13211,7 +13371,8 @@ const Service = {
 function openService() {
   for (const id of ['menu', 'home', 'garage', 'pause', 'finish', 'settings']) document.getElementById(id).classList.add('hidden');
   Settings.from = null;
-  if (Rally.active && !Rally.serviced) { Rally.damage = Math.max(0, Rally.damage - 0.4); Rally.serviced = true; }
+  if (Rally.active && !Rally.serviced) { Rally.serviced = true; Rally.svcUsed = 0; Rally.servicePen = 0; }
+  Game.recce = false;
   Game.state = 'service';
   HUD.show(false);
   resetRunState();
@@ -13289,9 +13450,11 @@ function aiControl(skill, stopping) {
   return c;
 }
 const IDLE_CTL = { steer: 0, throttle: 0, brake: 0, handbrake: true };
+const RECCE_CTL = { steer: 0, throttle: 0, brake: 0, handbrake: false };
 function chooseControls() {
   const st = Game.state;
   if (Game.forceCtl && st === 'racing') return Game.forceCtl;
+  if (st === 'racing' && Game.recce && !Game.autopilot) { const c = Input.ctl; RECCE_CTL.steer = c.steer; RECCE_CTL.brake = c.brake; RECCE_CTL.handbrake = c.handbrake; RECCE_CTL.throttle = car.speed > Recce.LIMIT ? 0 : c.throttle * clamp((Recce.LIMIT - car.speed) / 3, 0, 1); return RECCE_CTL; }
   if (st === 'racing') return Game.autopilot ? aiControl(0.97, false) : Input.ctl;
   if (st === 'countdown' || st === 'service' || st === 'garage') return IDLE_CTL;
   if (st === 'finished') return aiControl(1, true);
@@ -13312,6 +13475,11 @@ const CarDamage = {
     Object.assign(car.zones, { f: 0, r: 0, l: 0, rt: 0 }); car.pull = 0; car.heat = 0; car.dents.length = 0; car.glassBroken = false;
     car.warned = {};
     SB.repair();
+    this.restoreMesh();
+    this.glass(false);
+  },
+  /** The body back to its undented shape (the dents list is kept: reapply puts any left back on). */
+  restoreMesh() {
     const M = Game.carModel;
     if (!M || !M.shell) return;
     for (const o of M.shell.children) {
@@ -13322,7 +13490,6 @@ const CarDamage = {
       o.geometry.attributes.position.array.set(u.orig); o.geometry.attributes.position.needsUpdate = true;
       if (u.norig) { o.geometry.attributes.normal.array.set(u.norig); o.geometry.attributes.normal.needsUpdate = true; }
     }
-    this.glass(false);
   },
   /** A hit (event ev) worth `amt` of damage: charge it to the corner it landed on, dent the body there. Returns true if it broke the glass. */
   hit(ev, amt) {
@@ -13668,13 +13835,14 @@ function updateNotes() {
   const lead = clamp(car.speed * 3.0, 75, 190);
   let spoken = '';
   while (Game.noteIdx < notes.length && notes[Game.noteIdx].s - car.s < lead) {
-    const g = notes[Game.noteIdx++];
+    let g = notes[Game.noteIdx++];
     if (g.end < car.s) continue;
+    g = CoDriver.call(g);
     Game.noteQueue.push(g);
     spoken += (spoken ? ', ' : '') + g.speak;
   }
-  if (spoken) { AudioSys.radio(); AudioSys.speak(spoken); }
-  while (Game.noteQueue.length && Game.noteQueue[0].end + 6 < car.s) Game.noteQueue.shift();
+  if (spoken && !Raid.on) { AudioSys.radio(); CoDriver.voice(); AudioSys.speak(spoken); }
+  while (Game.noteQueue.length && Game.noteQueue[0].end + 6 < car.s) CoDriver.passed(Game.noteQueue.shift());
   HUD.showNotes(Game.noteQueue[0] || null, Game.noteQueue[1] || null);
 }
 function rearmNotes() {
@@ -13699,7 +13867,9 @@ function passGate(g) {
   if (g.finish) { finishRace(); return; }
   setGateColors(Game.nextGate);
   AudioSys.chime(delta <= 0);
-  HUD.message('CHECKPOINT ' + (g.idx + 1), fmtTime(Game.time) + '   ' + fmtDelta(delta), delta <= 0 ? '#3dff8a' : '#ff4d5e', 2.2);
+  const rv = RivalGap.at(g.s);
+  HUD.message('CHECKPOINT ' + (g.idx + 1), fmtTime(Game.time) + '   ' + fmtDelta(delta) + (rv != null ? '   ' + (Rival.name || 'RIVAL') + ' ' + fmtDelta(Game.time - rv) : ''), delta <= 0 ? '#3dff8a' : '#ff4d5e', 2.2);
+  if (best && !Raid.on) CoDriver.react(delta < -0.5 ? 'up' : delta > 1.5 ? 'down' : null);
 }
 function missGate(g) {
   Game.stats.resets.push('miss@' + car.s.toFixed(0) + ' d=' + car.d.toFixed(1));
@@ -13803,6 +13973,7 @@ function medalFor(t, T = TR.targetTime) {
   return null;
 }
 function finishRace() {
+  if (Game.recce) { Recce.finish(); return; }
   Game.state = 'finished'; Game.finishT = 0; Game.finishShown = false;
   const def = TR.def, t = Game.time;
   setGateColors(999);
@@ -13812,14 +13983,18 @@ function finishRace() {
   Game.result = { time: t, penalty: Game.penalty, damage: car.damage, splits: Game.splits.slice(), prevBest: best ? best.time : null, prevSplits: best ? best.splits : null, isBest, ghost: Ghost.rec.slice() };
   if (isBest) Store.data.best[def.id] = { time: +t.toFixed(3), splits: Game.splits.map((v) => +v.toFixed(3)), ghost: Ghost.pack() };
   addBoardEntry(def.id, { n: cleanName(Store.data.settings.name) || 'DRIVER', t: +t.toFixed(3), own: true, d: new Date().toISOString().slice(0, 10) });
+  Live.finished(t);
   if (Rally.active) {
     Rally.results.push({ name: def.name, time: t, service: Rally.servicePen, dmg: car.damage });
     Rally.total += t + Rally.servicePen; Rally.servicePen = 0; Rally.damage = car.damage; Rally.serviced = false;
-    if (Rally.stage >= RALLY_STAGES - 1) {
+    Events.stageDone(t);
+    if (Rally.stage >= Rally.list.length - 1) {
       Rally.done = true;
-      const rb = Store.data.rallyBest;
-      Rally.isBest = !rb || Rally.total < rb.total;
-      if (Rally.isBest) Store.data.rallyBest = { total: +Rally.total.toFixed(3), stages: Rally.results.map((q) => +q.time.toFixed(3)), n: cleanName(Store.data.settings.name), count: RALLY_STAGES };
+      if (Rally.kind === 'rally') {
+        const rb = Store.data.rallyBest;
+        Rally.isBest = !rb || Rally.total < rb.total;
+        if (Rally.isBest) Store.data.rallyBest = { total: +Rally.total.toFixed(3), stages: Rally.results.map((q) => +q.time.toFixed(3)), n: cleanName(Store.data.settings.name), count: RALLY_STAGES };
+      } else Events.done();
     }
   }
   Store.save();
@@ -13833,10 +14008,14 @@ function showFinish() {
   const r = Game.result, def = TR.def;
   const m = medalFor(r.time);
   document.getElementById('finStage').textContent = def.name.toUpperCase() + ' · ' + stageCode(def);
+  document.querySelector('#finish h2').textContent = r.recce ? 'RECCE DONE' : 'STAGE COMPLETE';
+  document.getElementById('replayBtn').classList.toggle('hidden', !r.ghost || r.ghost.length < 18);
   document.getElementById('finTime').textContent = fmtTime(r.time);
-  let verdict = r.isBest ? (r.prevBest ? 'NEW BEST  ' + fmtDelta(r.time - r.prevBest) : 'FIRST CLEAR') : 'BEST ' + fmtTime(r.prevBest) + '  (' + fmtDelta(r.time - r.prevBest) + ')';
+  let verdict = r.recce ? "CO-DRIVER'S NOTES CHECKED · " + CoDriver.mine(def).length + ' OF YOUR OWN' : r.isBest ? (r.prevBest ? 'NEW BEST  ' + fmtDelta(r.time - r.prevBest) : 'FIRST CLEAR') : 'BEST ' + fmtTime(r.prevBest) + '  (' + fmtDelta(r.time - r.prevBest) + ')';
+  if (Live.on() && Live.peerFin != null) verdict += ` · ${esc(Live.name)} ${fmtTime(Live.peerFin)} (${r.time <= Live.peerFin ? 'YOU WIN' : 'YOU LOSE'})`;
+  else if (Live.on()) verdict += ` · ${esc(Live.name)} STILL DRIVING`;
   const v = document.getElementById('finVerdict');
-  v.innerHTML = (m ? `<span class="medal" style="background:${m.color}"></span>${m.name} · ` : '') + verdict;
+  v.innerHTML = (m && !r.recce ? `<span class="medal" style="background:${m.color}"></span>${m.name} · ` : '') + verdict;
   v.style.color = r.isBest ? 'var(--good)' : 'var(--text)';
   document.getElementById('finMeta').textContent = 'TARGET ' + fmtTime(TR.targetTime) + ' · PENALTIES +' + r.penalty.toFixed(0) + 's · DAMAGE ' + Math.round(r.damage * 100) + '%';
   let rows = '';
@@ -13847,7 +14026,7 @@ function showFinish() {
   });
   document.getElementById('finSplits').innerHTML = `<tr><td>SPLIT</td><td>TIME</td><td>${r.prevSplits ? 'VS BEST' : 'VS TARGET'}</td></tr>` + rows;
   const nextBtn = document.getElementById('nextBtn');
-  nextBtn.classList.toggle('hidden', Rally.active ? Rally.done : Game.stageIdx >= RALLY_STAGES - 1);   // (not on into the test park)
+  nextBtn.classList.toggle('hidden', Rally.active ? Rally.done : Game.stageIdx >= RALLY_STAGES - 1 || !!r.recce || Live.on());   // (not on into the test park)
   nextBtn.innerHTML = Rally.active ? 'SERVICE PARK &#9656;' : 'NEXT STAGE &#9656;';
   document.getElementById('retryBtn').classList.toggle('hidden', Rally.active);
   document.getElementById('finMenuBtn').textContent = Rally.active && !Rally.done ? 'ABANDON RALLY' : 'STAGE SELECT';
@@ -13855,10 +14034,14 @@ function showFinish() {
   fr.classList.toggle('hidden', !Rally.active);
   if (Rally.active) {
     const rb = Store.data.rallyBest;
-    fr.innerHTML = (Rally.done ? `<b style="color:var(--accent)">RALLY COMPLETE</b> · ` : `RALLY STAGE <b>${Rally.stage + 1}/${RALLY_STAGES}</b> · `) +
-      `TOTAL <b>${fmtTime(Rally.total)}</b>` + (Rally.done ? (Rally.isBest ? ' · <b style="color:var(--good)">NEW RALLY RECORD</b>' : ` · RECORD <b>${fmtTime(rb.total)}</b>`) : '') + '<br>' +
+    const rec = Rally.kind === 'rally' ? rb : Rally.kind === 'climb' ? Store.data.climbBest : Rally.kind === 'raid' ? Store.data.raidBest : null;
+    fr.innerHTML = (Rally.done ? `<b style="color:var(--accent)">${Rally.title} COMPLETE</b> · ` : `${Rally.title} · STAGE <b>${Rally.stage + 1}/${Rally.list.length}</b> · `) +
+      `TOTAL <b>${fmtTime(Rally.total)}</b>` + (Rally.kind !== 'rally' ? ` · <b>${ordinal(Rally.place)}</b>` : '') +
+      (Rally.done && Rally.kind === 'career' ? ` · PRIZE <b>$${(Rally.prize || 0).toLocaleString('en-US')}</b>` : '') +
+      (Rally.done && Rally.kind === 'weekly' ? ` · <b>${POINTS[Rally.place - 1] || 0} POINTS</b>` : '') +
+      (Rally.done && rec ? (Rally.isBest ? ' · <b style="color:var(--good)">NEW RECORD</b>' : ` · RECORD <b>${fmtTime(rec.total)}</b>`) : '') + '<br>' +
       Rally.results.map((q, i) => `SS${i + 1} ${esc(q.name.toUpperCase())} <b>${fmtTime(q.time)}</b>${q.service ? ' +' + q.service + 's service' : ''}`).join('<br>') +
-      (Rally.done ? '' : `<br>DAMAGE CARRIED TO SERVICE: <b>${Math.round(Rally.damage * 100)}%</b>`);
+      (Rally.done ? '' : `<br>DAMAGE CARRIED TO SERVICE: <b>${Math.round(Rally.damage * 100)}%</b>`) + Events.table();
   }
   document.getElementById('finBoard').innerHTML = boardHTML(def, r.time);
   document.getElementById('finish').classList.remove('hidden');
@@ -13924,7 +14107,8 @@ function resetRunState() {
   Object.assign(Game, { time: 0, penalty: 0, nextGate: 0, lastCP: -1, splits: [], pendingReset: null, noteIdx: 0, noteQueue: [], clock: 0, prevS: 0,
     finishShown: false, acc: 0, goT: 0, result: null, stats: { resets: [] } });
   car.damage = Rally.active ? Rally.damage : 0;
-  if (!Rally.active || !Rally.damage) CarDamage.reset();
+  if (!Rally.active) CarDamage.reset();
+  Raid.empty = false; Raid.low = false;
   Breakables.reset(); Debris.clear(); Game.hitStop = 0;
   Ghost.startRun(); Rival.startRun();
   HUD.el.delta.textContent = ''; HUD.el.delta.className = '';
@@ -13934,7 +14118,10 @@ function resetRunState() {
 function enterMenu(screen) {
   if (screen === 'home' || screen === 'stages') Menu.screen = screen;
   Game.state = 'menu';
-  Rally.active = false;
+  Rally.active = false; Raid.on = false; Game.recce = false;
+  if (Photo.prev) { Photo.prev = null; document.getElementById('photo').classList.add('hidden'); }
+  document.getElementById('hub').classList.add('hidden');
+  if (Cond.weather !== 'clear' || Cond.time !== 'day') Cond.reset();
   setCarTune(tuneFor(DEFAULT_SETUP, Store.data.garage));
   camera.clearViewOffset();
   for (const id of ['pause', 'finish', 'service', 'garage', 'settings']) document.getElementById(id).classList.add('hidden');
@@ -13956,6 +14143,8 @@ function startRace() {
   placeCar(TR.startS - 6, 0, 0);
   AI.line = 0;
   Game.state = 'countdown'; Game.countdown = 3.2; Game.lastCount = 4;
+  Cond.apply(Rally.active ? Rally.cond[Rally.stage] : null);
+  document.getElementById('noteBtn').classList.toggle('hidden', !Game.recce);
   Tilt.recentre(false);
   HUD.show(true);
   HUD.el.countdown.textContent = '';
@@ -13994,15 +14183,15 @@ function toggleSetting(k) {
   Menu.refresh();
 }
 function toggleCamera() {
-  Cam.mode = Cam.mode === 'chase' ? 'bumper' : 'chase';
+  Cam.mode = Cam.mode === 'chase' ? 'cockpit' : Cam.mode === 'cockpit' ? 'bumper' : 'chase';
   Store.data.settings.cam = Cam.mode; Store.save();
   Cam.snap(); Menu.refresh();
-  HUD.toast(Cam.mode === 'chase' ? 'CHASE CAM' : 'BUMPER CAM');
+  HUD.toast(Cam.mode.toUpperCase() + ' CAM');
 }
 
 function goNext() {
   document.getElementById('finish').classList.add('hidden');
-  if (Rally.active) { if (!Rally.done) { Rally.stage++; loadStage(Rally.stage, openService); } return; }
+  if (Rally.active) { if (!Rally.done) { Rally.stage++; loadStage(resolveStage(Rally.list[Rally.stage]), openService); } return; }
   if (Game.stageIdx < RALLY_STAGES - 1) loadStage(Game.stageIdx + 1, openService);
 }
 function handleActions() {
@@ -14017,9 +14206,12 @@ function handleActions() {
       case 'ghost': toggleSetting('ghost'); break;
       case 'line': cycleLine(); break;
       case 'hud': toggleHud(); break;
+      case 'note': Recce.addNote(); break;
       case 'camera': if (st !== 'loading') toggleCamera(); break;
       case 'pause':
+        if (st === 'photo') { Photo.close(); break; }
         if (!document.getElementById('modal').classList.contains('hidden')) Modal.close();
+        else if (!document.getElementById('hub').classList.contains('hidden')) Hub.close();
         else if (Settings.from) Settings.back();
         else if (st === 'racing' || st === 'countdown') pauseGame(); else if (st === 'paused') resumeGame(); else if (st === 'service') enterMenu();
         else if (st === 'garage') Garage.close(); else if (st === 'menu' && Menu.screen === 'stages') enterMenu('home');
@@ -14041,6 +14233,7 @@ function handleActions() {
         else if (st === 'finished' && Game.finishShown) { if (Rally.active) { if (!Rally.done) goNext(); else enterMenu(); } else startRace(); }
         break;
       case 'back':
+        if (st === 'photo') { Photo.close(); break; }
         if (!document.getElementById('modal').classList.contains('hidden')) { Modal.close(); break; }
         if (Settings.from) { Settings.back(); break; }
         if (st === 'paused') resumeGame();
@@ -14052,7 +14245,7 @@ function handleActions() {
       case 'navUp': case 'navDown': {
         const d = a === 'navUp' ? -1 : 1;
         if (Settings.from) Settings.nav(d);
-        else if (st === 'menu' && Menu.screen === 'home') { Menu.homeIdx = (Menu.homeIdx + d + 4) % 4; Menu.refresh(); }
+        else if (st === 'menu' && Menu.screen === 'home') { Menu.homeIdx = (Menu.homeIdx + d + 5) % 5; Menu.refresh(); }
         else if (st === 'menu' && Menu.screen === 'stages') { const n = stageStep(Game.stageIdx, d); if (n !== Game.stageIdx) loadStage(n, enterMenu); }
         else if (st === 'paused') { const n = Menu.pauseItems().length; Menu.pauseIdx = (Menu.pauseIdx + d + n) % n; Menu.refresh(); }
         else if (st === 'garage') Garage.setTab(Garage.tab + d);
@@ -14414,6 +14607,7 @@ const Garage = {
   },
   close() {
     camera.clearViewOffset();
+    if (!document.getElementById('livEd').classList.contains('hidden')) LiveryEd.close();
     document.getElementById('garage').classList.add('hidden');
     enterMenu(this.from);
   },
@@ -14550,7 +14744,7 @@ const Settings = {
   activate(sideways) { if (this.view !== 'list') { if (!sideways) this.back(); return; } const r = this.rows()[this.idx]; if (r) this.toggle(r.dataset.set, sideways); },
   refresh() {
     const s = Store.data.settings;
-    const on = { manual: !!s.manual, abs: s.abs !== false, tc: s.tc !== false, cam: Cam.mode === 'bumper', soft: s.soft !== false, ghost: !!s.ghost, post: Post.enabled(), sound: !s.muted, voice: !!s.voice, tilt: !!s.tilt };
+    const on = { manual: !!s.manual, abs: s.abs !== false, tc: s.tc !== false, cam: false, soft: s.soft !== false, ghost: !!s.ghost, post: Post.enabled(), sound: !s.muted, voice: !!s.voice, tilt: !!s.tilt };
     this.rows().forEach((r, i) => { r.classList.toggle('on', !!on[r.dataset.set]); r.classList.toggle('sel', i === this.idx); });
     document.getElementById('setList').classList.toggle('hidden', this.view !== 'list');
     document.getElementById('setControls').classList.toggle('hidden', this.view !== 'controls');
@@ -14558,6 +14752,7 @@ const Settings = {
     const nameIn = document.getElementById('nameInput');
     if (document.activeElement !== nameIn) nameIn.value = s.name || 'DRIVER';
     document.getElementById('lineMode').textContent = LINE_NAMES[s.line || 'full'];
+    document.getElementById('camMode').textContent = Cam.mode.toUpperCase();
     document.getElementById('hudMode').textContent = s.hud === 'full' ? 'FULL' : 'MINIMAL';
     document.getElementById('tiltMode').textContent = TILT_SENS[Tilt.sensIdx()].name;
     document.getElementById('stabMode').textContent = STAB[stabMode()].name;
@@ -14582,11 +14777,12 @@ const Settings = {
 const Menu = {
   screen: 'home', homeIdx: 0, pauseIdx: 0, sdTab: 'board',
   homeGo(i) {
-    const go = ['play', 'rally', 'garage', 'settings'][i];
+    const go = ['play', 'rally', 'events', 'garage', 'settings'][i];
     if (Game.state !== 'menu') return;
     this.homeIdx = i;
     if (go === 'play') enterMenu('stages');
     else if (go === 'rally') startRally();
+    else if (go === 'events') Hub.open();
     else if (go === 'garage') Garage.open('home');
     else Settings.open('home');
   },
@@ -14678,9 +14874,18 @@ const Menu = {
       Store.data.setups[Game.stageIdx] = su; Store.save(); Service.render();
     });
     document.getElementById('svcRally').addEventListener('click', (e) => {
-      if (!e.target.closest('#svcRepair')) return;
-      Rally.servicePen += Math.round(Rally.damage * 100 * 0.4); Rally.damage = 0; car.damage = 0; CarDamage.reset(); Service.render();
+      const b = e.target.closest('[data-fix]'); if (!b) return;
+      Repairs.apply(b.dataset.fix); Service.render();
     });
+    document.getElementById('svcCond').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-cw],[data-ct]'); if (!b) return;
+      const c = Store.data.cond = Object.assign(Cond.pick(), Store.data.cond);
+      if (b.dataset.cw) c.w = b.dataset.cw; else c.t = b.dataset.ct;
+      Store.save(); Service.render();
+    });
+    on('svcRecce', () => { if (Game.state === 'service' && !Rally.active) { document.getElementById('service').classList.add('hidden'); Recce.start(); } });
+    on('pausePhoto', () => { if (Game.state === 'paused') Photo.open(null); });
+    on('replayBtn', () => { if (Game.state === 'finished' && Game.result) Photo.open(Game.result.ghost); });
     on('svcRec', () => { Store.data.setups[Game.stageIdx] = Object.assign({}, RECOMMENDED[Game.stageIdx]); Store.save(); Service.render(); });
     on('svcGo', () => { if (Game.state === 'service') leaveService(); });
     on('svcBack', () => enterMenu('stages'));
@@ -14712,7 +14917,7 @@ const Menu = {
       document.getElementById('sdBanner').style.backgroundImage = `url(${stageArt(def, 800, 140)})`;
       document.getElementById('sdName').textContent = def.name;
       const w = stageWorld(STAGES[Game.stageIdx]), menu = document.getElementById('menu');
-      ['space', 'earth', 'test'].forEach((k) => menu.classList.toggle('w-' + k, k === w));
+      ['space', 'earth', 'climb', 'test'].forEach((k) => menu.classList.toggle('w-' + k, k === w));
       document.getElementById('sdRegion').innerHTML = `<span class="sd-world">${w.toUpperCase()}</span>`;
       document.getElementById('sdRegion').append(def.region);
       document.getElementById('sdBlurb').textContent = def.blurb;
@@ -14720,6 +14925,7 @@ const Menu = {
         ['CORNERS', here ? TR.corners.length : '—'], ['LENGTH', here ? ((TR.finishS - TR.startS) / 1000).toFixed(2) + ' KM' : '~' + (def.length / 1000).toFixed(1) + ' KM'],
         ['SURFACE', surfLabel(def)], ['CHECKPOINTS', here ? TR.gates.length - 1 : def.checkpoints],
         ['TARGET', tgt ? fmtTime(tgt) : '—'], ['YOUR BEST', b ? fmtTime(b.time) : '—'],
+        ...(Store.data.rival[def.id] && Rival.play && Rival.time != null && TR && TR.def === def ? [['RIVAL ' + (Rival.name || ''), fmtTime(Rival.time) + (b ? ' (' + fmtDelta(b.time - Rival.time) + ')' : '')]] : []),
       ].map(([k, v]) => `<div>${k}<b>${v}</b></div>`).join('');
     }
     document.querySelectorAll('#sdTabs [data-tab]').forEach((t) => t.classList.toggle('on', t.dataset.tab === this.sdTab));
@@ -14769,6 +14975,928 @@ const Post = {
 /* ---- main loop ---- */
 let lastT = performance.now();
 // Adaptive resolution: drop the pixel ratio when frames run long, creep back up when they don't.
+/* =============================================================================
+   18. CONDITIONS, CREW AND CAMERAS
+   Weather and time of day, the raid's fuel and tyres, the co-driver (recce, own notes, the odd wrong call), the
+   service crew's time, photo mode with replays, the cockpit's dash and the livery editor.
+   ============================================================================= */
+const WEATHERS = ['clear', 'rain', 'fog', 'snow', 'changing'];
+const WEATHER_NAMES = { clear: 'CLEAR', rain: 'RAIN', fog: 'FOG', snow: 'SNOW', changing: 'CHANGING' };
+const TIMES = ['day', 'dusk', 'night'];
+// grip in the wet or under falling snow, per surface (regolith, ice, metal, gravel, tarmac, snow): wet tarmac loses
+// about a third, wet gravel binds and loses little, fresh snow over tarmac and gravel is close to packed snow
+const WET_MU = { rain: [0.9, 0.85, 0.7, 0.92, 0.7, 0.95], snow: [0.88, 1, 0.72, 0.8, 0.6, 1], fog: [1, 1, 0.96, 0.98, 0.95, 1] };
+const _fogGrey = new THREE.Color(0.62, 0.65, 0.68), _fogNight = new THREE.Color(0.03, 0.035, 0.05);
+const Cond = {
+  weather: 'clear', time: 'day', kind: 'clear', k: 0, onset: 0, said: false, skyKey: null, base: null,
+  mu: new Float32Array(6).fill(1),               // grip per surface (weather × tyre wear), read by the tyres
+  /** The run's conditions: an event's own, or the ones picked in the service park. */
+  pick() { const c = Store.data.cond || {}; return { w: WEATHERS.includes(c.w) ? c.w : 'clear', t: TIMES.includes(c.t) ? c.t : 'day' }; },
+  apply(force) {
+    const c = force || this.pick(), def = TR.def;
+    this.weather = c.w; this.time = c.t;
+    const snowy = def.surf.base === SURF.SNOW || def.surf.off === SURF.SNOW || (def.altitude && def.altitude[1] > 3000);
+    this.kind = c.w === 'changing' ? (snowy ? 'snow' : 'rain') : c.w;
+    this.onset = c.w === 'changing' ? 0.28 + 0.2 * new RNG(def.seed + Game.runCount * 31).next() : 0;
+    this.k = c.w === 'clear' || c.w === 'changing' ? 0 : 1; this.said = false;
+    this.lighting();
+  },
+  reset() { this.weather = 'clear'; this.time = 'day'; this.kind = 'clear'; this.k = 0; this.lighting(); },
+  /** Dusk and night: the stage's own sky with the sun low, or set and the moon up over a starfield. */
+  skyFor(def) {
+    const s = def.sky;
+    if (this.time === 'dusk') return Object.assign({}, s, { day: true, sunDir: [s.sunDir[0], 0.07, s.sunDir[2]], sunColor: 0xff9a5c, sunIntensity: s.sunIntensity * 0.55, sunSize: 1.3,
+      zenith: [0.1, 0.12, 0.28], horizon: [0.78, 0.48, 0.36], fog: s.fog });
+    return Object.assign({}, s, { day: false, sunDir: [0.35, 0.55, -0.4], sunColor: 0xb4c4e8, sunIntensity: 0.09, sunSize: 0.55, stars: 1,
+      nebA: [0.03, 0.04, 0.1], nebB: [0.05, 0.03, 0.09], nebStrength: 0.18, band: [0.3, 1, 0.2], horizon: [0.03, 0.035, 0.05], fog: s.fog ? [s.fog[0] * 0.4, s.fog[1] * 0.35] : [150, 1600] });
+  },
+  lighting() {
+    const def = TR.def, key = def.id + ':' + this.time;
+    if (this.skyKey !== key) {
+      this.skyKey = key;
+      if (this.time === 'day') Sky.configure(def);
+      else Sky.configure(Object.assign({}, def, { sky: this.skyFor(def), hemi: this.time === 'dusk'
+        ? { sky: 0x8a7aa0, ground: def.hemi.ground, intensity: def.hemi.intensity * 0.55 } : { sky: 0x2a3a5a, ground: 0x0c0c12, intensity: 0.12 } }));
+    }
+    this.base = { sun: sunLight.intensity, hemi: hemiLight.intensity, fog: scene.fog ? [scene.fog.near, scene.fog.far] : null, col: scene.fog ? scene.fog.color.clone() : null };
+    this.lamps();
+    this.applyK();
+  },
+  /** Headlights: dipped by day, full beam at dusk, full beam plus the light pod at night. */
+  lamps() {
+    const M = Game.carModel; if (!M || !M.spot) return;
+    const sp = M.spot, n = this.time === 'night' ? 2 : this.time === 'dusk' ? 1 : 0;
+    sp.intensity = [140, 420, 900][n]; sp.distance = [75, 140, 190][n]; sp.angle = [0.5, 0.55, 0.62][n];
+  },
+  applyK() {
+    const k = this.k, b = this.base, kind = this.kind; if (!b) return;
+    const dim = kind === 'fog' ? 0.45 : kind === 'clear' ? 0 : 0.42;
+    sunLight.intensity = b.sun * (1 - dim * k); hemiLight.intensity = b.hemi * (1 - dim * 0.4 * k);
+    if (scene.fog && b.fog) {
+      const far = { fog: 150, rain: 650, snow: 380 }[kind] || b.fog[1];
+      scene.fog.far = lerp(b.fog[1], Math.min(b.fog[1], far), k); scene.fog.near = lerp(b.fog[0], Math.min(b.fog[0], far * 0.08), k);
+      scene.fog.color.copy(b.col).lerp(this.time === 'night' ? _fogNight : _fogGrey, kind === 'clear' ? 0 : k * 0.85);
+    }
+    Precip.veil(scene.fog ? scene.fog.color : _fogGrey, kind === 'clear' ? 0 : k * (kind === 'fog' ? 0.92 : 0.6));
+    const m = WET_MU[kind], g = Raid.gripMul();
+    for (let i = 0; i < 6; i++) this.mu[i] = (m ? lerp(1, m[i], k) : 1) * g;
+  },
+  update(dt) {
+    const st = Game.state;
+    if (this.weather === 'changing' && (st === 'racing' || st === 'finished')) {
+      const prog = clamp((car.s - TR.startS) / (TR.finishS - TR.startS), 0, 1), t = smoothstep(this.onset, this.onset + 0.1, prog);
+      if (Math.abs(t - this.k) > 0.002) { this.k = t; this.applyK(); }
+      if (t > 0.04 && !this.said && st === 'racing') {
+        this.said = true;
+        HUD.toast(this.kind === 'snow' ? 'SNOW FALLING · GRIP GOING' : 'RAIN · THE ROAD IS GETTING SLIPPERY', '#9fd0ff', 2.4);
+        AudioSys.speak(this.kind === 'snow' ? "it's snowing, careful now" : "rain's coming in, careful", true);
+      }
+    } else if (Raid.on) this.applyK();             // the tyres wear through the run
+    Precip.update(dt, this.kind === 'rain' || this.kind === 'snow' ? this.k : 0, this.kind);
+  },
+};
+
+/** Rain streaks and snowflakes in a box that travels with the camera, and a veil of fog over the distant sky. */
+const Precip = {
+  N: 1400, box: 44, rain: null, snow: null, pos: null, vel: null, veilMesh: null,
+  init() {
+    const N = this.N, B = this.box;
+    this.pos = new Float32Array(N * 3);
+    for (let i = 0; i < N * 3; i++) this.pos[i] = (Math.random() - 0.5) * B;
+    const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 6), 3));
+    this.rain = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: 0xb8c8dc, transparent: true, opacity: 0.32, depthWrite: false }));
+    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+    this.snow = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xf4f8ff, size: 0.09, transparent: true, opacity: 0.85, depthWrite: false }));
+    for (const m of [this.rain, this.snow]) { m.frustumCulled = false; m.visible = false; scene.add(m); }
+    // the veil sits inside the sky dome, drawn after it and before everything else (like the ring sheet)
+    this.veilMesh = new THREE.Mesh(new THREE.SphereGeometry(90, 24, 12), new THREE.MeshBasicMaterial({ color: 0x9aa4ac, side: THREE.BackSide, transparent: false,
+      blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneMinusSrcAlphaFactor, depthTest: false, depthWrite: false, fog: false, opacity: 0 }));
+    this.veilMesh.renderOrder = -8.5; this.veilMesh.frustumCulled = false; this.veilMesh.visible = false;
+    scene.add(this.veilMesh);
+  },
+  veil(col, a) { if (!this.veilMesh) return; this.veilMesh.material.color.copy(col); this.veilMesh.material.opacity = a; this.veilMesh.visible = a > 0.01; },
+  update(dt, k, kind) {
+    if (!this.rain) return;
+    this.veilMesh.position.copy(camera.position);
+    const on = k > 0.02, isRain = kind === 'rain';
+    this.rain.visible = on && isRain; this.snow.visible = on && !isRain;
+    if (!on) return;
+    const N = Math.round(this.N * clamp(k, 0.15, 1)), B = this.box, H = B / 2, P = this.pos, c = camera.position;
+    const vy = isRain ? -15 : -1.4, t = Game.clock;
+    // wind from the car's motion: the streaks lean back as it drives into them
+    const wx = -Draw.vel.x * 0.25, wz = -Draw.vel.z * 0.25;
+    for (let i = 0; i < N; i++) {
+      const j = i * 3;
+      P[j] += (isRain ? 0 : Math.sin(t * 0.7 + i) * 0.6) * dt; P[j + 1] += vy * dt; P[j + 2] += (isRain ? 0 : Math.cos(t * 0.5 + i * 1.3) * 0.6) * dt;
+      for (let a = 0; a < 3; a++) { let v = P[j + a]; if (v < -H) v += B; else if (v > H) v -= B; P[j + a] = v; }
+    }
+    if (isRain) {
+      const A = this.rain.geometry.attributes.position, R = A.array, L = 0.055;
+      for (let i = 0; i < N; i++) {
+        const j = i * 3, o = i * 6, x = c.x + P[j], y = c.y + P[j + 1], z = c.z + P[j + 2];
+        R[o] = x; R[o + 1] = y; R[o + 2] = z; R[o + 3] = x + (wx) * L; R[o + 4] = y - (15 + 0) * L; R[o + 5] = z + wz * L;
+      }
+      A.needsUpdate = true; this.rain.geometry.setDrawRange(0, N * 2);
+      this.rain.material.opacity = 0.32 * k;
+    } else {
+      const A = this.snow.geometry.attributes.position, S = A.array;
+      for (let i = 0; i < N; i++) { const j = i * 3; S[j] = c.x + P[j]; S[j + 1] = c.y + P[j + 1]; S[j + 2] = c.z + P[j + 2]; }
+      A.needsUpdate = true; this.snow.geometry.setDrawRange(0, N);
+    }
+  },
+};
+
+/* ---- the raid: fuel in the tank and rubber on the tyres, carried from leg to leg ---- */
+const Raid = {
+  on: false, fuel: 40, tank: 90, wear: 0, sets: 2, empty: false,
+  reset() { Object.assign(this, { fuel: 40, wear: 0, sets: 2, empty: false }); },
+  gripMul() { return this.on ? 1 - 0.3 * this.wear : 1; },
+  /** Out of fuel the engine coughs along on what's left in the lines. */
+  engineMul() { return this.on && this.fuel <= 0 ? 0.15 : 1; },
+  update(dt, ctl) {
+    if (!this.on || Game.state !== 'racing') return;
+    this.fuel = Math.max(0, this.fuel - (0.006 + 0.05 * ctl.throttle * clamp(car.rpm, 0, 1.05)) * dt);
+    this.wear = Math.min(1, this.wear + dt * (0.0005 + 0.0045 * clamp(car.slip || 0, 0, 1)) * (car.nGround ? 1 : 0));
+    if (this.fuel <= 0 && !this.empty) { this.empty = true; HUD.message('OUT OF FUEL', 'LIMPING ON FUMES', '#ff4d5e', 3); AudioSys.speak("we're out of fuel, keep it rolling", true); }
+    if (this.fuel < 5 && this.fuel > 0 && !this.low) { this.low = true; HUD.toast('FUEL LOW', '#ffb52e', 2); }
+  },
+};
+
+/* ---- the co-driver: three to hire (career), the odd wrong call when the notes weren't checked on a recce, and the
+   driver's own caution notes added on a recce ---- */
+const CODRIVERS = [
+  { name: 'ROOKIE', full: 'Sam Okafor', err: 0.1, pitch: 1.15, rate: 1.2, cost: 0, blurb: 'Keen, quick to talk and wrong about one call in ten.' },
+  { name: 'CLUB', full: 'Maija Lehtonen', err: 0.035, pitch: 1.05, rate: 1.3, cost: 18000, blurb: 'Ten years in national rallies. Rarely wrong.' },
+  { name: 'WORKS', full: 'Paul Rennick', err: 0.008, pitch: 0.92, rate: 1.35, cost: 70000, blurb: 'A works team regular: calm, on time, almost never wrong.' },
+];
+const CoDriver = {
+  current() { return CODRIVERS[Rally.active && Rally.kind === 'career' ? Career.data().cod : 2]; },
+  voice() { const c = this.current(); AudioSys.pitch = c.pitch; AudioSys.rate = c.rate; },
+  /** One call, as the co-driver reads it: now and then a corner one grade out (rarely after a recce). */
+  call(g) {
+    if (Game.recce || !g.head || g.head.kind !== 'corner' || !g.head.grade) return g;
+    const cd = this.current(), recced = (Store.data.recce || {})[TR.def.id];
+    const p = cd.err * (recced ? 0.12 : 1), h = (Math.imul(Math.round(g.s) * 2654435761 ^ (Game.runCount * 40503 + TR.def.seed), 1) >>> 0) / 4294967296;
+    if (h >= p) return g;
+    const real = g.head.grade, wrong = clamp(real + (h < p / 2 ? -1 : 1), 1, 6);
+    if (wrong === real) return g;
+    return Object.assign({}, g, { text: g.text.replace(/(LEFT|RIGHT) \d/, '$1 ' + wrong), speak: g.speak.replace(/(left|right) \d/, '$1 ' + wrong),
+      head: Object.assign({}, g.head, { grade: wrong }), wrong: real });
+  },
+  /** A call's corner is behind the car: own up to a wrong one. */
+  passed(g) { if (g.wrong) { AudioSys.speak('sorry, that was a ' + g.wrong, true); HUD.toast('CO-DRIVER: SORRY, THAT WAS A ' + g.wrong, '#ffd23d', 1.8); } },
+  react(kind) {
+    const lines = { up: ['good, keep it up', 'nice, we are up', 'lovely, keep pushing'], down: ['come on, push', "we're losing time", 'commit, commit'] }[kind];
+    if (lines && Math.random() < 0.5) AudioSys.speak(lines[Math.floor(Math.random() * lines.length)]);
+  },
+  /** The driver's own notes for this stage (added on a recce), called as CAUTION. */
+  mine(def) { return ((Store.data.myNotes || {})[def.id] || []).filter((s) => typeof s === 'number'); },
+};
+const Recce = {
+  LIMIT: 60 / 3.6,
+  start() { Game.recce = true; Store.data.cond = Object.assign({}, Store.data.cond, { w: 'clear' }); startRace(); HUD.message('RECCE', '60 KM/H LIMIT · N OR + NOTE MARKS A HAZARD', '#58f0ff', 3.5); },
+  addNote() {
+    if (!Game.recce || Game.state !== 'racing') return;
+    const N = Store.data.myNotes || (Store.data.myNotes = {}), L = N[TR.def.id] || (N[TR.def.id] = []);
+    if (L.some((s) => Math.abs(s - car.s) < 25)) return;
+    L.push(Math.round(car.s)); L.sort((a, b) => a - b); if (L.length > 60) L.shift();
+    Store.save(); HUD.toast('CAUTION NOTE ADDED', '#58f0ff', 1.2); AudioSys.speak('noted', true);
+  },
+  clearNotes() { const N = Store.data.myNotes; if (N) { delete N[TR.def.id]; Store.save(); } },
+  /** Recce done: the co-driver's notes are checked for this stage, and the driver's own are in. */
+  finish() {
+    Game.state = 'finished'; Game.finishT = 0; Game.finishShown = false;
+    const R = Store.data.recce || (Store.data.recce = {}); R[TR.def.id] = true; Store.save();
+    buildPaceNotes();
+    Game.result = { time: Game.time, penalty: 0, damage: car.damage, splits: [], prevBest: null, prevSplits: null, isBest: false, ghost: [], recce: true };
+    HUD.message('RECCE DONE', 'NOTES CHECKED · ' + CoDriver.mine(TR.def).length + ' OF YOUR OWN', '#58f0ff', 3);
+    AudioSys.speak('recce done, notes checked', true);
+    Game.noteQueue = []; HUD.showNotes(null, null); HUD.refreshTouch();
+  },
+};
+
+/* ---- service time: the crew's minutes between stages. Each repair takes its time; every minute over the
+   allowance costs 10 s, as in the WRC ---- */
+const Repairs = {
+  items() {
+    const Z = car.zones, out = [], m = (v) => Math.max(1, Math.round(v));
+    if (SB.on) { const w = Math.max(car.damage, Z.f, Z.r, Z.l, Z.rt); if (w > 0.02) out.push({ k: 'frame', name: 'STRAIGHTEN THE FRAME', min: m(8 + 34 * w) }); }
+    else {
+      if (Z.f > 0.02) out.push({ k: 'f', name: 'RADIATOR & FRONT', min: m(4 + 12 * Z.f) });
+      if (Z.r > 0.02) out.push({ k: 'r', name: 'EXHAUST & REAR', min: m(3 + 9 * Z.r) });
+      if (Z.l > 0.02) out.push({ k: 'l', name: 'LEFT SUSPENSION', min: m(5 + 15 * Z.l) });
+      if (Z.rt > 0.02) out.push({ k: 'rt', name: 'RIGHT SUSPENSION', min: m(5 + 15 * Z.rt) });
+      if (car.damage > 0.02 || car.dents.length) out.push({ k: 'body', name: 'BODYWORK & ENGINE', min: m(3 + 22 * car.damage) });
+    }
+    if (car.glassBroken) out.push({ k: 'glass', name: 'WINDSCREEN', min: 8 });
+    if (Raid.on) {
+      if (Raid.wear > 0.04) out.push({ k: 'tyres', name: Raid.sets ? `NEW TYRES (${Raid.sets} SPARE SET${Raid.sets > 1 ? 'S' : ''})` : 'NO SPARE TYRES LEFT', min: 10, off: !Raid.sets });
+      if (Raid.fuel < Raid.tank - 1) out.push({ k: 'fuel', name: `REFUEL +10 L (${Math.round(Raid.fuel)} L IN THE TANK)`, min: 1 });
+    }
+    return out;
+  },
+  apply(k) {
+    const it = this.items().find((q) => q.k === k);
+    if (!it || it.off) return;
+    const Z = car.zones;
+    if (k === 'frame') { const g = car.glassBroken; CarDamage.reset(); car.damage = 0; if (g) CarDamage.glass(true); }
+    else if (k in Z) { Z[k] = 0; if (k === 'f') car.heat = 0; car.pull = 0.06 * (Z.l - Z.rt); if (car.warned) { delete car.warned[k]; delete car.warned.pl; delete car.warned.pr; delete car.warned.hot; } }
+    else if (k === 'body') { car.damage = 0; car.dents.length = 0; CarDamage.restoreMesh(); CarDamage.reapply(); }
+    else if (k === 'glass') CarDamage.glass(false);
+    else if (k === 'tyres') { Raid.sets--; Raid.wear = 0; }
+    else if (k === 'fuel') Raid.fuel = Math.min(Raid.tank, Raid.fuel + 10);
+    Rally.svcUsed += it.min;
+    Rally.damage = car.damage;
+    Rally.servicePen = Math.max(0, Rally.svcUsed - Rally.svcMin) * 10;
+  },
+  html() {
+    const used = Rally.svcUsed, max = Rally.svcMin, late = Math.max(0, used - max);
+    const rows = this.items().map((q) => `<button class="mini${q.off ? ' off' : ''}" data-fix="${q.k}">${q.name} <b>${q.min} MIN</b></button>`).join(' ');
+    return `<div class="svc-time">SERVICE TIME <b>${used} / ${max} MIN</b>${late ? ` · <b style="color:var(--bad)">${late} MIN LATE +${late * 10}s</b>` : ''}</div>` +
+      `<div class="svc-fix">${rows || 'NOTHING TO FIX · THE CAR IS READY'}</div>`;
+  },
+};
+
+/* ---- photo mode: a free camera around the car (paused, or on a replay of the run just finished), depth of field
+   and a PNG of the frame ---- */
+const Photo = {
+  yaw: 0, pitch: 0.22, dist: 7, fov: 50, focusOff: 0, blur: 0, prev: null, replay: null, rt: 0, playing: false, speed: 1, hide: false,
+  composer: null, bokeh: null, saved: null, drag: null,
+  open(replay) {
+    if (this.prev) return;
+    this.prev = Game.state; Game.state = 'photo';
+    for (const id of ['pause', 'finish']) document.getElementById(id).classList.add('hidden');
+    HUD.show(false);
+    this.saved = { p: Draw.pos.clone(), q: Draw.q.clone() };
+    this.replay = replay && replay.length >= 18 ? replay : null; this.rt = 0; this.playing = !!this.replay;
+    const f = _tmp.set(0, 0, 1).applyQuaternion(Draw.q);
+    this.yaw = Math.atan2(-f.x, -f.z) + 0.5; this.pitch = 0.2; this.dist = 6.5;
+    document.getElementById('photo').classList.remove('hidden');
+    document.getElementById('phReplay').classList.toggle('hidden', !this.replay);
+    if (this.replay) { const s = document.getElementById('phScrub'); s.max = this.replay[this.replay.length - 9].toFixed(1); s.value = 0; }
+    this.refresh();
+  },
+  close() {
+    if (!this.prev) return;
+    Game.state = this.prev; this.prev = null;
+    if (this.saved) { Draw.pos.copy(this.saved.p); Draw.q.copy(this.saved.q); }
+    this.replay = null;
+    document.getElementById('photo').classList.add('hidden');
+    document.getElementById('app').classList.remove('ph-hide');
+    if (Game.state === 'paused') { document.getElementById('pause').classList.remove('hidden'); HUD.show(true); }
+    else if (Game.state === 'finished') { document.getElementById('finish').classList.remove('hidden'); HUD.show(true); }
+    Cam.snap();
+  },
+  refresh() {
+    document.getElementById('phFov').textContent = Math.round(this.fov) + '°';
+    document.getElementById('phBlur').textContent = ['OFF', 'LOW', 'HIGH'][this.blur];
+    document.getElementById('phPlay').innerHTML = this.playing ? '&#10074;&#10074;' : '&#9654;';
+    document.getElementById('phSpeed').textContent = this.speed + 'x';
+  },
+  /** The replay's pose at time t (its samples are 0.1 s apart). */
+  pose(t) {
+    const d = this.replay, n = d.length / 9;
+    let lo = 0, hi = n - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (d[m * 9] <= t) lo = m; else hi = m; }
+    const a = lo * 9, b = hi * 9, f = d[b] > d[a] ? clamp((t - d[a]) / (d[b] - d[a]), 0, 1) : 0;
+    Draw.pos.set(lerp(d[a + 1], d[b + 1], f), lerp(d[a + 2], d[b + 2], f), lerp(d[a + 3], d[b + 3], f));
+    _q.set(d[a + 4], d[a + 5], d[a + 6], d[a + 7]).normalize();
+    Draw.q.set(d[b + 4], d[b + 5], d[b + 6], d[b + 7]).normalize();
+    Draw.q.copy(_q.slerp(Draw.q, f));
+  },
+  update(dt) {
+    const k = Input.keys, r = 1.4 * dt;
+    if (k.has('ArrowLeft') || k.has('KeyA')) this.yaw -= r;
+    if (k.has('ArrowRight') || k.has('KeyD')) this.yaw += r;
+    if (k.has('ArrowUp') || k.has('KeyW')) this.pitch = clamp(this.pitch + r * 0.6, -0.15, 1.45);
+    if (k.has('ArrowDown') || k.has('KeyS')) this.pitch = clamp(this.pitch - r * 0.6, -0.15, 1.45);
+    if (k.has('KeyZ')) this.dist = clamp(this.dist - 6 * dt, 2.2, 40);
+    if (k.has('KeyX')) this.dist = clamp(this.dist + 6 * dt, 2.2, 40);
+    if (this.replay) {
+      const end = this.replay[this.replay.length - 9];
+      if (this.playing) { this.rt += dt * this.speed; if (this.rt >= end) { this.rt = end; this.playing = false; this.refresh(); } document.getElementById('phScrub').value = this.rt.toFixed(1); }
+      this.pose(this.rt);
+      document.getElementById('phTime').textContent = fmtTime(this.rt);
+      const M = Game.carModel; M.group.position.copy(Draw.pos); M.group.quaternion.copy(Draw.q);
+    }
+    const P = Draw.pos, c = Math.cos(this.pitch);
+    camera.position.set(P.x + Math.sin(this.yaw) * c * this.dist, P.y + 0.6 + Math.sin(this.pitch) * this.dist, P.z + Math.cos(this.yaw) * c * this.dist);
+    const gh = TR ? heightNear(camera.position.x, camera.position.z, car.i) : -1e9;
+    if (gh > VOID_H + 1 && camera.position.y < gh + 0.4) camera.position.y = gh + 0.4;
+    camera.lookAt(P.x, P.y + 0.6, P.z);
+    camera.fov = this.fov; camera.updateProjectionMatrix();
+  },
+  dof() { return this.blur > 0; },
+  render() {
+    if (!this.composer) {
+      this.composer = new EffectComposer(renderer);
+      this.composer.addPass(new RenderPass(scene, camera));
+      this.bokeh = new BokehPass(scene, camera, { focus: 7, aperture: 0.004, maxblur: 0.012 });
+      this.composer.addPass(this.bokeh);
+      this.composer.addPass(new OutputPass());
+    }
+    this.composer.setSize(window.innerWidth, window.innerHeight);
+    const u = this.bokeh.uniforms;
+    u.focus.value = Math.max(1, this.dist + this.focusOff); u.aperture.value = [0, 0.0025, 0.007][this.blur]; u.maxblur.value = [0, 0.008, 0.016][this.blur];
+    this.composer.render();
+  },
+  draw() { if (this.dof()) this.render(); else Post.render(); },
+  save() {
+    this.draw();
+    try {
+      const url = renderer.domElement.toDataURL('image/png'), a = document.createElement('a');
+      a.href = url; a.download = 'regolith-rally-' + TR.def.id + '.png'; document.body.appendChild(a); a.click(); a.remove();
+      flashButton(document.getElementById('phSave'), 'SAVED');
+    } catch (e) { flashButton(document.getElementById('phSave'), 'CAN\'T SAVE HERE'); }
+  },
+  init() {
+    const on = (id, fn) => document.getElementById(id).addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); fn(); this.refresh(); });
+    on('phExit', () => this.close());
+    on('phFovDn', () => { this.fov = clamp(this.fov - 5, 15, 100); });
+    on('phFovUp', () => { this.fov = clamp(this.fov + 5, 15, 100); });
+    on('phBlurBtn', () => { this.blur = (this.blur + 1) % 3; });
+    on('phFocusDn', () => { this.focusOff -= 1.5; });
+    on('phFocusUp', () => { this.focusOff += 1.5; });
+    on('phHide', () => { document.getElementById('app').classList.add('ph-hide'); });
+    on('phSave', () => this.save());
+    on('phPlay', () => { if (this.rt >= this.replay[this.replay.length - 9] - 0.05) this.rt = 0; this.playing = !this.playing; });
+    on('phSpeedBtn', () => { this.speed = this.speed === 1 ? 0.25 : this.speed === 0.25 ? 2 : 1; });
+    document.getElementById('phScrub').addEventListener('input', (e) => { this.rt = +e.target.value; this.playing = false; this.refresh(); });
+    const cv = renderer.domElement;
+    cv.addEventListener('pointerdown', (e) => {
+      if (Game.state !== 'photo') return;
+      document.getElementById('app').classList.remove('ph-hide');
+      this.drag = { x: e.clientX, y: e.clientY, yaw: this.yaw, pitch: this.pitch };
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!this.drag || Game.state !== 'photo') return;
+      this.yaw = this.drag.yaw - (e.clientX - this.drag.x) * 0.008; this.pitch = clamp(this.drag.pitch + (e.clientY - this.drag.y) * 0.006, -0.15, 1.45);
+    });
+    window.addEventListener('pointerup', () => { this.drag = null; });
+    cv.addEventListener('wheel', (e) => { if (Game.state === 'photo') { e.preventDefault(); this.dist = clamp(this.dist * (e.deltaY > 0 ? 1.1 : 0.9), 2.2, 40); } }, { passive: false });
+  },
+};
+
+/* ---- cockpit view: the driver's eyes behind a working dash (rev counter, speed, gear, warning lights), a wheel that
+   turns with the front wheels and the driver's arms on it; the body shows from inside ---- */
+const Dash = {
+  model: null, g: null, wheel: null, arms: [], hands: [], shoulders: [], tex: null, ctx: null, t: 0, eyeP: new THREE.Vector3(), mode: null,
+  build(M) {
+    this.model = M;
+    const p = M.pilot, s = p.scale.y, e = this.eyeP.set(p.position.x, p.position.y + 0.42 * s, p.position.z + 0.08 * s);
+    const g = this.g = new THREE.Group(); g.visible = false; M.group.add(g);
+    const dark = new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.8 }), glove = new THREE.MeshStandardMaterial({ color: 0x202226, roughness: 0.7 });
+    const suit = new THREE.MeshStandardMaterial({ color: new THREE.Color(GARAGE.pilot.opts[Store.data.garage.pilot].suit), roughness: 0.75 });
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.1, 0.32), dark); dash.position.set(0, e.y - 0.3, e.z + 0.78); g.add(dash);
+    const cv = document.createElement('canvas'); cv.width = 320; cv.height = 128; this.ctx = cv.getContext('2d');
+    this.tex = new THREE.CanvasTexture(cv); this.tex.colorSpace = THREE.SRGBColorSpace;
+    const gauge = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.144), new THREE.MeshBasicMaterial({ map: this.tex, toneMapped: false }));
+    gauge.position.set(e.x, e.y - 0.2, e.z + 0.66); gauge.rotation.set(-0.3, Math.PI, 0); g.add(gauge);
+    const w = this.wheel = new THREE.Group(); w.position.set(e.x, e.y - 0.27, e.z + 0.5); w.rotation.x = 0.3; g.add(w);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.175, 0.017, 8, 28), dark); w.add(rim);
+    for (const a of [Math.PI / 2, -Math.PI / 6, Math.PI * 7 / 6]) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.022, 0.012), dark); sp.position.set(Math.cos(a) * 0.08, Math.sin(a) * 0.08, 0); sp.rotation.z = a; w.add(sp); }
+    const mark = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.035, 0.022), new THREE.MeshBasicMaterial({ color: 0xffd23d })); mark.position.set(0, 0.175, 0); w.add(mark);
+    this.hands = [-1, 1].map((sd) => { const h = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), glove); h.position.set(sd * 0.168, 0.02, -0.01); w.add(h); return h; });
+    this.shoulders = [-1, 1].map((sd) => new THREE.Vector3(e.x + sd * 0.19, e.y - 0.36, e.z - 0.12));
+    this.arms = [0, 1].map(() => { const a = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 1, 8), suit); g.add(a); return a; });
+    linearizeMaterials(g);
+  },
+  eye() { return this.eyeP; },
+  /** Show or hide the cockpit parts as the camera changes, and run the gauges. */
+  update(dt) {
+    const M = Game.carModel; if (!M) return;
+    if (this.model !== M) { this.build(M); this.mode = null; }
+    const inside = Cam.mode === 'cockpit' && Game.state !== 'garage' && Game.state !== 'photo';
+    if (inside !== this.mode) {
+      this.mode = inside; this.g.visible = inside; M.pilot.visible = !inside;
+      M.shell.traverse((o) => { if (o.isMesh && o.material && !o.material.isMeshBasicMaterial && o !== M.under) { o.material.side = inside ? THREE.DoubleSide : THREE.FrontSide; o.material.needsUpdate = true; } });
+      if (M.glass) { if (M.glass.userData.op == null) M.glass.userData.op = M.glass.opacity; M.glass.opacity = inside && !car.glassBroken ? 0.12 : car.glassBroken ? 0.82 : M.glass.userData.op; }
+    }
+    if (!inside) return;
+    this.wheel.rotation.z = -car.steerAngle * 11;
+    this.wheel.updateMatrix();
+    for (let i = 0; i < 2; i++) {
+      const h = this.hands[i].getWorldPosition(_tmp2), a = this.arms[i];
+      this.g.worldToLocal(h);
+      const sh = this.shoulders[i], len = sh.distanceTo(h);
+      a.position.copy(sh).add(h).multiplyScalar(0.5); a.scale.set(1, len, 1);
+      a.quaternion.setFromUnitVectors(UP, _tmp.copy(h).sub(sh).normalize());
+    }
+    this.t -= dt; if (this.t > 0) return; this.t = 0.06;
+    const c = this.ctx, W = 320, H = 128, rpm = clamp(car.rpm, 0, 1.05);
+    c.fillStyle = '#07080b'; c.fillRect(0, 0, W, H);
+    c.lineWidth = 8; c.strokeStyle = '#232833'; c.beginPath(); c.arc(70, 72, 52, Math.PI * 0.8, Math.PI * 2.2); c.stroke();
+    c.strokeStyle = '#ff3d4d'; c.beginPath(); c.arc(70, 72, 52, Math.PI * 2.0, Math.PI * 2.2); c.stroke();
+    const a = Math.PI * 0.8 + rpm / 1.05 * Math.PI * 1.4;
+    c.lineWidth = 3; c.strokeStyle = rpm > 0.95 ? '#ff3d4d' : '#ffd23d'; c.beginPath(); c.moveTo(70, 72); c.lineTo(70 + Math.cos(a) * 48, 72 + Math.sin(a) * 48); c.stroke();
+    c.fillStyle = '#e8f0ff'; c.font = 'bold 34px monospace'; c.textAlign = 'center';
+    c.fillText(car.gear < 0 ? 'R' : car.shiftT > 0 ? '-' : String(car.gear), 70, 88);
+    c.font = 'bold 40px monospace'; c.fillText(String(Math.round(car.speed * 3.6)).padStart(3, ' '), 205, 70);
+    c.font = '12px monospace'; c.fillStyle = '#8a94a8'; c.fillText('KM/H', 205, 88);
+    const lamp = (x, txt, on, col) => { c.fillStyle = on ? col : '#1d2129'; c.fillRect(x, 102, 54, 18); c.fillStyle = on ? '#000' : '#3a4150'; c.font = 'bold 11px monospace'; c.fillText(txt, x + 27, 115); };
+    lamp(130, 'TEMP', car.heat > 0.4, '#ff3d4d'); lamp(188, Raid.on ? 'FUEL' : 'ABS', Raid.on ? Raid.fuel < 6 : car.wheels.some((q) => q.absOn), '#ffb52e');
+    lamp(246, 'DMG', car.damage > 0.3, '#ff3d4d');
+    if (!car.autoBox && car.gear > 0 && car.gear < car.tune.gears.length && car.rpm * GEARBOX.redline > car.tune.upRpm[car.gear - 1] * 0.97) { c.fillStyle = '#3dff8a'; c.fillRect(256, 12, 52, 10); }
+    this.tex.needsUpdate = true;
+  },
+};
+
+/* ---- livery editor: layers (stripes, diagonals, circles, stars, numbers, text, a roof stripe) over the works
+   livery or a plain colour, per car, shareable as a code ---- */
+const LIV_COLORS = ['#f4f4f0', '#111317', '#e8322e', '#ff7a1a', '#ffd21f', '#2ee07a', '#138a6b', '#19c8e6', '#1d4fd8', '#0d2a5c', '#8b5cff', '#ff6fae', '#c3cad4', '#c8773a'];
+const LIV_KINDS = { stripe: 'STRIPE', diag: 'DIAGONAL', circle: 'CIRCLE', star: 'STAR', num: 'NUMBER', text: 'TEXT', roof: 'ROOF STRIPE' };
+function customLivery(body) { const L = Store.data.livery && Store.data.livery[body]; return L && (L.layers && L.layers.length || L.plain) ? L : null; }
+function liveryKey(body) { const L = customLivery(body); return L ? hashStr(JSON.stringify(L)) : ''; }
+/** Paint the custom layers over one region of the atlas (side 0/1, or 'top'); x runs nose (0) to tail (1). */
+function drawLiveryLayers(c, L, side) {
+  const { W, S, T } = LIV, top = side === 'top', R0 = top ? 2 * S : side * S, RH = top ? T : S;
+  const X = (z) => side === 1 ? (1 - z) * W : z * W;
+  for (const l of L.layers || []) {
+    c.save(); c.fillStyle = l.c || '#e8322e';
+    const x = X(l.z), y = R0 + l.y * RH, s = l.s * RH;
+    if (top) {
+      if (l.t === 'roof') c.fillRect(0, R0 + RH / 2 - s / 2, W, s);
+      else if (l.t === 'stripe') { c.fillRect(0, R0 + RH * 0.18 - s / 4, W, s / 2); c.fillRect(0, R0 + RH * 0.82 - s / 4, W, s / 2); }
+      c.restore(); continue;
+    }
+    if (l.t === 'roof') { c.restore(); continue; }
+    c.translate(x, y); c.rotate((l.r || 0) * (side === 1 ? -1 : 1));
+    if (l.t === 'stripe') c.fillRect(-W * 1.5, -s / 2, W * 3, s);
+    else if (l.t === 'diag') c.fillRect(-s / 2, -RH * 1.5, s, RH * 3);
+    else if (l.t === 'circle') { c.beginPath(); c.arc(0, 0, s, 0, TAU); c.fill(); }
+    else if (l.t === 'star') { c.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? s * 0.42 : s, a = -Math.PI / 2 + i * Math.PI / 5; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); } c.closePath(); c.fill(); }
+    else if (l.t === 'num' || l.t === 'text') {
+      const txt = String(l.txt || (l.t === 'num' ? '7' : 'RALLY')).slice(0, 18);
+      if (l.t === 'num') { c.fillStyle = '#f4f4f0'; c.fillRect(-s * 0.9, -s * 0.6, s * 1.8, s * 1.2); c.fillStyle = l.c || '#111317'; }
+      c.font = `italic 800 ${s * (l.t === 'num' ? 1.05 : 1)}px ${LIV_FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, 0, s * 0.04);
+    }
+    c.restore();
+  }
+}
+const LiveryEd = {
+  sel: -1, timer: null,
+  body() { return Store.data.garage.body; },
+  data() { const D = Store.data.livery || (Store.data.livery = {}), b = this.body(); return D[b] || (D[b] = { plain: null, layers: [] }); },
+  open() {
+    const g = Store.data.garage, w = GARAGE.color.opts.findIndex((o) => o.works);
+    if (g.color !== w) { g.color = w; rebuildCarModel(); }
+    document.getElementById('livEd').classList.remove('hidden');
+    document.getElementById('garage').classList.add('ed');
+    this.sel = this.data().layers.length - 1; this.render();
+  },
+  close() { document.getElementById('livEd').classList.add('hidden'); document.getElementById('garage').classList.remove('ed'); Store.save(); if (Garage.render) Garage.render(); },
+  changed() {
+    Store.save();
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => { for (const k of [...LIV_CACHE.keys()]) if (k.startsWith(this.body() + ':')) LIV_CACHE.delete(k); rebuildCarModel(); }, 120);
+    this.render();
+  },
+  add(t) {
+    const L = this.data().layers; if (L.length >= 16) return;
+    L.push({ t, c: t === 'num' ? '#111317' : LIV_COLORS[2 + L.length % 10], z: 0.5, y: t === 'stripe' ? 0.62 : 0.5, s: t === 'roof' ? 0.25 : t === 'stripe' ? 0.08 : 0.16, r: 0, txt: t === 'num' ? '7' : t === 'text' ? 'RALLY' : '' });
+    this.sel = L.length - 1; this.changed();
+  },
+  render() {
+    const D = this.data(), L = D.layers, cur = L[this.sel];
+    const sw = (attr, val) => LIV_COLORS.map((c) => `<i class="sw${val === c ? ' on' : ''}" data-${attr}="${c}" style="background:${c}"></i>`).join('');
+    const slider = (k, label, min, max, step) => `<label class="le-sl">${label}<input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${cur[k] || 0}"></label>`;
+    document.getElementById('livEdBody').innerHTML =
+      `<div class="le-row"><b>BASE</b><button class="mini${D.plain ? '' : ' on'}" data-base="works">WORKS ART</button>${sw('plain', D.plain)}</div>` +
+      `<div class="le-row"><b>ADD</b>${Object.keys(LIV_KINDS).map((t) => `<button class="mini" data-add="${t}">${LIV_KINDS[t]}</button>`).join('')}</div>` +
+      `<div class="le-layers">${L.map((l, i) => `<button class="mini${i === this.sel ? ' on' : ''}" data-sel="${i}"><i class="sw" style="background:${l.c}"></i>${i + 1} ${LIV_KINDS[l.t]}</button>`).join('') || '<em>No layers yet: add one above.</em>'}</div>` +
+      (cur ? `<div class="le-row"><b>COLOUR</b>${sw('col', cur.c)}</div>` +
+        `<div class="le-row">${slider('z', 'FRONT ↔ BACK', 0, 1, 0.01)}${slider('y', 'UP ↕ DOWN', 0, 1, 0.01)}${slider('s', 'SIZE', 0.02, 0.6, 0.01)}${slider('r', 'ANGLE', -1.2, 1.2, 0.02)}</div>` +
+        (cur.t === 'num' || cur.t === 'text' ? `<div class="le-row"><b>TEXT</b><input class="field" id="leTxt" maxlength="18" value="${esc(cur.txt || '')}"></div>` : '') +
+        `<div class="le-row"><button class="mini" data-mv="-1">&#9650; DOWN A LAYER</button><button class="mini" data-mv="1">&#9660; UP A LAYER</button><button class="mini" data-del="1">&#10005; DELETE</button></div>` : '');
+  },
+  init() {
+    const el = document.getElementById('livEdBody');
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-add],[data-sel],[data-col],[data-plain],[data-base],[data-mv],[data-del]'); if (!b) return;
+      const D = this.data(), L = D.layers, d = b.dataset;
+      if (d.add) this.add(d.add);
+      else if (d.sel) { this.sel = +d.sel; this.render(); }
+      else if (d.col && L[this.sel]) { L[this.sel].c = d.col; this.changed(); }
+      else if (d.plain) { D.plain = d.plain; this.changed(); }
+      else if (d.base) { D.plain = null; this.changed(); }
+      else if (d.mv && L[this.sel]) { const j = this.sel + +d.mv; if (j >= 0 && j < L.length) { [L[j], L[this.sel]] = [L[this.sel], L[j]]; this.sel = j; this.changed(); } }
+      else if (d.del && L[this.sel]) { L.splice(this.sel, 1); this.sel = Math.min(this.sel, L.length - 1); this.changed(); }
+    });
+    el.addEventListener('input', (e) => {
+      const L = this.data().layers[this.sel]; if (!L) return;
+      if (e.target.dataset.k) { L[e.target.dataset.k] = +e.target.value; Store.save(); clearTimeout(this.timer); this.timer = setTimeout(() => this.changed(), 60); }
+      else if (e.target.id === 'leTxt') { L.txt = e.target.value.toUpperCase(); clearTimeout(this.timer); this.timer = setTimeout(() => { Store.save(); for (const k of [...LIV_CACHE.keys()]) if (k.startsWith(this.body() + ':')) LIV_CACHE.delete(k); rebuildCarModel(); }, 300); }
+    });
+    const on = (id, fn) => document.getElementById(id).addEventListener('click', (e) => { e.preventDefault(); fn(); });
+    on('livEdDone', () => this.close());
+    on('garLivery', () => this.open());
+    on('livEdCode', () => copyText('LV1.' + btoa(unescape(encodeURIComponent(JSON.stringify(this.data())))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), 'LIVERY CODE', document.getElementById('livEdCode')));
+    on('livEdImport', () => Modal.open('IMPORT LIVERY CODE', '', 'LOAD', (txt) => {
+      try {
+        const t = String(txt).trim(); if (!t.startsWith('LV1.')) throw new Error('Not a livery code.');
+        const o = JSON.parse(decodeURIComponent(escape(unb64u(t.slice(4)))));
+        const ok = (l) => l && LIV_KINDS[l.t] && [l.z, l.y, l.s].every((v) => typeof v === 'number');
+        const layers = (Array.isArray(o.layers) ? o.layers : []).filter(ok).slice(0, 16).map((l) => ({ t: l.t, c: /^#[0-9a-f]{6}$/i.test(l.c) ? l.c : '#e8322e', z: clamp(l.z, 0, 1), y: clamp(l.y, 0, 1), s: clamp(l.s, 0.02, 0.6), r: clamp(+l.r || 0, -1.2, 1.2), txt: String(l.txt || '').slice(0, 18).toUpperCase() }));
+        Store.data.livery[this.body()] = { plain: /^#[0-9a-f]{6}$/i.test(o.plain) ? o.plain : null, layers };
+        Modal.close(); this.sel = layers.length - 1; this.changed();
+      } catch (err) { Modal.msg(err.message || 'That code didn\'t read.'); }
+    }, 'Paste a livery code. It goes on the car you have in the garage.'));
+  },
+};
+
+/* =============================================================================
+   19. EVENTS: CAREER, HILLCLIMBS, RAIDS, THE WEEKLY CHAMPIONSHIP, RIVALS AND LIVE RACES
+   Every event runs on the rally's machinery (Rally): a list of stages with service between them. Against the
+   clock the player races a field of nine rivals, whose times are each stage's target with a set pace and some luck.
+   ============================================================================= */
+const FIELD = [['K. ANDERSSON', 0.95], ['L. MORETTI', 0.975], ['J. HAYES', 0.99], ['T. NAKAMURA', 1.01], ['R. SILVA', 1.03], ['M. KOVAC', 1.05],
+  ['P. DUBOIS', 1.08], ['A. WALSH', 1.11], ['E. LINDQVIST', 1.15]];
+const POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+const stageById = (id) => STAGES.findIndex((d) => d.id === id);
+const resolveStage = (x) => typeof x === 'number' ? STAGES[x] : x;
+function ordinal(n) { return n + (n % 10 === 1 && n % 100 !== 11 ? 'ST' : n % 10 === 2 && n % 100 !== 12 ? 'ND' : n % 10 === 3 && n % 100 !== 13 ? 'RD' : 'TH'); }
+
+/** Start an event: o.kind ('rally' | 'career' | 'climb' | 'raid' | 'weekly'), o.title, o.list (stage indexes or defs),
+ *  o.cond (per stage { w, t }), o.svcMin (service minutes), o.diff (the field's pace), o.ev (the career event). */
+function startEvent(o) {
+  Object.assign(Rally, { active: true, kind: o.kind, title: o.title, list: o.list, cond: o.cond || [], svcMin: o.svcMin || 30, diff: o.diff || 1, ev: o.ev || null,
+    stage: 0, total: 0, results: [], damage: 0, servicePen: 0, svcUsed: 0, serviced: false, done: false, isBest: false, field: FIELD.map(() => 0), place: 0 });
+  Raid.on = o.kind === 'raid'; if (Raid.on) Raid.reset();
+  car.damage = 0; CarDamage.reset();
+  const first = resolveStage(o.list[0]);
+  for (const id of ['hub']) document.getElementById(id).classList.add('hidden');
+  if (Game.def === first) openService(); else loadStage(first, openService);
+}
+const Events = {
+  /** A stage of an event is done: the field's times on it. */
+  stageDone(t) {
+    if (Rally.kind === 'rally') return;
+    const r = new RNG(TR.def.seed * 7 + Rally.stage * 131 + (Rally.ev ? Rally.ev.n : 3));
+    FIELD.forEach((f, i) => { Rally.field[i] += TR.targetTime * Rally.diff * f[1] * (1 + (r.next() - 0.5) * 0.05); });
+    const all = Rally.field.filter((v) => v < Rally.total).length;
+    Rally.place = all + 1;
+  },
+  /** The event is over: prizes, records and standings. */
+  done() {
+    const k = Rally.kind;
+    if (k === 'career') Career.finished(Rally.place);
+    else if (k === 'climb') { const b = Store.data.climbBest; if (!b || Rally.total < b.total) { Store.data.climbBest = { total: +Rally.total.toFixed(3), n: cleanName(Store.data.settings.name) }; Rally.isBest = true; } }
+    else if (k === 'raid') { const b = Store.data.raidBest; if (!b || Rally.total < b.total) { Store.data.raidBest = { total: +Rally.total.toFixed(3), n: cleanName(Store.data.settings.name) }; Rally.isBest = true; } }
+    else if (k === 'weekly') Weekly.finished(Game.result.time);
+  },
+  table() {
+    if (Rally.kind === 'rally' || Rally.kind === 'weekly') return '';
+    const rows = FIELD.map((f, i) => ({ n: f[0], t: Rally.field[i] })).concat([{ n: cleanName(Store.data.settings.name) || 'YOU', t: Rally.total, me: true }]).sort((a, b) => a.t - b.t);
+    return '<table class="splits ev-table">' + rows.map((q, i) => `<tr class="${q.me ? 'me' : ''}"><td>${i + 1}</td><td>${esc(q.n)}</td><td>${fmtTime(q.t)}</td></tr>`).join('') + '</table>';
+  },
+};
+
+/* ---- hillclimbs: the three biggest climbs, one run each, any car ---- */
+const CLIMBS = ['wrc-croatia', 'wrc-monte', 'pikes'];
+const Climb = {
+  start() { startEvent({ kind: 'climb', title: 'HILLCLIMB SERIES', list: CLIMBS.map(stageById), svcMin: 30, diff: 1 }); },
+};
+
+/* ---- the raid: three long desert legs on roadbook alone (no racing line, no voice), fuel and two spare sets of
+   tyres for all of them, overnight service between legs, the last leg into the night ---- */
+const RAID_LEGS = [
+  { name: 'LEG 1 · WADI RUN', len: 15000, path: ['~3500 @R ~1500 @G', '~3000', '@R ~2000 @G ~2500', '~2000 S190'] },
+  { name: 'LEG 2 · DUNE COUNTRY', len: 17000, path: ['~3000 @R ~2000', '~3000 @G', '@R ~3500', '@G ~3000 S190'] },
+  { name: 'LEG 3 · NIGHT STAGE', len: 14000, path: ['~3000', '@R ~2500 @G ~1500', '~3000', '~3500 S190'] },
+];
+const Raid2 = {
+  seed() { return Store.data.raidSeed || 4242; },
+  leg(i, seed) {
+    const base = STAGES[stageById('wrc-saudi')], L = RAID_LEGS[i];
+    return Object.assign({}, base, {
+      id: 'raid-' + seed + '-' + i, name: L.name, region: 'RAID · ' + (i + 1) + ' OF 3 · ROADBOOK ONLY', seed: seed + i * 977, length: L.len, raid: true, custom: true,
+      course: L.path.map((p, j) => ({ name: 'WAYPOINT ' + (j + 1), grade: 0, path: p })), checkpoints: 8, targetFactor: 1.12, rocksKm: 220,
+      blurb: 'A raid leg through the desert north of Jeddah: sand and stone, soft sand in the wadis.',
+    });
+  },
+  start(newSeed) {
+    if (newSeed) { Store.data.raidSeed = 1000 + Math.floor(Math.random() * 899000); Store.save(); }
+    const s = this.seed();
+    startEvent({ kind: 'raid', title: 'DESERT RAID', list: [0, 1, 2].map((i) => this.leg(i, s)), svcMin: 45, diff: 1.02,
+      cond: [{ w: 'clear', t: 'day' }, { w: 'clear', t: 'dusk' }, { w: 'clear', t: 'night' }] });
+  },
+};
+
+/* ---- career: from a 1964 Mini to Rally1. Prize money buys cars and a better co-driver; a podium opens the next era ---- */
+const ERAS = [
+  { name: '1960s CLASSICS', cars: ['MINI'], events: [
+    { name: 'COUPE DES ALPES', stages: ['wrc-monte', 'wrc-croatia'], prize: [9000, 6000, 4000], diff: 1.16 },
+    { name: 'RAC CLASSIC', stages: ['wrc-sweden', 'wrc-finland'], prize: [11000, 7000, 4500], diff: 1.14 }] },
+  { name: 'GROUP B 1982-86', cars: ['TWINCHARGER', 'FIVE-POT', 'T16', 'STRADALE', 'RS WEDGE', 'SIX-R', 'RS200', 'KADETT 4X4', 'SAMARA S', 'ASTRA 4S', 'IBIZA BIMOTOR'], events: [
+    { name: 'TOUR DE ASFALTO', stages: ['wrc-canarias', 'wrc-italy'], prize: [42000, 26000, 15000], diff: 1.06 },
+    { name: '1000 LAKES', stages: ['wrc-finland', 'wrc-estonia', 'wrc-sweden'], prize: [52000, 32000, 18000], diff: 1.05 }] },
+  { name: 'GROUP S 1986-87', cars: ['222D', 'RS002', 'RS 002', 'ECV', 'ECV II'], events: [
+    { name: 'GROUP S TEST DAYS', stages: ['wrc-portugal', 'wrc-croatia'], prize: [60000, 38000, 22000], diff: 1.03 }] },
+  { name: 'GROUP A 1987-96', cars: ['INTEGRALE'], events: [
+    { name: 'SAFARI & ACROPOLIS', stages: ['wrc-kenya', 'wrc-acropolis'], prize: [55000, 34000, 20000], diff: 1.04 }] },
+  { name: 'WORLD RALLY CARS 1997-2016', cars: ['FOCUS WRC', 'IMPREZA WRC', 'XSARA WRC', 'C4 WRC', 'MINI JCW', 'POLO R WRC'], events: [
+    { name: 'WORLD TOUR', stages: ['wrc-japan', 'wrc-chile', 'wrc-paraguay'], prize: [70000, 44000, 26000], diff: 1.01 }] },
+  { name: 'WRC 2017-21', cars: ['C3 WRC', 'FIESTA WRC', 'YARIS WRC'], events: [
+    { name: 'WIDEBODY ERA', stages: ['wrc-portugal', 'wrc-italy', 'wrc-saudi'], prize: [80000, 50000, 30000], diff: 1.0 }] },
+  { name: 'RALLY1 2022-26', cars: ['GR YARIS', 'I20 N', 'PUMA'], events: [
+    { name: 'WRC 2026 FINALE', stages: ['wrc-monte', 'wrc-sweden', 'wrc-finland', 'wrc-saudi'], prize: [120000, 70000, 40000], diff: 0.98 }] },
+  { name: 'UNLIMITED', cars: null, events: [
+    { name: 'RACE TO THE CLOUDS', stages: ['pikes'], prize: [150000, 80000, 40000], diff: 0.97 }] },
+];
+ERAS.forEach((e, i) => e.events.forEach((ev, j) => { ev.id = i + '-' + j; ev.n = i * 10 + j; ev.era = i; }));
+const carIdx = (name) => GARAGE.body.opts.findIndex((o) => o.name === name);
+const Career = {
+  data() {
+    const C = Store.data.career;
+    if (C && typeof C === 'object' && Array.isArray(C.owned)) return C;
+    const mini = Math.max(0, carIdx('MINI'));
+    return (Store.data.career = { cash: 8000, owned: [mini], car: mini, cod: 0, done: {}, era: 0 });
+  },
+  eraOf(body) { const n = GARAGE.body.opts[body].name, i = ERAS.findIndex((e) => e.cars && e.cars.includes(n)); return i < 0 ? ERAS.length - 1 : i; },
+  allowed(ev, body) { const e = ERAS[ev.era]; return !e.cars || e.cars.includes(GARAGE.body.opts[body].name); },
+  price(body) { const R = ratingsFor(Object.assign({}, Store.data.garage, { body })); return Math.max(5000, Math.round(R.pi * R.pi / 12 / 1000) * 1000); },
+  enter(ev) {
+    const C = this.data();
+    if (ev.era > C.era) return;
+    const body = this.allowed(ev, C.car) ? C.car : C.owned.find((b) => this.allowed(ev, b));
+    if (body == null) { flashButton(document.querySelector(`[data-ev="${ev.id}"]`), 'BUY A CAR FOR THIS ERA'); return; }
+    C.car = body;
+    if (Store.data.garage.body !== body) { Store.data.garage.body = body; rebuildCarModel(); }
+    Store.save();
+    startEvent({ kind: 'career', title: ev.name, list: ev.stages.map(stageById), svcMin: 30, diff: ev.diff, ev });
+  },
+  finished(place) {
+    const C = this.data(), ev = Rally.ev, won = place <= 3 ? ev.prize[place - 1] : place <= 6 ? Math.round(ev.prize[2] / 4 / 500) * 500 : 0;
+    C.cash += won;
+    const d = C.done[ev.id];
+    if (!d || place < d.place) C.done[ev.id] = { place, time: +Rally.total.toFixed(2) };
+    if (place <= 3 && ev.era === C.era && C.era < ERAS.length - 1) C.era++;
+    Rally.prize = won;
+    Store.save();
+  },
+  buy(body) {
+    const C = this.data(), p = this.price(body);
+    if (C.owned.includes(body) || C.cash < p) return false;
+    C.cash -= p; C.owned.push(body); C.car = body; Store.save(); return true;
+  },
+  hire(i) { const C = this.data(), p = CODRIVERS[i].cost; if (C.cod >= i || C.cash < p) return false; C.cash -= p; C.cod = i; Store.save(); return true; },
+  html() {
+    const C = this.data(), money = (v) => '$' + v.toLocaleString('en-US');
+    let h = `<div class="hub-head">CASH <b>${money(C.cash)}</b> · CO-DRIVER <b>${CODRIVERS[C.cod].full}</b> (${CODRIVERS[C.cod].name}) · DRIVING <b>${GARAGE.body.opts[C.car].name}</b></div>`;
+    h += '<div class="hub-cols"><div>';
+    ERAS.forEach((e, i) => {
+      const lock = i > C.era;
+      h += `<div class="era${lock ? ' lock' : ''}"><h4>${e.name}${lock ? ' · PODIUM IN THE ERA BEFORE TO OPEN' : ''}</h4>`;
+      for (const ev of e.events) {
+        const d = C.done[ev.id];
+        h += `<div class="ev-row"><span><b>${ev.name}</b><small>${ev.stages.map((id) => STAGES[stageById(id)].name).join(' · ')} · 1ST ${money(ev.prize[0])}</small></span>` +
+          (d ? `<i class="medal-t">${ordinal(d.place)}</i>` : '') + (lock ? '' : `<button class="mini" data-ev="${ev.id}">ENTER &#9656;</button>`) + '</div>';
+      }
+      h += '</div>';
+    });
+    h += '</div><div><h4>YOUR CARS</h4>' + C.owned.map((b) => `<button class="mini${b === C.car ? ' on' : ''}" data-car="${b}">${GARAGE.body.opts[b].name}</button>`).join(' ');
+    h += '<h4>CO-DRIVERS</h4>' + CODRIVERS.map((c, i) => `<div class="ev-row"><span><b>${c.full}</b><small>${c.name} · ${c.blurb}</small></span>${i <= C.cod ? (i === C.cod ? '<i class="medal-t">HIRED</i>' : '') : `<button class="mini" data-hire="${i}">HIRE ${money(c.cost)}</button>`}</div>`).join('');
+    h += '<h4>DEALER</h4>';
+    ERAS.forEach((e, i) => {
+      if (!e.cars || i > C.era) return;
+      for (const n of e.cars) {
+        const b = carIdx(n); if (b < 0 || C.owned.includes(b)) continue;
+        const R = _perfCache.has(String(b) + '|') ? ratingsFor(Object.assign({}, Store.data.garage, { body: b })) : null;
+        h += `<div class="ev-row"><span><b>${n}</b><small>${e.name}${R ? ' · ' + R.cls + ' ' + R.pi : ''}</small></span><button class="mini" data-buy="${b}">BUY ${R ? money(this.price(b)) : ''}</button></div>`;
+      }
+    });
+    return h + '</div></div>';
+  },
+};
+
+/* ---- the weekly championship: six stages, one car class and set conditions, the same for everyone that week; your
+   first finished run on each counts, scored 25-18-15-12-10-8-6-4-2-1 against the field ---- */
+const Weekly = {
+  week(d = new Date()) {
+    const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())), day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day);
+    const y = t.getUTCFullYear(), w = Math.ceil(((t - Date.UTC(y, 0, 1)) / 864e5 + 1) / 7);
+    return { id: y + '-W' + String(w).padStart(2, '0'), seed: y * 100 + w };
+  },
+  plan() {
+    const W = this.week(), r = new RNG(W.seed * 7919), pool = STAGES.map((d, i) => i).filter((i) => !STAGES[i].test);
+    const stages = [];
+    while (stages.length < 6) { const i = pool[Math.floor(r.next() * pool.length)]; if (!stages.includes(i)) stages.push(i); }
+    const cls = ['C', 'B', 'A', 'S1'][Math.floor(r.next() * 4)];
+    const cond = stages.map(() => ({ w: ['clear', 'clear', 'clear', 'rain', 'fog', 'changing', 'snow'][Math.floor(r.next() * 7)], t: ['day', 'day', 'dusk', 'night'][Math.floor(r.next() * 4)] }));
+    cond.forEach((c, j) => { if (c.w === 'snow' && STAGES[stages[j]].surf.base === SURF.TARMAC && !STAGES[stages[j]].climb) c.w = 'rain'; });
+    return { ...W, stages, cls, cond, max: (PI_CLASSES.find((c) => c[1] === cls) || [0])[0] + (cls === 'S1' ? 0 : 0) };
+  },
+  data() { const P = this.plan(), D = Store.data.weekly; return D && D.id === P.id ? D : (Store.data.weekly = { id: P.id, res: {} }); },
+  classMax(cls) { const i = PI_CLASSES.findIndex((c) => c[1] === cls); return i > 0 ? PI_CLASSES[i - 1][0] : 999; },
+  carOK(P) { return ratingsFor(Store.data.garage).pi <= this.classMax(P.cls); },
+  enter(j) {
+    const P = this.plan(), D = this.data();
+    if (D.res[j]) return;
+    if (!this.carOK(P)) { flashButton(document.querySelector(`[data-wk="${j}"]`), 'NEEDS A CLASS ' + P.cls + ' CAR (PI ' + this.classMax(P.cls) + ' OR LESS)'); return; }
+    startEvent({ kind: 'weekly', title: 'WEEKLY ' + P.id, list: [P.stages[j]], cond: [P.cond[j]], svcMin: 30, diff: 1, ev: { n: j, wk: j } });
+  },
+  finished(t) {
+    const D = this.data(), j = Rally.ev.wk, r = new RNG(this.plan().seed + j * 31);
+    const field = FIELD.map((f) => TR.targetTime * f[1] * (1 + (r.next() - 0.5) * 0.05));
+    const place = field.filter((v) => v < t).length + 1;
+    D.res[j] = { t: +t.toFixed(3), place, pts: POINTS[place - 1] || 0, field: field.map((v) => +v.toFixed(2)) };
+    Rally.place = place;
+    Store.save();
+  },
+  html() {
+    const P = this.plan(), D = this.data(), R = ratingsFor(Store.data.garage);
+    const pts = FIELD.map(() => 0); let mine = 0;
+    P.stages.forEach((s, j) => { const q = D.res[j]; if (!q) return; mine += q.pts; const order = q.field.map((v, i) => ({ v, i })).concat([{ v: q.t, i: -1 }]).sort((a, b) => a.v - b.v); order.forEach((o, k) => { if (o.i >= 0) pts[o.i] += POINTS[k] || 0; }); });
+    const table = FIELD.map((f, i) => ({ n: f[0], p: pts[i] })).concat([{ n: cleanName(Store.data.settings.name) || 'YOU', p: mine, me: true }]).sort((a, b) => b.p - a.p);
+    let h = `<div class="hub-head">WEEK <b>${P.id}</b> · CLASS <b>${P.cls}</b> (PI ${this.classMax(P.cls)} OR LESS) · YOUR CAR <b>${GARAGE.body.opts[Store.data.garage.body].name} ${R.cls} ${R.pi}</b>${this.carOK(P) ? '' : ' <b style="color:var(--bad)">· OVER THE CLASS: PICK ANOTHER IN THE GARAGE</b>'}</div><div class="hub-cols"><div>`;
+    P.stages.forEach((s, j) => {
+      const q = D.res[j], c = P.cond[j];
+      h += `<div class="ev-row"><span><b>ROUND ${j + 1} · ${STAGES[s].name}</b><small>${WEATHER_NAMES[c.w]} · ${c.t.toUpperCase()}${q ? ` · ${fmtTime(q.t)} · ${ordinal(q.place)} · ${q.pts} PTS` : ''}</small></span>` +
+        (q ? `<i class="medal-t">${q.pts}</i>` : `<button class="mini" data-wk="${j}">DRIVE &#9656;</button>`) + '</div>';
+    });
+    h += '</div><div><h4>STANDINGS</h4><table class="splits ev-table">' + table.map((q, i) => `<tr class="${q.me ? 'me' : ''}"><td>${i + 1}</td><td>${esc(q.n)}</td><td>${q.p}</td></tr>`).join('') + '</table>';
+    h += '<p class="hub-note">A new championship every Monday. Your first finished run on each round counts.</p></div></div>';
+    return h;
+  },
+};
+
+/* ---- async rivals: an imported ghost becomes the rival, with your gap to it on the HUD, at every checkpoint and on
+   the stage select ---- */
+const RivalGap = {
+  /** The rival's time at distance s along the stage, from its replay (or null). */
+  at(s) {
+    const d = Rival.play; if (!d) return null;
+    const n = d.length / 9;
+    if (s <= d[8]) return d[0];
+    for (let i = 1; i < n; i++) if (d[i * 9 + 8] >= s) { const a = (i - 1) * 9, b = i * 9, f = (s - d[a + 8]) / Math.max(1e-6, d[b + 8] - d[a + 8]); return lerp(d[a], d[b], clamp(f, 0, 1)); }
+    return Rival.time;
+  },
+  gap() { const t = this.at(car.s); return t == null ? null : Game.time - t; },
+  html() {
+    if (!Rival.play || (Game.state !== 'racing' && Game.state !== 'finished')) return '';
+    const g = this.gap(); if (g == null) return '';
+    return `<span style="color:#ff4fd8">${esc(Rival.name || 'RIVAL')}</span> <b class="${g <= 0 ? 'good' : 'bad'}">${fmtDelta(g)}</b>`;
+  },
+};
+
+/* ---- live races: two players, peer to peer over WebRTC. No server: the invite and the reply are codes the players
+   swap themselves (copy and paste, any chat). The host picks the stage; each sees the other's car ---- */
+const Live = {
+  pc: null, dc: null, role: null, status: 'NOT CONNECTED', peer: null, mesh: null, sendT: 0, code: '', name: '', peerFin: null, ready: false,
+  ice: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }],
+  enc(o) { return 'RRL.' + btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
+  dec(t) { t = String(t).trim(); if (!t.startsWith('RRL.')) throw new Error('Not a live race code.'); return JSON.parse(unb64u(t.slice(4))); },
+  set(s) { this.status = s; if (Hub.tab === 'live') Hub.render(); },
+  async gather(pc) {
+    if (pc.iceGatheringState !== 'complete') await new Promise((res) => { const t = setTimeout(res, 4000); pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } }); });
+    return { t: pc.localDescription.type, s: pc.localDescription.sdp };
+  },
+  newPC() {
+    this.close();
+    if (!window.RTCPeerConnection) throw new Error('This browser has no WebRTC.');
+    const pc = this.pc = new RTCPeerConnection({ iceServers: this.ice });
+    pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') this.set('CONNECTION LOST'); });
+    return pc;
+  },
+  wire(dc) {
+    this.dc = dc;
+    dc.onopen = () => { this.set('CONNECTED'); this.send({ k: 'hi', n: cleanName(Store.data.settings.name) || 'DRIVER' }); };
+    dc.onclose = () => { this.set('NOT CONNECTED'); this.peer = null; if (this.mesh) this.mesh.visible = false; };
+    dc.onmessage = (e) => { try { this.recv(JSON.parse(e.data)); } catch (err) { /* ignore a bad packet */ } };
+  },
+  async host() {
+    try {
+      this.role = 'host'; const pc = this.newPC(); this.wire(pc.createDataChannel('race', { ordered: false, maxRetransmits: 0 }));
+      await pc.setLocalDescription(await pc.createOffer());
+      this.set('MAKING INVITE…');
+      this.code = this.enc(await this.gather(pc));
+      this.set('INVITE READY: SEND IT, THEN PASTE THE REPLY');
+    } catch (e) { this.set('COULD NOT HOST: ' + e.message); }
+  },
+  async join(invite) {
+    try {
+      const o = this.dec(invite); this.role = 'guest'; const pc = this.newPC();
+      pc.ondatachannel = (e) => this.wire(e.channel);
+      await pc.setRemoteDescription({ type: o.t, sdp: o.s });
+      await pc.setLocalDescription(await pc.createAnswer());
+      this.set('MAKING REPLY…');
+      this.code = this.enc(await this.gather(pc));
+      this.set('REPLY READY: SEND IT BACK TO THE HOST');
+    } catch (e) { this.set('COULD NOT JOIN: ' + e.message); }
+  },
+  async accept(reply) {
+    try { const o = this.dec(reply); await this.pc.setRemoteDescription({ type: o.t, sdp: o.s }); this.set('CONNECTING…'); }
+    catch (e) { this.set('COULD NOT CONNECT: ' + e.message); }
+  },
+  close() { try { if (this.dc) this.dc.close(); if (this.pc) this.pc.close(); } catch (e) { /* already closed */ } this.dc = this.pc = null; this.peer = null; this.code = ''; },
+  on() { return this.dc && this.dc.readyState === 'open'; },
+  send(o) { if (this.on()) try { this.dc.send(JSON.stringify(o)); } catch (e) { /* channel busy */ } },
+  /** Host: race the stage now in the stage select. The guest builds it and says when it is ready. */
+  race() {
+    if (!this.on() || this.role !== 'host') return;
+    this.peerFin = null; this.ready = false;
+    this.send({ k: 'stage', code: stageCode(Game.def) });
+    this.set('WAITING FOR THE GUEST TO LOAD ' + Game.def.name.toUpperCase());
+  },
+  go() { this.status = 'RACING ' + (this.name || 'RIVAL'); document.getElementById('hub').classList.add('hidden'); Rally.active = false; this.peerFin = null; this.peer = this.peer || {}; openService(); leaveService(); },
+  recv(m) {
+    if (m.k === 'hi') { this.name = cleanName(m.n) || 'RIVAL'; this.set('CONNECTED TO ' + this.name); }
+    else if (m.k === 'stage') {
+      const def = parseStageCode(m.code, 0); if (!def) return;
+      document.getElementById('hub').classList.add('hidden');
+      const go = () => { this.send({ k: 'ready' }); this.set('READY · THE HOST STARTS THE COUNTDOWN'); };
+      if (Game.state === 'menu' && Game.def && Game.def.id === def.id) go(); else if (Game.state === 'menu' || Game.state === 'finished') loadStage(def, () => { enterMenu('stages'); go(); });
+    } else if (m.k === 'ready' && this.role === 'host') { this.send({ k: 'go' }); this.go(); }
+    else if (m.k === 'go') this.go();
+    else if (m.k === 'p') { this.peer = Object.assign(this.peer || {}, { x: m.x, y: m.y, z: m.z, q: m.q, s: m.s, t: m.t, at: performance.now() }); }
+    else if (m.k === 'fin') { this.peerFin = m.t; HUD.toast(this.name + ' FINISHED ' + fmtTime(m.t), '#ffd23d', 2.5); }
+  },
+  update(dt) {
+    if (!this.on()) { if (this.mesh) this.mesh.visible = false; return; }
+    const st = Game.state;
+    if (st === 'racing' || st === 'countdown') {
+      this.sendT -= dt;
+      if (this.sendT <= 0) { this.sendT = 0.1; const p = car.pos, q = car.q; this.send({ k: 'p', t: +Game.time.toFixed(2), x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), q: [q.x, q.y, q.z, q.w].map((v) => +v.toFixed(4)), s: +car.s.toFixed(1) }); }
+    }
+    if (!this.mesh) { this.mesh = buildGhostModel(0xffd23d); this.mesh.traverse((o) => { if (o.material) o.material.opacity = 0.5; }); linearizeMaterials(this.mesh); scene.add(this.mesh); }
+    const P = this.peer, show = P && P.q && (st === 'racing' || st === 'countdown' || st === 'finished' || st === 'paused');
+    this.mesh.visible = !!show;
+    if (show) {
+      const f = 1 - Math.exp(-12 * dt);
+      this.mesh.position.lerp(_tmp.set(P.x, P.y, P.z), this.mesh.position.distanceTo(_tmp) > 30 ? 1 : f);
+      _q.set(P.q[0], P.q[1], P.q[2], P.q[3]).normalize(); this.mesh.quaternion.slerp(_q, f);
+    }
+  },
+  finished(t) { if (this.on()) this.send({ k: 'fin', t: +t.toFixed(3) }); },
+  html() {
+    const on = this.on();
+    let h = `<div class="hub-head">LIVE · <b>${esc(this.status)}</b></div><div class="hub-cols"><div>`;
+    h += '<h4>HOST</h4><p class="hub-note">Make an invite, send it to a friend (any chat), paste their reply.</p><button class="mini" data-live="host">MAKE AN INVITE</button>';
+    if (this.role === 'host' && this.code) h += `<textarea class="field live-code" readonly>${this.code}</textarea><button class="mini" data-live="copy">COPY INVITE</button>` +
+      '<textarea class="field live-code" id="liveReply" placeholder="PASTE THE REPLY HERE"></textarea><button class="mini" data-live="accept">CONNECT</button>';
+    h += '</div><div><h4>JOIN</h4><p class="hub-note">Paste a friend\'s invite, then send them your reply.</p><textarea class="field live-code" id="liveInvite" placeholder="PASTE THE INVITE HERE"></textarea><button class="mini" data-live="join">MAKE A REPLY</button>';
+    if (this.role === 'guest' && this.code) h += `<textarea class="field live-code" readonly>${this.code}</textarea><button class="mini" data-live="copy">COPY REPLY</button>`;
+    h += '</div></div>';
+    if (on) h += this.role === 'host' ? `<div class="hub-head"><button class="btn" data-live="race">RACE ${esc(Game.def.name.toUpperCase())} &#9656;</button> <small>(pick another stage in PLAY first to race that one)</small></div>` : '<div class="hub-head">The host picks the stage and starts.</div>';
+    if (on) h += '<div class="hub-head"><button class="mini" data-live="close">DISCONNECT</button></div>';
+    return h;
+  },
+};
+
+/* ---- the events screen: career, the weekly championship, hillclimbs, the raid and live races ---- */
+const Hub = {
+  tab: 'career', tabs: [['career', 'CAREER'], ['weekly', 'WEEKLY'], ['climb', 'HILLCLIMB'], ['raid', 'RAID'], ['live', 'LIVE']],
+  open(tab) {
+    if (tab) this.tab = tab;
+    document.getElementById('home').classList.add('hidden'); document.getElementById('menu').classList.add('hidden');
+    document.getElementById('hub').classList.remove('hidden');
+    this.render();
+  },
+  close() { document.getElementById('hub').classList.add('hidden'); if (Game.state === 'menu') enterMenu('home'); },
+  render() {
+    document.getElementById('hubTabs').innerHTML = this.tabs.map(([k, n]) => `<button data-tab="${k}" class="${k === this.tab ? 'on' : ''}">${n}</button>`).join('');
+    let h = '';
+    if (this.tab === 'career') h = Career.html();
+    else if (this.tab === 'weekly') h = Weekly.html();
+    else if (this.tab === 'climb') {
+      const b = Store.data.climbBest;
+      h = `<div class="hub-head">THREE CLIMBS, ONE RUN EACH, ANY CAR${b ? ` · SERIES RECORD <b>${fmtTime(b.total)}</b>` : ''}</div>` +
+        CLIMBS.map((id) => { const d = STAGES[stageById(id)], best = Store.best(id); return `<div class="ev-row"><span><b>${d.name}</b><small>${d.region} · ${(d.length / 1000).toFixed(1)} KM · CLIMBS ${d.climb} M${best ? ' · BEST ' + fmtTime(best.time) : ''}</small></span></div>`; }).join('') +
+        '<p class="hub-note">Pikes Peak and the Col de Turini are traced from map data: real corners, real heights. Each hill keeps its own leaderboard in PLAY.</p><button class="btn" data-go="climb">START THE SERIES &#9656;</button>';
+    } else if (this.tab === 'raid') {
+      const b = Store.data.raidBest;
+      h = `<div class="hub-head">THREE DESERT LEGS · ROUTE ${this.raidCode()}${b ? ` · BEST <b>${fmtTime(b.total)}</b>` : ''}</div>` +
+        '<p class="hub-note">Roadbook only: the notes show on screen but nobody reads them out, and there is no racing line. You start with 40 L of fuel and two spare sets of tyres for all three legs; the tyres wear as they slide. Damage carries over. Service between legs is overnight: 45 minutes for repairs, tyres and fuel, 10 s for every minute late. The last leg runs into the night.</p>' +
+        '<button class="btn" data-go="raid">START THIS ROUTE &#9656;</button> <button class="btn alt" data-go="raidNew">NEW ROUTE &#9656;</button>';
+    } else h = Live.html();
+    document.getElementById('hubBody').innerHTML = h;
+  },
+  raidCode() { return 'RAID-' + Raid2.seed(); },
+  init() {
+    document.getElementById('hubTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { this.tab = b.dataset.tab; this.render(); } });
+    document.getElementById('hubBack').addEventListener('click', (e) => { e.preventDefault(); this.close(); });
+    document.getElementById('hubBody').addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      AudioSys.unlock();
+      const d = b.dataset, C = Career.data();
+      if (d.ev) { const ev = ERAS.flatMap((x) => x.events).find((q) => q.id === d.ev); if (ev) Career.enter(ev); }
+      else if (d.car) { C.car = +d.car; Store.data.garage.body = C.car; Store.save(); rebuildCarModel(); this.render(); }
+      else if (d.buy) { if (Career.buy(+d.buy)) { Store.data.garage.body = +d.buy; rebuildCarModel(); this.render(); } else flashButton(b, 'NOT ENOUGH CASH'); }
+      else if (d.hire) { if (Career.hire(+d.hire)) this.render(); else flashButton(b, 'NOT ENOUGH CASH'); }
+      else if (d.wk) Weekly.enter(+d.wk);
+      else if (d.go === 'climb') Climb.start();
+      else if (d.go === 'raid' || d.go === 'raidNew') Raid2.start(d.go === 'raidNew');
+      else if (d.live === 'host') Live.host();
+      else if (d.live === 'join') Live.join(document.getElementById('liveInvite').value);
+      else if (d.live === 'accept') Live.accept(document.getElementById('liveReply').value);
+      else if (d.live === 'copy') copyText(Live.code, 'CODE', b);
+      else if (d.live === 'race') Live.race();
+      else if (d.live === 'close') { Live.close(); Live.set('NOT CONNECTED'); }
+    });
+  },
+};
+
 const Res = { max: Math.min(window.devicePixelRatio || 1, LOW_SPEC ? 1.3 : 1.6), pr: 0, acc: 0, n: 0, good: 0, hold: 0 };
 Res.pr = Res.max;
 function adaptResolution(rawDt) {
@@ -14791,7 +15919,7 @@ function frame(now) {
   if (!(dt > 0)) return;
   if (dt > 0.05) dt = 0.05;
   adaptResolution(raw);
-  if (update(dt)) Post.render();
+  if (update(dt)) { if (Game.state === 'photo') Photo.draw(); else Post.render(); }
 }
 /** Advance the whole game by dt seconds. Returns false while nothing is ready to draw. */
 function update(dt) {
@@ -14800,7 +15928,7 @@ function update(dt) {
   if (!TR || Game.state === 'loading') return false;
   const st = Game.state;
   let ctl = IDLE_CTL;
-  if (st !== 'paused') {
+  if (st !== 'paused' && st !== 'photo') {
     if (Game.hitStop > 0) { Game.hitStop -= dt; dt *= 0.06; }
     Game.clock += dt;
     AI.dt = dt;
@@ -14816,20 +15944,24 @@ function update(dt) {
     updateDamageFx(dt, ctl);
     updateScenery(dt, Game.clock);
     raceLogic(dt);
+    Raid.update(dt, ctl);
     if (st === 'menu' && car.s > TR.finishS + 40) { resetRunState(); placeCar(TR.startS + 2, 0, 0); Cam.snap(); }
   }
-  if (st === 'garage') Garage.updateCamera(dt); else Cam.update(dt);
+  if (st === 'garage') Garage.updateCamera(dt); else if (st === 'photo') Photo.update(dt); else Cam.update(dt);
+  Cond.update(st === 'paused' || st === 'photo' ? 0 : dt);
+  Dash.update(dt);
+  Live.update(dt);
   updateSunShadow();
   updateDrawDistance();
   Sky.update(dt, TR.ringY);
   FX.update(st === 'paused' ? 0 : dt);
   Ghost.update(Game.time); Rival.update(Game.time);
-  carAxes(); RacingLine.update();
+  carAxes(); RacingLine.update(); if (Raid.on && RacingLine.mesh) RacingLine.mesh.visible = false;
   if (st === 'racing' || st === 'countdown' || st === 'finished' || st === 'paused') HUD.update(dt);
   const w0 = car.wheels[2].grounded ? car.wheels[2].gs : car.wheels[0].gs;
   AudioSys.update(dt, {
-    speed: car.speed, rpm: car.rpm, limiter: car.limiter && st !== 'paused', throttle: st === 'paused' ? 0 : ctl.throttle, turbo: car.tune.spec.lag > 0 ? car.spool : 0, pop: car.backfire > 0 && st !== 'paused', spec: car.tune.spec, cabin: Cam.mode === 'bumper', surf: w0.road ? w0.surf : TR.def.surf.off,
-    grounded: car.nGround > 0 ? 1 : 0, slip: car.slip, active: st === 'paused' ? 0 : (st === 'menu' || st === 'service' || st === 'garage') ? 0.35 : 1,
+    speed: car.speed, rpm: car.rpm, limiter: car.limiter && st !== 'paused', throttle: st === 'paused' ? 0 : ctl.throttle, turbo: car.tune.spec.lag > 0 ? car.spool : 0, pop: car.backfire > 0 && st !== 'paused', spec: car.tune.spec, cabin: Cam.mode !== 'chase', surf: w0.road ? w0.surf : TR.def.surf.off,
+    grounded: car.nGround > 0 ? 1 : 0, slip: car.slip, active: st === 'paused' || st === 'photo' ? 0 : (st === 'menu' || st === 'service' || st === 'garage') ? 0.35 : 1,
   });
   return true;
 }
@@ -14851,10 +15983,11 @@ function init() {
   AudioSys.muted = !!s.muted; AudioSys.voice = s.voice !== false; AudioSys.vol = s.vol == null ? 1 : s.vol;
   if (typeof s.manual !== 'boolean') s.manual = !IS_TOUCH;
   if (typeof s.abs !== 'boolean') s.abs = true;      // manual gears by default on keyboard/gamepad, automatic on touch
-  Cam.mode = s.cam === 'bumper' ? 'bumper' : 'chase';
+  Cam.mode = s.cam === 'bumper' || s.cam === 'cockpit' ? s.cam : 'chase';
   if (IS_TOUCH) document.body.classList.add('touch');
   applyHud();
-  HUD.init(); Input.init(); Tilt.init(); Sky.init(); FX.init(); Ghost.init(); Rival.init(); Menu.init();
+  document.getElementById('noteBtn').addEventListener('click', (e) => { e.preventDefault(); Recce.addNote(); });
+  HUD.init(); Input.init(); Tilt.init(); Sky.init(); FX.init(); Ghost.init(); Rival.init(); Menu.init(); Precip.init(); Photo.init(); LiveryEd.init(); Hub.init();
   Post.apply();   // (after Sky.init: the reflection capture's planet copies its uniforms without post)
   rebuildCarModel();
   linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
@@ -14863,7 +15996,7 @@ function init() {
     AudioSys, EngineSound, Game, car, Post, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB,
-    openService, leaveService, startRally, Rally, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
+    openService, leaveService, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
   };
