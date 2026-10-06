@@ -9927,10 +9927,10 @@ function gbBody_mini(K) {
     K.rlamp(s * 0.48, 0.5, NOSE + 0.008, 0.032, amber, 1, 10);
     K.rtube(s * 0.6, 0.83, 0.2, s * 0.62, 0.92, 0.2, 0.008, K.trim);
     K.radd(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 10), K.trim, s * 0.62, 0.94, 0.2, PI / 2);
-    // Monte Carlo auxiliary lamps on the bumper, in front of the grille
-    K.radd(new THREE.CylinderGeometry(0.085, 0.07, 0.09, 14), K.trim, s * 0.19, 0.56, NOSE + 0.09, PI / 2);
-    K.rlamp(s * 0.19, 0.56, NOSE + 0.14, 0.075, K.headMat, 1, 14);
-    K.rtube(s * 0.19, 0.48, NOSE + 0.08, s * 0.19, 0.42, NOSE + 0.07, 0.012, K.dark);
+    // Monte Carlo auxiliary lamps on the bumper, either side of the grille as on 33 EJB
+    K.radd(new THREE.CylinderGeometry(0.085, 0.07, 0.09, 14), K.trim, s * 0.25, 0.56, NOSE + 0.09, PI / 2);
+    K.rlamp(s * 0.25, 0.56, NOSE + 0.14, 0.075, K.headMat, 1, 14);
+    K.rtube(s * 0.25, 0.48, NOSE + 0.08, s * 0.25, 0.42, NOSE + 0.07, 0.012, K.dark);
     // tail lamps on the rear corners, rear overriders
     K.rpanel([[0.5, 0.52], [0.58, 0.52], [0.58, 0.72], [0.5, 0.72]].map(([x, y]) => [s * x, y]), K.dark, 'front', TAIL - 0.004, -1);
     K.rpanel([[0.51, 0.6], [0.57, 0.6], [0.57, 0.71], [0.51, 0.71]].map(([x, y]) => [s * x, y]), K.tailMat, 'front', TAIL - 0.008, -1);
@@ -9941,6 +9941,10 @@ function gbBody_mini(K) {
     K.rbox(0.05, 0.065, 0.16, K.trim, s * 0.62, 0.4, NOSE - 0.03, 0, s * 0.5, 0);
     K.rbox(0.05, 0.065, 0.16, K.trim, s * 0.6, 0.4, TAIL + 0.03, 0, -s * 0.5, 0);
   });
+  // 33 EJB's third auxiliary lamp, smaller, on a bracket in the middle of the grille
+  K.radd(new THREE.CylinderGeometry(0.062, 0.052, 0.08, 14), K.trim, 0, 0.62, NOSE + 0.1, PI / 2);
+  K.rlamp(0, 0.62, NOSE + 0.145, 0.054, K.headMat, 1, 14);
+  K.rtube(0, 0.56, NOSE + 0.09, 0, 0.42, NOSE + 0.07, 0.012, K.dark);
   // ---- front: moustache chrome grille with horizontal slats, bonnet strap, number plate, bumper ----
   const grille = [[-0.34, 0.785], [0.34, 0.785], [0.35, 0.74], [0.3, 0.7], [0.27, 0.58], [0.24, 0.47], [-0.24, 0.47], [-0.27, 0.58], [-0.3, 0.7], [-0.35, 0.74]];
   K.rpanel(grille, K.trim, 'front', NOSE + 0.004, 1);
@@ -11067,13 +11071,13 @@ function kadettTail(K, c) {
 const NEW_CARS = [
   { name: 'RS 002', blurb: 'Audi Sport quattro RS 002 (1987), Audi\'s Group S prototype: the S1\'s turbo five turned round behind the driver in a low carbon-kevlar wedge. Two prototypes were built on a tube frame and Group S was cancelled before either raced. Specs mostly estimated.',
     // the S1 E2's 2,110 cc turbo five, mid-mounted; about 700 bhp claimed; tube frame, two built;
-    // no weight or dimensions were published (est.)
+    // no weight or dimensions were published (est.; the height is the traced drawing's)
     spec: { engine: '2.1 L inline-5, turbo (mid-mounted)', cyl: 5, layout: 'inline', pitch: 1.09, hp: 690, hpAt: 8000, nm: 660, nmAt: 6500, redline: 8400, idle: 1000, lag: 0.7, offBoost: 0.5,
       curve: [[1000, 190], [2000, 250], [3000, 330], [4000, 480], [5000, 610], [6000, 650], [6500, 660], [7500, 630], [8000, 614], [8400, 560]],
       disp: 2.11, launch: 5500, Ie: 0.13, enginePos: 'mid',
       box: '5-speed manual (S1 ratios)', gears: [3.111, 2.273, 1.706, 1.318, 0.962], final: 4.571, rev: 3.5, shift: 0.12,
       kg: 1000, front: 0.45, centre: 'torsen', fdiff: 'lsdF', rdiff: 'lsd',
-      wb: 2.5, track: [1.56, 1.56], wf: 0.41, cgH: 0.42, dims: [4.1, 1.9, 1.18], travel: 0.25,
+      wb: 2.5, track: [1.56, 1.56], wf: 0.41, cgH: 0.42, dims: [4.1, 1.9, 1.36], travel: 0.25,
       tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [330, 300] },
     aero: { cda: 0.82, cdaSide: 2.3, claF: 0.22, claR: 0.44, pitch: 0.07, ge: 0.35, text: 'Low wedge nose with a full-width splitter, flat underbody into a rear diffuser, tall rear wing on the engine cover' },
     // traced off a side-view drawing of the car: a Group C-style body, a nose that rounds down from the wheel arches,
@@ -11262,7 +11266,9 @@ const NEW_CARS = [
     rim: { spokes: 8, spokeW: 0.05, color: 0xf2f2ee, caliper: 0xd8262e }, pipes: [0.42],
     // the ECV was shown in 1986 in Lancia red with the Martini stripes
     livery: { name: 'Martini Lancia ECV, 1986', base: '#c8161d', rim: 0xf2f2ee, num: 1,
-      side(P, n) { martini(P, [[2.6, -0.35], [-2.6, -0.35]], 0.045); P.plate(n, 0.35, 0.0); P.text('MARTINI', -1.2, 0.0, 0.09, '#f4f4f0', { w: 0.8 }); P.text('ECV', 1.7, -0.1, 0.07, '#f4f4f0', { w: 0.3 }); },
+      side(P, n) {
+        // as shown at Bologna: the stripes run low along the front wing, then sweep up across the doors into the rear pillar
+        martini(P, [[2.6, -0.42], [0.5, -0.42], [-1.2, 0.1], [-1.6, 0.36], [-2.6, 0.36]], 0.045); P.plate(n, -0.75, -0.45); P.text('MARTINI', 0.4, 0.02, 0.09, '#f4f4f0', { w: 0.8 }); P.text('ECV', 1.7, -0.1, 0.07, '#f4f4f0', { w: 0.3 }); },
       top(P) { for (const sx of [-1, 1]) { P.rect(2.6, -2.5, sx * 0.3, sx * 0.36, '#3d9ad1'); P.rect(2.6, -2.5, sx * 0.37, sx * 0.43, '#0d2a5c'); P.rect(2.6, -2.5, sx * 0.44, sx * 0.5, '#d6262b'); } } } },
   { name: 'ECV II', blurb: 'Lancia ECV2 (1988), the second Group S study: the ECV\'s tub and Triflux engine under a smooth, low, wind-tunnel body. Body by Carlo Gaino\'s Synthesis Design: blunt, boxy and flared, white with Martini stripes. A show and test car only.',
     // the ECV's carbon tub, Triflux engine (600 CV at 8,000 rpm) and running gear, 910 kg (Lancia); body size (est.)
@@ -11444,13 +11450,13 @@ const NEW_CARS = [
   { name: 'C3 WRC', blurb: 'Citroën C3 WRC (2017-19), a World Rally Car of the wide-body 2017 rules: 1.6 turbo through a 36 mm restrictor, active centre diff and the biggest aero of the era.',
     // 1.6 L turbo, 380 hp at 6,000 rpm (Citroën; its quoted 400 N·m
     // cannot make that, so the curve holds the 450 N·m it needs); 4.128 m long, 1.875 m wide, 2.54 m wheelbase,
-    // 1,190 kg minimum; height, ratios and tracks (est.); the active centre is modelled as a viscous coupling
+    // 1,190 kg minimum; height from the traced body; ratios and tracks (est.); the active centre is modelled as a viscous coupling
     spec: { engine: '1.6 L inline-4 turbo, 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.04, hp: 380, hpAt: 6000, nm: 450, nmAt: 4500, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
       curve: [[1000, 200], [2000, 310], [3000, 390], [4000, 435], [4500, 450], [5000, 450], [6000, 450], [7000, 360], [8000, 290]],
       disp: 1.598, launch: 4500, Ie: 0.08, enginePos: 'front',
       box: '6-speed Sadev sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05,
       kg: 1190, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
-      wb: 2.54, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.128, 1.875, 1.47], travel: 0.27,
+      wb: 2.54, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.128, 1.875, 1.52], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     aero: { cda: 1.02, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, swan-neck twin-plane rear wing, full-width diffuser' },
     // traced off a side and front view of the C3 (2016-) hatchback, the WRC's wider flares, bumpers and aero added
@@ -11498,18 +11504,18 @@ const NEW_CARS = [
       top(P) { P.rect(0.95, -1.75, -1.45, 1.45, '#f4f4f2'); for (const o of [0, 0.3]) P.poly([[1.7 - o, -0.5], [1.95 - o, 0], [1.7 - o, 0.5], [1.55 - o, 0.5], [1.8 - o, 0], [1.55 - o, -0.5]], '#f4f4f2'); } } },
   { name: 'FIESTA WRC', blurb: 'Ford Fiesta WRC (2017-21) by M-Sport, Ogier\'s 2017 and 2018 title car: the EcoBoost 1.6 turbo, Ricardo sequential and the 2017 wide-body aero.',
     // 1.6 L EcoBoost turbo, 380 hp at 6,000 rpm, 450 N·m (M-Sport); 4.13 m long, 1.875 m wide, 2.493 m wheelbase,
-    // 1,190 kg minimum; height, ratios and tracks (est.)
+    // 1,190 kg minimum; height from the traced body; ratios and tracks (est.)
     spec: { engine: '1.6 L inline-4 turbo (EcoBoost), 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.03, hp: 380, hpAt: 6000, nm: 450, nmAt: 4500, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
       curve: [[1000, 210], [2000, 320], [3000, 410], [4000, 445], [4500, 450], [5000, 450], [6000, 450], [7000, 360], [8000, 285]],
       disp: 1.6, launch: 4500, Ie: 0.08, enginePos: 'front',
       box: '6-speed Ricardo sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05,
       kg: 1190, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
-      wb: 2.493, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.13, 1.875, 1.48], travel: 0.27,
+      wb: 2.493, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.13, 1.875, 1.51], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     aero: { cda: 1.0, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, tall rear wing on the hatch, full-width diffuser' },
     // traced off the Fiesta (2017-) blueprint, with the 3-door's long door and rear quarter window, the WRC's flares,
     // bumpers and aero added
-    shape: { trace: { top: '0.853:0.673 0.803:0.716 0.753:0.751 0.703:0.777 0.653:0.803 0.603:0.82 0.553:0.846 0.503:0.863 0.453:0.881 0.403:0.898 0.353:0.907 0.303:0.924 0.253:0.933 0.203:0.95 0.153:0.959 0.103:0.976 0.053:0.985 0.003:0.993 -0.047:0.993 -0.097:0.993 -0.147:1.028 -0.197:1.054 -0.247:1.071 -0.297:1.106 -0.347:1.132 -0.397:1.149 -0.447:1.175 -0.497:1.201 -0.547:1.218 -0.597:1.244 -0.647:1.27 -0.697:1.288 -0.747:1.314 -0.797:1.331 -0.847:1.357 -0.897:1.374 -0.947:1.392 -0.997:1.409 -1.047:1.426 -1.097:1.435 -1.147:1.444 -1.197:1.452 -1.247:1.461 -1.297:1.461 -1.347:1.47 -1.397:1.478 -1.447:1.478 -1.497:1.487 -1.547:1.487 -1.597:1.487 -1.647:1.487 -1.697:1.496 -1.747:1.496 -1.797:1.496 -1.847:1.496 -1.897:1.487 -1.947:1.487 -1.997:1.487 -2.047:1.487 -2.097:1.478 -2.147:1.478 -2.197:1.47 -2.247:1.47 -2.297:1.461 -2.347:1.47 -2.397:1.504 -2.447:1.539 -2.497:1.435 -2.547:1.426 -2.597:1.426 -2.647:1.418 -2.697:1.409 -2.747:1.4 -2.797:1.392 -2.847:1.383 -2.897:1.253 -2.947:1.21 -2.997:1.158 -3.047:1.106 -3.097:1.045 -3.147:0.976 -3.2:0.55',
+    shape: { trace: { top: '0.853:0.673 0.803:0.716 0.753:0.751 0.703:0.777 0.653:0.803 0.603:0.82 0.553:0.846 0.503:0.863 0.453:0.881 0.403:0.898 0.353:0.907 0.303:0.924 0.253:0.933 0.203:0.95 0.153:0.959 0.103:0.976 0.053:0.985 0.003:0.993 -0.047:0.993 -0.097:0.993 -0.147:1.028 -0.197:1.054 -0.247:1.071 -0.297:1.106 -0.347:1.132 -0.397:1.149 -0.447:1.175 -0.497:1.201 -0.547:1.218 -0.597:1.244 -0.647:1.27 -0.697:1.288 -0.747:1.314 -0.797:1.331 -0.847:1.357 -0.897:1.374 -0.947:1.392 -0.997:1.409 -1.047:1.426 -1.097:1.435 -1.147:1.444 -1.197:1.452 -1.247:1.461 -1.297:1.461 -1.347:1.47 -1.397:1.478 -1.447:1.478 -1.497:1.487 -1.547:1.487 -1.597:1.487 -1.647:1.487 -1.697:1.496 -1.747:1.496 -1.797:1.496 -1.847:1.496 -1.897:1.487 -1.947:1.487 -1.997:1.487 -2.047:1.487 -2.097:1.478 -2.147:1.478 -2.197:1.47 -2.247:1.47 -2.297:1.461 -2.347:1.455 -2.397:1.449 -2.447:1.442 -2.497:1.435 -2.547:1.426 -2.597:1.426 -2.647:1.418 -2.697:1.409 -2.747:1.4 -2.797:1.392 -2.847:1.383 -2.897:1.253 -2.947:1.21 -2.997:1.158 -3.047:1.106 -3.097:1.045 -3.147:0.976 -3.2:0.55',
         bot: '0.853:0.214 0.803:0.214 0.753:0.214 0.703:0.205 0.653:0.197 0.603:0.197 0.553:0.197 0.503:0.197 0.453:0.188 0.403:0.197 0.353:0.203 0.303:0.205 0.253:0.207 0.203:0.209 0.153:0.211 0.103:0.213 0.053:0.215 0.003:0.217 -0.047:0.218 -0.097:0.22 -0.147:0.222 -0.197:0.224 -0.247:0.226 -0.297:0.228 -0.347:0.23 -0.397:0.231 -0.447:0.231 -0.497:0.231 -0.547:0.231 -0.597:0.231 -0.647:0.231 -0.697:0.231 -0.747:0.231 -0.797:0.24 -0.847:0.24 -0.897:0.24 -0.947:0.24 -0.997:0.24 -1.047:0.24 -1.097:0.24 -1.147:0.24 -1.197:0.24 -1.247:0.24 -1.297:0.24 -1.347:0.24 -1.397:0.24 -1.447:0.24 -1.497:0.24 -1.547:0.24 -1.597:0.249 -1.647:0.249 -1.697:0.249 -1.747:0.249 -1.797:0.249 -1.847:0.249 -1.897:0.249 -1.947:0.249 -1.997:0.249 -2.047:0.249 -2.097:0.249 -2.147:0.249 -2.197:0.25 -2.247:0.25 -2.297:0.251 -2.347:0.251 -2.397:0.252 -2.447:0.253 -2.497:0.253 -2.547:0.254 -2.597:0.254 -2.647:0.255 -2.697:0.255 -2.747:0.256 -2.797:0.256 -2.847:0.257 -2.897:0.257 -2.947:0.274 -2.997:0.274 -3.047:0.274 -3.097:0.283 -3.147:0.318 -3.2:0.36',
         plan: '0.853:0.3 0.8:0.6 0.75:0.7 0.65:0.8 0.54:0.87 0.44:0.91 0.3:0.93 0:0.9375 -0.3:0.93 -0.5:0.89 -0.7:0.87 -1.8:0.87 -2.0:0.89 -2.25:0.93 -2.49:0.9375 -2.75:0.93 -2.95:0.89 -3.05:0.84 -3.15:0.74 -3.2:0.55',
         belt: '-0.1:0.9 -0.18:0.895 -1.78:1.055 -2.42:1.115 -2.98:1.1',
@@ -11617,7 +11623,8 @@ const NEW_CARS = [
       kg: 1190, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.511, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.085, 1.875, 1.42], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
-    aero: { cda: 1.04, cdaSide: 2.7, claF: 0.28, claR: 0.44, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with stacked dive planes, louvred front arches, side skirts, swan-neck rear wing on tall endplates, full-width diffuser' },
+    // drag: Yaris (XP130) Cd 0.287 (Toyota) + 0.17 for the 2017 rules' bigger wing, splitter and diffuser, times 0.81 x the real width x height
+    aero: { cda: 0.99, cdaSide: 2.7, claF: 0.28, claR: 0.44, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with stacked dive planes, louvred front arches, side skirts, swan-neck rear wing on tall endplates, full-width diffuser' },
     // traced off the Yaris (2017 facelift) blueprint, with the 3-door's long door and rear quarter window, the WRC's
     // flares, bumpers and aero added
     shape: { trace: { top: '0.879:0.587 0.829:0.661 0.779:0.736 0.729:0.765 0.679:0.788 0.629:0.817 0.579:0.84 0.529:0.855 0.479:0.869 0.429:0.884 0.379:0.899 0.329:0.907 0.279:0.921 0.229:0.936 0.179:0.944 0.129:0.951 0.079:0.966 0.029:0.974 -0.021:0.981 -0.071:0.974 -0.121:0.974 -0.171:0.981 -0.221:1.011 -0.271:1.04 -0.321:1.07 -0.371:1.1 -0.421:1.13 -0.471:1.159 -0.521:1.182 -0.571:1.204 -0.621:1.234 -0.671:1.256 -0.721:1.271 -0.771:1.293 -0.821:1.316 -0.871:1.338 -0.921:1.353 -0.971:1.368 -1.021:1.383 -1.071:1.39 -1.121:1.397 -1.171:1.397 -1.221:1.39 -1.271:1.397 -1.321:1.397 -1.371:1.397 -1.421:1.397 -1.471:1.397 -1.521:1.397 -1.571:1.397 -1.621:1.397 -1.671:1.397 -1.721:1.397 -1.771:1.397 -1.821:1.397 -1.871:1.397 -1.921:1.397 -1.971:1.397 -2.021:1.39 -2.071:1.39 -2.121:1.39 -2.171:1.397 -2.221:1.397 -2.271:1.397 -2.321:1.39 -2.371:1.383 -2.421:1.397 -2.471:1.397 -2.521:1.375 -2.571:1.368 -2.621:1.36 -2.671:1.36 -2.721:1.353 -2.771:1.353 -2.821:1.226 -2.871:1.182 -2.921:1.137 -2.971:1.093 -3.021:1.033 -3.071:0.988 -3.121:0.981 -3.171:0.721 -3.189:0.609',
@@ -11658,13 +11665,13 @@ const NEW_CARS = [
       top(P) { P.rect(0.0, -2.6, -1.45, 1.45, '#15161a'); P.rect(0.12, 0.0, -1.45, 1.45, '#d6202a'); } } },
   { name: 'POLO R WRC', blurb: 'Volkswagen Polo R WRC (2013-16): four makers\' and four drivers\' titles in four years for Ogier. A 1.6 TSI through the 33 mm restrictor, short and nimble.',
     // 1.6 L TSI turbo, 318 hp at 6,250 rpm, 425 N·m at 5,000 (Volkswagen); 3.976 m long, 1.82 m wide, 2.48 m wheelbase,
-    // 1,200 kg minimum; height, ratios and tracks (est.)
+    // 1,200 kg minimum; height from the traced body; ratios and tracks (est.)
     spec: { engine: '1.6 L inline-4 turbo (TSI), 33 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.04, hp: 318, hpAt: 6250, nm: 425, nmAt: 5000, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
       curve: [[1000, 200], [2000, 300], [3000, 380], [4000, 415], [5000, 425], [6250, 362], [7000, 310], [8000, 250]],
       disp: 1.598, launch: 4500, Ie: 0.08, enginePos: 'front',
       box: '6-speed Ricardo sequential (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.3, rev: 2.9, shift: 0.06,
       kg: 1200, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
-      wb: 2.48, track: [1.58, 1.58], wf: 0.56, cgH: 0.45, dims: [3.976, 1.82, 1.37], travel: 0.26,
+      wb: 2.48, track: [1.58, 1.58], wf: 0.56, cgH: 0.45, dims: [3.976, 1.82, 1.49], travel: 0.26,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     // drag: Polo (6R) Cd 0.32 (Volkswagen) + 0.12 for the rally kit, times 0.81 x the real width x height
     aero: { cda: 0.89, cdaSide: 2.5, claF: 0.18, claR: 0.36, pitch: 0.07, ge: 0.25, text: 'Front splitter with corner dive planes, side skirts, rear wing on the hatch top, rear diffuser' },
