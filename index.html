@@ -12804,7 +12804,7 @@ const Cam = {
   // back as the car pulls away, closes in under braking, swings to the outside of a corner and dips on a landing
   lag: new THREE.Vector3(), lagV: new THREE.Vector3(), lastVel: new THREE.Vector3(), acc: new THREE.Vector3(), rough: 0, t: 0,
   // an impact knocks the view away from the hit (kickP), rolls it on a spring (roll) and punches the lens in (fovP)
-  kickP: new THREE.Vector3(), roll: 0, rollV: 0, fovP: 0,
+  kickP: new THREE.Vector3(), roll: 0, rollV: 0, fovP: 0, eyeW: new THREE.Vector3(),
   /** A hit of strength k (0..1) pushing along world direction n (out of the obstacle, into the car). */
   kick(nx, nz, k) {
     this.kickP.x += nx * k * 0.45; this.kickP.z += nz * k * 0.45; this.kickP.y -= k * 0.12;
@@ -12864,8 +12864,8 @@ const Cam = {
       camera.lookAt(this.look);
       fovT = 62 + Math.min(sp, 70) * 0.3;
     } else if (this.mode === 'cockpit' && Game.carModel) {
-      _tmp2.copy(Dash.eye()).applyQuaternion(Draw.q).add(P).addScaledVector(this.lag, 0.22);   // the helmet rides the g-forces
-      camera.position.copy(_tmp2);
+      this.eyeW.copy(Dash.eye()).applyQuaternion(Draw.q).add(P);
+      camera.position.copy(this.eyeW).addScaledVector(this.lag, 0.22);   // the helmet rides the g-forces
       _q.copy(Draw.q).multiply(this.flipQ);
       if (instant) this.bq.copy(_q); else this.bq.slerp(_q, 1 - Math.exp(-14 * dt));
       camera.quaternion.copy(this.bq);
@@ -12901,6 +12901,9 @@ const Cam = {
       if (Math.abs(this.roll) > 1e-4) camera.rotateZ(clamp(this.roll, -0.25, 0.25));
       camera.fov += this.fovP; this.fovP *= Math.exp(-6 * dt);
     } else { this.kickP.set(0, 0, 0); this.roll = this.rollV = this.fovP = 0; }
+    // in the cockpit the roof is 13-24 cm over the eyes and the door glass about 30, but a hit or a hard landing throws
+    // the camera half a metre or more (lag, jolt and kick) and the view went through the shell: the helmet moves 6 cm at most
+    if (this.mode === 'cockpit' && Game.carModel) camera.position.sub(this.eyeW).clampLength(0, 0.06).add(this.eyeW);
     camera.updateProjectionMatrix();
   },
 };
@@ -15858,6 +15861,9 @@ const Dash = {
     const inside = Cam.mode === 'cockpit' && Game.state !== 'garage' && Game.state !== 'photo';
     if (inside !== this.mode) {
       this.mode = inside; this.g.visible = inside;
+      // the roof, pillars, door frames and cage are 15-35 cm from the eye: the chase camera's 30 cm near plane cut holes
+      // in them (the sky showed through), so the cockpit draws from 5 cm
+      camera.near = inside ? 0.05 : 0.3; camera.updateProjectionMatrix();
       const c = M.pilot.userData.crew; c.H.visible = c.collar.visible = !inside;   // the driver's own body, arms and wheel stay
       M.shell.traverse((o) => { if (o.isMesh && o.material && !o.material.isMeshBasicMaterial) { o.material.side = inside ? THREE.DoubleSide : THREE.FrontSide; o.material.needsUpdate = true; } });
       if (M.glass) { if (M.glass.userData.op == null) M.glass.userData.op = M.glass.opacity; M.glass.opacity = inside && !car.glassBroken ? 0.12 : car.glassBroken ? 0.82 : M.glass.userData.op; }
