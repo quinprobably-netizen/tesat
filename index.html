@@ -6547,16 +6547,17 @@ function drivelineStep(dt, ctl, G, th0) {
   om[0] = car.we; for (let k = 0; k < 4; k++) om[k + 1] = W[k].om; om[5] = twin ? car.we2 : 0;
   const s = sp.front, c0 = twin ? 0.5 : s / 2, c2 = twin ? 0 : (1 - s) / 2;
   // clutch: an automatic launch clutch (engagement rises with revs from just over idle to the launch revs); an H-pattern
-  // box opens it while shifting, a sequential keeps it home; a rear-drive car's driver dips it with the handbrake
+  // box opens it while shifting, a sequential keeps it home; a rear-drive car's driver dips it with the handbrake (and
+  // holds it down on the start line)
   const box = BOX_TYPES[sp.boxType] || BOX_TYPES.synchro, dip = car.shiftT > 0 && box.clutch;
   const clutch = (c, we, wC, hb) => {
     const eng = G === 0 || dip || hb ? 0 : smoothstep(sp.idle * 1.05, sp.launch, Math.max(we, Math.abs(G * wC)) * 60 / TAU);
     setCpl(c, eng > 0.002, DRIVE.Kc, sp.clutchT * eSh * eng);
   };
   const cl = C[0], cl2 = C[8];
-  clutch(cl, om[0], c0 * (om[1] + om[2]) + c2 * (om[3] + om[4]), ctl.handbrake && !s);
+  clutch(cl, om[0], c0 * (om[1] + om[2]) + c2 * (om[3] + om[4]), (ctl.handbrake && !s) || ctl.clutchIn);
   cl.u[0] = 1; cl.u[1] = cl.u[2] = -G * c0; cl.u[3] = cl.u[4] = -G * c2;
-  if (twin) { clutch(cl2, om[5], 0.5 * (om[3] + om[4]), ctl.handbrake); cl2.u[5] = 1; cl2.u[3] = cl2.u[4] = -G * 0.5; } else cl2.on = false;
+  if (twin) { clutch(cl2, om[5], 0.5 * (om[3] + om[4]), ctl.handbrake || ctl.clutchIn); cl2.u[5] = 1; cl2.u[3] = cl2.u[4] = -G * 0.5; } else cl2.on = false;
   // differentials (the centre one lets go while the handbrake is pulled, so the rears can lock)
   const Tin = Math.abs(G * car.Tcl), power = car.Tcl * G >= 0;
   if (twin) { C[1].on = false; diffCpl(C[2], sp.fdiff, Tin, power, false, ctl); diffCpl(C[3], sp.rdiff, Math.abs(G * car.Tcl2), power, false, ctl); }
@@ -13956,13 +13957,17 @@ function aiControl(skill, stopping) {
   return c;
 }
 const IDLE_CTL = { steer: 0, throttle: 0, brake: 0, handbrake: true };
+// on the start line the driver holds the car on both brakes with the clutch down, so the throttle and steering are
+// theirs (rev it up, build boost) while the car can't move; at GO the controls go straight to them
+const START_CTL = { steer: 0, throttle: 0, brake: 1, handbrake: true, clutchIn: true };
 const RECCE_CTL = { steer: 0, throttle: 0, brake: 0, handbrake: false };
 function chooseControls() {
   const st = Game.state;
   if (Game.forceCtl && st === 'racing') return Game.forceCtl;
   if (st === 'racing' && Game.recce && !Game.autopilot) { const c = Input.ctl; RECCE_CTL.steer = c.steer; RECCE_CTL.brake = c.brake; RECCE_CTL.handbrake = c.handbrake; RECCE_CTL.throttle = car.speed > Recce.LIMIT ? 0 : c.throttle * clamp((Recce.LIMIT - car.speed) / 3, 0, 1); return RECCE_CTL; }
   if (st === 'racing') return Game.autopilot ? aiControl(0.97, false) : Input.ctl;
-  if (st === 'countdown' || st === 'service' || st === 'garage') return IDLE_CTL;
+  if (st === 'countdown') { const c = Input.ctl, ai = Game.autopilot; START_CTL.steer = ai ? 0 : c.steer; START_CTL.throttle = ai ? 0 : c.throttle; return START_CTL; }
+  if (st === 'service' || st === 'garage') return IDLE_CTL;
   if (st === 'finished') return aiControl(1, true);
   return aiControl(0.92, false);   // menu demo
 }
