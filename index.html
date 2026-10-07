@@ -1392,6 +1392,8 @@ const Store = {
         this.data.garage = d.garage;
         if (d.archive && typeof d.archive === 'object') this.data.archive = d.archive;
         if ((d.era || 1) < this.era) this.archiveEra(d.era || 1);
+        // setups were kept per stage index for whichever car was in the garage; they are now per stage and car
+        for (const k in this.data.setups) if (!k.includes('|')) delete this.data.setups[k];
       }
     } catch (e) { /* storage unavailable or corrupt: play without persistence */ }
   },
@@ -2078,20 +2080,87 @@ const TUNE = {
     [1.2, 0.5, 2.5, 1.2, 2.5, 0.6],
   ],
 };
-// per stage, in STAGES order. Tyres as the WRC teams take them: snow tyres for the Monte's mixed roads, studs in Sweden,
-// hard gravel for rough and hot rounds (Kenya, Portugal, Acropolis, Sardinia, Saudi), soft for smooth fast gravel, soft
-// tarmac for cool asphalt (Croatia, Japan, Pikes Peak) and hard for the abrasive Canaries
-const RECOMMENDED = [{ susp: 1, damp: 1, arb: 1, gear: 0, tyre: 5 }, { susp: 1, damp: 1, arb: 0, gear: 1, tyre: 6 }, { susp: 0, damp: 0, arb: 0, gear: 1, tyre: 1 },
-  { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 }, { susp: 2, damp: 2, arb: 2, gear: 1, tyre: 3 }, { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 1 },
-  { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 }, { susp: 0, damp: 0, arb: 0, gear: 0, tyre: 1 }, { susp: 1, damp: 1, arb: 0, gear: 2, tyre: 0 },
-  { susp: 0, damp: 1, arb: 0, gear: 2, tyre: 0 }, { susp: 1, damp: 1, arb: 1, gear: 2, tyre: 0 }, { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 },
-  { susp: 0, damp: 0, arb: 0, gear: 0, tyre: 1 }, { susp: 0, damp: 0, arb: 0, gear: 2, tyre: 1 }, { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 },
-  { susp: 1, damp: 1, arb: 1, gear: 0, tyre: 2 }];
-/** The recommended setup for a stage; on tarmac in the rain, the wet tyre. */
-function recSetup(i, w) {
-  const r = Object.assign({}, RECOMMENDED[i] || DEFAULT_SETUP);
-  if ((w || Cond.pick().w) === 'rain' && (r.tyre === 2 || r.tyre === 3)) r.tyre = 4;
-  return r;
+/* The recommended setup, worked out for the car in the garage on the loaded stage in the run's weather, from the
+   car's own figures and the road itself (not a fixed table per stage: one set of springs and one final drive can't
+   suit a 650 kg Mini and a 1,300 kg World Rally Car alike).
+   - Tyres and final drive: the pair that is quickest over this road. A quick lap-time pass (setupLapTime) drives
+     the car's own engine, gears, weight, drag and driven wheels with each compound's grip on each surface of the
+     road, in the rain or falling snow where it's set, through every bend and up every grade.
+   - Springs, dampers and bars: from how rough the road is, how big its jumps are, how much of it is loose, and the
+     car's own wheel travel (a soft spring never sits a short-travel car low in its travel). */
+function stageWx(def, w) {
+  w = w || Cond.pick().w;
+  const snowy = def.surf.base === SURF.SNOW || def.surf.off === SURF.SNOW || (def.altitude && def.altitude[1] > 3000);
+  const kind = w === 'changing' ? (snowy ? 'snow' : 'rain') : w, m = WET_MU[kind];
+  if (!m) return null;
+  const k = w === 'changing' ? 0.6 : 1;                // changing: dry for the first part of the stage
+  return m.map((x) => 1 - (1 - x) * k);
+}
+/** Time (s) over the loaded stage's road for tune `tn` in weather `wx` (WET_MU-style grip per surface, or null). */
+function setupLapTime(tn, def, wx) {
+  const sp = tn.spec, m = tn.mass, g = def.gripG, N = TR.N, kap = TR.kap, cy = TR.cy;
+  const i0 = Math.max(1, Math.round(TR.startS / DS)), i1 = Math.min(N - 2, Math.round(TR.finishS / DS));
+  const alt = def.altitude, air = alt ? engineAir(sp, airSigma((alt[0] + alt[1]) / 2 * (def.altUnit === 'M' ? 1 : 0.3048))) : 1;
+  const mu = new Float32Array(6);
+  for (let s = 0; s < 6; s++) mu[s] = SURF_INFO[s].mu * tn.mu[s] * (wx ? Math.max(0.2, 1 - (1 - wx[s]) * tn.wet) : 1);
+  const drive = !sp.front ? 1 - sp.wf : sp.front >= 1 ? sp.wf : 1;           // weight on the driven wheels
+  const acc = new Float32Array(141), Ir = 4 * tn.geo.Iw / (tn.r * tn.r);
+  for (let k = 0; k <= 140; k++) {
+    const u = k * 0.5, drag = aeroLevel(tn, u).drag;
+    let best = -drag / m;
+    for (let q = 0; q < tn.gears.length; q++) {
+      const f = gearPull(tn, q, u) * air, G = tn.gears[q] * tn.final;
+      if (f > 0) best = Math.max(best, (f - drag) / (m + Ir + sp.Ie * G * G / (tn.r * tn.r)));
+    }
+    acc[k] = best;
+  }
+  const v = new Float32Array(N), vmax = tn.vmax;
+  for (let i = i0; i <= i1; i++) v[i] = Math.min(vmax, Math.sqrt(mu[TR.surf[i]] * g * 0.62 * (1 / Math.max(Math.abs(kap[i]), 1e-5) + def.hw * 0.6)));
+  const grade = (i) => (cy[i + 1] - cy[i - 1]) / (2 * DS);
+  v[i0] = 0;
+  for (let i = i0 + 1; i <= i1; i++) {
+    const s = TR.surf[i], u = v[i - 1], a = Math.min(acc[Math.min(140, Math.round(u * 2))], mu[s] * g * drive * 0.9) - SURF_INFO[s].rr * g - g * grade(i);
+    v[i] = Math.min(v[i], Math.sqrt(Math.max(0.25, u * u + 2 * a * DS)));
+  }
+  for (let i = i1 - 1; i >= i0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * Math.max(1, mu[TR.surf[i]] * g * 0.75 + g * grade(i)) * DS));
+  let t = 0;
+  for (let i = i0 + 1; i <= i1; i++) t += 2 * DS / (v[i] + v[i - 1] + 1e-3);
+  return t;
+}
+const _recCache = new Map();
+/** The recommended setup for stage `def` (the loaded one) in weather `w`, for the car in `build`. */
+function recSetup(def, w, build) {
+  build = cleanBuild(build || Store.data.garage);
+  w = w || Cond.pick().w;
+  const key = def.id + '|' + def.seed + '|' + w + '|' + build.body;
+  if (_recCache.has(key)) return Object.assign({}, _recCache.get(key));
+  const r = Object.assign({}, DEFAULT_SETUP);
+  if (TR.def !== def || !TR.surf) {                    // the road isn't loaded: go by the stage's main surface
+    r.tyre = { [SURF.TARMAC]: 2, [SURF.SNOW]: 5, [SURF.ICE]: 6 }[def.surf.base] || 0;
+    return r;
+  }
+  // the road: the share of each surface, how rough it is and how big the jumps are
+  const share = new Float32Array(6), i0 = Math.round(TR.startS / DS), i1 = Math.min(TR.N - 1, Math.round(TR.finishS / DS));
+  for (let i = i0; i < i1; i++) share[TR.surf[i]] += 1 / (i1 - i0);
+  const loose = share[SURF.GRAVEL] + share[SURF.REGOLITH], winter = share[SURF.SNOW] + share[SURF.ICE], hard = share[SURF.TARMAC] + share[SURF.METAL];
+  const rough = def.roadRough || 0.05, jump = Math.max(def.ramp ? def.ramp.H : 0, def.crest ? def.crest.h : 0);
+  // tyres and final drive: the quickest pair over this road
+  const wx = stageWx(def, w);
+  let best = Infinity;
+  for (let ty = 0; ty < TUNE.tyre.length; ty++) for (const gr of [1, 0, 2]) {
+    const t = setupLapTime(tuneFor(Object.assign({}, r, { tyre: ty, gear: gr }), build), def, wx);
+    if (t < best - 0.05) { best = t; r.tyre = ty; r.gear = gr; }      // (a near tie keeps the standard final drive)
+  }
+  // springs: soft on rough roads, stiff on smooth tarmac; never so soft that the car sits deep in its travel
+  r.susp = rough >= 0.09 ? 0 : hard >= 0.8 && rough <= 0.05 ? 2 : 1;
+  const geo = tuneFor(DEFAULT_SETUP, build).geo;
+  while (r.susp < 2 && geo.sag / TUNE.susp[r.susp].k > 0.6 * geo.travel) r.susp++;
+  // dampers follow the springs; firmer for big jumps, to hold the car on the landing
+  r.damp = Math.min(2, r.susp + (jump >= 1.6 && r.susp < 2 ? 1 : 0));
+  // bars: soft where the road is loose, rough or white (each wheel finds its own grip), stiff on smooth tarmac
+  r.arb = winter >= 0.5 || (loose >= 0.5 && rough >= 0.06) ? 0 : hard >= 0.8 && rough <= 0.05 ? 2 : 1;
+  _recCache.set(key, r);
+  return Object.assign({}, r);
 }
 const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
 const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
@@ -2606,7 +2675,8 @@ function tuneFor(setup, build) {
   build = cleanBuild(build || DEFAULT_BUILD);
   const sp = CAR_SPECS[build.body] || CAR_SPECS[0], aero = CAR_AERO[build.body] || CAR_AERO[0];
   const mass = sp.kg + REF_PILOT_KG + FUEL_KG, dm = mass - (CAR_SPECS[0].kg + REF_PILOT_KG + FUEL_KG);
-  const tn = { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land - dm * 0.003, v: gr.v,
+  // (landings: every car's springs are rated to the same ride frequency, so a landing loads each car's alike)
+  const tn = { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land, v: gr.v,
     gears: sp.gears, final: sp.final / gr.v,
     mu: TUNE.tyre[setup.tyre] || [1, 1, 1, 1, 1, 1], steer: sp.steer,   // no compound (refTune): the neutral reference tyre
     relax: TUNE.tyreRelax[setup.tyre] || 1, wet: TUNE.tyreWet[setup.tyre] || 1, wear: TUNE.tyreWear[setup.tyre] || null,
@@ -13818,15 +13888,20 @@ function copyText(text, what, btn) {
 const Rally = { active: false, kind: 'rally', title: 'RALLY', list: [], cond: [], stage: 0, total: 0, results: [], damage: 0, servicePen: 0, svcUsed: 0, svcMin: 30,
   serviced: false, done: false, isBest: false, field: [], place: 0, diff: 1, ev: null };
 function startRally() { startEvent({ kind: 'rally', title: 'RALLY', list: STAGES.map((d, i) => i).slice(0, RALLY_STAGES), svcMin: 30 }); }
+/** Setups are kept per stage and per car (a final drive or springs picked for one car don't suit another). */
+const setupKey = () => TR.def.id + '|' + cleanBuild(Store.data.garage).body;
+const runWeather = () => Rally.active ? (Rally.cond[Rally.stage] || {}).w : Cond.pick().w;
+/** The setup for this run: the one chosen in the service park, or else the recommended one (recSetup). */
 function currentSetup() {
-  const st = Store.data.setups[Game.stageIdx];
-  return Object.assign({}, DEFAULT_SETUP, st && typeof st === 'object' ? st : {});
+  const st = Store.data.setups[setupKey()], su = recSetup(TR.def, runWeather(), Store.data.garage);
+  if (st && typeof st === 'object') for (const k of SETUP_KEYS) if (Number.isInteger(st[k]) && st[k] >= 0 && st[k] < SETUP_OPTS[k].names.length) su[k] = st[k];
+  return su;
 }
 
 /* ---- service park: pick a setup (and repair damage during a rally) ---- */
 const Service = {
   render() {
-    const def = TR.def, su = currentSetup(), rec = recSetup(def.tpl, Rally.active ? (Rally.cond[Rally.stage] || {}).w : null);
+    const def = TR.def, su = currentSetup(), rec = recSetup(def, runWeather(), Store.data.garage);
     document.getElementById('svcStage').textContent = def.name.toUpperCase() + ' · ' + stageCode(def) + ' · ' + surfLabel(def);
     let html = '';
     for (const k of SETUP_KEYS) {
@@ -15512,7 +15587,7 @@ const Menu = {
     document.getElementById('svcRows').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-k]'); if (!b) return;
       const su = currentSetup(); su[b.dataset.k] = +b.dataset.v;
-      Store.data.setups[Game.stageIdx] = su; Store.save(); Service.render();
+      Store.data.setups[setupKey()] = su; Store.save(); Service.render();
     });
     document.getElementById('svcRally').addEventListener('click', (e) => {
       const b = e.target.closest('[data-fix]'); if (!b) return;
@@ -15527,7 +15602,7 @@ const Menu = {
     on('svcRecce', () => { if (Game.state === 'service' && !Rally.active) { document.getElementById('service').classList.add('hidden'); Recce.start(); } });
     on('pausePhoto', () => { if (Game.state === 'paused') Photo.open(null); });
     on('replayBtn', () => { if (Game.state === 'finished' && Game.result) Photo.open(Game.result.ghost); });
-    on('svcRec', () => { Store.data.setups[Game.stageIdx] = recSetup(TR.def.tpl, Rally.active ? (Rally.cond[Rally.stage] || {}).w : null); Store.save(); Service.render(); });
+    on('svcRec', () => { delete Store.data.setups[setupKey()]; Store.save(); Service.render(); });   // back to the recommended one, which follows the weather
     on('svcGo', () => { if (Game.state === 'service') leaveService(); });
     on('svcBack', () => enterMenu('stages'));
     // modal
@@ -16646,7 +16721,7 @@ function init() {
     AudioSys, EngineSound, Game, Cam, car, Post, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB,
-    openService, leaveService, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
+    openService, leaveService, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, recSetup, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
   };
