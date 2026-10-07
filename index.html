@@ -1164,7 +1164,7 @@ body.hud-min .pn svg *{stroke:var(--text)!important}
         <button class="opt" data-set="manual"><span><b>MANUAL GEARS</b><small>Shift yourself with E / Q or the bumpers (RB up, LB down). Off: automatic gearbox.</small></span><i class="switch"></i></button>
         <button class="opt" data-set="abs"><span><b>ABS</b><small>Stops the wheels locking under hard braking. Off: squeeze the brakes.</small></span><i class="switch"></i></button>
         <button class="opt" data-set="tc"><span><b>TRACTION CONTROL</b><small>Trims the engine so the driven wheels never spin. Off: feed the throttle in, or spin up and slide.</small></span><i class="switch"></i></button>
-        <button class="opt" data-set="stab"><span><b>STABILITY</b><small>FULL: stability control brakes a front wheel to straighten every slide, and helps beyond what the brakes can on ice; you can steer and level the car in the air. SPORT: the brakes alone, only on a big slide; air control too. OFF: the physics alone, no help on the ground or in the air.</small></span><i class="mode" id="stabMode">SPORT</i></button>
+        <button class="opt" data-set="stab"><span><b>STABILITY</b><small>FULL: stability control brakes a front wheel to straighten every slide, and helps beyond what the brakes can on ice. SPORT: the brakes alone, only on a big slide. OFF: the physics alone. In the air there is no control on any setting.</small></span><i class="mode" id="stabMode">SPORT</i></button>
         <button class="opt touch-only" data-set="tilt"><span><b>TILT STEERING</b><small>Steer by turning the phone like a wheel. Gas and brake stay on the buttons; &#9678; recentres.</small></span><i class="switch"></i></button>
         <button class="opt touch-only" data-set="tiltSens"><span><b>TILT SENSITIVITY</b><small>How far you turn the phone for full lock: LOW 30&deg;, MEDIUM 20&deg;, HIGH 12&deg;.</small></span><i class="mode" id="tiltMode">MEDIUM</i></button>
         <button class="opt" data-set="soft"><span><b>SOFT-BODY</b><small>The car is a frame of nodes and beams, as in BeamNG: hits crumple the body where they land and bend it for good, and a bent corner moves its wheel. Off: a rigid body with dents.</small></span><i class="switch"></i></button>
@@ -1186,7 +1186,7 @@ body.hud-min .pn svg *{stroke:var(--text)!important}
         <table class="ctl-table">
           <tr><th></th><th>KEYBOARD</th><th>GAMEPAD</th><th>TOUCH</th></tr>
           <tr><td>Throttle / brake</td><td><kbd>W</kbd><kbd>S</kbd> or <kbd>&uarr;</kbd><kbd>&darr;</kbd></td><td>RT / LT</td><td>GAS / BRAKE</td></tr>
-          <tr><td>Steer (in the air: yaw)</td><td><kbd>A</kbd><kbd>D</kbd> or <kbd>&larr;</kbd><kbd>&rarr;</kbd></td><td>Left stick</td><td>Steering pad, or tilt (Settings)</td></tr>
+          <tr><td>Steer</td><td><kbd>A</kbd><kbd>D</kbd> or <kbd>&larr;</kbd><kbd>&rarr;</kbd></td><td>Left stick</td><td>Steering pad, or tilt (Settings)</td></tr>
           <tr><td>Handbrake</td><td><kbd>Space</kbd></td><td>A</td><td>HAND BRAKE</td></tr>
           <tr><td>Gear up / down</td><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>RB / LB</td><td>&#9650; / &#9660;</td></tr>
           <tr><td>Reverse (when stopped; gear up for first)</td><td><kbd>Q</kbd> / <kbd>E</kbd></td><td>LB / RB</td><td>&#9660; / &#9650;</td></tr>
@@ -5946,7 +5946,7 @@ const VOLUMES = [1, 0.75, 0.5, 0.25];
 /* Stability assist levels: k and b0-b1 for the slip-angle assist (strength, and the body slip angles in
    radians over which it comes in), yd for the yaw damper. Default FULL on touch screens, SPORT elsewhere. */
 const STAB = {
-  // aids: the arcade helpers that aren't physics: steering and levelling the car in the air, easing it back onto
+  // aids: the arcade helpers that aren't physics: easing the car back onto
   // four wheels when it teeters on two, and a little extra damping of its rotation. OFF is the physics alone.
   // topUp: whatever yaw moment the stability control asks for that braking can't deliver (on ice, mostly) is added
   // straight to the car, as the old arcade assist did; SPORT is the brakes alone.
@@ -6093,8 +6093,8 @@ function updateScenery(dt, t) {
    and the tyre's load. Brakes are torques at the wheels (ABS works on each wheel's slip, traction
    control cuts the engine on driven-wheel slip). Aero drag and downforce act at each axle, in the air
    too. The body keeps its angular momentum in the air and trades it with the spinning wheels, so braking in the
-   air drops the nose. On the SPORT and FULL stability settings driving aids add more: the player can pitch and yaw
-   in the air, a controller levels the car to the ground, and it eases back onto four wheels when it teeters.
+   air drops the nose; that is all the driver can do once airborne. On the SPORT and FULL stability settings the
+   car eases back onto four wheels when it teeters.
    ============================================================================= */
 const CAR = {
   mass: 1010,
@@ -6317,7 +6317,7 @@ const car = {
     comp: 0, dist: 0, load: 0, arb: 0, slipLat: 0, vLong: 0, vLat: 0, ta: 0, sliding: false, spinning: false, locked: false, absOn: false, absA: 0, pB: 0, bottomed: false,
     om: 0, spinAngle: 0, emit: 0, fw: new THREE.Vector3(), lt: new THREE.Vector3(), cp: new THREE.Vector3(),
     N: 0, Fmax: 0, mu: 1, ts: TYRE_SURF[0], rr: 0, Fx: 0, Fy: 0, kap: 0, slip: 0, Tb: 0, brakeP: 0, taE: 0, kt: 0, wl: 1, u: 0, J: 0, Nt: 0, cg: 0, nAY: 1, reach: false, bAng: 0, crush: 0, dEnd: 0 })),
-  nGround: 0, airTime: 0, wasAirborne: false, pitchLatch: false, steerLatch: false,
+  nGround: 0, airTime: 0, wasAirborne: false,
   damage: 0, drifting: false, slip: 0, hullContact: false, spool: 1, plate: 0, load: 0, brakeP: 0, hbP: 0, tc: true, tcF: 1, tcCut: false, abs: true, backfire: 0,
   events: [], flipTimer: 0, offTimer: 0, globalTimer: 0, tune: null,
   gear: 1, rpm: 0.12, we: 105, shiftT: 0, shiftDir: 0, blipRpm: 0, shiftReq: 0, limiter: false, cut: false, autoBox: true,
@@ -6330,7 +6330,7 @@ const F = new THREE.Vector3(), T = new THREE.Vector3();
 const _r = new THREE.Vector3(), _vp = new THREE.Vector3(), _fw = new THREE.Vector3(), _lt = new THREE.Vector3(), _cp = new THREE.Vector3();
 const _ft = new THREE.Vector3(), _tmp = new THREE.Vector3(), _tmp2 = new THREE.Vector3(), _wl = new THREE.Vector3(), _tl = new THREE.Vector3();
 const _n = new THREE.Vector3(), _qi = new THREE.Quaternion(), _dq = new THREE.Quaternion(), _sc = new THREE.Vector3(), _gn = new THREE.Vector3();
-const GS_AIR = newGroundSample(), GS_TMP = newGroundSample();
+const GS_TMP = newGroundSample();
 setCarTune(tuneFor(DEFAULT_SETUP, DEFAULT_BUILD));
 
 function carAxes() {
@@ -7512,27 +7512,8 @@ function stepVehicle(dt, ctl) {
     w.J = -_ft.dot(AX) * CAR.rc[k >> 1] / cw.x - _ft.dot(AZ) * CAR.pc / cw.z;
   }
   applyAero(tn, nG, rho);
-  // 5) air control (a driving aid) + landing detection
-  if (nG === 0 && SA.aids) {
-    if (!car.wasAirborne) {                                       // just took off (the airtime is counted below)
-      car.pitchLatch = ctl.throttle > 0.3 || ctl.brake > 0.3;    // held pedals don't pitch the car until re-pressed
-      car.steerLatch = Math.abs(ctl.steer) > 0.3;
-    }
-    if (car.pitchLatch && ctl.throttle < 0.1 && ctl.brake < 0.1) car.pitchLatch = false;
-    if (car.steerLatch && Math.abs(ctl.steer) < 0.1) car.steerLatch = false;
-    const pitchIn = car.pitchLatch ? 0 : ctl.throttle - ctl.brake;
-    const yawIn = car.steerLatch ? 0 : -ctl.steer;
-    sampleGround(car.pos.x, car.pos.z, car.i, GS_AIR);
-    if (!GS_AIR.void && car.pos.y - GS_AIR.h < 40) _n.set(GS_AIR.nx, GS_AIR.ny, GS_AIR.nz); else _n.copy(UP);
-    _qi.copy(car.q).invert();
-    _tmp.crossVectors(AY, _n).applyQuaternion(_qi);
-    _wl.copy(car.w).applyQuaternion(_qi);
-    const I = CAR.inertia;
-    const wx = pitchIn !== 0 ? pitchIn * 1.8 : _tmp.x * 2.2;
-    const wy = yawIn !== 0 ? yawIn * 1.5 : _wl.y * 0.6;
-    const wz = _tmp.z * 2.2;
-    T.add(_tl.set(I.x * (wx - _wl.x) * 3, I.y * (wy - _wl.y) * 3, I.z * (wz - _wl.z) * 3).applyQuaternion(car.q));
-  }
+  // 5) landing detection. In the air the driver has no control of the car: it flies on the momentum it took off
+  //    with (plus what the spinning wheels trade with the body when the throttle or brakes change their speed).
   if (nG === 0) {
     car.airTime += dt;
     if (!car.wasAirborne) car.wasAirborne = true;
@@ -7549,7 +7530,7 @@ function stepVehicle(dt, ctl) {
       const impact = Math.max(0, -car.vel.dot(groundN));
       car.events.push({ type: 'land', air: car.airTime, impact, align: AY.dot(groundN) });
     }
-    car.wasAirborne = false; car.airTime = 0; car.pitchLatch = false; car.steerLatch = false;
+    car.wasAirborne = false; car.airTime = 0;
   }
   // 6) hull vs ground: roll-overs and nose plants
   if (!SB.on) car.hullContact = false;
