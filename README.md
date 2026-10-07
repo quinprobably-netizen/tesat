@@ -1,228 +1,156 @@
 # Regolith Rally
 
-A point-to-point rally game in a single self-contained HTML file. You drive a rally car against the clock on fourteen real stages, one from each round of the 2026 World Rally Championship, in calendar order. A fifteenth, the Proving Ground, is a test park for trying cars and set-ups. Everything is generated procedurally: terrain, textures, sky, particles and sound.
+A point-to-point rally game in one self-contained HTML file. You drive real rally cars, from a 1964 Mini to a 2017 World Rally Car, against the clock on real roads: one stage from every round of the 2026 World Rally Championship, the full Pikes Peak hillclimb, and a test park. Terrain, textures, sky, scenery and sound are all generated in the browser.
 
-**Play:** open `index.html` in a modern browser. It loads three.js r186 from jsdelivr and needs no build step or server.
+**Play:** open `index.html` in a modern browser. It loads three.js 0.186.1 from jsdelivr and needs no build step or server. Keyboard, gamepad and touch (phones in portrait or landscape) all work.
 
 ## Stages
 
+Every stage is a real road at 1:1 scale, traced from its rally-maps.com stage line and OpenStreetMap, with heights from SRTM / EU-DEM elevation data. Corners, grades, climbs and road widths are the real ones, and the ground around the road follows the real hills. The co-driver calls each named section as you reach it.
+
 | Round | Rally | Stage | Length | Surface |
 |---|---|---|---|---|
-| 1 | Rallye Monte-Carlo | Col de Turini: La Bollène-Vésubie (690 m) up the hairpins to the 1,604 m col | 13.5 km | Tarmac, snow, ice |
-| 2 | Rally Sweden | Bygdsiljum: Västerbotten forest, snowbanks, a frozen mire | 13.9 km | Snow, ice |
-| 3 | Safari Rally Kenya | Hell's Gate: Fischer's Tower, Central Tower, the gorge, 1,900 m up | 10.4 km | Rocky gravel, fesh-fesh |
-| 4 | Croatia Rally | Platak: bumpy tarmac up through beech and fir to the ski area | 12.5 km | Tarmac |
-| 5 | Rally Islas Canarias | Artenara: the Cruz de Tejeda and the caldera ridge, Gran Canaria | 12.2 km | Tarmac |
-| 6 | Rally de Portugal | Fafe: eucalyptus, granite and the Fafe jump at Pedra Sentada | 11.2 km | Gravel |
-| 7 | Rally Japan | Isegami's Tunnel: very narrow tarmac through the cedar forest | 11.5 km | Tarmac |
-| 8 | Acropolis Rally | Loutraki: rough, rocky mountain gravel above the Gulf of Corinth | 11.8 km | Rocky gravel |
-| 9 | Rally Estonia | Arula: fast sandy gravel and big jumps near Otepää | 11.8 km | Gravel |
-| 10 | Rally Finland | Ouninpohja: blind crests, the Yellow House, Kakaristo | 12.2 km | Gravel |
-| 11 | Rally del Paraguay | Cantera: red earth in Itapúa | 13.7 km | Gravel |
-| 12 | Rally Chile Bío Bío | Rere: pine and eucalyptus plantations south of Concepción | 11.4 km | Gravel |
-| 13 | Rally Italia Sardegna | Monte Lerno: granite, maquis, cork oaks and Micky's Jump | 10.8 km | Sandy gravel |
-| 14 | Rally Saudi Arabia | Khulays: open wadis between black volcanic hills north of Jeddah | 11.3 km | Gravel, sand |
-| Test | Proving Ground | Every surface on one 3.85 km lap | 3.85 km | All six |
+| 1 | Rallye Monte-Carlo | Col de Turini, up the hairpins to the 1,604 m col | 15.3 km | Tarmac, snow, ice |
+| 2 | Rally Sweden | Bygdsiljum, Västerbotten forest and a frozen mire | 28.5 km | Snow, ice |
+| 3 | Safari Rally Kenya | Hell's Gate, 1,900 m up in the Rift Valley | 10.7 km | Gravel, fesh-fesh |
+| 4 | Croatia Rally | Platak, bumpy tarmac up to the ski area | 17.1 km | Tarmac |
+| 5 | Rally Islas Canarias | Artenara, the caldera ridge on Gran Canaria | 15.6 km | Tarmac |
+| 6 | Rally de Portugal | Fafe, with the jump at Pedra Sentada | 11.4 km | Gravel |
+| 7 | Rally Japan | Isegami's Tunnel, narrow tarmac through cedar forest | 20.3 km | Tarmac |
+| 8 | Acropolis Rally | Loutraki, rocky mountain gravel | 13.2 km | Rocky gravel |
+| 9 | Rally Estonia | Arula, fast sandy gravel and jumps | 12.9 km | Gravel |
+| 10 | Rally Finland | Ouninpohja, blind crests and the Yellow House | 24.1 km | Gravel |
+| 11 | Rally del Paraguay | Cantera, red earth in Itapúa | 14.3 km | Gravel |
+| 12 | Rally Chile Bío Bío | Rere, pine and eucalyptus plantations | 13.4 km | Gravel |
+| 13 | Rally Italia Sardegna | Monte Lerno, granite and cork oaks | 24.7 km | Sandy gravel |
+| 14 | Rally Saudi Arabia | Khulays, wadis between black volcanic hills | 11.7 km | Gravel, sand |
+| Hillclimb | Pikes Peak | The Race to the Clouds, 156 turns from 9,390 ft to the 14,115 ft summit; tarmac, then gravel above Glen Cove | 20.0 km | Tarmac, gravel |
+| Test | Proving Ground | Launch strip, braking zone, slalom, skidpad, kickers and crests at three sizes, snow and ice loops, a chasm and a chicane | 3.8 km | All six |
 
-**Scale.** The stages are built 1:1 for real-size cars. Road widths are real (5.6 m on Isegami's Tunnel and Monte Lerno to 10 m in the Saudi desert), hairpins have their real 13 to 16 m radius, and the lengths are real timed distances: the whole stage where it is under 15 km (Cantera's 13.74 km, Khulays' 11.33 km and Fafe's 11.18 km match the real itineraries), otherwise a real-length section of it. Grades are real too, and the mountain climbs rise their real height (914 m up the Turini, 640 m to Platak, 620 m above Loutraki, 480 m on Artenara), with the HUD altimeter and the thin air (Hell's Gate at 1,900 m, the Turini) following them.
+The stage select groups them as WRC 2026, HILLCLIMB and TEST. Each surface (tarmac, gravel, snow, ice, regolith dust and steel deck) has its own grip and rolling resistance. The HUD altimeter and the engines' power follow the altitude, so the thin air at Hell's Gate and near the Pikes Peak summit costs power.
 
-Each course is a list of the stage's named landmarks in their real order, each with its own grade and surface; between them a seeded `~` stretch fills in the road's everyday character (its corner radii and angles, straights and how often it crests), and the stretches are scaled so the stage comes out at its real length. Map and elevation services weren't used, so individual corners are representative of each road rather than traced from it. The co-driver calls each landmark as you reach it.
+**Weather and time of day.** Each run can be clear, rain, fog, snow or changing mid-stage, at day, dusk or night (headlights). Rain takes about a third of the grip off tarmac and little off gravel; falling snow turns tarmac and gravel close to packed snow.
 
-Each surface has a realistic grip and rolling resistance: tarmac 1.05, regolith dust (fesh-fesh and desert sand) 0.74, gravel 0.66, packed snow 0.42 and ice 0.30, with loose surfaces dragging more. Studded tyres add 40% grip on snow and 60% on ice. Every stage runs at Earth gravity (9.81 m/s²).
+**Rules.** Checkpoint gates must be passed in order; missing one sends you back to the last gate with +5 s. On Pikes Peak, cutting from one switchback to the next puts you back where you left the road, with +5 s. Damage builds up from landings and impacts. Best times, splits and a ghost of your best run are kept per stage.
 
-**Proving Ground** is the test park, a timed lap of a test track in open Finnish-style countryside, for trying a car, a set-up or a driving aid on every surface in the game. From the paddock it runs down a 240 m launch strip into a hard braking zone and a 90° right, through a tarmac slalom and round a 60 m-radius skidpad bend, then onto gravel for three kickers (small, medium and big: lips of 0.7, 1.2 and 1.7 m with longer landings to match) and three crests (1.3, 1.8 and 2.3 m high). After that come a loop on snow and one on ice, a chasm jump over regolith, and a chicane on steel deck plating, before the tarmac finish. Signs mark the skidpad, the kickers, the crest row, the ice rink and the chasm. It has its own leaderboard and ghosts like any stage, but it isn't part of rally mode. Course paths can now size a feature on its own (`J*1.4` is a kicker 40% higher with a longer landing), which is how the test park gets three of each.
+## Cars
 
-**Ground textures** are generated once when the game starts: two tileable detail maps (stones, crack networks, fine grain, mottling, wind ripples, grass, aggregate chips and crust) that the terrain shader reads at several scales and rotations, so no tile repeats visibly. Each surface turns them into its own look and a height for bump lighting: pebbles and dust on regolith, pressure cracks and frost on ice, plates, rivets and scratches on metal decks, loose stones swept out of the wheel tracks on gravel, aggregate, sealed cracks and repair patches on tarmac, and wind-rippled powder glazed in the tyre tracks on snow. Beside an Earth road the ground reads as grass, soil and scree or snow; on Pikes Peak there are also boulder fields, whose rounded, blocky boulders are drawn in the shader at two sizes. Fine detail and bump fade out as they shrink below a few pixels so the ground doesn't shimmer.
+Fifteen cars, each built from its real specifications: engine, power and torque curve, gearbox, differentials, weight and weight split, wheelbase and tracks, wheel travel, tyre size, brake discs and dimensions. Where a figure was never published (most Group S prototypes, many gear ratios), it is an estimate and the garage CAR tab says so.
 
-**Soft-body crashes** (Settings > SOFT-BODY, on by default): the car's body is a frame of 36 nodes joined by about 360 beams, in the way BeamNG builds its cars, stepped at 1,200 Hz or more (each car gets enough substeps for its stiffest node to stay stable). The node rows are closer together at the nose and tail, which crumple easily, while the cabin and roof form a stiffer, stronger safety cell. The wheels, tyres and powertrain push on the nodes nearest where they act. The nodes, the beams and sample points on the side, nose and tail panels meet the scenery themselves, so a hit lands on the corner that hit and a post can't slip between nodes. The ground pushes along its own slope, so banks and canyon walls push the car sideways. A beam pushed past its yield strain stays bent, and one stretched too far or crushed to half its length fails. Where the frame fails, the bodywork hanging from it tears off and tumbles away. The body mesh follows the bent frame and is re-shaded where it folds. The damage comes from the frame itself: a bent mount moves its wheel and changes its toe (the car pulls) and camber (less grip), and how far the nose and tail were pushed in sets the radiator and exhaust damage. Hitting a post crushes the nose about 7 cm at 36 km/h, 23 cm at 72 km/h and 48 cm at 126 km/h. Turned off, the car is the rigid body with dents. The physics self-tests and garage ratings always use the rigid body.
+| Car | Real car | Engine | Power | Torque | Weight | Gearbox | Drive |
+|---|---|---|---|---|---|---|---|
+| MINI | Mini Cooper S, 1964 Monte Carlo winner | 1.07 L I4 (A-series) | 90 hp | 95 N·m | 650 kg | 4-speed, no synchro on first | FWD, open diff |
+| RS200 | Ford RS200 (1986), Group B | 1.8 L I4 turbo (Cosworth BDT) | 444 hp | 490 N·m | 1,050 kg | 5-speed synchro | 4WD, three viscous diffs |
+| RS 002 | Audi Sport quattro RS 002 (1987), Group S | 2.1 L I5 turbo, mid-mounted | 690 hp | 660 N·m | 1,000 kg | 5-speed synchro | 4WD, Torsen centre |
+| SAMARA S | Lada Samara S-proto (1989) | 1.6 L I4 turbo, mid-mounted | 350 hp | 400 N·m | 980 kg | 5-speed dog box | 4WD, viscous centre |
+| ECV | Lancia ECV (1986), Group S | 1.8 L I4 twin-turbo (Triflux) | 592 hp | 538 N·m | 930 kg | 5-speed Hewland dog box | 4WD, viscous centre |
+| ECV II | Lancia ECV2 (1988) | 1.8 L I4 twin-turbo (Triflux) | 592 hp | 538 N·m | 910 kg | 6-speed dog box | 4WD, viscous centre |
+| 222D | Toyota 222D (1985-86), Group S | 2.1 L I4 turbo (503E) | 592 hp | 560 N·m | 950 kg | 5-speed dog box | 4WD, viscous centre |
+| KADETT 4X4 | Opel Kadett Rallye 4x4 (1986) | 1.9 L I4 turbo (Zakspeed) | 493 hp | 500 N·m | 1,050 kg | 5-speed Xtrac dog box | 4WD, viscous centre |
+| ASTRA 4S | Vauxhall Astra 4S (1986) | 2.4 L I4 | 340 hp | 340 N·m | 960 kg | 5-speed Xtrac dog box | 4WD, viscous centre |
+| IBIZA BIMOTOR | SEAT Ibiza Bimotor (1986-87) | Two 1.5 L I4s (System Porsche), one per axle | 280 hp | 310 N·m | 1,080 kg | Two linked 5-speed synchro boxes | 4WD, one engine per axle |
+| C3 WRC | Citroën C3 WRC (2017-19) | 1.6 L I4 turbo, 36 mm restrictor | 380 hp | 450 N·m | 1,190 kg | 6-speed Sadev sequential | 4WD, active centre |
+| FIESTA WRC | Ford Fiesta WRC (2017-21) | 1.6 L I4 turbo (EcoBoost), 36 mm restrictor | 380 hp | 450 N·m | 1,190 kg | 6-speed Ricardo sequential | 4WD, active centre |
+| IMPREZA WRC | Subaru Impreza WRC2008 | 2.0 L flat-4 turbo (EJ20) | 300 hp | 650 N·m | 1,230 kg | 6-speed Prodrive sequential | 4WD, active centre |
+| YARIS WRC | Toyota Yaris WRC (2017-21) | 1.6 L I4 turbo, 36 mm restrictor | 380 hp | 450 N·m | 1,190 kg | 6-speed Xtrac sequential | 4WD, active centre |
+| POLO R WRC | Volkswagen Polo R WRC (2013-16) | 1.6 L I4 turbo (TSI), 33 mm restrictor | 318 hp | 425 N·m | 1,200 kg | 6-speed Ricardo sequential | 4WD, no centre diff |
 
-Hazards:
-- **Craters.**
-- **Kicker ramps and crests.**
-- **Chasm jumps.**
-- **Chicanes.** Rows of red and white water-filled barriers reach in from alternating sides of the road, so you have to weave left and right between them. The co-driver calls each one ("chicane left-right") and a chevron board on the end of each row points to the gap. The blocks are loose: hit them and they scatter, costing you speed and some damage.
-- **Grip changes.** Surfaces are regolith, ice, metal, gravel, tarmac or snow. The co-driver calls each change ("onto ice").
+Each body is lofted from traces of the real car's side, top and plan views, at its real length, width, height and overhangs, with its own glasshouse, lamps, intakes, splitter, rear wing and wheels. Drag uses the published drag coefficient where one exists; downforce is estimated.
 
-Rules and scoring:
-- Checkpoint gates must be passed in order. Missing one sends you back to the last gate with +5 s.
-- On Pikes Peak, cutting across the hillside from one switchback to the next puts you back on the road where you left it, with +5 s.
-- Passing a chicane row on its barrier side, through the blocks or round the end, costs +5 s.
-- Damage builds up from hard landings and impacts and lowers your top speed until the stage ends.
-- Best times, splits and a ghost replay of your best run are stored in `localStorage`.
-- When the physics changes enough to make old times unfair (Earth gravity, then the real engines, then the real drivetrains and chassis, then the wheels' own mass, transient tyres and stability control), or the stages are relaid (the new space layouts), saved times are moved to an archive and the boards start fresh. Pikes Peak's times and ghosts were kept when the space stages were relaid, since its road didn't change, and only Dyson Swarm's times were archived when its ice was taken out. Setups and the garage are kept.
+**Gearboxes.** Each box shifts like the real one. The WRC sequentials flat-shift (ignition cut up, auto-blip down, one gear per pull). The dog boxes and synchromesh boxes are H-pattern: the clutch goes down and boost falls away during the change, you can skip gates, and a synchromesh box is slower the more the revs must change. Anti-lag follows the era: none on most Group B and Group S cars, Audi's recirculating system on the RS 002, bang-bang ALS on the WRC cars. Reverse is its own gear.
 
-Handling:
-- Each car is built from its real chassis: wheelbase, front and rear tracks, weight split, wheel travel, tyre size and brake discs. The same numbers place the wheels, set the springs (1.6 Hz on the medium setting, a gravel rally set-up), the brakes, the body's inertia and the collision hull, and size the 3D model.
-- The tyres use Pacejka's magic formula on combined slip, with its shape per surface: loose surfaces peak late and keep most of their grip as the tyre ploughs; tarmac, metal and ice peak early and fall away. A spinning or locked tyre has little left for cornering.
-- Each tyre's contact patch deflects before it slides, sideways and lengthwise, and winds up over its relaxation length as it rolls: grip builds progressively on turn-in, and a flick loads the car up and lets go a beat later. Standing still, the deflection holds like a spring, so a parked car stays put on a slope (it used to creep downhill) and a braked wheel holds where it stopped.
-- Grip is load-sensitive: weight transfer and bumps shift grip less abruptly. The tyres see the car's whole weight transfer: the suspension links carry part of it straight into the tyres (roll and pitch centres 10 cm up), the springs the rest, so the body rolls and dives less than the load moves.
-- Countersteer assist gives up to 70% more steering lock when you steer into a slide, so drifts are easy to catch.
-- Keyboard steering ramps in more gently at high speed.
-- Impacts are rigid-body collisions: a knock on a corner turns the car as much as its mass and inertia say, and never adds energy.
+## Driving model
 
-Stability and the air (Settings > STABILITY):
-- The stability control works like a real car's ESC: when the car slides further than a keyboard can catch, or yaws faster than the steering asks for, it brakes the front wheel on the side that pulls it straight (through the ABS) and trims the engine. It rests on the handbrake and while you drift on purpose. The ESC light next to TC on the speedo turns amber while it works.
-- FULL steps in early, and on ice, where one braked wheel can't do enough, it tops up the rest the way the old arcade assist did. SPORT (the default on keyboard and gamepad) is the brakes alone, and only on a big slide. OFF is the physics alone.
-- FULL and SPORT also keep the arcade air control: steer and pitch in the air (W/S), a gentle levelling to the ground, and easing the car back onto four wheels when it teeters on two. On OFF the car keeps its angular momentum in the air, and the only way to pitch it is the real one: braking stops the spinning wheels and drops the nose; the throttle lifts it.
+- **Physics at 120 Hz** with the picture interpolated to the screen's refresh rate.
+- **Driveline.** Engine, clutch, gearbox, differentials and all four wheels are solved together every step, so wheelspin, engine braking, clutch slip on launches and a locked axle scrubbing through a hairpin come out of one model. Open, limited-slip, viscous, Torsen, locking and active diffs each pass torque their own way.
+- **Tyres.** Pacejka's magic formula on combined slip, shaped per surface; contact patches deflect and wind up over their relaxation length, and grip is load-sensitive.
+- **Suspension.** Each wheel is its own mass between a coil-over and a tyre spring. Two-stage dampers, hydraulic bump stops, anti-roll bars and roll and pitch centres shape how the body moves. The HUD can show each corner's travel.
+- **Aero.** Drag, side drag and front and rear downforce act on the air each part of the car meets, including each stage's wind; a car nose-up off a jump makes lift.
+- **Soft-body crashes** (on by default). The body is a frame of nodes and beams, BeamNG-style: hits crumple the corner that hit, beams bend for good or break, panels tear off, and a bent mount moves its wheel so the car pulls. Off, the car is a rigid body with dents.
+- **Driver aids** in SETTINGS: ABS, traction control and STABILITY (FULL, SPORT or OFF). FULL and SPORT also give air control; on OFF the only way to pitch the car in the air is braking or throttle. Brake and throttle are fully separate pedals.
+- **Racing line** (FULL, BRAKING or OFF): chevrons that go green, amber or red for your speed, with a board at each braking point. The AI drives the same line.
 
-Suspension:
-- Each wheel is its own mass (wheel, tyre, hub, brake and half the arms; about 42 kg a corner on the rally cars) between its coil-over and its tyre, which is a spring of its own that stiffens as the sidewall closes on the rim. The wheels hop, hang in the air and can skip off ripples: firm dampers and stiff springs skip more, soft ones keep the tyres down.
-- Each corner's coil-over is a linear coil spring and a two-stage damper. Bump and rebound are valved separately, with rebound the firmer side as on a real damper. Each side has a low-speed slope and a softer high-speed blow-off above its knee, so sharp ripples don't launch the body.
-- A hydraulic bump stop takes over in the last 6 cm of travel: a rising-rate spring with damping that grows as it engages, so a big landing is soaked up rather than handed back, and a rebound valve that slows it on the way back out. Deep in the stroke the rebound firms up, as a long-travel shock's does past its bypass tubes, so the stroke a big landing packs into the springs comes back out slowly instead of throwing the car back up off its wheels. Past full travel the hard stop is critically damped, and a tyre crushed past its working range folds its sidewall, which soaks up energy rather than storing it. A 1 m flat drop uses 90% of the travel, a 2 m one rebounds about 1 cm, and a 3 m landing on one rear corner first stays on four wheels instead of bouncing up onto two. A tyre can push at most 60 g of the car's weight, and one that meets a step in the ground faster than any landing could squash it (coming up short at a chasm and catching the far edge) crushes instead of springing back, then climbs up the step as it rolls, so the car isn't thrown into the air.
-- Each corner's coil-over is solved together with the wheel below it and the corner of the body above it (its effective mass there, counting how easily the push pitches and rolls the car). The stiff damping of the bump and hard stops therefore can't overshoot the body from step to step; it used to make the corner loads chatter after a big landing and kick the car about.
-- Anti-roll bars link the left and right wheels on each axle, so the body rolls less in corners. Soft bars roll about half as much again as stiff ones but let each wheel follow rough ground on its own; with stiff bars a bump under one wheel lifts the other, so the car skips on rough ground, but it stays flat and quick to change direction. The front and rear bars are matched; the differentials set the balance on the limit. The bars are modelled under the car and twist as it rolls.
-- The HUD shows each corner's travel: amber on the bump stop, red when bottomed out. The shocks are modelled on the car and move with the wheels, the hubs ride where the wheels' own mass has them, and the tyres squash against the ground by their real deflection. The real cars' tyres disappear up into wheel wells the models don't have, so a wheel is never drawn higher than its arch: on a big landing it stops just below the bodywork (measured from each car's own shell) and the tyre squashes the rest, instead of punching through the bonnet.
+## Tyres and service
 
-Racing line:
-- Every stage has a racing line: the smoothest path through the road's usable width, clear of craters and corner boulders, weaving through the chicane rows, with its own speed at every point.
-- Chevrons along the line show what the car needs to do from its current speed: green to keep going, amber to lift, red to brake now. A red board across the line marks each braking point, shown when you're fast enough to need it.
-- Set it to FULL, BRAKING (only the lift and brake zones) or OFF in SETTINGS, or press L. The AI drives the same line.
-
-Brakes:
-- Brake pressure is progressive. The gamepad trigger is analogue, and on keyboard or touch the pedal builds from 15% to full over about 0.4 s of holding, so a tap only scrubs speed.
-- Brake force is split by each car's weight on the front axle under braking (from its real weight split, centre of mass height and wheelbase): about 60/40 for the mid-engined cars, more to the front for the FIVE-POT and the PRERUNNER.
-- Brakes that hold a wheel hold it where it stopped, so the handbrake keeps a car on a 15% grade, even on ice.
-- With ABS on (the default), the wheels stop just short of locking and you can still steer. With ABS off, anything past about 80% pressure locks the wheels: the tyres slide, the car takes longer to stop and it won't turn. Switch ABS off in SETTINGS. The AI always brakes with ABS.
-- The brake bar under the rev bar shows pressure. It turns amber while ABS is working and white when a wheel locks.
-
-Engines and drivetrains:
-- Each car has the engine, gearbox, differentials and weight of the Group B works car it is modelled on (plus 120 kg for crew and fuel), from period homologation data, factory figures and road tests. Turbo engines have lag: boost builds as the revs rise and bleeds away when you lift, and anti-lag pops flames from the tailpipes on flat-out upshifts. There is no boost button.
-
-| Car | Engine | Power | Torque | Weight | Gearbox (overall top) | Drivetrain |
-|---|---|---|---|---|---|---|
-| TWINCHARGER (Delta S4) | 1.8 L I4, supercharger + turbo | 473 hp @ 8,400 | 490 N·m @ 5,000 | 950 kg | 5-speed Hewland, 2.54 to 0.84, final 5.55 | 4WD 30/70, viscous centre, limited-slip front and rear |
-| FIVE-POT (Sport quattro S1 E2) | 2.1 L I5 turbo | 469 hp @ 7,500 | 480 N·m @ 5,500 | 1,090 kg | 5-speed, 3.11 to 0.96, final 4.57 | 4WD 50/50, Torsen centre, limited-slip front and rear |
-| T16 (205 T16 E2) | 1.8 L I4 turbo | 460 hp @ 7,600 | 490 N·m @ 5,500 | 950 kg | 1986 6-speed, 2.53 to 0.81, final 5.94 | 4WD 34/66, viscous centre, limited-slip front and rear |
-| STRADALE (037 Evo 2) | 2.1 L I4 supercharged (Evo tune) | 385 hp @ 8,000 | 400 N·m @ 5,500 | 960 kg | 5-speed ZF, 2.31 to 1.00, final 5.25 | 4WD 35/65 conversion, viscous centre, open front, limited-slip rear |
-| RS WEDGE (RS200) | 1.8 L I4 turbo (Cosworth BDT) | 444 hp @ 8,000 | 489 N·m @ 5,500 | 1,050 kg | 5-speed FF, 3.09 to 1.14, final 4.57 | 4WD 37/63, three viscous diffs |
-| SIX-R (Metro 6R4) | 3.0 L V6, twin-turbo (V64V) | 480 hp @ 8,000 | 450 N·m @ 6,000 | 1,040 kg | 5-speed, 2.94 to 1.09, final 4.67 | 4WD 35/65, viscous centre, limited-slip front and rear |
-| PRERUNNER (first-gen Tacoma) | 3.4 L V6, twin-screw supercharged (built 5VZ-FE) | 515 hp @ 6,800 | 600 N·m @ 4,500 | 1,200 kg | R150F 5-speed, 3.83 to 0.84, TRD 4.10 axle | 4WD locked in 4H, open front, locking rear |
-| GR YARIS (Rally1, 2025-26) | 1.6 L turbo, 35 mm restrictor, hybrid removed | 375 hp @ 6,000 | 450 N·m @ 4,500 | 1,180 kg | 5-speed sequential | 4WD, axles locked together, plated front and rear diffs |
-| I20 N (Rally1, 2025-26) | 1.6 L turbo, 35 mm restrictor, hybrid removed | 375 hp @ 6,000 | 450 N·m @ 4,500 | 1,180 kg | 5-speed sequential | 4WD, axles locked together, plated front and rear diffs |
-| PUMA (Rally1, 2025-26) | 1.6 L EcoBoost turbo, hybrid removed | 375 hp @ 6,500 | 400 N·m @ 4,500 | 1,180 kg | 5-speed sequential | 4WD, axles locked together, plated front and rear diffs |
-| FOCUS WRC (RS WRC 06) | 2.0 L Duratec turbo | 300 hp @ 6,000 | 550 N·m @ 4,000 | 1,230 kg | 5-speed M-Sport/Ricardo sequential | 4WD 50/50, active centre differential (modelled as viscous), plated front and rear |
-| MINI (Cooper S, 1964) | 1.07 L A-series | 90 hp @ 7,000 | 95 N·m @ 5,000 | 650 kg | 4-speed close-ratio, final 4.13 | Front-wheel drive, open differential |
-
-The Rally1 cars' power, torque (the Hyundai's ~450 N·m, the Puma's 400 N·m), weights and dimensions are published figures; their gear ratios and torque curves are not, so those are estimates. The 2025-26 Rally1 rules removed the hybrid unit and cut the minimum weight to 1,180 kg. The Focus RS WRC 06 figures (300 bhp, 550 N·m, 1,230 kg, 4.362 × 1.8 m, 2.64 m wheelbase) are M-Sport's. The Mini is a 1964 Monte Carlo Cooper S with its tiny ten-inch wheels. The Group S prototypes never raced and little was published: the ECV's 600 CV and 538 N·m and the 222D's MR2 wheelbase are real figures, while their weights, gear ratios, torque curves and aero, and nearly everything about the one-off Audi RS002 (size, weight, its claimed ~700 PS), are estimates. Their paint, like the Impreza's, Xsara's, C4's and MINI JCW's, is a custom livery in the maker's own colours rather than a real one. The Impreza WRC2008, Xsara WRC, C4 WRC and Delta Integrale use their published power, torque, weight and dimensions; their gear ratios, tracks and aero are estimates.
-
-**How the drivetrains work.** Each gearbox shifts the way the real one does. The WRC cars' sequentials flat-shift: the clutch stays in, an upshift is an ignition cut while the dogs swap, a downshift blips itself, and each pull of the paddle is one gear. The Group B and Group S dog boxes and the road-type synchromesh boxes are H-pattern: the clutch goes down and the boost falls away during the change, but you can skip gates (5th to 3rd in one move), and a synchromesh box is slower the more the revs have to change. The MINI's A-series box has no synchro on first, so first only goes in at a crawl. Turbo anti-lag follows the era: none on the RS200, 222D, Kadett, Samara and ECVs (the boost dumps when you lift), Audi's recirculating system on the RS 002 (about half held), and a modern bang-bang ALS on the WRC cars (nearly all held). The 2017-era C3, Fiesta and Yaris and the 2008 Impreza have an ECU-controlled active centre differential that locks on the throttle and frees under braking; the Polo R WRC has no centre differential at all, as the 2011-16 rules required; the RS200 runs three viscous couplings; and the SEAT Ibiza Bimotor has two engines, one per axle, each with its own clutch and gearbox, so a spinning front axle takes nothing from the rear.
-
-**Liveries.** Each car's default paint is WORKS, the best-known livery from its rally era, painted over the whole body from one texture so the stripes run across panels: Martini Lancia (Delta S4), HB Audi (S1 E2), Peugeot Talbot Sport (205 T16), Martini Lancia (037), Ford Motorsport (RS200), Computervision Austin Rover (6R4), Toyota TRD red, orange and yellow (the Tacoma), Toyota Gazoo Racing (GR Yaris), Hyundai Shell Mobis (i20 N), M-Sport purple (Puma), BP Ford (Focus) and the red-with-white-roof Monte Carlo winner (Mini). They are stylised low-poly versions, not exact reproductions. The ordinary paint colours and decals are still there.
-
-The chassis figures are real too: lengths, widths, heights, wheelbases and tracks (the S4 is 3.99 m long on a 2.44 m wheelbase, the S1 4.24 m on 2.22 m, the 205 T16 3.83 m on 2.54 m), weight splits where published (S4 43/57, S1 52/48, RS200 50/50), the S4's 250 mm of wheel travel, brake discs and tyre sizes. Drag areas use the published drag coefficients (S1 0.42, 205 T16 0.35, RS200 0.40, 6R4 0.50) times the frontal area from the real width and height. No centre of mass heights are published for any of these cars, so those are estimates; the garage CAR tab shows every figure. Sources: homologation data as transcribed by tech-racingcars, the Motor Sport archive, Peugeot's own T16 gearbox manual, Audi's official S1 E2 figures, Toyota's Tacoma brochures and period road tests (Autocar).
-
-Three cars keep engines built past their real specs so every car stays in A class (A 707 to A 773). The STRADALE gets a bigger supercharger (the real Evo 2 made 325 CV) and a four-wheel-drive conversion the real 037 never had. The SIX-R gets the twin-turbo version of its V64V (the rally car made 410 bhp without turbos), the engine family that later went into the Jaguar XJ220.
-
-The PRERUNNER is the odd one out: a rally-built first-gen Toyota Tacoma pickup rather than a Group B car. Its gearbox, axle, locker, tyres and wheelbase are the real truck's; its engine is the Tacoma's own 3.4 L V6 (190 hp stock), built and supercharged to a figure chosen so the heavier, draggier truck rates in the same class as the Group B cars, in a stripped truck with composite panels (1,472 kg stock) and long-travel arms that widen its tracks.
-
-- The engine, clutch, gearbox, differentials and all four wheels are solved together, implicitly, every step: the engine has its own inertia and speed, the clutch slips on a standing start and while shifting, each differential holds or slips against the torque it can carry, and each wheel spins up or slows down against its tyre. So wheelspin, engine braking, a locked rear axle scrubbing in a hairpin and the revs flaring when a tyre lets go all come out of the same model.
-- The differentials split that torque between the axles and wheels. An open diff gives both wheels only what the weaker one can take; limited-slip, viscous and locking diffs pass progressively more to the wheel with grip. Torque a tyre can't take spins it up and costs it cornering grip, so a car with less drive at the front steps its tail out under power, and the four-wheel-drive cars slide all four.
-- TRACTION CONTROL (on by default, in SETTINGS) trims the engine to what the drivetrain can put down, so nothing spins. The TC light on the speedo turns amber while it works. The AI always drives with it.
-- Target times are set by the TWINCHARGER, so other cars can be quicker or slower on a stage.
-
-Transmission:
-- Each car has its real gearbox: its own number of gears, ratios and final drive, so top speed and the gaps between gears differ from car to car (the T16 has six speeds, the rest five). A rev limiter cuts in at each engine's redline, upshifts cut the ignition for a moment and downshifts blip the throttle. The automatic shifts up where the next gear pulls harder. Hold the brake at a standstill to engage reverse.
-- Lifting off gives engine braking, which is stronger in low gears.
-- Manual gears are the default on keyboard and gamepad. Shift with E/Q or the controller bumpers (RB up, LB down); the rev bar flashes when it's time to shift up, and a downshift that would over-rev the engine is refused. Touch devices default to automatic, and the MANUAL GEARS switch in SETTINGS changes between the two. The AI always uses the automatic.
-
-## Menus
-
-- **Home.** PLAY (stage select), RALLY, GARAGE and SETTINGS, with your current pilot, car, PI and ratings beside them.
-- **Stage select.** The thirteen stages are listed on the left, each with its best time and medal. The chosen stage is shown on the right with a picture, its corner count, length, surface, checkpoints and target time, and two tabs: LEADERBOARD, and CODES & GHOSTS for stage codes, seeds and ghost codes.
-- **Settings.** Every switch in one place, reachable from the home screen, the stage select (⚙) and the pause menu: manual gears, ABS and traction control, bumper cam, ghost and racing line, sound and co-driver voice, your driver name, and a controls reference for keyboard, gamepad and touch.
-- **Pause.** Resume, restart, settings or quit to the stage select.
-
-All menus work with the keyboard (arrow keys, Enter, Esc) and the gamepad (d-pad, A, B) as well as by mouse or touch.
-
-On phones the game fits both portrait and landscape. In a race the speedometer sits small in the top corner, the timer, best time and (on Pikes Peak) altitude stay clear of the pace notes, and pace notes wrap instead of running off the screen. In landscape the menus shrink their headings and the garage list scrolls as one with its tabs pinned, so long car specs never squeeze the choices. Keyboard hints are hidden on touch, and the controls reference shows only the gamepad and touch columns. Notches and rounded corners are respected.
+Before each stage the service park sets springs, dampers, anti-roll bars, final drive and tyres. The tyres are seven real WRC compounds: gravel soft and hard, tarmac soft and hard, wet, snow and studded ice. Each has its own grip per surface, relaxation length, loss in the rain and wear. Each stage marks a recommended set-up with ★ (the wet tyre on tarmac in the rain).
 
 ## Garage
 
-In the **garage** you build your ride Mario Kart style, with a live 3D preview that you can drag to spin:
+- **CAR.** The fifteen cars above on a live 3D preview you can spin, with every real figure and its aero package.
+- **DRIVER.** Eight real drivers, each sitting in the car with their real co-driver: Henri Toivonen, Michèle Mouton, Ari Vatanen, Walter Röhrl, Stig Blomqvist, Tony Pond, Kalle Rovanperä, and Ivan "Ironman" Stewart, who drives solo. The driver is looks only.
+- **LIVERY.** The car's WORKS livery (repainted from period photos) or a paint colour, a pattern, and up to 16 layers of your own stripes, numbers, text and roof colour.
 
-| Part | Options |
-|---|---|
-| Pilot | NOVA (astronaut, medium), ZIX (alien, light), BOLT-9 (robot, heavy), MISO (cat, light), GRAVL (rock golem, heavy), PIP (drone, feather), KOI (goldfish, light), VEGA (rally ace, medium) |
-| Car | Group B inspired: TWINCHARGER (Lancia Delta S4), FIVE-POT (Audi Sport quattro S1 E2), T16 (Peugeot 205 T16), STRADALE (Lancia 037), RS WEDGE (Ford RS200), SIX-R (MG Metro 6R4), plus the PRERUNNER rally pickup (first-gen Toyota Tacoma), three 2025-26 Rally1 cars (GR YARIS, I20 N, PUMA), the Ford Focus RS WRC 06, the 1964 Mini Cooper S, three Group S prototypes from the class meant to replace Group B before it was cancelled in 1986 (Toyota 222D, Audi RS002, Lancia ECV), the Subaru Impreza WRC2008 hatch, the Citroën Xsara WRC and C4 WRC, the 1992 Lancia Delta HF Integrale Evoluzione, and the MINI JCW, a fictional unrestricted tune of the 2011 MINI John Cooper Works WRC. Each comes with its real engine and drivetrain, shown under the CAR tab along with its aero package. |
-| Paint | 12 colours, including metallic chrome and copper |
-| Decal | CLEAN, STRIPES, FLAMES, CHECKER, BOLT, STARS |
-| Glow | Underglow in 5 colours, or off |
+Every build gets a **PI** (performance index, 100 to 999) and a class: D, C, B, A, S1, S2 and X. Six ratings (speed, handling, acceleration, launch, braking and offroad) are measured on the same physics you drive.
 
-Each body is modelled on the real car in metres: its real length, width, height, wheelbase and overhangs, a smooth body lofted from cross-sections with the wheel arches cut around the real tyres, and its own glasshouse, pillars, lamps, grille, intakes, vents, mirrors and aero parts. Each body is a few thousand triangles, light enough for phones.
+**Cockpit view.** The camera can sit in the driver's seat: the crew wear helmets, HANS and harnesses, the driver's arms hold the wheel, and the dash gauges are the car's own.
 
-Each car is drawn on its own rally wheels: multi-spoke or five-spoke rims, with a brake disc and caliper behind the spokes. The discs glow orange after hard braking and cool off again. The coil-overs, anti-roll bars and tailpipes are modelled too, and the tailpipes spit flame on anti-lag pops.
+## Modes
 
-Every car carries its own full aero package, modelled on the car: splitters, dive planes, side skirts, wings and spoilers, gurney flaps, end fins and diffuser strakes. There is no wing to swap. Each package sets the car's drag, side drag (more drag when sliding sideways), and front and rear downforce:
+- **PLAY.** Pick a stage, its weather and time of day, and race the clock. Each stage has a leaderboard and ghosts.
+- **RALLY.** The fourteen WRC stages back to back. Damage carries over, and between stages you have 30 minutes of service to choose repairs; every minute over costs 10 s.
+- **EVENTS:**
+  - **Career.** Start in the 1964 Mini with 8,000 in prize money and climb the eras (1960s classics, Group B, Group S, Group A, World Rally Cars, Rally1, Unlimited), buying cars and hiring better co-drivers, who make fewer wrong calls.
+  - **Weekly.** A new six-stage championship every Monday for one car class, with set conditions; your first finished run on each round counts.
+  - **Hillclimb.** Pikes Peak and the Col de Turini as a time-attack series.
+  - **Raid.** Three desert legs north of Jeddah by roadbook only: no racing line, no voice, 40 L of fuel, two spare sets of tyres that wear, and overnight service between legs.
+  - **Live.** Race a friend at the same moment over WebRTC; you swap invite and reply codes in any chat, no server.
+- **Recce.** Drive a stage at 60 km/h first and mark your own hazard notes; the co-driver makes far fewer mistakes on a stage you have recced.
+- **Rivals and ghost codes.** Copy a run's ghost code (a few KB of text) and send it to a friend, who imports it and races your run. A chosen rival's gap shows at every split.
+- **Photo mode.** Free camera, field of view, depth of field and a replay scrubber, saved as PNG.
 
-| Car | Aero | Drag | Downforce (front share) |
-|---|---|---|---|
-| TWINCHARGER | Front splitter, hatch spoiler with a gurney flap, side skirts, roof intake, rear diffuser | 0.88 m² | 0.47 m² (32%) |
-| FIVE-POT | Shovel-nose splitter with dive planes, huge tail wing on endplates, roof-edge spoiler, rear diffuser | 0.98 m² | 0.82 m² (44%) |
-| T16 | Chin splitter, Evolution 2 rear wing on tall endplates, rear-brake cooling scoops | 0.76 m² | 0.51 m² (25%) |
-| STRADALE | Deep chin splitter, rear wing on endplates, rear diffuser | 0.71 m² | 0.45 m² (33%) |
-| RS WEDGE | Chin splitter with dive planes, roof-top intake, roof-height rear wing with a gurney lip, rear diffuser | 0.78 m² | 0.62 m² (32%) |
-| SIX-R | Full-width front air dam, roof-height rear wing on stanchions, side skirts, rear diffuser | 1.20 m² | 0.60 m² (40%) |
-| PRERUNNER | Steel bumper with a skid plate and splitter lip, roof light bar; no wing, like the real desert trucks | 1.30 m² | 0.08 m² (75%) |
-| GR YARIS | Rally1 package: deep splitter with dive planes, louvred front arches, side skirts, swan-neck rear wing, diffuser | 1.00 m² | 0.66 m² (39%) |
-| I20 N | Rally1 package with the rear wing carried off the roof | 0.99 m² | 0.66 m² (38%) |
-| PUMA | Rally1 package over the crossover shell's sloping tailgate | 1.05 m² | 0.65 m² (38%) |
-| FOCUS WRC | Front splitter with dive planes, side skirts, big tailgate wing, diffuser | 0.86 m² | 0.54 m² (33%) |
-| MINI | None: an upright 1959 box (Cd about 0.48), which lifts at speed, mostly at the nose | 0.78 m² | lift 0.18 m² (67%) |
+## Settings
 
-The car sets the physics, on its own real tyres; the pilot is looks only and has no effect on performance. Each car's aero package is fixed and works on the air at each part of the car (its speed and spin through the air, less the wind):
-
-- Drag pushes back head-on and much harder side-on, so a slide scrubs speed and makes a side force. A rear wing's endplates move that side force behind the centre of mass, so a winged car weathervanes into the airflow at speed.
-- Downforce presses each axle's tyres harder as speed rises (none in reverse). It shifts forward as the nose dives under braking, the underbody's share grows as the car sits lower and stalls near the bump stops, and it changes with the angle the air meets the car: a car falling or pitching loses downforce as it goes, which damps it, and a car nose-up off a jump makes lift.
-- Each stage has its own steady wind, gusting along the road the same way every run. The ratings are measured in still sea-level air.
-
-Every build gets a **PI** (performance index, 100 to 999) and a class: D, C (501+), B (601+), A (701+), S1 (801+), S2 (901+) and X (999). Six ratings out of 10 make up the PI: speed, handling, acceleration, launch, braking and offroad. They are measured on the physics you drive, on a flat proving ground: a full-throttle launch on tarmac (where the real cars' figures were measured) for 0-100 and 0-160 km/h, skidpads on gravel for cornering, an ABS stop from 100 km/h on gravel for braking, where the pull meets drag for top speed, and loose-surface grip for offroad. Every tile shows the PI the build would have with that part, and hovering one previews the rating changes. The service park shows the PI with the chosen setup. The Group B cars and the PRERUNNER rate in A class: TWINCHARGER A 759, FIVE-POT A 710, T16 A 746, STRADALE A 712, RS WEDGE A 728, SIX-R A 730 and PRERUNNER A 724. The restricted Rally1 cars and the Focus rate B (GR YARIS 672, I20 N 669, PUMA 654, FOCUS 607) and the Mini D 413, as their real power says. The Group S prototypes rate highest: 222D A 793, ECV A 780 and RS002 S1 801. The Integrale rates B 644, the Impreza B 639, the Xsara C 600 and the C4 C 599. The MINI JCW rates S1 827.
-
-## Modes and sharing
-
-- **Stage codes.** Every stage has a code such as `RR-I-4471` (template letter L/I/W/M/E/F/B/D + seed; a code generates a random stage from that template rather than its designed course). Type a code or a bare seed under CODES & GHOSTS on the stage select, or press RANDOM SEED, to generate a new stage from that template. Copy the code to send a friend the exact same stage. The Earth stages (`RR-P-1916` Pikes Peak, `RR-C-1911` Turini, `RR-S-1950` Vargåsen, `RR-J-1951` Ouninpohja, `RR-T-1956` Sorba) always build the real road, whatever the seed, and the test park (`RR-Z-2026`) always builds its one layout.
-- **Service park.** Before each stage, pick springs (soft/medium/stiff), dampers (soft/medium/firm), anti-roll bars (soft/medium/stiff), final drive (short/standard/long) and tyres (all-terrain/studded/slick). Each stage marks a recommended setup with ★, and your choice is remembered per stage type.
-- **Rally mode.** Runs all thirteen stages back to back (not the test park). Damage carries over. Between stages the crew repairs 40% for free, and a full repair costs time. Your best rally total is saved.
-- **Ghost codes and leaderboards.** Each stage keeps a local leaderboard of your runs plus imported ghosts. Use COPY THIS RUN'S GHOST CODE on the finish screen (or COPY MY BEST GHOST under CODES & GHOSTS) to get a few-KB text code. A friend pastes it into IMPORT A GHOST CODE: the right stage is generated and they race your run as a magenta rival ghost. RACE/RACING on the leaderboard picks which imported ghost to race.
+Manual gears, ABS, traction control, stability, tilt steering and its sensitivity (phones), soft-body, camera (chase, cockpit, bumper), ghost, racing line, HUD (MINIMAL by default, or FULL), post effects (bloom and SMAA), sound, volume, co-driver voice, driver name, and a controls reference.
 
 ## Controls
 
 | | Keyboard | Gamepad | Touch |
 |---|---|---|---|
 | Throttle / brake | W / S or ↑ / ↓ | RT / LT | GAS / BRAKE |
-| Reverse (stopped; then the throttle backs up, the brake only brakes) | Q, or hold S for 1 s | LB, or hold LT for 1 s | ▼, or hold BRAKE for 1 s |
-| Steer (in the air on SPORT/FULL stability: yaw; W/S pitch) | A / D or ← / → | Left stick / d-pad ← → | Steering pad |
+| Steer (in the air: yaw) | A / D or ← / → | Left stick | Steering pad, or tilt |
 | Handbrake | Space | A | HAND BRAKE |
-| Gear up / down (manual gears) | E / Q | RB / LB | ▲ / ▼ |
-| Reset to last checkpoint | R | Back | R |
-| Camera (chase / bumper) | C | Y | CAM |
-| Pause (Esc also closes dialogs) | Esc | Start | II |
-| Confirm / next (menus, service park) | Enter | A | buttons |
-| Menu / garage navigation | Arrow keys | D-pad | tap |
-| Mute / co-driver voice / ghost | M / V / G | | ♫ |
+| Gear up / down | E / Q | RB / LB | ▲ / ▼ |
+| Reverse (when stopped) | Gear down, or hold S 1 s | LB, or hold LT 1 s | ▼, or hold BRAKE 1 s |
+| Reset to checkpoint | R | Back | R |
+| Camera | C | Y | CAM |
 | Racing line (full / braking / off) | L | | |
+| HUD (minimal / full) | H | | |
+| Pause | Esc | Start | II |
+| Mute / voice / ghost | M / V / G | | ♫ |
+
+Every menu works with the keyboard (arrows, Enter, Esc), the gamepad (d-pad, A, B), mouse or touch, with button prompts for the device in use.
+
+## Saves
+
+Everything is kept in `localStorage`: best times, splits, ghosts, the garage, set-ups, career and settings. When a physics change makes old times unfair, the old leaderboards are archived and start fresh; the garage and set-ups are kept.
 
 ## Code layout
 
-`index.html` contains the CSS, the HUD markup and one script, divided into 17 commented sections:
+`index.html` holds the CSS, the menus and HUD markup, and one module script in numbered, commented sections:
 
-1–3. Utilities, storage, stage definitions
-4–5. Renderer and scene setup; sky, planets, environment lighting
-6–8. Track generation, terrain queries, terrain meshes
+1. Utilities
+2. Persistent storage
+3. Stage definitions (the traced roads)
+4. Renderer and scene setup
+5. Sky and environment lighting
+6. Track generation
+7. Terrain queries
+8. Terrain meshes
 9. Scenery
-10. Vehicle model and physics
+10. Vehicle model and physics (including the car bodies)
 11. Particles
-12. (removed: meteor showers)
 13. Input
 14. Camera
 15. Audio
 16. HUD and pace notes
-17. Game state and main loop
+17. Game state, race logic and main loop
+18. Conditions, crew and cameras (weather, raid fuel and tyres, co-driver, recce, service, photo mode, cockpit dash, livery editor)
+19. Events (career, hillclimbs, raids, weekly championship, rivals and live races)
 
-For automation and debugging, `window.RegolithRally` exposes the following. For example, `RegolithRally.setAutopilot(true)` lets the AI drive a stage.
+For automation and debugging, `window.RegolithRally` exposes the game's objects, plus:
 
 - `simulate(seconds)` runs the game headlessly.
-- `setAutopilot(bool)` hands control to the AI driver.
-- `loadStage(i, then)` builds a stage.
-- `startRace()` starts the current stage (skipping the service park).
-- `startRally()`, `openService()`, `importGhost(code)`, `encodeGhost(...)` / `decodeGhost(code)` drive the newer features.
-- `physicsTests()` runs the physics self-test on a flat proving ground and returns each check with its value, the range it should fall in and whether it passed: statics, ride, landings (including one on a single rear corner, checked for chatter and for bouncing up onto two wheels), weight transfer and grip on a skidpad, ABS stops, a launch, holding on slopes, collision energy, timestep error, angular momentum in the air and rough-road contact. `PhysicsRig` is the proving ground itself, which the garage ratings and the AI's grip calibration also use.
+- `setAutopilot(true)` hands control to the AI driver.
+- `loadStage(i, then)` builds a stage and `startRace()` starts it (skipping the service park).
+- `startRally()`, `openService()` and `startEvent(...)` drive the other modes.
+- `physicsTests()` runs the physics self-test on a flat proving ground (statics, ride, landings, skidpad grip, ABS stops, launch, slopes, collisions, timestep error, airborne momentum) and returns each check with its value, its allowed range and whether it passed.
