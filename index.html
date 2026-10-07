@@ -6314,11 +6314,11 @@ const car = {
   pos: new THREE.Vector3(), vel: new THREE.Vector3(), q: new THREE.Quaternion(), w: new THREE.Vector3(),
   steerAngle: 0, i: 0, s: 0, d: 0, speed: 0, reach: 0,     // reach: furthest point along the stage driven to without a short cut
   wheels: CAR.wheels.map(() => ({ mount: new THREE.Vector3(), n: new THREE.Vector3(0, 1, 0), gs: newGroundSample(), grounded: false, prevGround: true,
-    comp: 0, dist: 0, load: 0, arb: 0, slipLat: 0, vLong: 0, vLat: 0, ta: 0, sliding: false, spinning: false, locked: false, absOn: false, absP: 1, bottomed: false,
+    comp: 0, dist: 0, load: 0, arb: 0, slipLat: 0, vLong: 0, vLat: 0, ta: 0, sliding: false, spinning: false, locked: false, absOn: false, absA: 0, pB: 0, bottomed: false,
     om: 0, spinAngle: 0, emit: 0, fw: new THREE.Vector3(), lt: new THREE.Vector3(), cp: new THREE.Vector3(),
     N: 0, Fmax: 0, mu: 1, ts: TYRE_SURF[0], rr: 0, Fx: 0, Fy: 0, kap: 0, slip: 0, Tb: 0, brakeP: 0, taE: 0, kt: 0, wl: 1, u: 0, J: 0, Nt: 0, cg: 0, nAY: 1, reach: false, bAng: 0, crush: 0, dEnd: 0 })),
   nGround: 0, airTime: 0, wasAirborne: false, pitchLatch: false, steerLatch: false,
-  damage: 0, drifting: false, slip: 0, hullContact: false, spool: 1, tc: true, tcF: 1, tcCut: false, abs: true, backfire: 0,
+  damage: 0, drifting: false, slip: 0, hullContact: false, spool: 1, plate: 0, load: 0, brakeP: 0, hbP: 0, tc: true, tcF: 1, tcCut: false, abs: true, backfire: 0,
   events: [], flipTimer: 0, offTimer: 0, globalTimer: 0, tune: null,
   gear: 1, rpm: 0.12, we: 105, shiftT: 0, shiftDir: 0, blipRpm: 0, shiftReq: 0, limiter: false, cut: false, autoBox: true,
   Tcl: 0, clutchSlip: false, sigma: 1, we2: 105, Tcl2: 0, cut2: false,      // we2, Tcl2, cut2: the second engine (twin-engined cars)
@@ -6464,7 +6464,7 @@ function gearboxStep(dt, ctl, vFwd, nG) {
   } else car.shiftReq = 0;
   // turbo: boost builds over about sp.lag seconds on the throttle (faster at high revs) and goes off it as fast as the
   // anti-lag lets it (ALS); through a gear change the throttle stays down in a sequential (flat-shift) and comes up in an H-pattern
-  const thr = ctl.throttle;
+  const thr = car.load || 0;                                       // the turbo spools on the air the throttle lets through
   if (sp.lag > 0) {
     const al = ALS[sp.als || 0], lift = car.shiftT > 0 && box.clutch ? 0 : thr;
     const want = Math.max(lift, car.rpm > 0.4 ? al.floor : 0);
@@ -7220,6 +7220,79 @@ const SB = {
 const _sbv = new THREE.Vector3(), _sbw = new THREE.Vector3(), _sbc = new THREE.Vector3(), _sbF = new THREE.Vector3(), _sbT = new THREE.Vector3();
 const _sbq = new THREE.Quaternion(), _sbm = new THREE.Matrix4(), _sbm2 = new THREE.Matrix4(), _sbm3 = new THREE.Matrix4(), _sbA = new Float64Array(9);
 
+/* ---- PEDALS: the throttle and the brakes, built the way the real hardware works ----
+   THROTTLE. The pedal works a butterfly in the intake: by cable through a progressive cam on the older cars, or by an
+   electric motor on the restrictor-era WRC cars, whose ECU opens it as far as it takes to give the torque the pedal
+   asks for. The butterfly's open area (1 − cos of its angle) meters the air, and how much of a full charge that lets
+   each cylinder draw falls as the revs rise: a crack of throttle is nearly full load at idle and little at the
+   limiter. The manifold behind it fills and empties over a few engine revolutions (individual throttles at the
+   ports: almost at once; a turbo's intercooler and plenum: slower). The engine makes its torque from that load.
+   BRAKES. The pedal is the driver's foot force on the master cylinders; the line pressure follows it through the
+   hoses and calipers in a few hundredths of a second, and each caliper (sized to the car's front/rear bias) turns
+   pressure into torque on its disc once the pads close the running gap. The ABS has a valve pair per wheel: it
+   dumps that wheel's pressure while the tyre slips past its peak, holds it near the peak and builds it back up.
+   The hydraulic handbrake has its own master cylinder on the rear calipers, after the ABS.
+   Nothing joins the two pedals: each works its own hardware, so left-foot braking on the throttle works as it does
+   in a real car. */
+const THROTTLE_TYPES = {
+  carb: { name: 'cable, carburettor butterflies', cam: 1.35, area: 2.2, tau: 0.05 },
+  itb: { name: 'cable, individual throttle bodies', cam: 1.6, area: 4, tau: 0.015 },
+  body: { name: 'cable, single throttle body', cam: 1.25, area: 2.6, tau: 0.09 },
+  dbw: { name: 'drive-by-wire, torque-based ECU', cam: 1, area: 2.6, tau: 0.07, dbw: true, slew: 12 },
+};
+/** The car's throttle hardware, from its induction (the restrictor-era cars are all drive-by-wire). */
+function throttleType(sp) {
+  const i = sp.voice && sp.voice.intake;
+  return THROTTLE_TYPES[i === 'restrictor' ? 'dbw' : i === 'itb' ? 'itb' : i === 'carb' ? 'carb' : 'body'];
+}
+// bar; pads' running gap as a share of full pressure; hydraulic lag (s); ABS dump and build rates (bar/s) and the braking
+// slip (share of the tyre's peak) it dumps above and holds above; handbrake lever (s)
+const BRAKES = { pMax: 110, gap: 0.02, tau: 0.035, dump: 800, build: 800, hi: 1.5, lo: 1.15, hbOn: 0.08, hbOff: 0.05 };
+/** Manifold load (0-1) the butterfly's open area A gives at engine speed rf (share of the redline): 1 when wide open. */
+function throttleLoad(tt, A, rf) {
+  return (1 - Math.exp(-tt.area * A / rf)) / (1 - Math.exp(-tt.area / rf));
+}
+/** One step of the throttle: pedal (0-1) to butterfly to manifold load, which it returns (and keeps in car.load). */
+function throttleStep(dt, pedal) {
+  const sp = car.tune.spec, tt = throttleType(sp), rf = clamp(car.we * 60 / TAU / sp.redline, 0.1, 1.1);
+  let A;
+  if (tt.dbw) {
+    // the ECU's torque map: the opening that gives the load the pedal asks for, reached at the motor's own speed
+    const want = Math.min(1, -Math.log(1 - pedal * (1 - Math.exp(-tt.area / rf))) * rf / tt.area);
+    car.plate = approach(car.plate || 0, want, tt.slew * dt);
+    A = car.plate;
+  } else {
+    // the cable's cam turns the pedal into a butterfly angle; the spring shuts it as fast as the foot lifts
+    car.plate = Math.pow(pedal, tt.cam);
+    A = 1 - Math.cos(car.plate * Math.PI / 2);
+  }
+  const target = throttleLoad(tt, A, rf), tau = Math.min(3, 0.5 / rf) * tt.tau;
+  car.load = (car.load || 0) + (target - (car.load || 0)) * Math.min(1, dt / tau);
+  return car.load;
+}
+/** One step of the brakes: master pressure from the pedal, each wheel's line through its ABS channel, then torque. escT
+ *  is the stability control's torque on wheel escK (its pump pressurises that channel). */
+function brakeStep(dt, ctl, escK, escT) {
+  const B = BRAKES, pm = clamp(ctl.brake, 0, 1) * B.pMax, p0 = B.gap * B.pMax, lag = Math.min(1, dt / B.tau);
+  car.brakeP = pm;
+  car.hbP = approach(car.hbP || 0, ctl.handbrake ? 1 : 0, dt / (ctl.handbrake ? B.hbOn : B.hbOff));
+  for (let k = 0; k < 4; k++) {
+    const w = car.wheels[k], fw = k < 2, Kc = CAR.brakeT[fw ? 0 : 1] / (B.pMax - p0);
+    const tgt = k === escK && escT > 0 ? Math.max(pm, p0 + escT / Kc) : pm;
+    const p = w.pB || 0;
+    let np = p + (tgt - p) * lag;
+    if ((car.abs || tgt > pm) && w.grounded && Math.abs(w.vLong) > 2 && tgt > p0) {
+      const s = -w.kap / w.ts.kp;                                   // braking slip against the tyre's peak
+      if (s > B.hi) { np = Math.max(0, p - B.dump * dt); w.absA = 0.3; }        // dump
+      else if (w.absA > 0 && s > B.lo) np = Math.min(p, np);                     // hold at the peak
+      else if (w.absA > 0) np = Math.min(np, p + B.build * dt);                  // build back, metered
+    }
+    w.absA = Math.max(0, (w.absA || 0) - dt);
+    w.pB = np;
+    w.absOn = car.abs && w.absA > 0 && pm > p0;
+    w.Tb = Kc * Math.max(0, np - p0) + (fw ? 0 : car.hbP * CAR.hbT);
+  }
+}
 function stepVehicle(dt, ctl) {
   SB.begin();
   const def = RIG_GROUND.on ? EARTH : TR.def, m = CAR.mass, g = def.gravity, tn = car.tune, sp = tn.spec;
@@ -7361,7 +7434,6 @@ function stepVehicle(dt, ctl) {
   // 4) gearbox, brakes and driver aids, then the coupled powertrain solve
   gearboxStep(dt, ctl, vLongBody, nG);
   const rev = car.gear < 0, drv0 = sp.front ? 0 : 2, drv1 = sp.front >= 1 ? 2 : 4;   // driven wheels: drv0 up to drv1
-  const pedal = ctl.brake;                                          // the brake pedal brakes, in every gear
   // stability control (Settings > STABILITY; the AI always drives on FULL), done the way a real car's ESC does it:
   // when the car slides further than a keyboard can catch (body slip past b0) or yaws faster than the steering asks
   // for, it wants a yaw moment back toward the direction of travel, and gets it by braking the front wheel on that
@@ -7391,26 +7463,16 @@ function stepVehicle(dt, ctl) {
     escTrim = clamp(0.6 * Math.abs(Mesc) / (escW.Fmax * Math.abs(CAR.wheels[escK].x) + 1), 0, 0.9);   // more asked than braking can give: less engine
     // up to the tyre's grip (the ABS keeps it near its peak slip); what the braked front loses in cornering force
     // helps too, since that force is what's turning the car too far
-    escT = Math.min(Math.abs(Mesc) / Math.abs(CAR.wheels[escK].x), escW.Fmax, CAR.brakeT[0] / CAR.radius) * CAR.radius;
+    escT = Math.min(Math.abs(Mesc) / Math.abs(CAR.wheels[escK].x), escW.Fmax, CAR.brakeT[0] / CAR.radius) * CAR.radius;   // through brakeStep's ABS channel
   }
   car.esc = escT > 30;
   if (SA.topUp && Mesc !== 0) {
     const got = escT / CAR.radius * Math.abs(CAR.wheels[escK].x) * Math.sign(Mesc);
     T.addScaledVector(AY, Mesc - got);
   }
-  for (let k = 0; k < 4; k++) {
-    const w = car.wheels[k], fw = k < 2, e = k === escK ? escT : 0;
-    // ABS: per wheel, eases the pressure off as soon as the wheel slips past the tyre's peak, then builds it back;
-    // the stability control's braking always goes through it, as on a real car
-    const absOn = (car.abs && pedal > 0.02) || e > 0;
-    if (absOn && w.grounded && Math.abs(w.vLong) > 2) {
-      w.absP = -w.kap > 1.1 * w.ts.kp ? Math.max(0.12, w.absP - dt * 10) : Math.min(1, w.absP + dt * 5);
-    } else w.absP = Math.min(1, w.absP + dt * 8);
-    w.absOn = car.abs && pedal > 0.02 && w.absP < 0.97;
-    w.Tb = pedal * CAR.brakeT[fw ? 0 : 1] * (car.abs ? w.absP : 1) + e * w.absP + (ctl.handbrake && !fw ? CAR.hbT : 0);
-  }
+  brakeStep(dt, ctl, escK, escT);
   // throttle, in every gear (in reverse it drives backwards, eased off near the reverse limit)
-  let th0 = rev ? ctl.throttle * clamp((CAR.reverseVmax + vLongBody) / 3, 0, 1) : ctl.throttle;
+  let th0 = throttleStep(dt, rev ? ctl.throttle * clamp((CAR.reverseVmax + vLongBody) / 3, 0, 1) : ctl.throttle);
   // traction control: cuts the engine while a driven wheel spins past the tyre's peak slip
   if (car.tc && th0 > 0) {
     let over = 0;
@@ -7436,7 +7498,7 @@ function stepVehicle(dt, ctl) {
     const w = car.wheels[k], cw = CAR.wheels[k];
     if (!w.grounded) { w.J = 0; continue; }
     w.sliding = w.slip > 1.15;
-    w.locked = pedal > 0.02 && Math.abs(w.vLong) > 2 && Math.abs(w.om * CAR.radius) < 0.15 * Math.abs(w.vLong);
+    w.locked = w.pB > BRAKES.gap * BRAKES.pMax && Math.abs(w.vLong) > 2 && Math.abs(w.om * CAR.radius) < 0.15 * Math.abs(w.vLong);
     w.spinning = k >= drv0 && k < drv1 && w.kap > 1.6 * w.ts.kp && Math.abs(w.om * CAR.radius) > 2;
     w.slipLat = w.vLat;
     _ft.copy(w.fw).multiplyScalar(w.Fx).addScaledVector(w.lt, w.Fy);
@@ -7653,9 +7715,9 @@ function resetCarMotion(speed) {
   car.we2 = car.we; car.Tcl2 = 0; car.cut2 = false;
   for (const c of DL.cpl) c.lin = true;
   car.steerAngle = 0; car.airTime = 0; car.wasAirborne = false; car.flipTimer = 0; car.offTimer = 0;
-  car.spool = 1; car.backfire = 0; car.events.length = 0;
+  car.spool = 1; car.backfire = 0; car.events.length = 0; car.plate = 0; car.load = 0; car.hbP = 0;
   car.wheels.forEach((w, k) => {
-    w.prevGround = true; w.om = v / CAR.radius; w.absP = 1; w.kap = 0; w.ta = 0; w.taE = 0; w.kt = 0; w.wl = 1; w.bAng = 0; w.grounded = false;
+    w.prevGround = true; w.om = v / CAR.radius; w.absA = 0; w.pB = 0; w.kap = 0; w.ta = 0; w.taE = 0; w.kt = 0; w.wl = 1; w.bAng = 0; w.grounded = false;
     w.comp = CAR.ms[k] * 9.81 / (CAR.kS[k] * tn.k); w.u = 0; w.J = 0; w.Nt = 0; w.crush = 0; w.dEnd = 0;     // each wheel at its static compression, at rest
   });
   if (SB.active()) SB.place();
@@ -12683,18 +12745,17 @@ const Input = {
     const rate = (target === 0 || Math.sign(target) !== Math.sign(this.kSteer) ? 7 : 3.2) / (1 + car.speed * 0.012);
     this.kSteer = approach(this.kSteer, target, rate * dt);
     let steer = this.kSteer;
-    let throttle = (k.has('KeyW') || k.has('ArrowUp')) ? 1 : 0;
-    // brake pedal pressure: a digital key squeezes it on over ~0.4 s (tap = light, hold = full) and
-    // lets it off quickly; gamepad triggers are analogue already.
-    const kBr = (k.has('KeyS') || k.has('ArrowDown') || this.touch.brake) ? 1 : 0;
-    this.kBrake = kBr ? Math.min(1, (this.kBrake || 0.15) + dt * 2.2) : Math.max(0, (this.kBrake || 0) - dt * 10);
-    let brake = kBr ? Math.max(0.15, this.kBrake) : 0;
-    let handbrake = k.has('Space');
-    // touch
-    const t = this.touch;
+    // pedals (see PEDALS): a key or touch button is a foot. The throttle foot goes down in about a tenth of a
+    // second and comes off quicker; the brake foot presses from a light touch to full force over ~0.35 s (tap = light,
+    // hold = full) and lets go at once. Each pedal comes from its own keys only, and the deepest source wins.
+    const t = this.touch, fdt = dt || 1 / 60;
+    const kThr = k.has('KeyW') || k.has('ArrowUp') || t.gas, kBrk = k.has('KeyS') || k.has('ArrowDown') || t.brake;
+    this.footT = approach(this.footT || 0, kThr ? 1 : 0, fdt / (kThr ? 0.1 : 0.07));
+    this.footB = kBrk ? Math.min(1, Math.max(0.2, (this.footB || 0) + fdt * 2.3)) : Math.max(0, (this.footB || 0) - fdt * 12);
+    let throttle = this.footT, brake = this.footB;
+    let handbrake = k.has('Space') || t.hb;
     if (Math.abs(t.steer) > 0.02) steer = t.steer;
     else if (Tilt.active()) steer = Tilt.steer;
-    if (t.gas) throttle = 1; if (t.hb) handbrake = true;
     // gamepad (standard mapping)
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     let gp = null;
@@ -12706,9 +12767,10 @@ const Input = {
       const sx = Math.abs(ax) > dz ? Math.sign(ax) * (Math.abs(ax) - dz) / (1 - dz) : 0;
       if (Math.abs(sx) > 0.01) { steer = sx; this.usingPad = true; }
       if (btn(14) > 0.5) steer = -1; if (btn(15) > 0.5) steer = 1;   // the bumpers shift gears (see edges below)
-      const rt = btn(7), lt = btn(6);
-      if (rt > 0.05) { throttle = Math.max(throttle, rt); this.usingPad = true; }
-      if (lt > 0.05) brake = Math.max(brake, lt);
+      // the triggers' travel, with a small dead band at rest and at the end stop so a worn pad still reaches 0 and 1
+      const trig = (v) => clamp((v - 0.04) / 0.92, 0, 1), rt = trig(btn(7)), lt = trig(btn(6));
+      if (rt > 0) { throttle = Math.max(throttle, rt); this.usingPad = true; }
+      if (lt > 0) brake = Math.max(brake, lt);
       if (btn(0) > 0.5) handbrake = true;
       const edges = { 9: 'pause', 3: 'camera', 8: 'reset', 0: 'confirm', 1: 'back', 12: 'navUp', 13: 'navDown', 14: 'navLeft', 15: 'navRight', 5: 'gearUp', 4: 'gearDown' };
       for (const bi in edges) {
@@ -13551,7 +13613,7 @@ const HUD = {
     this.el.rpmBar.classList.toggle('shift', !car.autoBox && car.gear > 0 && car.gear < car.tune.gears.length && car.rpm * GEARBOX.redline > car.tune.upRpm[car.gear - 1] * 0.97 && (Game.clock % 0.2) < 0.12);
     this.el.rpmBar.classList.toggle('limit', car.limiter);
     // brake line pressure; amber while the ABS is working, white when a wheel has locked
-    const bp = Game.autopilot ? 0 : Input.ctl.brake;
+    const bp = Math.max(car.wheels[0].pB || 0, car.wheels[1].pB || 0) / BRAKES.pMax;
     this.el.brkFill.style.width = (bp * 100).toFixed(0) + '%';
     const locked = car.wheels.some((w) => w.grounded && w.locked), absOn = car.wheels.some((w) => w.grounded && w.absOn);
     this.el.brkBar.className = locked ? 'lock' : absOn ? 'abs' : '';
@@ -14092,7 +14154,7 @@ const Breakables = {
 function updateDamageFx(dt, ctl) {
   Debris.update(dt); Breakables.update(dt);
   const Z = car.zones;
-  car.heat = damp(car.heat, Z.f > 0.25 ? Z.f * (0.5 + 0.7 * ctl.throttle * car.rpm) : 0, 0.4, dt);
+  car.heat = damp(car.heat, Z.f > 0.25 ? Z.f * (0.5 + 0.7 * car.load * car.rpm) : 0, 0.4, dt);
   if (Game.state === 'racing' && car.heat > 0.45) { const W = car.warned || (car.warned = {}); if (!W.hot) { W.hot = true; HUD.toast('OVERHEATING', '#ff4d5e', 1.6); } }
   if (car.heat > 0.3) {
     Game.steamEmit = (Game.steamEmit || 0) + dt * (car.heat - 0.3) * 50;
@@ -15703,7 +15765,7 @@ const Raid = {
   engineMul() { return this.on && this.fuel <= 0 ? 0.15 : 1; },
   update(dt, ctl) {
     if (!this.on || Game.state !== 'racing') return;
-    this.fuel = Math.max(0, this.fuel - (0.006 + 0.05 * ctl.throttle * clamp(car.rpm, 0, 1.05)) * dt);
+    this.fuel = Math.max(0, this.fuel - (0.006 + 0.05 * car.load * clamp(car.rpm, 0, 1.05)) * dt);
     const tw = car.tune && car.tune.wear, gs = car.wheels[0].gs, wr = tw && gs ? tw[gs.surf] : 1;   // the compound on this surface
     this.wear = Math.min(1, this.wear + dt * wr * (0.0005 + 0.0045 * clamp(car.slip || 0, 0, 1)) * (car.nGround ? 1 : 0));
     if (this.fuel <= 0 && !this.empty) { this.empty = true; HUD.message('OUT OF FUEL', 'LIMPING ON FUMES', '#ff4d5e', 3); AudioSys.speak("we're out of fuel, keep it rolling", true); }
@@ -16557,7 +16619,7 @@ function update(dt) {
   if (st === 'racing' || st === 'countdown' || st === 'finished' || st === 'paused') HUD.update(dt);
   const w0 = car.wheels[2].grounded ? car.wheels[2].gs : car.wheels[0].gs;
   AudioSys.update(dt, {
-    speed: car.speed, rpm: car.rpm, limiter: car.limiter && st !== 'paused', throttle: st === 'paused' ? 0 : ctl.throttle, turbo: car.tune.spec.lag > 0 ? car.spool : 0, rpm2: car.we2 * 60 / TAU / car.tune.spec.redline, pop: car.backfire > 0 && st !== 'paused', spec: car.tune.spec, cabin: Cam.mode !== 'chase', surf: w0.road ? w0.surf : TR.def.surf.off,
+    speed: car.speed, rpm: car.rpm, limiter: car.limiter && st !== 'paused', throttle: st === 'paused' ? 0 : car.load, turbo: car.tune.spec.lag > 0 ? car.spool : 0, rpm2: car.we2 * 60 / TAU / car.tune.spec.redline, pop: car.backfire > 0 && st !== 'paused', spec: car.tune.spec, cabin: Cam.mode !== 'chase', surf: w0.road ? w0.surf : TR.def.surf.off,
     grounded: car.nGround > 0 ? 1 : 0, slip: car.slip, active: st === 'paused' || st === 'photo' ? 0 : (st === 'menu' || st === 'service' || st === 'garage') ? 0.35 : 1,
   });
   return true;
