@@ -1448,7 +1448,7 @@ const SURF_INFO = [
   { name: 'REGOLITH', mu: 0.74, rr: 0.045 },
   { name: 'ICE',      mu: 0.3,  rr: 0.012 },
   { name: 'METAL',    mu: 0.72, rr: 0.012 },
-  { name: 'GRAVEL',   mu: 0.66, rr: 0.035 },
+  { name: 'GRAVEL',   mu: 0.76, rr: 0.035 },
   { name: 'TARMAC',   mu: 1.05, rr: 0.014 },
   { name: 'SNOW',     mu: 0.42, rr: 0.03 },
 ];
@@ -2680,7 +2680,9 @@ function tuneFor(setup, build) {
   // (landings: every car's springs are rated to the same ride frequency, so a landing loads each car's alike)
   const tn = { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land, v: gr.v,
     gears: sp.gears, final: sp.final / gr.v,
-    mu: TUNE.tyre[setup.tyre] || [1, 1, 1, 1, 1, 1], steer: sp.steer,   // no compound (refTune): the neutral reference tyre
+    // grip per surface: the compound's (no compound, refTune: the neutral reference tyre), on a tyre of the car's own
+    // width: a wider tread grips a little more for its load (a 1960s 145 grips about 7% less than a 205 rally tyre)
+    mu: (TUNE.tyre[setup.tyre] || [1, 1, 1, 1, 1, 1]).map((m) => m * (TUNE.tyre[setup.tyre] && sp.tyre ? Math.pow(clamp(sp.tyre.w / 0.205, 0.6, 1.4), 0.2) : 1)), steer: sp.steer,
     relax: TUNE.tyreRelax[setup.tyre] || 1, wet: TUNE.tyreWet[setup.tyre] || 1, wear: TUNE.tyreWear[setup.tyre] || null,
     dmg: clamp(1 - dm * 0.0012, 0.7, 1.3), spec: sp, mass, aero,
     geo: carGeometry(build.body, mass) };
@@ -4361,7 +4363,7 @@ function heightSD(s, d, x, z) {
   if (ad < zone) {
     const bank = TR.bank[i0] + (TR.bank[i0 + 1] - TR.bank[i0]) * f;
     const ramp = (TR.ramp[i0] + (TR.ramp[i0 + 1] - TR.ramp[i0]) * f) * (1 - smoothstep(hw - 1.5, hw + 1.0, ad));
-    const road = base + bank * d + ramp + TR.rough * TR.noiseR(s / 13.0, d / 7.0);
+    const road = base + bank * d + ramp + TR.rough * TR.noiseR(s / 13.0, d / 7.0) - ROAD.depth(TR.surf[i0], ad, hw);
     const w = smoothstep(hw + 0.6, zone, ad);
     h = w > 0 ? road + (TR.terrain.T(x, z) - road) * w : road;
     if (TR.snowbank && ad > hw + 0.4) h += TR.snowbank * (TR.bankW ? TR.bankW[i0] : 1) * (0.85 + 0.3 * TR.noiseC(s / 17, d > 0 ? 3 : -3)) * smoothstep(hw + 0.4, hw + 1.7, ad) * (1 - smoothstep(hw + 3.6, hw + 6.5, ad));   // ploughed snowbanks
@@ -4390,11 +4392,14 @@ function worldAt(s, d, out) {
 }
 /* The physics test rig's proving ground (PhysicsRig, section 10): while `on`, the ground everywhere is the plane
    y = h0 + sx·x + sz·z of one surface, so the car's real physics can be measured away from any stage. */
-const RIG_GROUND = { on: false, h0: 0, sx: 0, sz: 0, surf: 4, rA: 0, rL: 4, rSide: false };   // ripples: amplitude, wavelength, left side only
+const RIG_GROUND = { on: false, h0: 0, sx: 0, sz: 0, surf: 4, rA: 0, rL: 4, rSide: false,   // ripples: amplitude, wavelength, left side only
+  road: false, kap: 0, noise: null };                // road: a straight road along z centred on x = 0 (ROAD's ruts and grip), a corner's curvature, patches
+const RIG_HW = 4;
 function rigHeight(x, z) {
   const G = RIG_GROUND;
   let h = G.h0 + G.sx * x + G.sz * z;
   if (G.rA) h += G.rA * (Math.sin(TAU * z / G.rL) + 0.6 * Math.sin(TAU * (0.8 * z + 0.5 * x) / (0.73 * G.rL))) * (G.rSide ? smoothstep(-0.3, 0.3, x) : 1);
+  if (G.road) h -= ROAD.depth(G.surf, Math.abs(x), RIG_HW);
   return h;
 }
 function rigGround(x, z, out) {
@@ -4403,8 +4408,59 @@ function rigGround(x, z, out) {
   out.void = false; out.road = true; out.s = 0; out.d = 0; out.i = 0;
   out.h = h; out.nx = -gx / l; out.ny = 1 / l; out.nz = -gz / l;
   out.surf = G.surf; out.mu = info.mu; out.rr = info.rr;
+  if (G.road) ROAD.apply(out, z, x, G.surf, G.kap, 1, RIG_HW, G.noise || (() => -1), false);
   return out;
 }
+/* The road's own surface along a stage (what a rally driver reads): the cars before you have worn two pairs of
+   wheel tracks into loose roads (the ruts the ground shader draws, either side of the centre line). The tracks are
+   swept clean and pressed down a few cm, so a wheel in one follows it (tramlining); between and outside them the
+   loose stones and dust roll under the tyre and grip less, most of all where they are thrown out wide on the
+   outside of corners (and dragged onto tarmac there). In the rain water lies in patches, deepest in the ruts; on a
+   snowy stage there are patches of black ice; a tarmac stage keeps damp patches in the shade even when it's dry.
+   RIG_GROUND.road puts the same surface on the proving ground (d = x, s = z, a straight). */
+const ROAD = {
+  rut: [0.03, 0, 0, 0.04, 0, 0.035],       // rut depth (m) per surface (SURF order)
+  loose: [0.1, 0, 0, 0.12, 0, 0.1],        // grip lost on the loose stuff off the wheel tracks
+  marbles: [0.08, 0, 0, 0.1, 0.12, 0.08],  // ... and more on the outside of a corner (tarmac: dirt dragged out)
+  puddle: 0.45, puddleRR: 0.04,            // grip lost in standing water at full rain, and its drag
+  damp: 0.1,                               // grip lost on a damp shaded patch of tarmac
+  /** The wheel tracks at d across the road: 1 in a track's middle. */
+  tracks(ad) { const a = (ad - 0.85) / 0.32, b = (ad - 2.35) / 0.38; return Math.exp(-a * a) + 0.7 * Math.exp(-b * b); },
+  /** Rut depth below the road at (s, d) on road surface `surf`. */
+  depth(surf, ad, hw) { const D = this.rut[surf]; return D ? D * this.tracks(ad) * (1 - smoothstep(hw - 0.2, hw + 0.8, ad)) : 0; },
+  /** Which side of the road is a corner's outside (+1: the same sign as TR.kap's on the left, d > 0), from where
+   *  the racing line runs: it cuts to the inside. Worked out once per stage. */
+  side() {
+    if (TR._kside && TR._kside.def === TR.def) return TR._kside.v;
+    if (!TR.lineD) return 1;                                          // (the line isn't laid yet while the stage builds)
+    let c = 0; for (let i = 0; i < TR.N; i++) c += TR.kap[i] * TR.lineD[i];
+    TR._kside = { def: TR.def, v: c > 0 ? -1 : 1 };
+    return TR._kside.v;
+  },
+  /** Grip and drag on the road surface `out` at track coords (s, d), road surface surf, curvature kap; changes
+   *  out.surf/mu/rr. ks is ROAD.side(); noise(a, b) the stage's own noise (the rig passes its own). */
+  apply(out, s, d, surf, kap, ks, hw, noise, icy) {
+    const ad = Math.abs(d);
+    let m = 1;
+    if (this.loose[surf] || this.marbles[surf]) {
+      const off = clamp(1 - 1.25 * this.tracks(ad), 0, 1);
+      const wide = smoothstep(0.004, 0.02, Math.abs(kap)) * smoothstep(0.2 * hw, hw, d * Math.sign(kap) * ks);
+      m *= 1 - this.loose[surf] * off - this.marbles[surf] * wide;
+    }
+    if (Cond.kind === 'rain' && Cond.k > 0 && surf !== SURF.ICE) {
+      const p = smoothstep(0.25, 0.45, noise(s / 9, d / 2.5 + 11) + 0.15 * this.tracks(ad)) * Cond.k;
+      m *= 1 - this.puddle * p; out.rr += this.puddleRR * p;
+    } else if (surf === SURF.TARMAC) m *= 1 - this.damp * smoothstep(0.3, 0.5, noise(s / 31, d / 9 + 23));
+    if (icy && surf !== SURF.ICE && surf !== SURF.METAL && noise(s / 23, d / 4 + 40) > 0.38) { out.surf = SURF.ICE; out.mu = SURF_INFO[SURF.ICE].mu; out.rr = SURF_INFO[SURF.ICE].rr; return out; }
+    out.mu *= m;
+    return out;
+  },
+  /** A snowy stage, where black ice lies in patches. */
+  icy() {
+    const def = TR.def;
+    return def.surf.base === SURF.SNOW || def.surf.off === SURF.SNOW || Cond.kind === 'snow';
+  },
+};
 /** Physics ground sample: height, normal (finite differences), surface grip & drag. */
 function sampleGround(x, z, hint, out) {
   if (RIG_GROUND.on) return rigGround(x, z, out);
@@ -4425,6 +4481,9 @@ function sampleGround(x, z, hint, out) {
   out.surf = sidx;
   out.mu = info.mu * (out.road ? 1 : 0.85);
   out.rr = info.rr + (out.road ? 0 : TR.def.offRR);        // soft verges roll heavily
+  // deep loose gravel and snow pile up off the road: the wheels plough through it
+  if (!out.road && (sidx === SURF.GRAVEL || sidx === SURF.SNOW || sidx === SURF.REGOLITH)) out.rr += 0.06 * smoothstep(TR.hw + 0.6, TR.hw + 2.2, ad);
+  if (out.road) ROAD.apply(out, LQ.s, LQ.d, sidx, TR.kap[LQ.i], ROAD.side(), TR.hw, TR.noiseC, ROAD.icy());
   return out;
 }
 
@@ -6334,6 +6393,11 @@ function tyreSpring(d, kT, ds) {
    a slope and a locked wheel holds the car, which a slip simply floored at low speed can't (it creeps). Below
    TYRE.vLo the deflection's rate is damped (zero in a steady state, so it changes no steady grip), and a
    deflection can't build past where the tread slides. */
+/* Suspension geometry, front and rear: static camber (rad, + leaned in), camber gain (rad per m of compression from
+   ride height: a strut gains little, so a rolling car's outside wheel leans out), bump steer (rad of toe-out per m
+   up), and the tyre's camber sensitivity: grip × 1 − k·(camber − opt)², no lower than min. Rally-car figures
+   (about 1° static; the front toes out 0.4° over 5 cm, the rear in a little, which steadies it). */
+const GEO = { camber: [0.017, 0.009], gain: [0.25, 0.3], bump: [0.15, -0.05], opt: 0.02, k: 8, min: 0.8 };
 const TYRE = {
   sigma: [0.55, 0.45, 0.35, 0.5, 0.3, 0.5],   // lateral relaxation length (m), per surface (SURF order)
   sigmaX: 0.5,                                // longitudinal relaxation length, as a share of the lateral
@@ -7528,7 +7592,10 @@ function stepVehicle(dt, ctl) {
     w.prevGround = true;
     // tyre frame on the ground plane
     _fw.copy(AZ);
-    const ang = (cw.front ? car.steerAngle : 0) + (SB.on ? SB.toe[k] : 0);   // a bent corner knocks its wheel's toe out
+    // suspension geometry (GEO): the wheel toes out as it rises (bump steer), and leans with the body as it rolls,
+    // less what the linkage pulls back in as it compresses (camber gain)
+    const sx = cw.x > 0 ? 1 : -1, ai = cw.front ? 0 : 1, dc = w.comp - CAR.ms[k] * 9.81 / (CAR.kS[k] * tn.k);   // from ride height
+    const ang = (cw.front ? car.steerAngle : 0) + GEO.bump[ai] * dc * sx + (SB.on ? SB.toe[k] : 0);   // a bent corner knocks its wheel's toe out
     if (ang) { const c = Math.cos(ang), s = Math.sin(ang); _fw.multiplyScalar(c).addScaledVector(AX, s); }
     _fw.addScaledVector(w.n, -_fw.dot(w.n)).normalize();
     _lt.crossVectors(w.n, _fw);                                   // points to the car's left
@@ -7550,6 +7617,9 @@ function stepVehicle(dt, ctl) {
     const N = w.Nt * Math.max(0, AY.dot(w.n)), N0 = CAR.N0[k];
     w.N = N; w.mu = gs.mu * tn.mu[gs.surf] * Cond.mu[gs.surf];
     w.Fmax = w.mu * N0 * Math.pow(Math.min(N / N0, 3), 0.85);
+    // camber to the ground (+: the wheel's top leans in toward the car): the tyre grips best a little leaned in
+    w.camber = GEO.camber[ai] + GEO.gain[ai] * dc + sx * AX.dot(w.n);
+    w.Fmax *= clamp(1 - GEO.k * (w.camber - GEO.opt) * (w.camber - GEO.opt), GEO.min, 1);
     if (SB.on) w.Fmax *= 1 - Math.min(0.35, Math.abs(SB.camber[k]) * 1.5);      // a leaning wheel stands on its edge
     w.rr = gs.rr * N * CAR.radius;                      // rolling resistance torque (N·m)
   }
@@ -7630,6 +7700,14 @@ function stepVehicle(dt, ctl) {
     w.slipLat = w.vLat;
     _ft.copy(w.fw).multiplyScalar(w.Fx).addScaledVector(w.lt, w.Fy);
     addForceAt(_ft, w.cp);
+    // the ground pushes along its own normal, not the car's up axis the suspension works along: where the ground
+    // under a wheel leans from the car's up (a rut wall, a crown, a rock's face) the rest of that push comes in
+    // across the car, so a wheel on a rut's wall is pushed back down into it
+    const nu = w.n.dot(AY);
+    if (w.Nt > 0 && nu > 0.5) {
+      _tmp2.copy(w.n).addScaledVector(AY, -nu).multiplyScalar(w.Nt / nu);
+      addForceAt(_tmp2, w.cp);
+    }
     w.J = -_ft.dot(AX) * CAR.rc[k >> 1] / cw.x - _ft.dot(AZ) * CAR.pc / cw.z;
   }
   applyAero(tn, nG, rho);
@@ -7866,19 +7944,20 @@ const PhysicsRig = {
       setCarTune(tune); RIG_GROUND.on = true; Game.forceCtl = this.ctl;
       return fn(this);
     } finally {
-      Object.assign(RIG_GROUND, { on: false, h0: 0, sx: 0, sz: 0, rA: 0 });
+      Object.assign(RIG_GROUND, { on: false, h0: 0, sx: 0, sz: 0, rA: 0, road: false, kap: 0, noise: null });
       setCarTune(savedTune); restoreState(car, saved);
       DL.cpl.forEach((c, i) => { c.lin = cpl[i]; });
       Game.forceCtl = fc;
     }
   },
-  /** Car at the origin heading +z (or `o.yaw`) at speed v on surface `surf`; o.sx/o.sz tilt the ground, o.drop lifts the car. */
+  /** Car at the origin (or o.x across) heading +z (or `o.yaw`) at speed v on surface `surf`; o.sx/o.sz tilt the ground,
+   *  o.drop lifts the car, o.road lays ROAD's surface along z (o.kap a bend's curvature, o.noise its patches). */
   place(surf, v, o) {
     o = o || {};
-    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4, rSide: !!o.rSide });
+    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4, rSide: !!o.rSide, road: !!o.road, kap: o.kap || 0, noise: o.noise || null });
     car.q.set(0, 0, 0, 1); if (o.yaw) car.q.setFromAxisAngle(UP, o.yaw);
     if (o.sx || o.sz) car.q.premultiply(_qiw.setFromUnitVectors(UP, _tmp.set(-(o.sx || 0), 1, -(o.sz || 0)).normalize()));   // sitting on the slope
-    car.pos.set(0, CAR.cgH + (o.drop || 0), 0);
+    car.pos.set(o.x || 0, CAR.cgH + (o.drop || 0) - (o.road ? ROAD.depth(surf, Math.abs(o.x || 0), RIG_HW) : 0), 0);
     car.vel.set(0, 0, v).applyQuaternion(car.q);
     car.i = 0; car.s = 0; car.d = 0; car.damage = 0;
     Object.assign(car.zones, { f: 0, r: 0, l: 0, rt: 0 }); car.pull = 0; car.heat = 0;
@@ -7927,8 +8006,8 @@ const PhysicsRig = {
     return { t100, t160 };
   },
   /** ABS stop from v0 (m/s) with the pedal flat: distance and the deceleration as a share of the surface's μ·g. */
-  brake(surf, v0) {
-    this.place(surf, v0);
+  brake(surf, v0, o) {
+    this.place(surf, v0, o);
     const z0 = car.pos.z;
     this.ctl.brake = 1;
     this.step(Math.round(20 / this.dt), () => this.vFwd() > 0.3);
@@ -7976,90 +8055,128 @@ const PhysicsRig = {
   },
 };
 const _eT = new THREE.Euler();
+/* Real-world figures each car is checked against (physicsTests): 0-100 km/h and 100-0 km/h on tarmac (s, m) on
+   tarmac tyres, the peak g on a tarmac skidpad at 25 m/s and a gravel one at 15 m/s, 100-0 on gravel (m) on gravel
+   tyres, and top speed (km/h). Where a car's own figure was published the range is built round it (src); the rest
+   are the ranges its class ran in period: Group B and S (1985-87), 1.6 T World Rally Cars (2011-16) and 2017-21 ones
+   with their bigger restrictor and aero, a 1960s Mini on period-width tyres. */
+const REAL_CLASS = {
+  B:   { t100: [2.8, 4.6], b100: [29, 42], skT: [0.9, 1.4], skG: [0.6, 0.9], b100G: [42, 58], top: [180, 260] },
+  B2:  { t100: [3.4, 5.6], b100: [29, 42], skT: [0.9, 1.4], skG: [0.6, 0.9], b100G: [42, 58], top: [175, 240] },   // under 350 bhp
+  W11: { t100: [3.3, 4.6], b100: [28, 40], skT: [0.95, 1.45], skG: [0.62, 0.92], b100G: [42, 57], top: [180, 230] },
+  W17: { t100: [3.0, 4.4], b100: [27, 40], skT: [1.0, 1.5], skG: [0.62, 0.95], b100G: [42, 57], top: [185, 235] },
+  M:   { t100: [9.2, 13.8], b100: [33, 52], skT: [0.72, 1.05], skG: [0.5, 0.8], b100G: [46, 68], top: [145, 180] },
+};
+const REAL_REF = {
+  'MINI': { cls: 'M', src: 'Cooper S 1275: 0-60 mph 10.9 s, 96 mph (road test, 1964)' },
+  'RS 002': { cls: 'B' }, 'RS200': { cls: 'B' }, 'SAMARA S': { cls: 'B2' }, 'ECV': { cls: 'B' }, 'ECV II': { cls: 'B' },
+  '222D': { cls: 'B' }, 'KADETT 4X4': { cls: 'B' }, 'ASTRA 4S': { cls: 'B2' }, 'IBIZA BIMOTOR': { cls: 'B2' },
+  'C3 WRC': { cls: 'W17' }, 'FIESTA WRC': { cls: 'W17' }, 'YARIS WRC': { cls: 'W17' },
+  'IMPREZA WRC': { cls: 'W11' },
+  'POLO R WRC': { cls: 'W11', t100: [3.5, 4.4], src: 'Volkswagen: 0-100 km/h 3.9 s (2013)' },
+};
 /** Physics self-test: properties of the model with the range each should fall in. RegolithRally.physicsTests()
- *  runs it from the console and returns { test: { value, want, pass } }. */
+ *  runs it from the console and returns { test: { value, want, pass } }. Four groups: every car against its
+ *  real-world figures (REAL_REF), the road surface (ROAD), the suspension geometry (GEO), and the core model's
+ *  conservation and stability checks. */
 function physicsTests(build) {
-  const R = {}, tn = tuneFor(DEFAULT_SETUP, build || DEFAULT_BUILD);
+  const R = {}, bd = build || DEFAULT_BUILD;
   const check = (name, value, lo, hi) => { R[name] = { value: +value.toFixed(3), want: lo + ' to ' + hi, pass: value >= lo && value <= hi }; };
-  const sn = (s) => SURF_INFO[s].name.toLowerCase();
-  PhysicsRig.run(tn, (rig) => {
-    // statics: the wheel loads add up to the car's weight, each corner at its design load
+  const tyred = (tyre, b) => tuneFor(Object.assign({}, DEFAULT_SETUP, { tyre }), b || bd);
+  const TT = 2, TG = 0;                                   // tarmac soft, gravel soft
+  // 1) real world: every car on its own figures
+  GARAGE.body.opts.forEach((o, i) => {
+    const ref = REAL_REF[o.name], c = ref && Object.assign({}, REAL_CLASS[ref.cls], ref), b = Object.assign({}, bd, { body: i });
+    if (!c) { check(`real ${o.name}: has reference figures`, 0, 1, 1); return; }
+    const tT = tyred(TT, b);
+    PhysicsRig.run(tT, (rig) => {
+      check(`real ${o.name}: 0-100 km/h tarmac (s)`, rig.launch(SURF.TARMAC, 25).t100, ...c.t100);
+      check(`real ${o.name}: 100-0 km/h tarmac (m)`, rig.brake(SURF.TARMAC, 100 / 3.6).dist, ...c.b100);
+      check(`real ${o.name}: tarmac skidpad 25 m/s (g)`, rig.skidpad(SURF.TARMAC, 25).g, ...c.skT);
+    });
+    PhysicsRig.run(tyred(TG, b), (rig) => {
+      check(`real ${o.name}: gravel skidpad 15 m/s (g)`, rig.skidpad(SURF.GRAVEL, 15).g, ...c.skG);
+      check(`real ${o.name}: 100-0 km/h gravel (m)`, rig.brake(SURF.GRAVEL, 100 / 3.6).dist, ...c.b100G);
+    });
+    check(`real ${o.name}: top speed (km/h)`, topSpeed(tT) * 3.6, ...c.top);
+  });
+  // 2) the road: ruts, loose stuff off the line and wide in bends, puddles, damp shade, black ice
+  const cond = { kind: Cond.kind, k: Cond.k };
+  try {
+    Cond.kind = 'clear'; Cond.k = 0;
+    check('road: rut depth on gravel (cm)', ROAD.depth(SURF.GRAVEL, 0.85, 4) * 100, 3, 5);
+    check('road: rut depth on tarmac (cm)', ROAD.depth(SURF.TARMAC, 0.85, 4) * 100, 0, 0);
+    // the wheel tracks are a modern car's width: a WRC car's wheels sit in them
+    const wrc = Object.assign({}, bd, { body: GARAGE.body.opts.findIndex((o) => o.name === 'YARIS WRC') });
+    PhysicsRig.run(tyred(TG, wrc), (rig) => {
+      // tramlining: hands off, 30 cm off the tracks at 15 m/s, the ruts draw the car back toward them
+      const drift = (road) => { rig.place(SURF.GRAVEL, 15, { road, x: 0.3 }); rig.step(240, () => rig.speedHold(15)); return car.pos.x; };
+      check('road: ruts pull a WRC car 30 cm off them back in, over 2 s (cm)', (Math.abs(drift(false)) - Math.abs(drift(true))) * 100, 3, 40);
+      check('road: gravel ABS stop in the ruts / on a flat road', rig.brake(SURF.GRAVEL, 100 / 3.6, { road: true }).dist / rig.brake(SURF.GRAVEL, 100 / 3.6).dist, 0.97, 1.08);
+    });
+    // grip across the road: in a wheel track, between the tracks, wide on a bend's outside
+    const mu = (d, kap) => { RIG_GROUND.road = true; RIG_GROUND.kap = kap; RIG_GROUND.surf = SURF.GRAVEL;
+      const m = rigGround(d, 0, {}).mu; RIG_GROUND.road = false; RIG_GROUND.kap = 0; return m; };
+    check('road: gravel grip between the wheel tracks / in one', mu(1.6, 0) / mu(0.85, 0), 0.86, 0.94);
+    check('road: gravel grip wide on a bend\'s outside / on its inside', mu(3.6, 0.02) / mu(-3.6, 0.02), 0.85, 0.95);
+    PhysicsRig.run(tyred(TT), (rig) => {
+      Cond.kind = 'rain'; Cond.k = 1;
+      const stop = (wet) => rig.brake(SURF.TARMAC, 100 / 3.6, { road: true, noise: () => (wet ? 1 : -1) }).dist;
+      check('road: tarmac ABS stop through a puddle / beside it', stop(true) / stop(false), 1.4, 2.4);
+    });
+    Cond.kind = 'clear'; Cond.k = 0;
+    const o = { surf: SURF.TARMAC, mu: 1, rr: 0 };
+    ROAD.apply(o, 0, 0, SURF.TARMAC, 0, 1, 4, () => 0.6, false);
+    check('road: grip on a damp shaded patch of dry tarmac', o.mu, 0.85, 0.95);
+    Object.assign(o, { surf: SURF.TARMAC, mu: 1, rr: 0 }); ROAD.apply(o, 0, 0, SURF.TARMAC, 0, 1, 4, () => 0.6, true);
+    check('road: a black ice patch on a snowy stage is ice', o.surf === SURF.ICE ? 1 : 0, 1, 1);
+  } finally { Cond.kind = cond.kind; Cond.k = cond.k; }
+  // 3) suspension geometry: camber with roll and compression, bump steer
+  const deg = 180 / Math.PI;
+  PhysicsRig.run(tyred(TT), (rig) => {
+    rig.place(SURF.TARMAC, 0); rig.step(240);
+    check('geometry: static camber front (deg, + leaned in)', car.wheels[0].camber * deg, 0.7, 1.3);
+    // cornering hard at 25 m/s: the outside front leans out with the body, the inside one in
+    rig.place(SURF.TARMAC, 25); rig.step(240, (i) => { rig.ctl.steer = Math.min(0.25, i / 120); rig.speedHold(25); });
+    const W = car.wheels, out = W[0].N > W[1].N ? W[0] : W[1], inn = out === W[0] ? W[1] : W[0];
+    check('geometry: outside front camber cornering (deg)', out.camber * deg, -4, 0.5);
+    check('geometry: inside front camber cornering (deg)', inn.camber * deg, 1, 6);
+    const g = rig.skidpad(SURF.TARMAC, 25).g, k = GEO.k;
+    GEO.k = 0; const g0 = rig.skidpad(SURF.TARMAC, 25).g; GEO.k = k;
+    check('geometry: grip camber costs on the skidpad (%)', (1 - g / g0) * 100, 0.3, 8);
+    // bumps under one side at 20 m/s, hands off: the bump steer doesn't send it off line
+    rig.place(SURF.GRAVEL, 20, { rA: 0.03, rL: 3, rSide: true }); rig.step(360, () => rig.speedHold(20));
+    carAxes();
+    check('geometry: heading change over 3 s of one-sided bumps (deg)', Math.abs(Math.atan2(AZ.x, AZ.z)) * deg, 0, 4);
+  });
+  // 4) the core model: statics, landings, timestep, conservation
+  PhysicsRig.run(tyred(TT), (rig) => {
     rig.place(SURF.TARMAC, 0); rig.step(600);
-    const W = car.wheels;
-    check('static: wheel loads / weight', W.reduce((a, w) => a + w.N, 0) / (CAR.mass * 9.81), 0.995, 1.005);
-    check('static: worst corner load error', Math.max(...W.map((w, k) => Math.abs(w.N / CAR.N0[k] - 1))), 0, 0.03);
-    // ride: a 15 cm drop settles without bouncing past ride height by more than a few mm
-    const heave = rig.drop(0.15);
-    check('ride: overshoot after a 15 cm drop (m)', heave.rebound, -0.01, 0.01);
-    // landings: a 1 m flat drop stays off the hard stop, a 2 m one doesn't bounce the car back up
-    check('landing: 1 m drop, peak travel used', rig.drop(1).maxComp / CAR.travel, 0.5, 1);
-    check('landing: 2 m drop, rebound above ride height (m)', rig.drop(2).rebound, -0.05, 0.1);
-    // a 3 m landing on one rear corner first: the body doesn't chatter, nor bounce back up onto two wheels
+    check('core: wheel loads / weight at rest', car.wheels.reduce((a, w) => a + w.N, 0) / (CAR.mass * 9.81), 0.995, 1.005);
+    check('core: 2 m drop, rebound above ride height (m)', rig.drop(2).rebound, -0.05, 0.1);
     const tilt = rig.tiltDrop(3, 0.1, 0.07);
-    check('landing: 3 m, rear corner first: pitch/roll rate reversals in 0.3 s', tilt.reversals, 0, 4);
-    check('landing: 3 m, rear corner first: time on two wheels after (s)', tilt.twoWheels, 0, 0.05);
-    // cornering: the full lateral load transfer of a rigid car, and grip near the surface's μ
-    for (const [s, v] of [[SURF.GRAVEL, 15], [SURF.TARMAC, 25], [SURF.ICE, 12]]) {
-      const r = rig.skidpad(s, v);
-      check(`skidpad ${sn(s)} ${v} m/s: load transfer / rigid car`, r.transfer, 0.95, 1.12);
-      check(`skidpad ${sn(s)} ${v} m/s: grip / μ`, r.muEff, 0.75, 1.05);
-    }
-    // braking: an ABS stop from 100 km/h close to μ·g
-    for (const s of [SURF.TARMAC, SURF.GRAVEL]) check(`ABS stop ${sn(s)}: deceleration / μg`, rig.brake(s, 100 / 3.6).muEff, 0.85, 1.05);
-    const L = rig.launch(SURF.TARMAC, 20);
-    check('launch tarmac: 0-100 km/h (s)', L.t100, 2.5, 6);
-    // standing still: a 15% grade with the handbrake, all four brakes on a 15% grade and across a 20% one
-    const hold = (surf, o, axis) => {
-      rig.place(surf, 0, o); rig.step(240); const p0 = car.pos[axis]; rig.step(Math.round(30 / rig.dt));
-      return Math.abs(car.pos[axis] - p0) * 100;
+    check('core: 3 m landing on one corner, time on two wheels after (s)', tilt.twoWheels, 0, 0.05);
+    const stepSteer = (dt) => {
+      rig.dt = dt; rig.place(SURF.GRAVEL, 25, { road: true });
+      rig.step(Math.round(3 / dt), (i) => { rig.ctl.throttle = 0.6; rig.ctl.steer = i * dt > 0.5 ? 0.6 : 0; });
+      rig.dt = PHYS_DT; return car.pos.clone();
     };
-    for (const s of [SURF.TARMAC, SURF.GRAVEL, SURF.ICE]) {
-      check(`hold 15% ${sn(s)}, handbrake: creep in 30 s (cm)`, hold(s, { sz: 0.15, ctl: { handbrake: true } }, 'z'), 0, 2);
-      check(`hold 15% ${sn(s)}, foot brake: creep in 30 s (cm)`, hold(s, { sz: 0.15, ctl: { brake: 1, throttle: 1e-6 } }, 'z'), 0, 2);
-    }
-    check('hold across 20% tarmac: creep in 30 s (cm)', hold(SURF.TARMAC, { sx: 0.2, ctl: { brake: 1, throttle: 1e-6, handbrake: true } }, 'x'), 0, 2);
-    // collisions: a 5 m/s sideways knock on the nose corner can't add energy
+    const fine = stepSteer(1 / 960);
+    check('core: 120 Hz vs 960 Hz after a step steer on a rutted road (m)', stepSteer(PHYS_DT).distanceTo(fine), 0, 0.5);
+    rig.place(SURF.TARMAC, 0, { drop: 60 }); car.w.set(0.6, 1.2, 0.4);
+    const Lw = () => { _qi.copy(car.q).invert(); _wl.copy(car.w).applyQuaternion(_qi); const I = CAR.inertia;
+      carAxes(); return _tl.set(I.x * _wl.x, I.y * _wl.y, I.z * _wl.z).applyQuaternion(car.q).addScaledVector(AX, CAR.Iw * car.wheels.reduce((a, w) => a + w.om, 0)).length(); };
+    const L0 = Lw(); rig.step(180);
+    check('core: airborne angular momentum kept over 1.5 s', Lw() / L0, 0.98, 1.02);
     rig.place(SURF.TARMAC, 0); car.pos.y += 0.5; car.vel.set(-5, 0, 0);
     const ke = () => { _qi.copy(car.q).invert(); _wl.copy(car.w).applyQuaternion(_qi); const I = CAR.inertia;
       return 0.5 * CAR.mass * car.vel.lengthSq() + 0.5 * (I.x * _wl.x * _wl.x + I.y * _wl.y * _wl.y + I.z * _wl.z * _wl.z); };
     const ke0 = ke();
     resolveContact(1, 0, 0, 0, 'rock', car.pos.x - 0.9, car.pos.y, car.pos.z + 2);
-    check('collision: energy after / before an off-centre hit', ke() / ke0, 0, 1);
-    // ... and a 20 m/s head-on hit on a tree trunk stops the car without flipping it over backwards
-    rig.place(SURF.TARMAC, 20);
-    const bk = TR.colliderBuckets.slice(0, 3), tree = [{ x: 0, z: 6, r: 0.5, y0: -1, y1: 12, kind: 'tree' }];
-    let pitch = 0;
-    for (let b = 0; b < 3; b++) TR.colliderBuckets[b] = tree;
-    try { rig.step(240, () => { collideObstacles(); pitch = Math.max(pitch, Math.abs(_tmp.set(0, 0, 1).applyQuaternion(car.q).y)); }); }
-    finally { for (let b = 0; b < 3; b++) TR.colliderBuckets[b] = bk[b]; }
-    check('collision: peak pitch after a 20 m/s head-on tree hit (deg)', Math.asin(Math.min(1, pitch)) * 180 / Math.PI, 0, 10);
-    // timestep: 3 s of throttle and a step steer at 25 m/s, at 120 Hz against 960 Hz
-    const stepSteer = (dt) => {
-      rig.dt = dt; rig.place(SURF.GRAVEL, 25);
-      rig.step(Math.round(3 / dt), (i) => { rig.ctl.throttle = 0.6; rig.ctl.steer = i * dt > 0.5 ? 0.6 : 0; });
-      rig.dt = PHYS_DT; return car.pos.clone();
-    };
-    const fine = stepSteer(1 / 960);
-    check('timestep: 120 Hz vs 960 Hz after a step steer (m)', stepSteer(PHYS_DT).distanceTo(fine), 0, 0.4);
-    // airborne, no driver aids: angular momentum is conserved, and the brakes pitch the nose down through the wheels
-    rig.place(SURF.TARMAC, 0, { drop: 60 }); car.w.set(0.6, 1.2, 0.4);     // from rest, so no aero torques; body plus wheels
-    const Lw = () => { _qi.copy(car.q).invert(); _wl.copy(car.w).applyQuaternion(_qi); const I = CAR.inertia;
-      carAxes(); return _tl.set(I.x * _wl.x, I.y * _wl.y, I.z * _wl.z).applyQuaternion(car.q).addScaledVector(AX, CAR.Iw * car.wheels.reduce((a, w) => a + w.om, 0)).length(); };
-    const L0 = Lw(); rig.step(180);
-    check('airborne: angular momentum kept over 1.5 s', Lw() / L0, 0.98, 1.02);
-    rig.place(SURF.TARMAC, 30, { drop: 60 });
-    rig.step(30); carAxes(); const p0 = car.w.dot(AX);
-    rig.ctl.brake = 1; rig.step(60); carAxes();
-    check('airborne: pitch rate from stabbing the brakes (rad/s)', car.w.dot(AX) - p0, 0.2, 0.6);
+    check('core: energy after / before an off-centre hit', ke() / ke0, 0, 1);
+    rig.place(SURF.GRAVEL, 0, { sz: 0.15, ctl: { handbrake: true } }); rig.step(240); const z0 = car.pos.z; rig.step(Math.round(30 / rig.dt));
+    check('core: handbrake on a 15% gravel grade, creep in 30 s (cm)', Math.abs(car.pos.z - z0) * 100, 0, 2);
   });
-  // rough road (the wheels are masses on their own springs): firm dampers skip off ripples more than soft ones
-  const skip = (damp) => PhysicsRig.run(tuneFor(Object.assign({}, DEFAULT_SETUP, { damp }), build || DEFAULT_BUILD), (rig) => {
-    rig.place(SURF.GRAVEL, 20, { rA: 0.025, rL: 3 });
-    let off = 0, n = 0;
-    rig.step(420, (i) => { rig.speedHold(20); if (i >= 60) for (const w of car.wheels) { n++; if (!w.grounded) off++; } });
-    return off / n * 100;
-  });
-  check('rough road: firm minus soft dampers, time off the ground (%)', skip(2) - skip(0), 1, 30);
   return R;
 }
 
@@ -16782,7 +16899,7 @@ function init() {
   window.RegolithRally = {
     AudioSys, EngineSound, Game, Cam, car, Post, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
-    placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB,
+    placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, ROAD, GEO, perfRatings, tuneFor,
     openService, leaveService, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, recSetup, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },

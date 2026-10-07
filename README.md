@@ -153,4 +153,4 @@ For automation and debugging, `window.RegolithRally` exposes the game's objects,
 - `setAutopilot(true)` hands control to the AI driver.
 - `loadStage(i, then)` builds a stage and `startRace()` starts it (skipping the service park).
 - `startRally()`, `openService()` and `startEvent(...)` drive the other modes.
-- `physicsTests()` runs the physics self-test on a flat proving ground (statics, ride, landings, skidpad grip, ABS stops, launch, slopes, collisions, timestep error, airborne momentum) and returns each check with its value, its allowed range and whether it passed.
+- `physicsTests()` runs the physics self-test and returns each check with its value, its allowed range and whether it passed. Four groups: every car against real-world figures (0-100 and 100-0 km/h, tarmac and gravel skidpad g, top speed; published where a figure exists, otherwise its class in period), the road surface (ruts, loose stuff off the line and wide in bends, puddles, damp shade, black ice), the suspension geometry (camber with roll, bump steer) and the core model (statics, landings, timestep error, airborne momentum, collisions, holding on a slope).
