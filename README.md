@@ -72,7 +72,7 @@ Each body is lofted from traces of the real car's side, top and plan views, at i
 
 ## Tyres and service
 
-Before each stage the service park sets springs, dampers, anti-roll bars, final drive and tyres. The tyres are seven real WRC compounds: gravel soft and hard, tarmac soft and hard, wet, snow and studded ice. Each has its own grip per surface, relaxation length, loss in the rain and wear. Each stage marks a recommended set-up with ★ (the wet tyre on tarmac in the rain).
+Before each stage the service park sets springs, dampers, anti-roll bars, final drive and tyres. The tyres are seven real WRC compounds: gravel soft and hard, tarmac soft and hard, wet, snow and studded ice. Each has its own grip per surface, relaxation length, loss in the rain and wear. The recommended set-up (★) is worked out for the car in the garage on that stage in that weather: the tyre and final drive that are quickest over the road for that car's engine, gears, weight and drive, and springs, dampers and bars to suit how rough the road is, its jumps and the car's own wheel travel. Until you change something, each run uses it; changes are kept per stage and per car.
 
 ## Garage
 
