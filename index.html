@@ -10240,16 +10240,34 @@ function gsShell(K, c) {
       if (base) K.rbox(0.03, y - base, 0.14, K.dark, sx * 0.42, (y + base) / 2, (z0 + z1) / 2);
     });
   };
-  /** A 2017-rules World Rally Car wing: a main plane whose leading edge sits on the roof's trailing edge (z0) and runs
-   *  back past the tailgate to z1, a second plane over its back half, and deep endplates that drop down the sides. */
-  S.bigWing = (z0, z1, y, span) => {
-    const ch = z0 - z1;
-    K.rbox(span, 0.035, ch, K.paint, 0, y, (z0 + z1) / 2, -0.08);
-    K.rbox(span - 0.04, 0.03, ch * 0.42, K.paint, 0, y + 0.09, z1 + ch * 0.24, -0.32);
-    K.rbox(span - 0.04, 0.05, 0.02, K.dark, 0, y + 0.13, z1 + 0.02);
+  /** One car's own rear wing, from its real layout (real metres): an inverted, cambered aerofoil rather than a flat
+   *  blade. o: z, y (leading edge), ch (chord), span, aoa (degrees, trailing edge up), t / cam (thickness and camber,
+   *  fractions of the chord), mat ('dark' for a black wing; the body colour otherwise), gurney (lip height, 0 for none),
+   *  flap ({ ch, aoa, dz, dy }: a second element over the main plane's trailing edge, dz / dy from it), ep (the
+   *  endplate's outline [[z, y], ...]; epT its thickness, epMat 'dark' or 'paint'), posts ({ x, z }: uprights from the
+   *  body under the plane at ±x). */
+  S.foil = (o) => {
+    const mat = (m) => (m === 'dark' ? K.dark : K.paint);
+    const section = (z0, y0, ch, aoa, t, m) => {
+      const a = aoa * PI / 180, ca = Math.cos(a), sa = Math.sin(a), up = [], lo = [];
+      for (let i = 0; i <= 14; i++) {
+        const u = 0.5 - 0.5 * Math.cos(i / 14 * PI);
+        const th = 5 * t * (0.2969 * Math.sqrt(u) - 0.126 * u - 0.3516 * u * u + 0.2843 * u ** 3 - 0.1036 * u ** 4);
+        const cl = -(u < 0.4 ? m / 0.16 * (0.8 * u - u * u) : m / 0.36 * (0.2 + 0.8 * u - u * u));   // the camber bows down
+        const at = (v) => [z0 - u * ch * ca + v * ch * sa, y0 + u * ch * sa + v * ch * ca];
+        up.push(at(cl + th)); lo.push(at(cl - th));
+      }
+      K.rprofile(up.concat(lo.reverse().slice(1, -1)), o.span, mat(o.mat), { bevel: 0.003 });
+      return [z0 - ch * ca, y0 + ch * sa];                                // the trailing edge
+    };
+    const [tz, ty] = section(o.z, o.y, o.ch, o.aoa || 0, o.t || 0.1, o.cam ?? 0.05);
+    if (o.flap) section(tz + (o.flap.dz || 0), ty + (o.flap.dy ?? 0.02), o.flap.ch, o.flap.aoa, o.flap.t || 0.09, 0.04);
+    else if (o.gurney !== 0) K.rbox(o.span - 0.02, o.gurney || 0.018, 0.008, K.dark, 0, ty + (o.gurney || 0.018) / 2, tz + 0.004);
+    const edge = (z) => { const s = z <= G[0].z && z >= G[G.length - 1].z ? sec(G, z) : sec(LB, z); return s.yt - s.crown * 0.5; };
     K.both((sx) => {
-      const ep = [[z0 + 0.02, y + 0.03], [z1 - 0.03, y + 0.16], [z1 - 0.03, y - 0.19], [z0 - ch * 0.45, y - 0.12]];
-      K.rpanel(ep, K.dark, 'side', sx * span / 2, sx); K.rpanel(ep, K.dark, 'side', sx * (span / 2 - 0.01), -sx);
+      const epT = o.epT || 0.014;
+      if (o.ep) K.rprofile(o.ep, epT, mat(o.epMat || o.mat), { x: sx * (o.span / 2 + epT / 2 - 0.004), bevel: Math.min(0.004, epT / 3) });
+      if (o.posts) { const pz = o.posts.z ?? o.z - o.ch * 0.45, py = o.y - 0.01, base = edge(pz) - 0.02; K.rbox(0.028, py - base, 0.13, K.dark, sx * o.posts.x, (py + base) / 2, pz); }
     });
   };
   /** Window openings on the glasshouse sides: everything on the sides outside the windows is painted (mat), so the
@@ -11073,14 +11091,14 @@ LIVERIES.forEach((l, i) => { if (l.num == null) l.num = [4, 1, 5, 3, 2, 6, 8][i]
  *  d: nose, tail (overhangs), hood [y at the nose, y at the cowl], belt (shoulder y at the tail), ws [cowl z, roof front z]
  *  (their spread sets the windscreen's rake), roofEnd (z), back [z, y] where the glass ends (sets the tailgate's rake),
  *  mid (engine behind the cabin: sails and a louvred deck), b (B pillar z), shuts (door lines z), lamps, scoop (roof
- *  scoop z), intakes (side intakes z0, z1), wing [z0, z1, y, span, base]. Optional shaping, read off the real cars:
+ *  scoop z), intakes (side intakes z0, z1), wings (the real car's rear wing elements, each an S.foil spec; none if it
+ *  had none). Optional shaping, read off the real cars:
  *  rake (how far the nose's top edge sits behind its tip), lift (how much the bonnet rises over that), noseW (how much
  *  narrower the nose is than the car), noseYs (height of the nose's leading edge), waist [z, y] (where the shoulder line
  *  kicks up), tailRake, crown (roof crown), tumble (how far the glasshouse leans in), flare / flareRun (arch flares),
  *  body / glass (functions of the car's size returning gsShell stations, to trace a car's own sections outright),
  *  details (K, S, c) for the car's own lamps, grilles and vents; lamps 'none' and grille false leave those to it, and
- *  tailLamps false / rearPanel false the tail's. openRear: the 2017 rules' cut-away rear bumper over the diffuser;
- *  bigWing [z0, z1, y, span]: the 2017 twin-plane wing off the roof's trailing edge (S.bigWing). */
+ *  tailLamps false / rearPanel false the tail's. openRear: the 2017 rules' cut-away rear bumper over the diffuser. */
 /** A shape traced off a blueprint: silhouettes as 'z:y z:y ...' strings in real metres (z forward from the front axle,
  *  y up from the ground). T: top (the side view's top edge), bot (the body's bottom edge, bridged across the arches),
  *  plan (plan-view half width), belt (the shoulder under the side windows, cowl to the glass's end), cowl, roof
@@ -11175,8 +11193,7 @@ function gsCar(K, d) {
   if (d.louvres) for (let i = 0; i < 4; i++) S.bodyTop(0.3 - i * 0.09, 0.26 - i * 0.09, 0.4, 0.74, K.dark, 0.012);
   if (d.details) d.details(K, S, c);
   if (d.aero !== false) S.aero(d.aero);
-  if (d.wing) S.wing(...d.wing);
-  if (d.bigWing) S.bigWing(...d.bigWing);
+  for (const f of d.wings || []) S.foil(f);                            // the car's own rear wing(s), none if it had none
   return S.layout(d.b + 0.12, (w1 + r2) / 2);                         // seat just ahead of the B pillar
 }
 /** The Kadett E / Astra Mk2 three-door, traced off a blueprint of the Astra GTE (the same shell). */
@@ -11209,7 +11226,7 @@ const NEW_CARS = [
       kg: 1000, front: 0.45, centre: 'torsen', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.5, track: [1.56, 1.56], wf: 0.41, cgH: 0.42, dims: [4.1, 1.9, 1.36], travel: 0.25,
       tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [330, 300] },
-    aero: { cda: 0.82, cdaSide: 2.3, claF: 0.22, claR: 0.44, pitch: 0.07, ge: 0.35, text: 'Low wedge nose with a full-width splitter, flat underbody into a rear diffuser, tall rear wing on the engine cover' },
+    aero: { cda: 0.82, cdaSide: 2.3, claF: 0.22, claR: 0.44, pitch: 0.07, ge: 0.35, text: 'Low wedge nose with a full-width splitter, flat underbody into a rear diffuser, big rear wing on tall endplates overhanging the tail' },
     // traced off a side-view drawing of the car: a Group C-style body, a nose that rounds down from the wheel arches,
     // a steep windscreen, a long roof running into a fastback engine cover, the big side intake behind the door and a
     // tall rear wing
@@ -11220,7 +11237,10 @@ const NEW_CARS = [
         ys: '0.76:0.3 0.5:0.4 0:0.46 -1.5:0.5 -2.6:0.52 -3.35:0.5', tum: '0.76:0.08 0.4:0.12 0:0.16 -0.5:0.1 -1.0:0.07 -1.8:0.1 -2.5:0.16 -3.0:0.12 -3.35:0.1',
         crown: '0.76:0.03 0.4:0.06 -0.03:0.06 -0.05:0.015 -1.85:0.015 -1.9:0.08 -3.0:0.08 -3.35:0.05', roofW: '-0.05:0.72 -0.91:0.6 -1.78:0.58 -1.85:0.6', gcrown: '-0.05:0.05 -0.91:0.07 -1.78:0.06 -1.85:0.05' },
       mid: true, arch: 0.07, flare: 0, b: -1.72, backlight: 0.07, deck: false, lamps: 'none', grille: false, tailLamps: false, rearPanel: false,
-      shuts: [-0.67, -1.72], intakes: [-1.74, -2.17], wing: [-2.97, -3.4, 1.3, 1.8, 0.88], aero: { planes: false },
+      shuts: [-0.67, -1.72], intakes: [-1.74, -2.17], aero: { planes: false },
+      // the real wing: a steep plane between two big parallelogram endplates standing on the tail and overhanging it
+      wings: [{ z: -3.06, y: 1.17, ch: 0.58, aoa: 16, span: 1.6, gurney: 0.02, epT: 0.016,
+        ep: [[-2.96, 0.86], [-3.1, 1.28], [-3.17, 1.32], [-3.73, 1.35], [-3.43, 0.86]] }],
       windows: [{ lo: [[-0.67, 0.88], [-1.72, 0.88]], hi: [[-0.67, 0.88], [-0.85, 1.07], [-1.05, 1.21], [-1.4, 1.22], [-1.72, 1.19]] }],
       details(K, S, c) {
         // twin lamps each side under clear covers on the nose's shoulders, a wide mouth below, NACA ducts in the doors,
@@ -11236,15 +11256,14 @@ const NEW_CARS = [
         S.bodySide(-0.75, -1.15, (v) => K.lerp(0.45, 0.2, v), 0.5, K.dark);
       } },
     rim: { spokes: 6, spokeW: 0.09, color: 0xe2e4e8, caliper: 0xd8262e }, pipes: [-0.35, 0.35],
-    livery: { name: 'Audi Sport (custom)', base: '#f4f4f0', rim: 0xe2e4e8, num: 1,
+    livery: { name: 'Audi Sport, 1986', base: '#efefeb', rim: 0xe2e4e8, num: 1,
+      // as the car was built and as Audi Tradition runs it: plain white, the four rings low on the doors behind the
+      // front wheels and nothing else (it never ran an event, so the door plate is the game's)
       side(P, n) {
-        [['#d71920', 0], ['#7d8086', 0.08], ['#1a1a1c', 0.16]].forEach(([col, o]) => P.poly([[2.6 - o, -0.62], [2.6 - o, -0.55], [-2.6, -0.1 - o], [-2.6, -0.17 - o]], col));
-        P.plate(n, 0.7, -0.15);
-        for (let k = 0; k < 4; k++) P.ellipse(-0.5 + k * 0.085, -0.2, 0.06, '#1a1a1c', 0.013);
-        P.text('AUDI SPORT', 1.6, -0.75, 0.06, '#1a1a1c', { w: 0.6 });
-        P.text('RS 002', -1.4, 0.15, 0.08, '#1a1a1c', { w: 0.45 });
+        P.plate(n, 0.05, -0.12);
+        for (let k = 0; k < 4; k++) P.ellipse(0.72 - k * 0.075, -0.56, 0.05, '#5d6066', 0.012);
       },
-      top(P) { [['#d71920', -0.12], ['#7d8086', -0.04], ['#1a1a1c', 0.04]].forEach(([col, x]) => P.rect(2.6, -2.6, x, x + 0.06, col)); } } },
+      top() {} } },
   { name: 'RS200', blurb: 'Ford RS200 (1986), the Group B works car: a Ghia-styled mid-engined coupé with the gearbox up front for balance and a 1.8 L Cosworth BDT turbo.',
     // 1,803 cc BDT, 444 bhp at 8,000 rpm and 490 N·m (361 lb ft) at 5,500 in works
     // tune (Ford); 2.53 m wheelbase, 4.0 m long, 1.76 m wide, 1.32 m tall; gearbox
@@ -11259,7 +11278,7 @@ const NEW_CARS = [
       wb: 2.53, track: [1.5, 1.5], wf: 0.46, cgH: 0.45, dims: [4.0, 1.76, 1.32], travel: 0.25,
       tyre: { r: 0.33, w: 0.195, rim: 16, kg: 20, size: 'Michelin 16 in gravel' }, disc: [300, 300] },
     // drag: Cd 0.40 (Ford, RS200 Evolution) + 0.02 for the works wing and lamp pod, times 0.81 x the real width x height
-    aero: { cda: 0.79, cdaSide: 2.3, claF: 0.2, claR: 0.4, pitch: 0.07, ge: 0.3, text: 'Four-lamp pod on the nose, chin splitter, roof-top engine air intake, roof-height rear wing on the tail, rear diffuser' },
+    aero: { cda: 0.79, cdaSide: 2.3, claF: 0.2, claR: 0.4, pitch: 0.07, ge: 0.3, text: 'Four-lamp pod on the nose, chin splitter, roof-top engine air intake, full-width tail wing turned down into the rear wings, rear diffuser' },
     // traced off a four-view blueprint: the side view's top and bottom edges, the plan view's widths and the side
     // windows' outlines, with the lamps and panels laid onto the bodywork where the front and rear views put them
     shape: { trace: { top: '0.823:0.469 0.773:0.495 0.723:0.576 0.673:0.634 0.623:0.723 0.573:0.732 0.523:0.745 0.473:0.754 0.423:0.763 0.373:0.772 0.323:0.781 0.273:0.785 0.223:0.794 0.173:0.803 0.123:0.812 0.073:0.817 0.023:0.821 -0.027:0.83 -0.077:0.835 -0.127:0.843 -0.177:0.848 -0.227:0.852 -0.277:0.852 -0.327:0.857 -0.377:0.879 -0.427:0.91 -0.477:0.942 -0.527:0.973 -0.577:1.004 -0.627:1.035 -0.677:1.062 -0.727:1.089 -0.777:1.116 -0.827:1.143 -0.877:1.165 -0.927:1.192 -0.977:1.205 -1.027:1.223 -1.077:1.227 -1.127:1.236 -1.177:1.241 -1.227:1.241 -1.277:1.241 -1.327:1.241 -1.377:1.241 -1.427:1.245 -1.477:1.245 -1.527:1.245 -1.577:1.245 -1.627:1.245 -1.677:1.245 -1.727:1.245 -1.777:1.244 -1.827:1.244 -1.877:1.244 -1.927:1.244 -1.977:1.244 -2.027:1.244 -2.077:1.244 -2.127:1.241 -2.177:1.151 -2.227:1.134 -2.277:1.111 -2.327:1.093 -2.377:1.076 -2.427:1.058 -2.477:1.04 -2.527:1.018 -2.577:1 -2.627:0.982 -2.677:0.973 -2.727:0.986 -2.777:0.991 -2.827:1.004 -2.877:1.013 -2.927:1.022 -2.977:1.031 -3.027:1.04 -3.077:1.049 -3.123:1.053',
@@ -11271,7 +11290,10 @@ const NEW_CARS = [
         crown: '0.82:0.03 0.4:0.06 -0.3:0.05 -0.34:0.015 -2.25:0.015 -2.32:0.03 -3.12:0.03',
         roofW: '-0.36:0.72 -1.1:0.6 -1.68:0.6 -2.25:0.68', gcrown: '-0.36:0.05 -1.1:0.06 -1.68:0.06 -2.25:0.03' },
       mid: true, arch: 0.065, flare: 0, b: -1.66, backlight: 0.57, deck: false, lamps: 'none', grille: false, tailLamps: false, rearPanel: false,
-      shuts: [-0.44, -1.66], intakes: [-1.72, -1.98], wing: [-2.95, -3.2, 1.2, 1.66, 1.06], aero: { planes: false },
+      shuts: [-0.44, -1.66], intakes: [-1.72, -1.98], aero: { planes: false },
+      // the works wing: a full-width plane over the tail whose ends turn down into the tops of the rear wings
+      wings: [{ z: -2.84, y: 1.17, ch: 0.3, aoa: 5, t: 0.11, cam: 0.04, span: 1.7, gurney: 0.015, epT: 0.06,
+        ep: [[-2.68, 0.98], [-2.82, 1.15], [-2.87, 1.21], [-3.16, 1.23], [-3.17, 1.0]] }],
       windows: [{ lo: [[-0.615, 0.78], [-1.645, 0.83]], hi: [[-0.615, 0.78], [-0.78, 0.97], [-0.94, 1.1], [-1.16, 1.148], [-1.645, 1.148]] },
         { lo: [[-1.69, 0.845], [-1.86, 0.875]], hi: [[-1.69, 1.16], [-1.86, 0.88]] }],
       details(K, S, c) {
@@ -11300,13 +11322,19 @@ const NEW_CARS = [
       } },
     rim: { spokes: 8, spokeW: 0.06, color: 0xf2f2ee, caliper: 0xe6a21a }, pipes: [0.42],
     livery: { name: 'Ford Motorsport, 1986', base: '#f6f6f2', rim: 0xf2f2ee, num: 4,
+      // the works cars' white with the navy wedge low on the doors, then royal blue, navy and two greys in diagonal
+      // stripes rising back over the rear wings into the sails, and the roof in blue
       side(P, n) {
-        P.band([[2.6, -0.5], [-2.6, -0.5]], 0.07, '#13306e'); P.band([[2.6, -0.42], [-2.6, -0.42]], 0.025, '#d6202a');
-        P.plate(n, 0.55, -0.15);
-        P.text('FORD', -0.15, -0.15, 0.1, '#13306e', { w: 0.4 });
-        P.text('RS200', 0.55, -0.35, 0.05, '#13306e', { w: 0.35 });
+        const slant = (z0, w, col) => P.poly([[z0, -0.75], [z0 - w, -0.75], [z0 - w - 0.84, 0.65], [z0 - 0.84, 0.65]], col);
+        slant(0.8, 0.62, '#16285e');
+        P.poly([[0.38, -0.05], [-0.24, -0.05], [-0.66, 0.65], [-0.04, 0.65]], '#1f56b4');
+        [[0.13, 0.14, '#1f56b4'], [-0.06, 0.09, '#16285e'], [-0.2, 0.09, '#4b5058'], [-0.34, 0.07, '#9a9ea6']].forEach(([z0, w, col]) => slant(z0, w, col));
+        P.plate(n, 0.3, -0.25);
       },
-      top(P) { P.rect(2.6, -2.6, -0.1, 0.1, '#13306e'); P.rect(2.6, -2.6, 0.12, 0.16, '#d6202a'); P.rect(2.6, -2.6, -0.16, -0.12, '#d6202a'); } } },
+      top(P) {
+        P.rect(0.4, -0.45, -1.45, 1.45, '#1f56b4');
+        P.ellipse(1.95, 0, 0.1, '#16285e'); P.text('Ford', 1.95, 0, 0.07, '#f6f6f2', { rot: Math.PI / 2, italic: false });
+      } } },
   { name: 'SAMARA S', blurb: 'Lada Samara S-proto (1989), VAZ\'s Group S-style evolution of the Samara EVA: tube frame, fibreglass Samara-shaped body, mid-mounted turbo four and permanent four-wheel drive. Never homologated; most specs estimated.',
     // the EVA's tube frame, fibreglass body and mid-mounted turbo four, plus permanent four-wheel drive and about 350 hp
     // (50 more than the EVA); displacement, weight, ratios and dimensions (est.)
@@ -11318,7 +11346,7 @@ const NEW_CARS = [
       wb: 2.46, track: [1.48, 1.48], wf: 0.42, cgH: 0.46, dims: [4.0, 1.8, 1.3], travel: 0.25,
       tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [280, 280] },
     // drag: VAZ-2108 Cd 0.38 (AvtoVAZ) + 0.12 for the rally kit, times 0.81 x the real width x height
-    aero: { cda: 0.95, cdaSide: 2.4, claF: 0.14, claR: 0.3, pitch: 0.06, ge: 0.3, text: 'Chin splitter, side intakes for the mid engine, wing on the hatch, rear diffuser' },
+    aero: { cda: 0.95, cdaSide: 2.4, claF: 0.14, claR: 0.3, pitch: 0.06, ge: 0.3, text: 'Chin splitter, side intakes for the mid engine, two stacked wings over the back of the roof, rear diffuser' },
     // traced off the Samara (VAZ-2108) 3-door blueprint, whose doors, lamps and windscreen the S-proto kept, with
     // the rally car's flared arches and the EVA's two wings
     shape: { trace: { top: '0.694:0.752 0.644:0.8 0.594:0.816 0.544:0.826 0.494:0.837 0.444:0.847 0.394:0.858 0.344:0.869 0.294:0.874 0.244:0.885 0.194:0.895 0.144:0.9 0.094:0.906 0.044:0.916 -0.006:0.922 -0.056:0.932 -0.106:0.938 -0.156:0.943 -0.206:0.948 -0.256:0.953 -0.306:0.991 -0.356:1.006 -0.406:1.017 -0.456:1.044 -0.506:1.081 -0.556:1.112 -0.606:1.139 -0.656:1.176 -0.706:1.208 -0.756:1.24 -0.806:1.272 -0.856:1.303 -0.906:1.298 -0.956:1.302 -1.006:1.302 -1.056:1.302 -1.106:1.302 -1.156:1.302 -1.206:1.302 -1.256:1.302 -1.306:1.302 -1.356:1.302 -1.406:1.302 -1.456:1.302 -1.506:1.301 -1.556:1.301 -1.606:1.301 -1.656:1.301 -1.706:1.301 -1.756:1.301 -1.806:1.301 -1.856:1.301 -1.906:1.301 -1.956:1.301 -2.006:1.301 -2.056:1.3 -2.106:1.3 -2.156:1.3 -2.206:1.3 -2.256:1.3 -2.306:1.3 -2.356:1.3 -2.406:1.3 -2.456:1.293 -2.506:1.261 -2.556:1.229 -2.606:1.197 -2.656:1.171 -2.706:1.139 -2.756:1.107 -2.806:1.07 -2.856:1.044 -2.906:1.006 -2.956:0.98 -3.006:0.943 -3.056:0.916 -3.106:0.885 -3.156:0.778 -3.206:0.55 -3.214:0.545',
@@ -11329,13 +11357,15 @@ const NEW_CARS = [
         ys: '0.69:0.45 0.3:0.5 0:0.52 -1.5:0.56 -2.6:0.58 -3.21:0.55', tum: '0.69:0.1 0.3:0.12 0:0.15 -0.5:0.08 -1.0:0.06 -2.0:0.08 -2.46:0.14 -3.0:0.1 -3.21:0.08',
         crown: '0.69:0.02 0.3:0.04 -0.4:0.04 -0.45:0.015 -3.0:0.015 -3.05:0.02', roofW: '-0.45:0.7 -0.92:0.62 -2.44:0.6 -3.0:0.64', gcrown: '-0.45:0.04 -0.92:0.05 -2.44:0.05 -3.0:0.03' },
       arch: 0.07, flare: 0.9, flareRun: 0.36, b: -1.75, shuts: [-0.47, -1.73], lamps: 'none', grille: false, tailLamps: false, rearPanel: false,
-      intakes: [-1.95, -2.25], wing: [-2.42, -2.72, 1.55, 1.6, 1.08], aero: { planes: false },
+      intakes: [-1.95, -2.25], aero: { planes: false },
+      // the EVA's and S-proto's two stacked wings over the back of the roof: posts carry the lower, endplates both
+      wings: [{ z: -2.46, y: 1.36, ch: 0.3, aoa: 6, span: 1.6, posts: { x: 0.42 } },
+        { z: -2.5, y: 1.6, ch: 0.34, aoa: 12, span: 1.6, epMat: 'dark', ep: [[-2.42, 1.33], [-2.44, 1.7], [-2.86, 1.76], [-2.88, 1.3]] }],
       windows: [{ lo: [[-0.51, 0.9], [-1.69, 0.9]], hi: [[-0.51, 0.9], [-1.0, 1.294], [-1.69, 1.294]] },
         { lo: [[-1.815, 0.9], [-2.78, 0.865]], hi: [[-1.815, 1.29], [-2.33, 1.28], [-2.78, 0.975]] }],
       details(K, S, c) {
         // the 2108's face: wide rectangular headlamps either side of a slatted grille on the bonnet's leading edge, the
-        // plate in the bumper; wide tail lamps either side of the tailgate over a black band; the EVA's two wings stacked
-        // over the back of the roof, one off its trailing edge and one above it on stanchions
+        // plate in the bumper; wide tail lamps either side of the tailgate over a black band (the two wings are in wings)
         const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
         K.both((sx) => {
           S.decal(rect(sx * 0.32, 0.6, sx * 0.71, 0.74), K.dark, 'front', 0.006);
@@ -11347,18 +11377,20 @@ const NEW_CARS = [
         S.decal(rect(-0.27, 0.42, 0.27, 0.55), K.trim, 'front', 0.008);
         S.decal(rect(-0.75, 0.5, 0.75, 0.55), K.dark, 'rear', 0.006);
         S.decal(rect(-0.2, 0.36, 0.2, 0.46), K.trim, 'rear', 0.008);
-        S.wing(-2.33, -2.53, c.tr.at('top', -2.4) + 0.01, 1.4, 0);
       } },
     rim: { spokes: 5, spokeW: 0.1, color: 0xf2f2ee, caliper: 0xd8262e }, pipes: [0.4],
-    livery: { name: 'Lada Sport (custom)', base: '#f4f4f2', rim: 0xf2f2ee, num: 7,
+    livery: { name: 'VAZ Samara S-proto, 1989', base: '#f4f4f2', rim: 0xf2f2ee, num: 7,
+      // as photographed in 1989: white, one narrow dark stripe up the bonnet off the centre line, SAMARA S-PROTO on the
+      // bonnet's leading edge and S-PROTO low on the doors (the photo is black and white: the dark blue is a guess)
       side(P, n) {
-        P.poly([[2.6, -1.0], [2.6, -0.62], [-2.6, -0.2], [-2.6, -1.0]], '#d6202a');
-        P.band([[2.6, -0.55], [-2.6, -0.13]], 0.06, '#1b3f9a');
-        P.plate(n, 0.5, 0.0);
-        P.text('LADA', -0.9, 0.15, 0.12, '#d6202a', { w: 0.6 });
-        P.text('S-PROTO', 1.4, -0.85, 0.06, '#f4f4f2', { w: 0.5 });
+        P.plate(n, 0.25, -0.12);
+        P.text('S-PROTO', 0.0, -0.6, 0.06, '#1d2f6b', { w: 0.45 });
       },
-      top(P) { P.rect(2.6, -2.6, -0.06, 0.06, '#d6202a'); P.rect(2.6, -2.6, 0.08, 0.14, '#1b3f9a'); } } },
+      top(P) {
+        P.rect(2.6, 0.85, 0.1, 0.18, '#1d2f6b');
+        P.text('SAMARA', 1.98, -0.25, 0.07, '#1d2f6b', { rot: Math.PI / 2, italic: false, w: 0.5 });
+        P.text('S-PROTO', 1.88, -0.25, 0.07, '#1d2f6b', { rot: Math.PI / 2, w: 0.5 });
+      } } },
   { name: 'ECV', blurb: 'Lancia ECV (1986), the Delta S4\'s Group S successor: a carbon-kevlar honeycomb tub and the twin-turbo Triflux four, 600 CV with almost no lag.',
     // Triflux 1,759 cc twin-turbo, 600 CV at 8,000 rpm, 538 N·m at 5,000 (Lancia); S4 wheelbase and tracks; S4 gearbox
     // and viscous centre, 930 kg (est.)
@@ -11369,7 +11401,7 @@ const NEW_CARS = [
       kg: 930, front: 0.3, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.44, track: [1.51, 1.535], wf: 0.43, cgH: 0.44, dims: [4.0, 1.88, 1.33], travel: 0.25,
       tyre: { r: 0.33, w: 0.195, rim: 16, kg: 20, size: 'Pirelli 660-16 gravel' }, disc: [300, 300] },
-    aero: { cda: 0.86, cdaSide: 2.4, claF: 0.16, claR: 0.34, pitch: 0.06, ge: 0.35, text: 'Front splitter, roof intake, hatch spoiler, side skirts, rear diffuser' },
+    aero: { cda: 0.86, cdaSide: 2.4, claF: 0.16, claR: 0.34, pitch: 0.06, ge: 0.35, text: 'Front splitter, roof intake, black roof wing over the rear window, side skirts, rear diffuser' },
     // traced off a four-view blueprint of the Delta S4, whose shape and wheelbase the ECV kept
     shape: { trace: { top: '0.667:0.25 0.64:0.5 0.62:0.62 0.51:0.66 0.2:0.72 -0.27:0.78 -0.5:0.835 -0.75:1.03 -1.02:1.215 -1.4:1.26 -1.78:1.29 -2.28:1.31 -2.7:1.05 -3.15:0.78 -3.24:0.73 -3.25:0.46',
         bot: '0.667:0.16 0.5:0.14 0.3:0.13 0:0.13 -0.5:0.12 -2.0:0.12 -2.9:0.16 -3.1:0.2 -3.25:0.24',
@@ -11378,7 +11410,10 @@ const NEW_CARS = [
         ys: '0.667:0.42 0.3:0.45 0:0.47 -1.5:0.5 -2.6:0.52 -3.25:0.5', tum: '0.667:0.08 0.3:0.12 0:0.16 -0.5:0.1 -1.0:0.06 -2.0:0.08 -2.44:0.15 -3.0:0.1 -3.25:0.08',
         crown: '0.667:0.02 0.3:0.04 -0.45:0.04 -0.5:0.015 -2.93:0.015 -2.97:0.02', roofW: '-0.5:0.72 -1.02:0.64 -2.28:0.62 -2.93:0.66', gcrown: '-0.5:0.04 -1.02:0.05 -2.28:0.05 -2.93:0.03' },
       arch: 0.07, flare: 0, b: -1.75, shuts: [-0.52, -1.72], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, scoop: -1.55,
-      intakes: [-2.4, -2.62], wing: [-2.22, -2.56, 1.42, 1.6, 0], aero: { planes: false },
+      intakes: [-2.4, -2.62], aero: { planes: false },
+      // the black roof wing over the rear window, on posts, with deep endplates
+      wings: [{ z: -2.3, y: 1.38, ch: 0.52, aoa: 7, t: 0.09, span: 1.66, mat: 'dark', posts: { x: 0.45 }, epT: 0.012,
+        ep: [[-2.26, 1.36], [-2.3, 1.47], [-2.86, 1.53], [-2.86, 1.3], [-2.55, 1.3]] }],
       windows: [{ lo: [[-0.82, 0.795], [-1.7, 0.795]], hi: [[-0.82, 0.795], [-1.16, 1.17], [-1.7, 1.18]] },
         { lo: [[-1.8, 0.79], [-2.52, 0.76]], hi: [[-1.8, 1.18], [-2.3, 1.18], [-2.52, 0.78]] }],
       details(K, S, c) {
@@ -11400,8 +11435,16 @@ const NEW_CARS = [
     livery: { name: 'Martini Lancia ECV, 1986', base: '#c8161d', rim: 0xf2f2ee, num: 1,
       side(P, n) {
         // as shown at Bologna: the stripes run low along the front wing, then sweep up across the doors into the rear pillar
-        martini(P, [[2.6, -0.42], [0.5, -0.42], [-1.2, 0.1], [-1.6, 0.36], [-2.6, 0.36]], 0.045); P.plate(n, -0.75, -0.45); P.text('MARTINI', 0.4, 0.02, 0.09, '#f4f4f0', { w: 0.8 }); P.text('ECV', 1.7, -0.1, 0.07, '#f4f4f0', { w: 0.3 }); },
-      top(P) { for (const sx of [-1, 1]) { P.rect(2.6, -2.5, sx * 0.3, sx * 0.36, '#3d9ad1'); P.rect(2.6, -2.5, sx * 0.37, sx * 0.43, '#0d2a5c'); P.rect(2.6, -2.5, sx * 0.44, sx * 0.5, '#d6262b'); } } } },
+        // on the red car the stripes run light blue, navy, light blue
+        const line = [[2.6, -0.42], [0.5, -0.42], [-1.2, 0.1], [-1.6, 0.36], [-2.6, 0.36]];
+        [[0.05, '#3d9ad1'], [0, '#0d2a5c'], [-0.05, '#3d9ad1']].forEach(([o, col]) => P.band(line.map(([z, y]) => [z, y + o]), 0.045, col));
+        P.plate(n, -0.75, -0.45); P.text('MARTINI', 0.4, 0.02, 0.09, '#f4f4f0', { w: 0.8 });
+      },
+      top(P) {
+        // the Martini roundel on the bonnet, and the stripes down the tail panel either side of the plate
+        P.rect(1.92, 1.62, -0.24, 0.24, '#f4f4f0'); P.text('MARTINI', 1.77, 0, 0.08, '#0d2a5c', { rot: Math.PI / 2, w: 0.42 });
+        for (const sx of [-1, 1]) [[0.42, '#3d9ad1'], [0.48, '#0d2a5c'], [0.54, '#3d9ad1']].forEach(([x, col]) => P.rect(-2.12, -2.6, sx * x, sx * (x + 0.045), col));
+      } } },
   { name: 'ECV II', blurb: 'Lancia ECV2 (1988), the second Group S study: the ECV\'s tub and Triflux engine under a smooth, low, wind-tunnel body. Body by Carlo Gaino\'s Synthesis Design: blunt, boxy and flared, white with Martini stripes. A show and test car only.',
     // the ECV's carbon tub, Triflux engine (600 CV at 8,000 rpm) and running gear, 910 kg (Lancia); body size (est.)
     spec: { engine: '1.8 L inline-4 (Triflux), twin-turbo', cyl: 4, layout: 'inline', pitch: 1, hp: 592, hpAt: 8000, nm: 538, nmAt: 5000, redline: 8600, idle: 1000, lag: 0.35, offBoost: 0.6,
@@ -11414,7 +11457,8 @@ const NEW_CARS = [
     aero: { cda: 0.74, cdaSide: 2.3, claF: 0.18, claR: 0.32, pitch: 0.06, ge: 0.45, text: 'Blunt splitter nose, two big bonnet vents, deep flared arches, full underbody and diffuser, wing off the roof' },
     shape: { nose: 0.86, tail: 0.75, hood: [0.66, 0.88], rake: 0.07, lift: 0.04, noseW: 0.1, noseYs: 0.5, belt: 0.95, ws: [-0.6, -1.28], crown: 0.05, tumble: 0.25,
       roofEnd: -2.62, back: [-3.04, 0.96], tailRake: 0.08, b: -1.85, lamps: 'none', grille: false, tailLamps: false, intakes: [-2.3, -2.55], flareRun: 0.45,
-      wing: [-2.6, -2.98, 1.31, 1.62, 0],
+      // the roof line carried on back as a wing, on fins that run down to the rear quarters
+      wings: [{ z: -2.6, y: 1.31, ch: 0.42, aoa: 4, span: 1.7, gurney: 0.012, epT: 0.03, ep: [[-2.55, 1.3], [-3.07, 1.37], [-3.1, 0.97], [-2.85, 0.95]] }],
       details(K, S, c) {
         // read off photos of the car: a blunt, upright nose with a square grille in two mesh halves round the Lancia
         // shield, small smoked headlamps in the corners, two big vents in the bonnet, deep flared arches and a wing that
@@ -11446,10 +11490,12 @@ const NEW_CARS = [
       wb: 2.32, track: [1.53, 1.53], wf: 0.42, cgH: 0.44, dims: [4.0, 1.83, 1.24], travel: 0.25,
       tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [300, 300] },
     // drag: MR2 (AW11) Cd 0.35, drag area 0.539 m² (Toyota) + 0.12 for the rally kit, times 0.81 x the real width x height
-    aero: { cda: 0.86, cdaSide: 2.3, claF: 0.16, claR: 0.38, pitch: 0.06, ge: 0.3, text: 'Flat nose with a mesh grille between the lamp pods, bonnet scoop, chin splitter, side intakes, louvred engine deck, ducktail spoiler' },
+    aero: { cda: 0.86, cdaSide: 2.3, claF: 0.16, claR: 0.38, pitch: 0.06, ge: 0.3, text: 'Flat nose with a mesh grille between the lamp pods, bonnet scoop, chin splitter, side intakes, louvred engine deck, full-width tail wing carried on the rear wings' },
     shape: { nose: 0.86, tail: 0.82, hood: [0.64, 0.78], rake: 0.04, lift: 0.02, noseW: 0.06, noseYs: 0.56, belt: 0.86, waist: [-1.6, 0.86], ws: [-0.44, -1.0],
       tumble: 0.28, roofEnd: -1.74, back: [-3.0, 0.86], mid: true, b: -1.62, lamps: 'pods', grille: false, scoop: -1.35, intakes: [-1.7, -2.02], flare: 1, flareRun: 0.26,
-      tailLamps: false, rearPanel: false, wing: [-3.0, -3.17, 0.93, 1.62, 0],
+      tailLamps: false, rearPanel: false,
+      // the full-width wing across the tail, carried on fins that rise out of the rear wings (the cars in Toyota's collection)
+      wings: [{ z: -2.78, y: 0.99, ch: 0.36, aoa: 4, span: 1.74, gurney: 0.015, epT: 0.07, ep: [[-2.4, 0.86], [-2.78, 0.98], [-2.82, 1.04], [-3.17, 1.06], [-3.16, 0.82]] }],
       details(K, S, c) {
         // a tall, flat nose: a mesh grille right across between the lamp pods, and a scoop in the middle of the bonnet;
         // the box flares' vents behind each wheel; at the back a ducktail, and rectangular tail lamps in the corners either
@@ -11483,7 +11529,9 @@ const NEW_CARS = [
       tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [300, 280] },
     // drag: Kadett E GSi Cd 0.30 (Opel) + 0.12 for the rally kit, times 0.81 x the real width x height
     aero: { cda: 0.84, cdaSide: 2.5, claF: 0.1, claR: 0.24, pitch: 0.05, ge: 0.25, text: 'Air dam with a splitter lip, bonnet scoop for the intercooler, roof-edge spoiler, side skirts' },
-    shape: { trace: KADETT_TRACE, arch: 0.07, flare: 0.8, flareRun: 0.36, b: -1.71, shuts: [-0.66, -1.7], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, windows: KADETT_WINDOWS, aero: { planes: false }, scoop: -1.6, wing: [-2.86, -3.18, 1.15, 1.42, 1.05],
+    shape: { trace: KADETT_TRACE, arch: 0.07, flare: 0.8, flareRun: 0.36, b: -1.71, shuts: [-0.66, -1.7], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, windows: KADETT_WINDOWS, aero: { planes: false }, scoop: -1.6,
+      // the roof-edge spoiler over the top of the hatch glass
+      wings: [{ z: -2.25, y: 1.355, ch: 0.3, aoa: -3, t: 0.08, cam: 0.03, span: 1.36, gurney: 0.012, ep: [[-2.25, 1.355], [-2.57, 1.36], [-2.57, 1.27], [-2.33, 1.33]] }],
       details(K, S, c) {
         // the Kadett E's slim wraparound lamps with a narrow slotted grille and the Opel blitz between them
         const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
@@ -11511,8 +11559,10 @@ const NEW_CARS = [
       wb: 2.52, track: [1.47, 1.47], wf: 0.58, cgH: 0.48, dims: [4.0, 1.78, 1.39], travel: 0.25,
       tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [300, 280] },
     // drag: Astra Mk2 (the Kadett E) GSi Cd 0.30 (Opel) + 0.12 for the rally kit, times 0.81 x the real width x height
-    aero: { cda: 0.84, cdaSide: 2.5, claF: 0.12, claR: 0.28, pitch: 0.05, ge: 0.25, text: 'Air dam with a splitter lip, bonnet louvres, rear wing on the hatch, side skirts' },
-    shape: { trace: KADETT_TRACE, arch: 0.07, flare: 0.8, flareRun: 0.36, b: -1.71, shuts: [-0.66, -1.7], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, windows: KADETT_WINDOWS, aero: { planes: false }, wing: [-2.86, -3.18, 1.15, 1.6, 1.05],
+    aero: { cda: 0.84, cdaSide: 2.5, claF: 0.12, claR: 0.28, pitch: 0.05, ge: 0.25, text: 'Air dam with a splitter lip, bonnet louvres, raised rear wing at the top of the hatch, side skirts' },
+    shape: { trace: KADETT_TRACE, arch: 0.07, flare: 0.8, flareRun: 0.36, b: -1.71, shuts: [-0.66, -1.7], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, windows: KADETT_WINDOWS, aero: { planes: false },
+      // the raised wing at the top of the hatch, on posts
+      wings: [{ z: -2.3, y: 1.43, ch: 0.34, aoa: 7, span: 1.4, posts: { x: 0.4 }, ep: [[-2.28, 1.4], [-2.3, 1.5], [-2.66, 1.54], [-2.66, 1.38]] }],
       details(K, S, c) {
         // as the 4S ran: twin round lamps each side in black either side of the slotted grille and the Griffin badge
         const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
@@ -11522,8 +11572,8 @@ const NEW_CARS = [
         S.decal(rect(-0.5, 0.28, 0.5, 0.4), K.dark, 'front');
       } },
     rim: { spokes: 8, spokeW: 0.05, color: 0xc9ccd2, caliper: 0xd8262e }, pipes: [0.42],
-    livery: { name: 'Vauxhall Motorsport, 1986', base: '#c9ccd2', rim: 0xf2f2ee, num: 10,
-      // as the car ran: silver, with yellow, red and grey sweeping back over the nose and front wings
+    livery: { name: 'Vauxhall Motorsport, 1986', base: '#f2f2ef', rim: 0xf2f2ee, num: 10,
+      // as the car ran: white, with yellow, red and grey sweeping back over the nose and front wings
       side(P, n) {
         P.poly([[2.6, -0.1], [2.6, 0.6], [1.0, 0.6], [1.6, -0.1]], '#f5c400');
         P.poly([[2.6, -0.45], [2.6, -0.1], [1.6, -0.1], [0.7, 0.6], [0.35, 0.6], [1.3, -0.45]], '#d6202a');
@@ -11553,7 +11603,9 @@ const NEW_CARS = [
         ys: '0.665:0.5 0.3:0.52 0:0.53 -1.5:0.56 -2.6:0.57 -2.99:0.56', tum: '0.665:0.06 0.3:0.1 0:0.14 -0.5:0.07 -1.0:0.05 -2.0:0.07 -2.44:0.13 -2.9:0.08 -2.99:0.06',
         crown: '0.665:0.02 0.3:0.03 -0.35:0.03 -0.4:0.015 -2.9:0.015 -2.94:0.02', roofW: '-0.4:0.7 -0.89:0.64 -2.29:0.62 -2.9:0.66', gcrown: '-0.4:0.03 -0.89:0.04 -2.29:0.04 -2.9:0.03' },
       arch: 0.07, flare: 0.9, flareRun: 0.3, b: -1.6, shuts: [-0.48, -1.59], lamps: 'none', grille: false, tailLamps: false, rearPanel: false,
-      intakes: [-2.2, -2.5], wing: [-2.36, -2.62, 1.43, 1.4, 0], aero: { planes: false },
+      intakes: [-2.2, -2.5], aero: { planes: false },
+      // the long roof-edge spoiler reaching back over the rear window
+      wings: [{ z: -2.27, y: 1.425, ch: 0.44, aoa: -2, t: 0.07, cam: 0.03, span: 1.36, gurney: 0.012, ep: [[-2.27, 1.43], [-2.72, 1.43], [-2.72, 1.34], [-2.42, 1.4]] }],
       windows: [{ lo: [[-0.46, 0.96], [-1.56, 0.96]], hi: [[-0.46, 0.96], [-0.92, 1.36], [-1.56, 1.36]] },
         { lo: [[-1.73, 0.96], [-2.78, 0.965]], hi: [[-1.73, 1.36], [-2.29, 1.36], [-2.78, 0.97]] }],
       details(K, S, c) {
@@ -11571,15 +11623,17 @@ const NEW_CARS = [
         for (let i = 0; i < 3; i++) S.bodySide(-2.24 - i * 0.08, -2.28 - i * 0.08, 0.1, 0.75, K.trim, 0.014);
       } },
     rim: { spokes: 4, spokeW: 0.1, color: 0xf2f2ee, caliper: 0x2a2a2a }, pipes: [-0.35, 0.35],
-    livery: { name: 'SEAT Sport (custom)', base: '#c8102e', rim: 0xf2f2ee, num: 12,
-      // the works cars' red over white, split by a yellow band
+    livery: { name: 'SEAT Sport, Philips Car Stereo', base: '#c3c6cb', rim: 0xf2f2ee, num: 12,
+      // as the car runs: red nose, bonnet and front wings, cut off on a slant across the front of the doors; silver-grey
+      // behind with PHILIPS Car Stereo in white on the doors and a red slash on the rear quarters
       side(P, n) {
-        P.rect(2.6, -2.6, -1.0, -0.25, '#f4f4f2');
-        P.band([[2.6, -0.25], [-2.6, -0.25]], 0.1, '#f5c400');
-        P.plate(n, 0.45, -0.1);
-        P.text('SEAT', -0.9, -0.1, 0.12, '#f5c400', { w: 0.5 }); P.text('BIMOTOR', 1.55, -0.2, 0.06, '#f5c400', { w: 0.5 });
+        P.poly([[2.6, -1.0], [2.6, 0.7], [0.78, 0.7], [0.72, 0.16], [0.2, -0.62], [0.2, -1.0]], '#d0122a');
+        P.strip([-1.2, -0.62], [-1.62, 0.2], 0.1, '#d0122a');
+        P.plate(n, 1.0, 0.02, 0.36, 0.2);
+        P.text('PHILIPS', -0.08, -0.04, 0.13, '#f4f4f2', { italic: false, weight: 900, w: 0.8 });
+        P.text('Car Stereo', -0.08, -0.3, 0.08, '#f4f4f2', { italic: false, weight: 600, w: 0.6 });
       },
-      top(P) { P.rect(2.6, -2.6, -0.1, 0.1, '#f5c400'); } } },
+      top(P) { P.rect(2.6, 0.76, -1.45, 1.45, '#d0122a'); } } },
   { name: 'C3 WRC', blurb: 'Citroën C3 WRC (2017-19), a World Rally Car of the wide-body 2017 rules: 1.6 turbo through a 36 mm restrictor, active centre diff and the biggest aero of the era.',
     // 1.6 L turbo, 380 hp at 6,000 rpm (Citroën; its quoted 400 N·m
     // cannot make that, so the curve holds the 450 N·m it needs); 4.128 m long, 1.875 m wide, 2.54 m wheelbase,
@@ -11592,7 +11646,7 @@ const NEW_CARS = [
       kg: 1190, front: 0.5, centre: 'active', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.54, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.128, 1.875, 1.52], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
-    aero: { cda: 1.02, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, swan-neck twin-plane rear wing, full-width diffuser' },
+    aero: { cda: 1.02, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, twin-plane rear wing off the roof on deep endplates, full-width diffuser' },
     // traced off a side and front view of the C3 (2016-) hatchback, the WRC's wider flares, bumpers and aero added
     shape: { trace: { top: '0.821:0.656 0.771:0.753 0.721:0.838 0.671:0.894 0.621:0.925 0.571:0.946 0.521:0.963 0.471:0.977 0.421:0.989 0.371:0.998 0.321:1.01 0.271:1.019 0.221:1.029 0.171:1.036 0.121:1.043 0.071:1.048 0.021:1.052 -0.029:1.055 -0.079:1.064 -0.129:1.085 -0.179:1.107 -0.229:1.13 -0.279:1.152 -0.329:1.173 -0.379:1.194 -0.429:1.215 -0.479:1.234 -0.529:1.255 -0.579:1.277 -0.629:1.296 -0.679:1.317 -0.729:1.336 -0.779:1.355 -0.829:1.371 -0.879:1.39 -0.929:1.404 -0.979:1.433 -1.029:1.451 -1.079:1.466 -1.129:1.475 -1.179:1.484 -1.229:1.482 -1.279:1.482 -1.329:1.482 -1.379:1.484 -1.429:1.487 -1.479:1.489 -1.529:1.494 -1.579:1.496 -1.629:1.499 -1.679:1.501 -1.729:1.501 -1.779:1.501 -1.829:1.501 -1.879:1.499 -1.929:1.496 -1.979:1.492 -2.029:1.484 -2.079:1.48 -2.129:1.473 -2.179:1.466 -2.229:1.456 -2.279:1.447 -2.329:1.435 -2.379:1.428 -2.429:1.418 -2.479:1.411 -2.529:1.404 -2.579:1.402 -2.629:1.392 -2.679:1.336 -2.729:1.291 -2.779:1.248 -2.829:1.201 -2.879:1.156 -2.929:1.107 -2.979:1.057 -3.029:1.017 -3.079:0.838 -3.129:0.76 -3.179:0.528 -3.229:0.45 -3.279:0.40',
         bot: '0.821:0.198 0.771:0.191 0.721:0.198 0.671:0.191 0.621:0.188 0.571:0.186 0.521:0.184 0.471:0.181 0.421:0.181 0.371:0.18 0.321:0.181 0.271:0.181 0.221:0.182 0.171:0.183 0.121:0.184 0.071:0.184 0.021:0.185 -0.029:0.186 -0.079:0.187 -0.129:0.187 -0.179:0.188 -0.229:0.189 -0.279:0.189 -0.329:0.19 -0.379:0.191 -0.429:0.191 -0.479:0.193 -0.529:0.193 -0.579:0.196 -0.629:0.196 -0.679:0.196 -0.729:0.198 -0.779:0.198 -0.829:0.2 -0.879:0.2 -0.929:0.2 -0.979:0.203 -1.029:0.203 -1.079:0.205 -1.129:0.205 -1.179:0.205 -1.229:0.207 -1.279:0.207 -1.329:0.207 -1.379:0.21 -1.429:0.21 -1.479:0.212 -1.529:0.212 -1.579:0.212 -1.629:0.214 -1.679:0.214 -1.729:0.217 -1.779:0.217 -1.829:0.217 -1.879:0.219 -1.929:0.219 -1.979:0.222 -2.029:0.222 -2.079:0.222 -2.129:0.224 -2.179:0.225 -2.229:0.226 -2.279:0.228 -2.329:0.229 -2.379:0.231 -2.429:0.232 -2.479:0.234 -2.529:0.235 -2.579:0.237 -2.629:0.238 -2.679:0.24 -2.729:0.241 -2.779:0.243 -2.829:0.244 -2.879:0.246 -2.929:0.247 -2.979:0.25 -3.029:0.25 -3.079:0.276 -3.129:0.288 -3.179:0.318 -3.229:0.288 -3.279:0.318',
@@ -11602,7 +11656,10 @@ const NEW_CARS = [
         ys: '0.82:0.42 0.5:0.5 0:0.55 -1.5:0.6 -2.6:0.62 -3.1:0.6 -3.28:0.45', tum: '0.82:0.12 0.5:0.12 0:0.15 -0.5:0.1 -1.0:0.08 -2.0:0.1 -2.54:0.15 -3.0:0.12 -3.28:0.1',
         crown: '0.82:0.03 0.5:0.06 -0.1:0.06 -0.2:0.015 -2.96:0.015 -3.02:0.03', roofW: '-0.2:0.68 -1.18:0.6 -2.64:0.58 -2.96:0.62', gcrown: '-0.2:0.05 -1.18:0.07 -2.64:0.06 -2.96:0.04' },
       arch: 0.07, flare: 0, b: -1.45, shuts: [-0.42, -1.43, -2.33], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, scoop: -1.75,
-      bigWing: [-2.62, -3.4, 1.4, 1.84], aero: { planes: false },
+      aero: { planes: false },
+      // the 2017 wing: main plane off the roof's trailing edge, a flap over its back, deep endplates down the hatch sides
+      wings: [{ z: -2.66, y: 1.46, ch: 0.4, aoa: 9, span: 1.8, flap: { ch: 0.2, aoa: 26, dz: 0.03, dy: 0.03 }, epMat: 'dark',
+        ep: [[-2.62, 1.5], [-2.7, 1.58], [-3.26, 1.7], [-3.26, 1.32], [-3.0, 1.1], [-2.86, 1.16]] }],
       windows: [{ lo: [[-0.345, 0.99], [-1.4, 1.024]], hi: [[-0.345, 0.99], [-0.62, 1.16], [-0.92, 1.332], [-1.15, 1.37], [-1.4, 1.382]] },
         { lo: [[-1.62, 1.034], [-2.21, 1.066], [-2.31, 1.09]], hi: [[-1.62, 1.39], [-2.05, 1.36], [-2.29, 1.32], [-2.31, 1.09]] }],
       details(K, S, c) {
@@ -11647,7 +11704,7 @@ const NEW_CARS = [
       kg: 1190, front: 0.5, centre: 'active', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.493, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.13, 1.875, 1.51], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
-    aero: { cda: 1.0, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, tall rear wing on the hatch, full-width diffuser' },
+    aero: { cda: 1.0, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, twin-plane rear wing over the hatch on tall endplates, full-width diffuser' },
     // traced off the Fiesta (2017-) blueprint, with the 3-door's long door and rear quarter window, the WRC's flares,
     // bumpers and aero added
     shape: { trace: { top: '0.853:0.673 0.803:0.716 0.753:0.751 0.703:0.777 0.653:0.803 0.603:0.82 0.553:0.846 0.503:0.863 0.453:0.881 0.403:0.898 0.353:0.907 0.303:0.924 0.253:0.933 0.203:0.95 0.153:0.959 0.103:0.976 0.053:0.985 0.003:0.993 -0.047:0.993 -0.097:0.993 -0.147:1.028 -0.197:1.054 -0.247:1.071 -0.297:1.106 -0.347:1.132 -0.397:1.149 -0.447:1.175 -0.497:1.201 -0.547:1.218 -0.597:1.244 -0.647:1.27 -0.697:1.288 -0.747:1.314 -0.797:1.331 -0.847:1.357 -0.897:1.374 -0.947:1.392 -0.997:1.409 -1.047:1.426 -1.097:1.435 -1.147:1.444 -1.197:1.452 -1.247:1.461 -1.297:1.461 -1.347:1.47 -1.397:1.478 -1.447:1.478 -1.497:1.487 -1.547:1.487 -1.597:1.487 -1.647:1.487 -1.697:1.496 -1.747:1.496 -1.797:1.496 -1.847:1.496 -1.897:1.487 -1.947:1.487 -1.997:1.487 -2.047:1.487 -2.097:1.478 -2.147:1.478 -2.197:1.47 -2.247:1.47 -2.297:1.461 -2.347:1.455 -2.397:1.449 -2.447:1.442 -2.497:1.435 -2.547:1.426 -2.597:1.426 -2.647:1.418 -2.697:1.409 -2.747:1.4 -2.797:1.392 -2.847:1.383 -2.897:1.253 -2.947:1.21 -2.997:1.158 -3.047:1.106 -3.097:1.045 -3.147:0.976 -3.2:0.55',
@@ -11658,7 +11715,10 @@ const NEW_CARS = [
         ys: '0.85:0.45 0.5:0.5 0:0.52 -1.5:0.6 -2.5:0.6 -3.0:0.6 -3.2:0.45', tum: '0.85:0.12 0.5:0.12 0:0.15 -0.5:0.1 -1.0:0.09 -2.0:0.1 -2.49:0.15 -3.0:0.12 -3.2:0.1',
         crown: '0.85:0.03 0.5:0.06 -0.05:0.06 -0.1:0.015 -2.98:0.015 -3.03:0.03', roofW: '-0.1:0.68 -1.2:0.6 -2.52:0.58 -2.98:0.62', gcrown: '-0.1:0.05 -1.2:0.07 -2.52:0.06 -2.98:0.04' },
       arch: 0.07, flare: 0, b: -1.81, shuts: [-0.24, -1.8], lamps: 'none', grille: false, tailLamps: false, rearPanel: false,
-      bigWing: [-2.5, -3.32, 1.44, 1.84], aero: { planes: false },
+      aero: { planes: false },
+      // M-Sport's 2017 wing: a main plane and flap over the hatch between tall, square-cut endplates
+      wings: [{ z: -2.56, y: 1.44, ch: 0.42, aoa: 6, span: 1.8, flap: { ch: 0.22, aoa: 22, dz: 0.04, dy: 0.035 }, epMat: 'dark',
+        ep: [[-2.5, 1.47], [-2.52, 1.6], [-3.18, 1.68], [-3.2, 1.2], [-2.8, 1.3]] }],
       windows: [{ lo: [[-0.18, 0.88], [-1.78, 1.04]], hi: [[-0.18, 0.88], [-0.55, 1.06], [-0.98, 1.295], [-1.37, 1.355], [-1.78, 1.345]] },
         { lo: [[-1.84, 1.045], [-2.42, 1.1]], hi: [[-1.84, 1.345], [-2.24, 1.31], [-2.4, 1.25], [-2.42, 1.1]] }],
       details(K, S, c) {
@@ -11711,7 +11771,9 @@ const NEW_CARS = [
         ys: '1.0:0.45 0.5:0.5 0:0.52 -1.5:0.6 -2.6:0.6 -3.2:0.58 -3.35:0.45', tum: '1.0:0.12 0.5:0.12 0:0.13 -0.6:0.09 -1.5:0.07 -2.3:0.09 -2.62:0.12 -3.2:0.12 -3.35:0.1',
         crown: '1.0:0.03 0.6:0.06 -0.45:0.06 -0.5:0.015 -3.15:0.015 -3.2:0.03', roofW: '-0.5:0.68 -1.1:0.6 -2.9:0.58 -3.15:0.62', gcrown: '-0.5:0.05 -1.1:0.07 -2.9:0.06 -3.15:0.04' },
       arch: 0.07, flare: 0, b: -1.65, shuts: [-0.66, -1.63, -2.33], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, scoop: -1.95,
-      wing: [-2.88, -3.26, 1.48, 1.5, 0], aero: { planes: false },
+      aero: { planes: false },
+      // the WRC2008's wing over the hatch, carried on endplates down the tailgate's sides
+      wings: [{ z: -2.88, y: 1.5, ch: 0.36, aoa: 7, span: 1.56, gurney: 0.015, ep: [[-2.86, 1.46], [-2.88, 1.56], [-3.26, 1.6], [-3.28, 1.3], [-3.06, 1.32]] }],
       windows: [{ lo: [[-0.83, 1.04], [-1.5, 1.055]], hi: [[-0.83, 1.04], [-1.08, 1.31], [-1.3, 1.36], [-1.5, 1.375]] },
         { lo: [[-1.74, 1.06], [-2.27, 1.065]], hi: [[-1.74, 1.385], [-2.05, 1.39], [-2.27, 1.38]] },
         { lo: [[-2.39, 1.08], [-2.73, 1.12]], hi: [[-2.39, 1.37], [-2.6, 1.28], [-2.73, 1.16]] }],
@@ -11761,7 +11823,7 @@ const NEW_CARS = [
       wb: 2.511, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.085, 1.875, 1.42], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     // drag: Yaris (XP130) Cd 0.287 (Toyota) + 0.17 for the 2017 rules' bigger wing, splitter and diffuser, times 0.81 x the real width x height
-    aero: { cda: 0.99, cdaSide: 2.7, claF: 0.28, claR: 0.44, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with stacked dive planes, louvred front arches, side skirts, swan-neck rear wing on tall endplates, full-width diffuser' },
+    aero: { cda: 0.99, cdaSide: 2.7, claF: 0.28, claR: 0.44, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with stacked dive planes, louvred front arches, side skirts, two-tier rear wing in tall box endplates, full-width diffuser' },
     // traced off the Yaris (2017 facelift) blueprint, with the 3-door's long door and rear quarter window, the WRC's
     // flares, bumpers and aero added
     shape: { trace: { top: '0.879:0.587 0.829:0.661 0.779:0.736 0.729:0.765 0.679:0.788 0.629:0.817 0.579:0.84 0.529:0.855 0.479:0.869 0.429:0.884 0.379:0.899 0.329:0.907 0.279:0.921 0.229:0.936 0.179:0.944 0.129:0.951 0.079:0.966 0.029:0.974 -0.021:0.981 -0.071:0.974 -0.121:0.974 -0.171:0.981 -0.221:1.011 -0.271:1.04 -0.321:1.07 -0.371:1.1 -0.421:1.13 -0.471:1.159 -0.521:1.182 -0.571:1.204 -0.621:1.234 -0.671:1.256 -0.721:1.271 -0.771:1.293 -0.821:1.316 -0.871:1.338 -0.921:1.353 -0.971:1.368 -1.021:1.383 -1.071:1.39 -1.121:1.397 -1.171:1.397 -1.221:1.39 -1.271:1.397 -1.321:1.397 -1.371:1.397 -1.421:1.397 -1.471:1.397 -1.521:1.397 -1.571:1.397 -1.621:1.397 -1.671:1.397 -1.721:1.397 -1.771:1.397 -1.821:1.397 -1.871:1.397 -1.921:1.397 -1.971:1.397 -2.021:1.39 -2.071:1.39 -2.121:1.39 -2.171:1.397 -2.221:1.397 -2.271:1.397 -2.321:1.39 -2.371:1.383 -2.421:1.397 -2.471:1.397 -2.521:1.375 -2.571:1.368 -2.621:1.36 -2.671:1.36 -2.721:1.353 -2.771:1.353 -2.821:1.226 -2.871:1.182 -2.921:1.137 -2.971:1.093 -3.021:1.033 -3.071:0.988 -3.121:0.981 -3.171:0.721 -3.189:0.609',
@@ -11772,7 +11834,10 @@ const NEW_CARS = [
         ys: '0.88:0.42 0.5:0.48 0:0.5 -1.5:0.58 -2.5:0.58 -3.0:0.58 -3.19:0.45', tum: '0.88:0.12 0.5:0.13 0:0.16 -0.5:0.1 -1.0:0.08 -2.0:0.1 -2.51:0.16 -3.0:0.12 -3.19:0.1',
         crown: '0.88:0.03 0.5:0.06 -0.1:0.06 -0.15:0.015 -2.98:0.015 -3.03:0.03', roofW: '-0.15:0.66 -1.05:0.58 -2.7:0.56 -2.98:0.6', gcrown: '-0.15:0.05 -1.05:0.07 -2.7:0.06 -2.98:0.04' },
       arch: 0.07, flare: 0, b: -1.61, shuts: [-0.4, -1.6], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, scoop: -1.7,
-      bigWing: [-2.68, -3.32, 1.38, 1.84], aero: { planes: false },
+      aero: { planes: false },
+      // the Yaris's two-tier wing: a high main plane and a lower one off the roof, boxed in by tall flat endplates
+      wings: [{ z: -2.7, y: 1.37, ch: 0.3, aoa: 3, span: 1.82, gurney: 0 },
+        { z: -2.7, y: 1.56, ch: 0.4, aoa: 11, span: 1.82, epMat: 'dark', ep: [[-2.66, 1.34], [-2.66, 1.68], [-3.16, 1.72], [-3.18, 1.16], [-2.92, 1.1]] }],
       windows: [{ lo: [[-0.37, 0.915], [-1.58, 0.965]], hi: [[-0.37, 0.915], [-0.75, 1.263], [-1.05, 1.31], [-1.38, 1.315], [-1.58, 1.315]] },
         { lo: [[-1.64, 0.97], [-2.42, 1.01]], hi: [[-1.64, 1.315], [-2.2, 1.3], [-2.35, 1.23], [-2.42, 1.01]] }],
       details(K, S, c) {
@@ -11812,7 +11877,7 @@ const NEW_CARS = [
       wb: 2.48, track: [1.58, 1.58], wf: 0.56, cgH: 0.45, dims: [3.976, 1.82, 1.49], travel: 0.26,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     // drag: Polo (6R) Cd 0.32 (Volkswagen) + 0.12 for the rally kit, times 0.81 x the real width x height
-    aero: { cda: 0.97, cdaSide: 2.5, claF: 0.18, claR: 0.36, pitch: 0.07, ge: 0.25, text: 'Front splitter with corner dive planes, side skirts, rear wing on the hatch top, rear diffuser' },
+    aero: { cda: 0.97, cdaSide: 2.5, claF: 0.18, claR: 0.36, pitch: 0.07, ge: 0.25, text: 'Front splitter with corner dive planes, side skirts, roof spoiler on big endplates and a second wing over the tailgate, rear diffuser' },
     // traced off the Polo (6R/6C) blueprint, with the 3-door's long door and rear quarter window, the WRC's flares,
     // bumpers and aero added
     shape: { trace: { top: '0.794:0.264 0.744:0.616 0.694:0.727 0.644:0.771 0.594:0.806 0.544:0.835 0.494:0.857 0.444:0.878 0.394:0.893 0.344:0.907 0.294:0.921 0.244:0.936 0.194:0.947 0.144:0.961 0.094:0.972 0.044:0.982 -0.006:0.993 -0.056:1 -0.106:1.008 -0.156:1.029 -0.206:1.04 -0.256:1.04 -0.306:1.072 -0.356:1.101 -0.406:1.13 -0.456:1.158 -0.506:1.187 -0.556:1.216 -0.606:1.241 -0.656:1.266 -0.706:1.291 -0.756:1.316 -0.806:1.342 -0.856:1.367 -0.906:1.388 -0.956:1.403 -1.006:1.417 -1.056:1.424 -1.106:1.435 -1.156:1.442 -1.206:1.449 -1.256:1.453 -1.306:1.457 -1.356:1.464 -1.406:1.467 -1.456:1.471 -1.506:1.471 -1.556:1.474 -1.606:1.474 -1.656:1.478 -1.706:1.478 -1.756:1.478 -1.806:1.478 -1.856:1.478 -1.906:1.478 -1.956:1.476 -2.006:1.474 -2.056:1.472 -2.106:1.469 -2.156:1.466 -2.206:1.462 -2.256:1.458 -2.306:1.454 -2.356:1.45 -2.406:1.446 -2.456:1.442 -2.506:1.435 -2.556:1.428 -2.606:1.417 -2.656:1.345 -2.706:1.313 -2.756:1.277 -2.806:1.234 -2.856:1.191 -2.906:1.14 -2.956:1.083 -3.006:0.929 -3.056:0.713 -3.106:0.645',
@@ -11823,12 +11888,15 @@ const NEW_CARS = [
         ys: '0.79:0.42 0.5:0.5 0:0.52 -1.5:0.6 -2.5:0.6 -3.0:0.6 -3.106:0.45', tum: '0.79:0.12 0.5:0.12 0:0.14 -0.5:0.1 -1.0:0.08 -2.0:0.1 -2.48:0.14 -3.0:0.12 -3.106:0.1',
         crown: '0.79:0.03 0.5:0.06 -0.2:0.06 -0.25:0.015 -2.92:0.015 -2.97:0.03', roofW: '-0.25:0.66 -1.1:0.58 -2.62:0.56 -2.92:0.6', gcrown: '-0.25:0.05 -1.1:0.07 -2.62:0.06 -2.92:0.04' },
       arch: 0.07, flare: 0, b: -1.75, shuts: [-0.48, -1.74], lamps: 'none', grille: false, tailLamps: false, rearPanel: false, scoop: -1.65,
-      wing: [-2.6, -2.95, 1.415, 1.56, 0], aero: { planes: false },
+      aero: { planes: false },
+      // the roof spoiler on big endplates, and the second, smaller wing over the tailgate on posts
+      wings: [{ z: -2.6, y: 1.43, ch: 0.36, aoa: 5, span: 1.56, ep: [[-2.56, 1.45], [-2.98, 1.52], [-2.98, 1.24], [-2.72, 1.34]] },
+        { z: -2.95, y: 1.15, ch: 0.17, aoa: 10, span: 1.5, posts: { x: 0.42, z: -3.03 }, epMat: 'dark', ep: [[-2.93, 1.12], [-3.13, 1.15], [-3.13, 1.24], [-2.95, 1.2]] }],
       windows: [{ lo: [[-0.446, 0.98], [-1.72, 1.075]], hi: [[-0.446, 0.98], [-0.7, 1.2], [-0.95, 1.39], [-1.43, 1.414], [-1.72, 1.41]] },
         { lo: [[-1.78, 1.08], [-2.36, 1.11]], hi: [[-1.78, 1.41], [-2.12, 1.4], [-2.3, 1.25], [-2.36, 1.11]] }],
       details(K, S, c) {
         // the Polo's slim grille bar joining the headlamps, the VW roundel, the WRC's wide lower intake with the plate and
-        // fog lamps in the corners; the roof spoiler and a second wing across the tailgate; tail lamps on the corners
+        // fog lamps in the corners; tail lamps on the corners
         const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
         K.both((sx) => {
           S.decal([[sx * 0.36, 0.68], [sx * 0.76, 0.66], [sx * 0.78, 0.8], [sx * 0.4, 0.79]], K.dark, 'front', 0.006);
@@ -11843,7 +11911,6 @@ const NEW_CARS = [
         S.decal(rect(-0.16, 0.29, 0.16, 0.37), K.trim, 'front', 0.012);
         S.decal(rect(-0.7, 0.18, 0.7, 0.36), K.dark, 'rear');
         S.decal(rect(-0.22, 0.6, 0.22, 0.7), K.trim, 'rear', 0.008);
-        S.wing(-2.95, -3.12, 1.14, 1.5, 1.05);
       } },
     rim: { spokes: 5, spokeW: 0.09, color: 0xc9ccd2, caliper: 0xd8262e }, pipes: [0.45],
     livery: { name: 'Volkswagen Motorsport, 2015', base: '#f4f4f2', rim: 0xc9ccd2, num: 1,
