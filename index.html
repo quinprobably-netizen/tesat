@@ -11529,51 +11529,50 @@ function kadettTail(K, c) {
   S.decal(rect(-0.2, 0.62, 0.2, 0.8), K.dark, 'rear', 0.007);
 }
 const NEW_CARS = [
-  { name: 'RS 002', blurb: 'Audi Sport quattro RS 002 (1986-87), Audi\'s Group S prototype: the S1 E2\'s turbo five turned round behind the driver in a glass-fibre wedge on a tube frame. Group S was cancelled before the car raced. Power and size are claims or estimates.',
+  { name: 'RS 002', blurb: 'Audi Sport quattro RS 002 (1986-87), Audi\'s Group S prototype: the S1 E2\'s turbo five turned round behind the driver in a glass-fibre body on a tube frame. Group S was cancelled before the car raced. Power and size are claims or estimates.',
     // Sources: Autozeitung (2.1 L turbo five, glass-fibre body on a tube frame, a 460 PS manufacturer figure at reduced
-    // boost); Driving.co.uk and The Drive (quattro AWD, about 700 hp claimed, the car ran at Goodwood in 2017); Diario
-    // Motor (about 1,000 kg total). No dimensions, ratios or diff spec were published, so wheelbase, track, size,
-    // gearbox, centre diff and tyres are estimates. Built: one or two, the sources disagree.
+    // boost); Driving.co.uk and The Drive (quattro AWD, about 700 hp claimed; the car ran at Goodwood in 2017); Diario
+    // Motor (about 1,000 kg total). The silhouette is traced from the side photo (Carscoops) and the front photos
+    // (Carscoops, Ableitet). Its 16 in tyres (about 0.66 m across) set the scale: wheelbase about 2.6 m, length about
+    // 4.4 m, roof about 1.35 m. Width, track, gearbox ratios, diffs, weight split and drag were not published, so they
+    // stay estimates.
     spec: { engine: '2.1 L inline-5, turbo (mid-mounted)', cyl: 5, layout: 'inline', pitch: 1.09, hp: 690, hpAt: 8000, nm: 660, nmAt: 6500, redline: 8400, idle: 1000, lag: 0.7, offBoost: 0.5,
       voice: { cyl: 5, hdr: [0, 0.3, 0.5, 0.2, 0.4], pipe: 1.6, prim: 0.7, tail: 'open', intake: 'turbo', bov: 'dump', burble: 0.4 },   // Audi 20v five, firing 1-2-4-5-3, unequal 5-into-1 manifold (the five's warble), short pipe out of the tail
       curve: [[1000, 190], [2000, 250], [3000, 330], [4000, 480], [5000, 610], [6000, 650], [6500, 660], [7500, 630], [8000, 614], [8400, 560]],
       disp: 2.11, launch: 5500, Ie: 0.13, enginePos: 'mid',
-      box: '5-speed manual with synchromesh (S1 ratios)', gears: [3.111, 2.273, 1.706, 1.318, 0.962], final: 4.571, rev: 3.5, shift: 0.12, boxType: 'synchro',
+      box: '5-speed manual with synchromesh (S1 ratios, est.)', gears: [3.111, 2.273, 1.706, 1.318, 0.962], final: 4.571, rev: 3.5, shift: 0.12, boxType: 'synchro',
       als: 1,   // the S1 E2's recirculating system kept the turbine spinning off the throttle
       kg: 1000, front: 0.45, centre: 'torsen', fdiff: 'lsdF', rdiff: 'lsd',
-      wb: 2.5, track: [1.56, 1.56], wf: 0.41, cgH: 0.42, dims: [4.1, 1.9, 1.36], travel: 0.25,
+      wb: 2.61, track: [1.56, 1.56], wf: 0.41, cgH: 0.42, dims: [4.39, 1.9, 1.35], travel: 0.25,
       tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [330, 300] },
-    aero: { cda: 0.82, cdaSide: 2.3, claF: 0.22, claR: 0.44, pitch: 0.07, ge: 0.35, text: 'Low wedge nose with a full-width splitter, flat underbody into a rear diffuser, big rear wing on tall endplates overhanging the tail' },
-    // traced off a side-view drawing of the car: a Group C-style body, a nose that rounds down from the wheel arches,
-    // a steep windscreen, a long roof running into a fastback engine cover, the big side intake behind the door and a
-    // tall rear wing
-    shape: { trace: { top: '0.76:0.44 0.72:0.5 0.65:0.55 0.56:0.62 0.47:0.7 0.25:0.8 -0.05:0.85 -0.3:0.97 -0.6:1.12 -0.91:1.3 -1.1:1.34 -1.27:1.355 -1.55:1.33 -1.78:1.29 -2.0:1.22 -2.28:1.13 -2.55:1.04 -2.83:0.95 -3.1:0.9 -3.3:0.88 -3.35:0.71 -3.3:0.5',
-        bot: '0.76:0.16 0.7:0.15 0.5:0.14 0.3:0.14 0:0.13 -0.5:0.13 -1.6:0.13 -2.2:0.12 -2.8:0.15 -3.0:0.26 -3.2:0.32 -3.35:0.4',
-        plan: '0.76:0.45 0.72:0.62 0.62:0.78 0.45:0.88 0.25:0.93 0:0.95 -0.3:0.93 -0.6:0.89 -0.9:0.87 -1.7:0.87 -2.0:0.9 -2.3:0.94 -2.5:0.95 -2.8:0.94 -3.1:0.9 -3.35:0.8',
-        belt: '-0.05:0.85 -0.67:0.88 -1.72:0.88 -1.85:0.9', cowl: -0.05, roof: [-0.91, -1.78], glassEnd: -1.85,
-        ys: '0.76:0.3 0.5:0.4 0:0.46 -1.5:0.5 -2.6:0.52 -3.35:0.5', tum: '0.76:0.08 0.4:0.12 0:0.16 -0.5:0.1 -1.0:0.07 -1.8:0.1 -2.5:0.16 -3.0:0.12 -3.35:0.1',
-        crown: '0.76:0.03 0.4:0.06 -0.03:0.06 -0.05:0.015 -1.85:0.015 -1.9:0.08 -3.0:0.08 -3.35:0.05', roofW: '-0.05:0.72 -0.91:0.6 -1.78:0.58 -1.85:0.6', gcrown: '-0.05:0.05 -0.91:0.07 -1.78:0.06 -1.85:0.05' },
-      mid: true, arch: 0.07, flare: 0, b: -1.72, backlight: 0.07, deck: false, lamps: 'none', grille: false, tailLamps: false, rearPanel: false,
-      shuts: [-0.67, -1.72], intakes: [-1.74, -2.17], aero: { planes: false },
-      // the real wing: a steep plane between two big parallelogram endplates standing on the tail and overhanging it
-      wings: [{ z: -3.06, y: 1.17, ch: 0.58, aoa: 16, span: 1.6, gurney: 0.02, epT: 0.016,
-        ep: [[-2.96, 0.86], [-3.1, 1.28], [-3.17, 1.32], [-3.73, 1.35], [-3.43, 0.86]] }],
-      windows: [{ lo: [[-0.67, 0.88], [-1.72, 0.88]], hi: [[-0.67, 0.88], [-0.85, 1.07], [-1.05, 1.21], [-1.4, 1.22], [-1.72, 1.19]] }],
+    aero: { cda: 0.82, cdaSide: 2.3, claF: 0.22, claR: 0.44, pitch: 0.07, ge: 0.35, text: 'Low nose with a wide mouth under it, a flat floor into a rear diffuser, and one tall wing on endplates that stands on the tail and overhangs it' },
+    // traced off the side photo: a low nose that rounds up to the fenders, a steep bonnet to the windscreen, a short roof
+    // over the cabin, a bubble engine cover running back over the wing's struts, and the big flank intake ahead of the
+    // rear wheel
+    shape: { trace: { top: '0.87:0.42 0.8:0.5 0.7:0.56 0.55:0.62 0.39:0.68 0.0:0.69 -0.42:0.92 -0.94:1.35 -1.99:1.25 -2.2:1.2 -2.65:1.12 -2.93:1.0 -3.2:0.9 -3.45:0.82 -3.52:0.7',
+        bot: '0.87:0.14 0.6:0.12 0.2:0.13 -0.5:0.12 -1.5:0.12 -2.2:0.14 -3.0:0.2 -3.52:0.26',
+        plan: '0.87:0.42 0.8:0.6 0.7:0.8 0.5:0.9 0.2:0.94 -0.3:0.95 -1.0:0.95 -2.0:0.94 -2.8:0.92 -3.2:0.86 -3.52:0.75',
+        belt: '-0.42:0.92 -0.66:0.93 -1.84:0.94 -2.0:0.9', cowl: -0.42, roof: [-0.94, -1.99], glassEnd: -2.0,
+        ys: '0.87:0.25 0.0:0.4 -1.5:0.5 -2.6:0.5 -3.52:0.4', tum: '0.87:0.1 0.0:0.12 -1.0:0.1 -2.0:0.08 -3.0:0.1 -3.52:0.1',
+        crown: '0.87:0.02 0.0:0.04 -0.42:0.04 -0.94:0.06 -2.0:0.05 -3.52:0.03', roofW: '-0.42:0.78 -0.94:0.62 -1.99:0.6', gcrown: '-0.42:0.04 -0.94:0.06 -1.99:0.05' },
+      mid: true, arch: 0.07, flare: 0, b: -1.6, backlight: 0.2, deck: false, lamps: 'none', grille: false, tailLamps: false, rearPanel: false,
+      shuts: [-0.66, -1.6], intakes: [-1.56, -2.2], aero: { planes: false },
+      // the wing: a steep plane between two tall endplates standing on the tail and overhanging it
+      wings: [{ z: -3.2, y: 1.22, ch: 0.7, aoa: 14, span: 1.6, gurney: 0.02, epT: 0.016,
+        ep: [[-2.85, 0.95], [-2.95, 1.2], [-3.92, 1.43], [-3.45, 0.95]] }],
+      windows: [{ lo: [[-0.66, 0.93], [-1.84, 0.93]], hi: [[-0.66, 0.93], [-0.9, 1.3], [-1.9, 1.3], [-1.84, 0.93]] }],
       details(K, S, c) {
-        // one round headlamp each side at the nose's shoulders (the car's photos), a narrow slatted mouth between them,
-        // four round tail lamps in a black panel under the wing
+        // one round headlamp each side on the nose's shoulder, a wide slatted mouth low under the nose, a vent in the
+        // bonnet, two small round tail lamps each side under the wing
         const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
         K.both((sx) => {
-          S.lamp(sx * 0.42, 0.5, 0.07, K.headMat);
-          S.lamp(sx * 0.62, 0.62, 0.05, K.tailMat, 'rear'); S.lamp(sx * 0.46, 0.62, 0.05, K.tailMat, 'rear');
+          S.lamp(sx * 0.5, 0.34, 0.07, K.headMat);
+          S.lamp(sx * 0.3, 0.6, 0.04, K.tailMat, 'rear'); S.lamp(sx * 0.6, 0.6, 0.04, K.tailMat, 'rear');
         });
-        S.decal(rect(-0.34, 0.3, 0.34, 0.4), K.dark, 'front', 0.006);                                   // the mouth, low under the nose
-        for (let i = 0; i < 4; i++) S.decal(rect(-0.3, 0.315 + i * 0.02, 0.3, 0.325 + i * 0.02), K.trim, 'front', 0.008);   // its slats
-        S.decal(rect(-0.55, 0.2, 0.55, 0.36), K.dark, 'front');
-        S.decal(rect(-0.8, 0.52, 0.8, 0.72), K.dark, 'rear', 0.005);
-        S.bodySide(-0.75, -1.15, (v) => K.lerp(0.45, 0.2, v), 0.5, K.dark);
+        S.decal(rect(-0.42, 0.14, 0.42, 0.26), K.dark, 'front', 0.006);                                  // the mouth
+        for (let i = 0; i < 4; i++) S.decal(rect(-0.4, 0.16 + i * 0.025, 0.4, 0.17 + i * 0.025), K.trim, 'front', 0.008);   // its slats
+        S.top(-0.12, -0.26, 0, 0.3, K.dark, 0.012);                                                       // bonnet vent
       } },
-    rim: { spokes: 6, spokeW: 0.09, color: 0xe2e4e8, caliper: 0xd8262e }, pipes: [-0.35, 0.35],
     livery: { name: 'Audi Sport, 1986', base: '#efefeb', rim: 0xe2e4e8, num: 1,
       // as the car was built and as Audi Tradition runs it: plain white, the four rings low on the doors behind the
       // front wheels and nothing else (it never ran an event, so the door plate is the game's)
@@ -11581,7 +11580,8 @@ const NEW_CARS = [
         P.plate(n, 0.05, -0.12);
         for (let k = 0; k < 4; k++) P.ellipse(0.72 - k * 0.075, -0.56, 0.05, '#5d6066', 0.012);
       },
-      top() {} } },
+      top() {} },
+    rim: { spokes: 12, spokeW: 0.05, color: 0xc4c8ce, caliper: 0xd8262e }, pipes: [-0.35, 0.35] },
   { name: 'RS200', blurb: 'Ford RS200 (1986), the Group B works car: a Ghia-styled mid-engined coupé with the gearbox up front for balance and a 1.8 L Cosworth BDT turbo.',
     // 1,803 cc BDT, 444 bhp at 8,000 rpm and 490 N·m (361 lb ft) at 5,500 in works
     // tune (Ford); 2.53 m wheelbase, 4.0 m long, 1.76 m wide, 1.32 m tall; gearbox
