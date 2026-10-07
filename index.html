@@ -1174,6 +1174,7 @@ body.hud-min .pn svg *{stroke:var(--text)!important}
         <button class="opt" data-set="line"><span><b>RACING LINE</b><small>The fastest line, green to go, amber to lift, red to brake, with a board at each braking point. BRAKING shows only the lift and brake zones. Key: L</small></span><i class="mode" id="lineMode">FULL</i></button>
         <button class="opt" data-set="hud"><span><b>HUD</b><small>MINIMAL keeps the road clear: time, pace note, speed, gear and revs. FULL adds best and target times, surface, altitude, camera, suspension and damage. Key: H</small></span><i class="mode" id="hudMode">MINIMAL</i></button>
         <button class="opt" data-set="post"><span><b>POST EFFECTS</b><small>Bloom around the sun and other bright lights, and smoother edges (SMAA). Costs some frame rate.</small></span><i class="switch"></i></button>
+        <button class="opt" data-set="gfx"><span><b>GRAPHICS</b><small>LOW for phones and older laptops: fewer pixels, short shadows, shorter draw distance. MEDIUM: shadows out to 400 m. HIGH: sharper shadows out to 600 m, more pixels and a longer draw distance. Applies on reload.</small></span><i class="mode" id="gfxMode">MEDIUM</i></button>
         <div class="set-group">SOUND</div>
         <button class="opt" data-set="sound"><span><b>SOUND</b><small>Engine, effects and co-driver. Key: M</small></span><i class="switch"></i></button>
         <button class="opt" data-set="vol"><span><b>VOLUME</b><small>Master volume for the engine, exhaust and effects.</small></span><i class="mode" id="volMode">100%</i></button>
@@ -2763,8 +2764,21 @@ function perfRatings(build, setup) {
    4. RENDERER & SCENE SETUP
    ============================================================================= */
 const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-const LOW_SPEC = IS_TOUCH;                         // phones/tablets: fewer pixels, smaller shadow map
-const SHADOW_SIZE = LOW_SPEC ? 1024 : 2048;        // capped shadow map size
+/* GRAPHICS setting (LOW / MEDIUM / HIGH), read straight from the save because the renderer is built before Store
+   loads. LOW is the phone profile (fewer pixels, small shadow map, no far shadows, shorter draw distance), MEDIUM the
+   desktop one, HIGH spends more on sharper shadows further out, more pixels and a longer draw distance. Default LOW
+   on touch, MEDIUM otherwise; a change applies on reload. */
+const GFX_TIERS = {
+  low:    { name: 'LOW',    pr: IS_TOUCH ? 1.3 : 1.0, shadow: 1024, far: 0,   farMap: 0,    draw: 900,  lod: [160, 600] },
+  medium: { name: 'MEDIUM', pr: IS_TOUCH ? 1.3 : 1.6, shadow: 2048, far: 420, farMap: 2048, draw: 1500, lod: [260, 900] },
+  high:   { name: 'HIGH',   pr: 2.0,                  shadow: 4096, far: 600, farMap: 4096, draw: 2400, lod: [450, 1500] },
+};
+const GFX_ORDER = ['low', 'medium', 'high'];
+const GFX_DEFAULT = IS_TOUCH ? 'low' : 'medium';
+const GFX_KEY = (() => { try { const v = JSON.parse(window.localStorage.getItem('regolithRally.v1')).settings.gfx; return GFX_TIERS[v] ? v : GFX_DEFAULT; } catch (e) { return GFX_DEFAULT; } })();
+const GFX = GFX_TIERS[GFX_KEY];
+const LOW_SPEC = GFX_KEY === 'low';                // phones/tablets by default: fewer pixels, smaller shadow map
+const SHADOW_SIZE = GFX.shadow;                    // capped shadow map size
 const SHADOW_EXTENT = 58;                          // half-size (m) of the shadow frustum around the car
 
 // Colours are authored in sRGB and converted to linear explicitly (srgb(), linearizeMaterials), so three's own
@@ -2774,7 +2788,7 @@ THREE.ColorManagement.enabled = false;
 const LIGHT_PI = Math.PI;
 
 const renderer = new THREE.WebGLRenderer({ antialias: !LOW_SPEC, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, LOW_SPEC ? 1.3 : 1.6));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, GFX.pr));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -2800,12 +2814,12 @@ scene.add(sunLight, sunLight.target, hemiLight);
 /* Far shadow cascade: a second sun with no light of its own (intensity 0) whose shadow map covers SHADOW_FAR_EXTENT
    around the car at a coarser scale. The patched lights chunk below shades the sun with the near map where it
    reaches and the far map beyond, so trees and rocks keep their shadows out to the distance. Redrawn every other frame. */
-const SHADOW_FAR_EXTENT = LOW_SPEC ? 0 : 420;
+const SHADOW_FAR_EXTENT = GFX.far;
 let farSun = null;
 if (SHADOW_FAR_EXTENT) {
   farSun = new THREE.DirectionalLight(0xffffff, 0);
   farSun.castShadow = true;
-  farSun.shadow.mapSize.set(2048, 2048);
+  farSun.shadow.mapSize.set(GFX.farMap, GFX.farMap);
   Object.assign(farSun.shadow.camera, { left: -SHADOW_FAR_EXTENT, right: SHADOW_FAR_EXTENT, top: SHADOW_FAR_EXTENT, bottom: -SHADOW_FAR_EXTENT, near: 1, far: 2400 });
   farSun.shadow.bias = -0.001;
   farSun.shadow.normalBias = 1.2;
@@ -4919,19 +4933,24 @@ function buildRibbon(mat) {
     geo.setAttribute('surfW', new THREE.BufferAttribute(R.sw.subarray(a * 4, b * 4), 4));
     geo.setAttribute('surfX', new THREE.BufferAttribute(R.sx.subarray(a * 4, b * 4), 4));
     geo.setAttribute('trk', new THREE.BufferAttribute(R.trk.subarray(a * 2, b * 2), 2));
-    const idx = [];
-    const o = R.owned;
-    for (let i = r0; i < r1; i++) for (let j = 0; j < M - 1; j++) {
-      const v00 = i * M + j, v01 = v00 + 1, v10 = v00 + M, v11 = v10 + 1;
-      if (o[v00] | o[v01] | o[v10]) idx.push(v00 - a, v01 - a, v10 - a);
-      if (o[v01] | o[v11] | o[v10]) idx.push(v01 - a, v11 - a, v10 - a);
-    }
-    geo.setIndex(idx);
+    // level of detail: every row up close, every 2nd and then every 4th row further out. All the columns stay, so the
+    // rows shared with the next chunk are the same edges at every level and no cracks open between chunks.
+    // The three levels sit one after another in one index buffer; the draw range picks one.
+    const o = R.owned, idx = [], lods = [1, 2, 4].map((step) => {
+      const rows = [], start = idx.length; for (let i = r0; i < r1; i += step) rows.push(i); rows.push(r1);
+      for (let q = 0; q < rows.length - 1; q++) for (let j = 0; j < M - 1; j++) {
+        const v00 = rows[q] * M + j, v01 = v00 + 1, v10 = rows[q + 1] * M + j, v11 = v10 + 1;
+        if (o[v00] | o[v01] | o[v10]) idx.push(v00 - a, v01 - a, v10 - a);
+        if (o[v01] | o[v11] | o[v10]) idx.push(v01 - a, v11 - a, v10 - a);
+      }
+      return [start, idx.length - start];
+    });
+    geo.setIndex(idx); geo.setDrawRange(lods[0][0], lods[0][1]);
     geo.computeBoundingSphere();
     const mesh = new THREE.Mesh(geo, mat);
     mesh.receiveShadow = true; mesh.castShadow = true;
     stageGroup.add(mesh);
-    R.chunks.push({ r0, r1, geo });
+    R.chunks.push({ r0, r1, geo, mesh, lods, lod: 0 });
   }
 }
 
@@ -5175,7 +5194,7 @@ function buildRocks(rng) {
 /* ---- scenery cells: instanced scenery split into squares that can be culled and hidden past the draw distance ----
    each square gets a bounding sphere around its own instances, so it can be culled as a whole. (Other instanced
    meshes have instances that move, so buildStage turns their culling off: three would keep their first bounds.) */
-const DRAW_DIST = LOW_SPEC ? 900 : 1500;   // metres; scenery squares past this (or well into the fog) are hidden
+const DRAW_DIST = GFX.draw;   // metres; scenery squares past this (or well into the fog) are hidden
 /** Register an instanced square for culling; `far` scales the draw distance (small things vanish sooner). */
 function cullCell(mesh, ctr, rad, far) {
   mesh.boundingSphere = new THREE.Sphere(ctr, rad);
@@ -5200,12 +5219,28 @@ function cellInstances(geo, mat, items, size, far) {
   }
   return out;
 }
+/** The crew only cast shadows from the cockpit view: from outside they sit under the roof in the car's own shadow,
+    and their ~50 parts would otherwise be drawn again in the shadow pass every frame. */
+function crewShadows() {
+  const M = Game.carModel; if (!M) return;
+  const on = Cam.mode === 'cockpit' || Game.state === 'garage' || Game.state === 'photo';
+  if (M.crewCast === on) return;
+  M.crewCast = on;
+  for (const c of [M.pilot, M.cod]) if (c) c.traverse((o) => { if (o.isMesh) { if (o.userData.cast == null) o.userData.cast = o.castShadow; o.castShadow = on && o.userData.cast; } });
+}
 /** Hide scenery squares past the draw distance, pulled in when the stage's fog is thick. Runs every frame. */
 function updateDrawDistance() {
   if (!TR || !TR.cells.length) return;
   const f = scene.fog, base = f ? Math.min(DRAW_DIST, f.near + 0.45 * (f.far - f.near)) : DRAW_DIST;
   const p = camera.position;
   for (const c of TR.cells) c.mesh.visible = c.ctr.distanceTo(p) - c.rad < base * c.far;
+  const R = TR.ribbon, fogFar = f ? f.far : Infinity;       // terrain chunks: coarser rows further away, gone in full fog
+  if (R && R.chunks) for (const c of R.chunks) {
+    const bs = c.geo.boundingSphere, d = bs.center.distanceTo(p) - bs.radius;
+    c.mesh.visible = d < fogFar;
+    const lod = d < GFX.lod[0] ? 0 : d < GFX.lod[1] ? 1 : 2;
+    if (lod !== c.lod) { c.lod = lod; c.geo.setDrawRange(c.lods[lod][0], c.lods[lod][1]); }
+  }
 }
 
 function textBanner(text, bg, fg) {
@@ -6027,6 +6062,16 @@ const STAB = {
 };
 const STAB_ORDER = ['full', 'sport', 'off'];
 function stabMode() { const v = Store.data.settings.stab; return STAB[v] ? v : IS_TOUCH ? 'full' : 'sport'; }
+/** GRAPHICS LOW → MEDIUM → HIGH. The renderer is built for one tier at start, so the page reloads from the menus
+    (mid-race it waits: the row shows RELOAD until then). */
+function cycleGraphics() {
+  const s = Store.data.settings, cur = GFX_TIERS[s.gfx] ? s.gfx : GFX_DEFAULT;
+  s.gfx = GFX_ORDER[(GFX_ORDER.indexOf(cur) + 1) % GFX_ORDER.length];
+  Store.save(); Settings.refresh();
+  HUD.toast('GRAPHICS ' + GFX_TIERS[s.gfx].name + (s.gfx === GFX_KEY ? '' : Game.state === 'menu' ? ' · RELOADING' : ' · RELOAD TO APPLY'));
+  clearTimeout(cycleGraphics.t);                           // (a quick second press picks again before the reload)
+  if (s.gfx !== GFX_KEY && Game.state === 'menu') cycleGraphics.t = setTimeout(() => location.reload(), 1500);
+}
 function cycleStab() {
   const s = Store.data.settings;
   s.stab = STAB_ORDER[(STAB_ORDER.indexOf(stabMode()) + 1) % STAB_ORDER.length];
@@ -12207,6 +12252,7 @@ function buildCarModel(build) {
     wheels.push({ pivot, spin, squash, discMat: discMats[discMats.length - 1] || null, heat: 0, shock: makeShock(g, cw, trim, dark, 0, top) });
     poseShock(wheels[wheels.length - 1].shock, pivot.position.y);
   }
+  for (const w of wheels) { mergeStatic(w.spin); mergeStatic(w.squash); }   // ~10 parts per wheel → one mesh per material
   const arbVis = makeArb(g, trim, geo);
   // headlight
   const spot = new THREE.SpotLight(0xe0f4ff, 140, 75, 0.5, 0.55, 1.2);   // (physical units: about the old 2.2 at 15 m)
@@ -15462,6 +15508,7 @@ const Settings = {
     if (k === 'line') { cycleLine(); return; }
     if (k === 'hud') { toggleHud(); return; }
     if (k === 'post') { Post.toggle(); return; }
+    if (k === 'gfx') { cycleGraphics(); return; }
     if (k === 'vol') { cycleVolume(); return; }
     if (k === 'stab') { cycleStab(); return; }
     if (k === 'tilt') { Tilt.toggle(); return; }
@@ -15484,6 +15531,8 @@ const Settings = {
     document.getElementById('hudMode').textContent = s.hud === 'full' ? 'FULL' : 'MINIMAL';
     document.getElementById('tiltMode').textContent = TILT_SENS[Tilt.sensIdx()].name;
     document.getElementById('stabMode').textContent = STAB[stabMode()].name;
+    const gk = GFX_TIERS[s.gfx] ? s.gfx : GFX_DEFAULT;
+    document.getElementById('gfxMode').textContent = GFX_TIERS[gk].name + (gk === GFX_KEY ? '' : ' · RELOAD');
     document.getElementById('volMode').textContent = Math.round((s.vol == null ? 1 : s.vol) * 100) + '%';
   },
   init() {
@@ -16632,7 +16681,7 @@ const Hub = {
   },
 };
 
-const Res = { max: Math.min(window.devicePixelRatio || 1, LOW_SPEC ? 1.3 : 1.6), pr: 0, acc: 0, n: 0, good: 0, hold: 0 };
+const Res = { max: Math.min(window.devicePixelRatio || 1, GFX.pr), pr: 0, acc: 0, n: 0, good: 0, hold: 0 };
 Res.pr = Res.max;
 function adaptResolution(rawDt) {
   if (Game.state === 'loading' || document.hidden || rawDt > 0.25) return;
@@ -16687,6 +16736,7 @@ function update(dt) {
   Cond.update(st === 'paused' || st === 'photo' ? 0 : dt);
   if (TR.turbines) for (const r of TR.turbines) r.rotation.z += (st === 'paused' ? 0 : dt) * 1.3;
   Dash.update(dt);
+  crewShadows();
   Live.update(dt);
   updateSunShadow();
   updateDrawDistance();
