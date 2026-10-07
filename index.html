@@ -1486,7 +1486,7 @@ const TESTPARK_COURSE = [
 function wrcStage(o) {
   const km = o.length / 1000, E = o.earth;
   return Object.assign({
-    ...EARTH, style: 'mountain', ribbon: 140, shoulder: 6, offRR: 0.3, real: true, roadRough: 0.05,
+    ...EARTH, style: 'mountain', ribbon: 140, shoulder: 6, offRR: 0.04, real: true, roadRough: 0.05,
     features: [], craterClusters: 0, meteorZones: 0, chicanes: 0, dontCut: 0, targetFactor: 1.06, planet: null,
     checkpoints: clamp(Math.round(km * 0.75), 6, 12), crest: { h: 1.4, L: 42, landing: 55 }, ramp: { H: 1.0, L: 12, landing: 70 },
   }, o, {
@@ -1722,7 +1722,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-monte', name: 'Col de Turini', region: 'RALLYE MONTE-CARLO · ROUND 1', seed: 1911, letter: 'M',
     blurb: "The Monte's most famous road, traced from map data: up from La Bollène-Vésubie through the chestnut woods and the Turini forest, a ladder of 14 m hairpins to the 1,604 m col. Tarmac, with snow thrown on by the fans and ice in the shade. Studs help where it's white; low stone walls wait on the outside of the hairpins.",
-    length: TURINI_TRACE.len + 285, hw: 3.1, roadLines: 2, roadRough: 0.04, offRR: 0.32,
+    length: TURINI_TRACE.len + 285, hw: 3.1, roadLines: 2, roadRough: 0.04, offRR: 0.04,
     trace: TURINI_TRACE, course: TURINI_COURSE, altitude: [544, 1604], altUnit: 'M', climb: 1057, surfLabel: 'TARMAC · SNOW · ICE',
     fill: { r: [22, 140], ang: [20, 95], s: [12, 70], dev: 70 },
     surf: { base: SURF.TARMAC, off: SURF.SNOW, patches: [SURF.SNOW, SURF.SNOW, SURF.ICE], patchChance: 0.22, patchLen: [20, 55] },
@@ -1738,7 +1738,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-sweden', name: 'Bygdsiljum', region: 'RALLY SWEDEN · VÄSTERBOTTEN · ROUND 2', seed: 1950, letter: 'S',
     blurb: 'Packed snow over gravel through the Västerbotten spruce, between snowbanks you can lean the car on: fast crests, a frozen mire where the ice shows through, then flat out through the forest. Studded tyres are the only way to go.',
-    length: BYGDSILJUM_TRACE.len + 285, trace: BYGDSILJUM_TRACE, hw: 3.6, roadLines: 0, roadRough: 0.06, offRR: 0.45,
+    length: BYGDSILJUM_TRACE.len + 285, trace: BYGDSILJUM_TRACE, hw: 3.6, roadLines: 0, roadRough: 0.06, offRR: 0.04,
     course: BYGDSILJUM_COURSE, surfLabel: 'SNOW · ICE', targetFactor: 1.08,
     fill: { r: [40, 260], ang: [15, 70], s: [40, 160], crest: 0.15, dev: 50 },
     surf: { base: SURF.SNOW, off: SURF.SNOW, patches: [SURF.ICE], patchChance: 0.18, patchLen: [30, 70] },
@@ -1754,7 +1754,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-kenya', name: "Hell's Gate", region: 'SAFARI RALLY KENYA · NAIVASHA · ROUND 3', seed: 1953, letter: 'K',
     blurb: "The Safari's toughest few kilometres, 1,900 m up in the Rift Valley, where the thin air saps the engine: rocky, rutted gravel and soft fesh-fesh dust past the volcanic plugs of Fischer's Tower and Central Tower and down the gorge. Survive it first.",
-    length: HELLS_GATE_TRACE.len + 285, trace: HELLS_GATE_TRACE, hw: 4.0, roadLines: 0, roadRough: 0.1, offRR: 0.4,
+    length: HELLS_GATE_TRACE.len + 285, trace: HELLS_GATE_TRACE, hw: 4.0, roadLines: 0, roadRough: 0.1, offRR: 0.04,
     course: HELLSGATE_COURSE, altitude: [1890, 1990], altUnit: 'M', surfLabel: 'GRAVEL · FESH-FESH', targetFactor: 1.08,
     fill: { r: [30, 200], ang: [20, 90], s: [30, 140], crest: 0.1, dev: 60 },
     surf: { base: SURF.GRAVEL, off: SURF.REGOLITH, patches: [SURF.REGOLITH], patchChance: 0.2, patchLen: [30, 80] },
@@ -1769,7 +1769,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-croatia', name: 'Platak', region: 'CROATIA RALLY · PRIMORJE-GORSKI KOTAR · ROUND 4', seed: 1974, letter: 'C',
     blurb: 'Narrow, bumpy tarmac climbing from the hills above Rijeka to the Platak ski area: hairpins, cambers that throw the car about, and grip that changes from shade to sun under the beech and fir.',
-    length: PLATAK_TRACE.len + 285, trace: PLATAK_TRACE, hw: 3.0, roadLines: 0, roadRough: 0.07, offRR: 0.32,
+    length: PLATAK_TRACE.len + 285, trace: PLATAK_TRACE, hw: 3.0, roadLines: 0, roadRough: 0.07, offRR: 0.04,
     course: PLATAK_COURSE, climb: 640, surfLabel: 'TARMAC',
     fill: { r: [20, 120], ang: [25, 100], s: [10, 60], dev: 70 },
     surf: { base: SURF.TARMAC, off: SURF.GRAVEL, patches: [SURF.GRAVEL], patchChance: 0.08, patchLen: [10, 25] },
@@ -1785,7 +1785,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-canarias', name: 'Artenara', region: 'RALLY ISLAS CANARIAS · GRAN CANARIA · ROUND 5', seed: 1977, letter: 'G',
     blurb: 'Smooth, grippy volcanic tarmac high in the middle of Gran Canaria: up the barranco to the Cruz de Tejeda, along the caldera ridge under the Canarian pines with the island falling away beside you, on to Artenara.',
-    length: ARTENARA_TRACE.len + 285, trace: ARTENARA_TRACE, hw: 3.5, roadLines: 2, roadRough: 0.03, offRR: 0.32,
+    length: ARTENARA_TRACE.len + 285, trace: ARTENARA_TRACE, hw: 3.5, roadLines: 2, roadRough: 0.03, offRR: 0.04,
     course: ARTENARA_COURSE, climb: 480, surfLabel: 'TARMAC',
     fill: { r: [25, 160], ang: [20, 90], s: [15, 80], dev: 65 },
     surf: { base: SURF.TARMAC, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
@@ -1801,7 +1801,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-portugal', name: 'Fafe', region: 'RALLY DE PORTUGAL · MINHO · ROUND 6', seed: 1967, letter: 'P',
     blurb: "Portugal's most famous stage: loose gravel over a hard granite base, through pine and eucalyptus and between the boulders, to the hillside at Pedra Sentada where thousands come to watch the Fafe jump.",
-    length: FAFE_TRACE.len + 285, trace: FAFE_TRACE, hw: 3.3, roadLines: 0, roadRough: 0.07, offRR: 0.32,
+    length: FAFE_TRACE.len + 285, trace: FAFE_TRACE, hw: 3.3, roadLines: 0, roadRough: 0.07, offRR: 0.04,
     course: FAFE_COURSE, surfLabel: 'GRAVEL',
     fill: { r: [25, 160], ang: [20, 90], s: [20, 90], crest: 0.12, dev: 65 },
     surf: { base: SURF.GRAVEL, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
@@ -1817,7 +1817,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-japan', name: "Isegami's Tunnel", region: 'RALLY JAPAN · AICHI · ROUND 7', seed: 2004, letter: 'J',
     blurb: 'Barely wider than a car and a half: tarmac through the cedar forest of the Aichi hills, between concrete walls, ditches and trees, up through tight hairpins to the tunnel and twisting down the other side. One mistake and it is over.',
-    length: ISEGAMI_TRACE.len + 285, trace: ISEGAMI_TRACE, hw: 2.8, roadLines: 1, roadRough: 0.04, offRR: 0.35,
+    length: ISEGAMI_TRACE.len + 285, trace: ISEGAMI_TRACE, hw: 2.8, roadLines: 1, roadRough: 0.04, offRR: 0.04,
     course: ISEGAMI_COURSE, surfLabel: 'TARMAC',
     fill: { r: [18, 100], ang: [25, 100], s: [10, 55], dev: 70 },
     surf: { base: SURF.TARMAC, off: SURF.GRAVEL, patches: [SURF.GRAVEL], patchChance: 0.05, patchLen: [8, 20] },
@@ -1833,7 +1833,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-acropolis', name: 'Loutraki', region: 'ACROPOLIS RALLY · CORINTHIA · ROUND 8', seed: 1956, letter: 'A',
     blurb: "The Rally of Gods at its roughest: stony mountain gravel above the Gulf of Corinth that cuts tyres and breaks suspension, through Aleppo pine and scrub in the summer heat. Rocks in the line don't move; pick your way, then flat out where it clears.",
-    length: LOUTRAKI_TRACE.len + 285, trace: LOUTRAKI_TRACE, hw: 3.3, roadLines: 0, roadRough: 0.11, offRR: 0.42,
+    length: LOUTRAKI_TRACE.len + 285, trace: LOUTRAKI_TRACE, hw: 3.3, roadLines: 0, roadRough: 0.11, offRR: 0.04,
     course: LOUTRAKI_COURSE, climb: 620, surfLabel: 'ROCKY GRAVEL', targetFactor: 1.08,
     fill: { r: [25, 150], ang: [20, 95], s: [15, 80], crest: 0.08, dev: 65 },
     surf: { base: SURF.GRAVEL, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
@@ -1849,7 +1849,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-estonia', name: 'Arula', region: 'RALLY ESTONIA · OTEPÄÄ · ROUND 9', seed: 2020, letter: 'E',
     blurb: 'Fast, smooth, sandy gravel through the hills by Otepää, with some of the biggest jumps of the season: birch avenues, lakes, blind crests and a long flight near the end. Wide open and very quick.',
-    length: ARULA_TRACE.len + 285, trace: ARULA_TRACE, hw: 3.6, roadLines: 0, roadRough: 0.05, offRR: 0.3,
+    length: ARULA_TRACE.len + 285, trace: ARULA_TRACE, hw: 3.6, roadLines: 0, roadRough: 0.05, offRR: 0.04,
     course: ARULA_COURSE, surfLabel: 'GRAVEL',
     fill: { r: [50, 260], ang: [15, 75], s: [40, 160], crest: 0.22, dev: 55 },
     surf: { base: SURF.GRAVEL, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
@@ -1865,7 +1865,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-finland', name: 'Ouninpohja', region: 'RALLY FINLAND · JÄMSÄ · ROUND 10', seed: 1951, letter: 'F',
     blurb: 'The fastest gravel stage in the world: narrow, flat out over blind crests through the pine and birch, with the Yellow House jump, the steps down to the Kakaristo junction, and then it gets faster. Commit, keep it straight in the air and land on all four.',
-    length: OUNINPOHJA_TRACE.len + 285, trace: OUNINPOHJA_TRACE, hw: 3.2, roadLines: 0, roadRough: 0.07, offRR: 0.3,
+    length: OUNINPOHJA_TRACE.len + 285, trace: OUNINPOHJA_TRACE, hw: 3.2, roadLines: 0, roadRough: 0.07, offRR: 0.04,
     course: OUNINPOHJA_COURSE, surfLabel: 'GRAVEL',
     fill: { r: [60, 300], ang: [12, 60], s: [30, 140], crest: 0.3, dev: 50 },
     surf: { base: SURF.GRAVEL, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
@@ -1881,7 +1881,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-paraguay', name: 'Cantera', region: 'RALLY DEL PARAGUAY · ITAPÚA · ROUND 11', seed: 2025, letter: 'Y',
     blurb: 'Fast, flowing roads of red earth in Itapúa, near Encarnación: past the quarry, between the farms and through the subtropical woods. Loose on top and quick everywhere, its 13.7 km run at full length.',
-    length: CANTERA_TRACE.len + 285, trace: CANTERA_TRACE, hw: 3.8, roadLines: 0, roadRough: 0.06, offRR: 0.32,
+    length: CANTERA_TRACE.len + 285, trace: CANTERA_TRACE, hw: 3.8, roadLines: 0, roadRough: 0.06, offRR: 0.04,
     course: CANTERA_COURSE, surfLabel: 'GRAVEL',
     fill: { r: [40, 260], ang: [15, 80], s: [40, 180], crest: 0.12, dev: 55 },
     surf: { base: SURF.GRAVEL, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
@@ -1897,7 +1897,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-chile', name: 'Rere', region: 'RALLY CHILE BÍO BÍO · ROUND 12', seed: 2019, letter: 'R',
     blurb: 'Fast, flowing gravel over the hills south of Concepción, between pine and eucalyptus plantations: a hard base with loose stones on top, quick changes of direction and long, open sweepers.',
-    length: RERE_TRACE.len + 285, trace: RERE_TRACE, hw: 3.5, roadLines: 0, roadRough: 0.06, offRR: 0.32,
+    length: RERE_TRACE.len + 285, trace: RERE_TRACE, hw: 3.5, roadLines: 0, roadRough: 0.06, offRR: 0.04,
     course: RERE_COURSE, surfLabel: 'GRAVEL',
     fill: { r: [30, 220], ang: [20, 90], s: [25, 120], crest: 0.15, dev: 60 },
     surf: { base: SURF.GRAVEL, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
@@ -1912,7 +1912,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-italy', name: 'Monte Lerno', region: 'RALLY ITALIA SARDEGNA · ROUND 13', seed: 1964, letter: 'I',
     blurb: "Sardinia's classic: narrow, rocky, sandy gravel through the granite, maquis and cork oaks of the interior, cut up more with every car that passes, and Micky's Jump, named for Mikko Hirvonen's long flight off it.",
-    length: LERNO_TRACE.len + 285, trace: LERNO_TRACE, hw: 2.9, roadLines: 0, roadRough: 0.09, offRR: 0.38,
+    length: LERNO_TRACE.len + 285, trace: LERNO_TRACE, hw: 2.9, roadLines: 0, roadRough: 0.09, offRR: 0.04,
     course: LERNO_COURSE, surfLabel: 'SANDY GRAVEL', targetFactor: 1.07,
     fill: { r: [20, 130], ang: [20, 100], s: [12, 70], crest: 0.1, dev: 70 },
     surf: { base: SURF.GRAVEL, off: SURF.GRAVEL, patches: [SURF.REGOLITH], patchChance: 0.12, patchLen: [20, 50] },
@@ -1927,7 +1927,7 @@ const WRC_STAGES = [
   wrcStage({
     id: 'wrc-saudi', name: 'Khulays', region: 'RALLY SAUDI ARABIA · JEDDAH · ROUND 14', seed: 2024, letter: 'X',
     blurb: 'Wide, fast desert roads north of Jeddah: sand and stone across the open wadis between black volcanic hills, soft sand in the dips and long straights where the car runs out of gears. Its 11.3 km at full length.',
-    length: KHULAYS_TRACE.len + 285, trace: KHULAYS_TRACE, hw: 5.0, roadLines: 0, roadRough: 0.07, offRR: 0.4,
+    length: KHULAYS_TRACE.len + 285, trace: KHULAYS_TRACE, hw: 5.0, roadLines: 0, roadRough: 0.07, offRR: 0.04,
     course: KHULAYS_COURSE, surfLabel: 'GRAVEL · SAND',
     fill: { r: [60, 400], ang: [12, 70], s: [60, 260], crest: 0.1, dev: 50 },
     surf: { base: SURF.GRAVEL, off: SURF.REGOLITH, patches: [SURF.REGOLITH], patchChance: 0.15, patchLen: [30, 80] },
@@ -1948,7 +1948,7 @@ const STAGES = [
     id: 'testpark', name: 'Proving Ground', region: 'TEST PARK · EVERY SURFACE', seed: 2026, letter: 'Z', test: true,
     blurb: 'Not a race so much as a place to try a car and a set-up: a launch strip into a hard braking zone, a slalom and a skidpad bend on tarmac, kickers and crests at three sizes on gravel, a loop on snow and one on ice, a chasm over regolith and a chicane on steel plate. Every surface in the game on one lap.',
     length: 3800, ...EARTH,
-    hw: 6.5, ribbon: 130, shoulder: 10, style: 'mountain', offRR: 0.3,
+    hw: 6.5, ribbon: 130, shoulder: 10, style: 'mountain', offRR: 0.04,
     course: TESTPARK_COURSE, real: true, surfLabel: 'ALL SIX SURFACES', roadLines: 2,
     roadRough: 0.03,
     surf: { base: SURF.TARMAC, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
@@ -1977,7 +1977,7 @@ const STAGES = [
     id: 'pikes', name: 'Pikes Peak', region: 'COLORADO, USA · HILLCLIMB', seed: 1916, letter: 'Q', hill: true,
     blurb: "The Race to the Clouds at full length, traced from map data: 156 turns over 20 km from the start line at 9,390 ft to the 14,115 ft summit. Tarmac through the forest, then gravel above Glen Cove as when the Group B cars raced here, and no guard rails. Thin air takes a third of the engine's breath by the top.",
     length: PIKES_TRACE.len + 285, ...EARTH,
-    hw: 3.6, ribbon: 150, shoulder: 8, style: 'mountain', offRR: 0.3,
+    hw: 3.6, ribbon: 150, shoulder: 8, style: 'mountain', offRR: 0.04,
     trace: PIKES_TRACE, course: [], real: true, altitude: [9390, 14115], altUnit: 'FT', climb: 1440, surfLabel: 'TARMAC · GRAVEL', roadLines: 1,
     roadRough: 0.05,
     surf: { base: SURF.TARMAC, off: SURF.GRAVEL, patches: [], patchChance: 0, patchLen: [60, 100] },
@@ -4443,7 +4443,7 @@ function worldAt(s, d, out) {
 /* The physics test rig's proving ground (PhysicsRig, section 10): while `on`, the ground everywhere is the plane
    y = h0 + sx·x + sz·z of one surface, so the car's real physics can be measured away from any stage. */
 const RIG_GROUND = { on: false, h0: 0, sx: 0, sz: 0, surf: 4, rA: 0, rL: 4, rSide: false,   // ripples: amplitude, wavelength, left side only
-  road: false, kap: 0 };                             // road: a straight road along z centred on x = 0 (ROAD's ruts and grip), and a corner's curvature
+  road: false, kap: 0, verge: 0 };                             // road: a straight road along z centred on x = 0 (ROAD's ruts and grip), and a corner's curvature
 const RIG_HW = 4;
 function rigHeight(x, z) {
   const G = RIG_GROUND;
@@ -4457,7 +4457,7 @@ function rigGround(x, z, out) {
   const gx = (rigHeight(x + e, z) - rigHeight(x - e, z)) / (2 * e), gz = (rigHeight(x, z + e) - rigHeight(x, z - e)) / (2 * e), l = Math.sqrt(gx * gx + 1 + gz * gz);
   out.void = false; out.road = true; out.s = 0; out.d = 0; out.i = 0;
   out.h = h; out.nx = -gx / l; out.ny = 1 / l; out.nz = -gz / l;
-  out.surf = G.surf; out.mu = info.mu; out.rr = info.rr;
+  out.surf = G.surf; out.mu = info.mu; out.rr = info.rr + G.verge;
   if (G.road) ROAD.apply(out, x, G.surf, G.kap, 1, RIG_HW);
   return out;
 }
@@ -4517,9 +4517,7 @@ function sampleGround(x, z, hint, out) {
   const info = SURF_INFO[sidx];
   out.surf = sidx;
   out.mu = info.mu * (out.road ? 1 : 0.85);
-  out.rr = info.rr + (out.road ? 0 : TR.def.offRR);        // soft verges roll heavily
-  // deep loose gravel and snow pile up off the road: the wheels plough through it
-  if (!out.road && (sidx === SURF.GRAVEL || sidx === SURF.SNOW || sidx === SURF.REGOLITH)) out.rr += 0.06 * smoothstep(TR.hw + 0.6, TR.hw + 2.2, ad);
+  out.rr = info.rr + (out.road ? 0 : TR.def.offRR);        // grass and loose verges: a car's rolling resistance on grass is about 0.1
   if (out.road) ROAD.apply(out, LQ.d, sidx, TR.kap[LQ.i], ROAD.side(), TR.hw);
   return out;
 }
@@ -7981,7 +7979,7 @@ const PhysicsRig = {
       setCarTune(tune); RIG_GROUND.on = true; Game.forceCtl = this.ctl;
       return fn(this);
     } finally {
-      Object.assign(RIG_GROUND, { on: false, h0: 0, sx: 0, sz: 0, rA: 0, road: false, kap: 0 });
+      Object.assign(RIG_GROUND, { on: false, h0: 0, sx: 0, sz: 0, rA: 0, road: false, kap: 0, verge: 0 });
       setCarTune(savedTune); restoreState(car, saved);
       DL.cpl.forEach((c, i) => { c.lin = cpl[i]; });
       Game.forceCtl = fc;
@@ -7991,7 +7989,7 @@ const PhysicsRig = {
    *  o.drop lifts the car, o.road lays ROAD's surface along z (o.kap a bend's curvature). */
   place(surf, v, o) {
     o = o || {};
-    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4, rSide: !!o.rSide, road: !!o.road, kap: o.kap || 0 });
+    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4, rSide: !!o.rSide, road: !!o.road, kap: o.kap || 0, verge: o.verge || 0 });
     car.q.set(0, 0, 0, 1); if (o.yaw) car.q.setFromAxisAngle(UP, o.yaw);
     if (o.sx || o.sz) car.q.premultiply(_qiw.setFromUnitVectors(UP, _tmp.set(-(o.sx || 0), 1, -(o.sz || 0)).normalize()));   // sitting on the slope
     car.pos.set(o.x || 0, CAR.cgH + (o.drop || 0) - (o.road ? ROAD.depth(surf, Math.abs(o.x || 0), RIG_HW) : 0), 0);
@@ -8030,8 +8028,8 @@ const PhysicsRig = {
     return { g: pk / 9.81, muEff: pk / (9.81 * mu), transfer: pk > 0.5 ? Math.abs(best.lt / win) / (CAR.mass * pk * CAR.cgH) : 0 };
   },
   /** Full-throttle standing start (traction control on, as the game defaults): times to 100 and 160 km/h. */
-  launch(surf, tMax) {
-    this.place(surf, 0);
+  launch(surf, tMax, o) {
+    this.place(surf, 0, o);
     this.step(60);
     let t = 0, t100 = 99, t160 = 99;
     this.ctl.throttle = 1;
@@ -8200,6 +8198,9 @@ function physicsTests(build) {
     check('core: energy after / before an off-centre hit', ke() / ke0, 0, 1);
     rig.place(SURF.GRAVEL, 0, { sz: 0.15, ctl: { handbrake: true } }); rig.step(240); const z0 = car.pos.z; rig.step(Math.round(30 / rig.dt));
     check('core: handbrake on a 15% gravel grade, creep in 30 s (cm)', Math.abs(car.pos.z - z0) * 100, 0, 2);
+    // a grass verge: rolling resistance on grass is about 0.08 (a gravel 0.035 plus 0.04), so a launch costs a little, not all of it
+    const g0 = rig.launch(SURF.GRAVEL, 40).t100, g1 = rig.launch(SURF.GRAVEL, 40, { verge: 0.04 }).t100;
+    check('verge: 0-100 km/h on grass off the road / on gravel (ratio)', g1 / g0, 1.0, 1.6);
   });
   return R;
 }
