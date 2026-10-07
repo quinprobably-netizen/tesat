@@ -3434,6 +3434,35 @@ function convexHull(pts) {
   lo.pop(); up.pop();
   return lo.concat(up);                        // counter-clockwise
 }
+/** The fitted grids are the slow part of a mountain stage's build, so each stage's are kept in IndexedDB. A saved fit is
+ *  reused only if the road it was made for is the same (mountainSig). Bump TERRAIN_VER when the fit's code or a stage's
+ *  data changes. Only one stage's fit is held at a time, so the grids of stages not being driven are not kept in memory. */
+const TERRAIN_VER = 1;
+let _mountainFit = null;                       // { id, sig, grids, fresh } for the stage being built
+function mountainSig(tr) {
+  const q = (v) => Math.round(v * 16);
+  let h = q(tr.traceS0 + tr.startS + tr.finishS) + tr.N;
+  for (let i = 0; i < tr.N; i++) h = (h * 31 + q(tr.cx[i]) + 7 * q(tr.cz[i]) + 13 * q(tr.cy[i]) + 17 * q(1000 * tr.rx[i]) + 19 * q(1000 * tr.rz[i])) % 2147483629;
+  return h;
+}
+/** The grids of a mountain fit: the saved fit for this stage if its road matches, otherwise make them now. */
+function mountainFit(tr, make) {
+  const sig = mountainSig(tr);
+  if (_mountainFit && _mountainFit.id === tr.def.id && _mountainFit.sig === sig) return _mountainFit.grids;
+  const grids = make();
+  _mountainFit = { id: tr.def.id, sig, grids, fresh: true };
+  return grids;
+}
+async function loadMountainFit(def) {
+  if (_mountainFit && _mountainFit.id === def.id) return;
+  try { const r = await IDB.get(`terrain-${TERRAIN_VER}-${def.id}`); if (r && r.id === def.id) _mountainFit = Object.assign({ fresh: false }, r); } catch (e) { /* no IndexedDB: fit it */ }
+}
+function saveMountainFit(def) {
+  const f = _mountainFit;
+  if (!f || !f.fresh || f.id !== def.id) return;
+  f.fresh = false;
+  IDB.put(`terrain-${TERRAIN_VER}-${def.id}`, { id: f.id, sig: f.sig, grids: f.grids }).catch(() => {});
+}
 function makeMountainTerrain(tr) {
   const N = tr.N, cx = tr.cx, cz = tr.cz, cy = tr.cy, seed = tr.def.seed, E = tr.def.earth || {};
   const nB = makeNoise2D(seed * 3 + 2), nC = makeNoise2D(seed * 3 + 3), nD = makeNoise2D(seed * 3 + 4);
@@ -3458,60 +3487,81 @@ function makeMountainTerrain(tr) {
     }
     return inside ? 0 : Math.sqrt(best);
   };
-  const HD = makeGrid(x0 - 2600, z0 - 2600, x1 + 2600, z1 + 2600, 40);      // hull distance is slow: kept on a coarse grid
-  for (let b = 0; b < HD.nz; b++) for (let a = 0; a < HD.nx; a++) HD.v[b * HD.nx + a] = hullDist(HD.x0 + a * HD.cell, HD.z0 + b * HD.cell);
   const fall = (hd) => { const f = 0.4 * (Math.sqrt(hd * hd + 6400) - 80); return fallK * 700 * Math.tanh(f / 700); };
-  // broad shape: a smooth average of the road's heights (every 8 m), defined everywhere
-  const B = makeGrid(x0 - 900, z0 - 900, x1 + 900, z1 + 900, 40), sB = 110, invB = 1 / (2 * sB * sB);
-  const bx = [], bz = [], by = [];
-  for (let i = 0; i < N; i += 4) { bx.push(cx[i]); bz.push(cz[i]); by.push(cy[i]); }
-  for (let b = 0; b < B.nz; b++) for (let a = 0; a < B.nx; a++) {
-    const x = B.x0 + a * B.cell, z = B.z0 + b * B.cell;
-    let num = 0, den = 1e-300;
-    for (let q = 0; q < bx.length; q++) { const dx = x - bx[q], dz = z - bz[q], w = Math.exp(-(dx * dx + dz * dz) * invB); num += w * by[q]; den += w; }
-    B.v[b * B.nx + a] = num / den;
-  }
-  // medium and fine corrections pull the surface onto the road itself; the medium weights also say how near the road is
-  const M = makeGrid(x0 - 220, z0 - 220, x1 + 220, z1 + 220, 10), W = makeGrid(x0 - 220, z0 - 220, x1 + 220, z1 + 220, 10);
-  const mx = [], mz = [], mr = [];
-  for (let i = 0; i < N; i += 2) { mx.push(cx[i]); mz.push(cz[i]); mr.push(cy[i] - gridAt(B, cx[i], cz[i], true)); }
-  splatFit(M, mx, mz, mr, 40, 0.7, W);
-  const F = makeGrid(x0 - 90, z0 - 90, x1 + 90, z1 + 90, 4);
-  const fx = [], fz = [], fr = [];
-  for (let i = 0; i < N; i++) { fx.push(cx[i]); fz.push(cz[i]); fr.push(cy[i] - gridAt(B, cx[i], cz[i], true) - gridAt(M, cx[i], cz[i])); }
-  splatFit(F, fx, fz, fr, 14, 0.5);
-  const near = (x, z) => Math.min(1, gridAt(W, x, z) / 25);       // ~1 on the road, fading out over ~80 m
-  // a traced road: the real ground beside it (sampled every 100 m out to 900 m each side) shapes the slopes, the
-  // valleys it drops into and the banks cut above it; a wide fit for the far samples, a tight one near the road
   const TD = tr.def.trace && tr.def.trace.dem;
-  let XO = null, XI = null;
-  if (TD) {
-    const D = TD.d, V = TD.x.split(',').map(Number), nd = D.length;
-    const base = (x, z) => gridAt(B, x, z, true) - fall(gridAt(HD, x, z, true)) + gridAt(M, x, z) + gridAt(F, x, z);
-    const ox = [], oz = [], orr = [], inner = [];
-    for (let j = 0; (j + 1) * nd <= V.length; j++) {
-      const i = Math.round((tr.traceS0 + j * 100) / DS);
-      if (i >= N) break;
-      inner.push([cx[i], cz[i], cy[i]]);
-      for (let q = 0; q < nd; q++) {
-        const d = D[q], x = cx[i] + tr.rx[i] * d, z = cz[i] + tr.rz[i] * d, y = cy[i] + V[j * nd + q];
-        if (Math.abs(d) > 200) { ox.push(x); oz.push(z); orr.push(y - base(x, z)); } else inner.push([x, z, y]);
+  const { HD, B, M, W, F, XO, XI, SG } = mountainFit(tr, () => {
+    const HD = makeGrid(x0 - 2600, z0 - 2600, x1 + 2600, z1 + 2600, 40);      // hull distance is slow: kept on a coarse grid
+    for (let b = 0; b < HD.nz; b++) for (let a = 0; a < HD.nx; a++) HD.v[b * HD.nx + a] = hullDist(HD.x0 + a * HD.cell, HD.z0 + b * HD.cell);
+    // broad shape: a smooth average of the road's heights (every 8 m), defined everywhere. Each height only reaches
+    // 6 sigma (its weight is under 1e-7 there); past ~550 m from the road a wider average, on a coarse grid, takes over
+    const B = makeGrid(x0 - 900, z0 - 900, x1 + 900, z1 + 900, 40), sB = 110, invB = 1 / (2 * sB * sB);
+    const bx = [], bz = [], by = [];
+    for (let i = 0; i < N; i += 4) { bx.push(cx[i]); bz.push(cz[i]); by.push(cy[i]); }
+    const BC = makeGrid(B.x0, B.z0, B.x0 + (B.nx - 1) * B.cell, B.z0 + (B.nz - 1) * B.cell, 160), invC = 1 / (2 * 400 * 400);
+    for (let b = 0; b < BC.nz; b++) for (let a = 0; a < BC.nx; a++) {
+      const x = BC.x0 + a * BC.cell, z = BC.z0 + b * BC.cell;
+      let num = 0, den = 1e-300;
+      for (let q = 0; q < bx.length; q += 4) { const dx = x - bx[q], dz = z - bz[q], w = Math.exp(-(dx * dx + dz * dz) * invC); num += w * by[q]; den += w; }
+      BC.v[b * BC.nx + a] = num / den;
+    }
+    const bNum = new Float64Array(B.nx * B.nz), bDen = new Float64Array(B.nx * B.nz);
+    const RB = Math.ceil(6 * sB / B.cell), ex = new Float64Array(2 * RB + 1), ez = new Float64Array(2 * RB + 1);
+    for (let q = 0; q < bx.length; q++) {
+      const ga = Math.round((bx[q] - B.x0) / B.cell), gb = Math.round((bz[q] - B.z0) / B.cell);
+      for (let j = 0; j <= 2 * RB; j++) {                // the Gaussian splits into an x and a z factor
+        const dx = B.x0 + (ga + j - RB) * B.cell - bx[q], dz = B.z0 + (gb + j - RB) * B.cell - bz[q];
+        ex[j] = Math.exp(-dx * dx * invB); ez[j] = Math.exp(-dz * dz * invB);
+      }
+      for (let b = Math.max(0, gb - RB); b <= Math.min(B.nz - 1, gb + RB); b++) {
+        const wz = ez[b - gb + RB], wy = wz * by[q];
+        for (let a = Math.max(0, ga - RB), k = b * B.nx + a; a <= Math.min(B.nx - 1, ga + RB); a++, k++) { bNum[k] += ex[a - ga + RB] * wy; bDen[k] += ex[a - ga + RB] * wz; }
       }
     }
-    XO = makeGrid(x0 - 1200, z0 - 1200, x1 + 1200, z1 + 1200, 40); splatFit(XO, ox, oz, orr, 260, 0.2);
-    XI = makeGrid(x0 - 300, z0 - 300, x1 + 300, z1 + 300, 10);
-    splatFit(XI, inner.map((p) => p[0]), inner.map((p) => p[1]), inner.map((p) => p[2] - base(p[0], p[1]) - gridAt(XO, p[0], p[1], true)), 70, 0.2);
-  }
+    for (let b = 0, k = 0; b < B.nz; b++) for (let a = 0; a < B.nx; a++, k++) {   // the coarse fit takes over as the near weights fade
+      B.v[k] = (bNum[k] + 1e-4 * gridAt(BC, B.x0 + a * B.cell, B.z0 + b * B.cell, true)) / (bDen[k] + 1e-4);
+    }
+    // medium and fine corrections pull the surface onto the road itself; the medium weights also say how near the road is
+    const M = makeGrid(x0 - 220, z0 - 220, x1 + 220, z1 + 220, 10), W = makeGrid(x0 - 220, z0 - 220, x1 + 220, z1 + 220, 10);
+    const mx = [], mz = [], mr = [];
+    for (let i = 0; i < N; i += 2) { mx.push(cx[i]); mz.push(cz[i]); mr.push(cy[i] - gridAt(B, cx[i], cz[i], true)); }
+    splatFit(M, mx, mz, mr, 40, 0.7, W);
+    const F = makeGrid(x0 - 90, z0 - 90, x1 + 90, z1 + 90, 4);
+    const fx = [], fz = [], fr = [];
+    for (let i = 0; i < N; i++) { fx.push(cx[i]); fz.push(cz[i]); fr.push(cy[i] - gridAt(B, cx[i], cz[i], true) - gridAt(M, cx[i], cz[i])); }
+    splatFit(F, fx, fz, fr, 14, 0.5);
+    // a traced road: the real ground beside it (sampled every 100 m out to 900 m each side) shapes the slopes, the
+    // valleys it drops into and the banks cut above it; a wide fit for the far samples, a tight one near the road
+    let XO = null, XI = null;
+    if (TD) {
+      const D = TD.d, V = TD.x.split(',').map(Number), nd = D.length;
+      const base = (x, z) => gridAt(B, x, z, true) - fall(gridAt(HD, x, z, true)) + gridAt(M, x, z) + gridAt(F, x, z);
+      const ox = [], oz = [], orr = [], inner = [];
+      for (let j = 0; (j + 1) * nd <= V.length; j++) {
+        const i = Math.round((tr.traceS0 + j * 100) / DS);
+        if (i >= N) break;
+        inner.push([cx[i], cz[i], cy[i]]);
+        for (let q = 0; q < nd; q++) {
+          const d = D[q], x = cx[i] + tr.rx[i] * d, z = cz[i] + tr.rz[i] * d, y = cy[i] + V[j * nd + q];
+          if (Math.abs(d) > 200) { ox.push(x); oz.push(z); orr.push(y - base(x, z)); } else inner.push([x, z, y]);
+        }
+      }
+      XO = makeGrid(x0 - 1200, z0 - 1200, x1 + 1200, z1 + 1200, 40); splatFit(XO, ox, oz, orr, 260, 0.2);
+      XI = makeGrid(x0 - 300, z0 - 300, x1 + 300, z1 + 300, 10);
+      splatFit(XI, inner.map((p) => p[0]), inner.map((p) => p[1]), inner.map((p) => p[2] - base(p[0], p[1]) - gridAt(XO, p[0], p[1], true)), 70, 0.2);
+    }
+    // where the fitted surface is steep (the faces between distant parts of the climb) it breaks up into rock ribs
+    const SG = makeGrid(M.x0, M.z0, M.x0 + (M.nx - 1) * M.cell, M.z0 + (M.nz - 1) * M.cell, M.cell);
+    for (let b = 1; b < SG.nz - 1; b++) for (let a = 1; a < SG.nx - 1; a++) {
+      const k = b * SG.nx + a, x = SG.x0 + a * SG.cell, z = SG.z0 + b * SG.cell, e = SG.cell;
+      const hx = gridAt(B, x + e, z, true) + M.v[k + 1] - gridAt(B, x - e, z, true) - M.v[k - 1];
+      const hz = gridAt(B, x, z + e, true) + M.v[k + SG.nx] - gridAt(B, x, z - e, true) - M.v[k - SG.nx];
+      SG.v[k] = smoothstep(0.45, 0.95, Math.hypot(hx, hz) / (2 * e));
+    }
+    return { HD, B, M, W, F, XO, XI, SG };
+  });
+  const near = (x, z) => Math.min(1, gridAt(W, x, z) / 25);       // ~1 on the road, fading out over ~80 m
   let cap = -Infinity; for (let i = 0; i < N; i++) cap = Math.max(cap, cy[i] + 3);
   if (TD) cap = Infinity;                                                           // real ground can rise above the road
-  // where the fitted surface is steep (the faces between distant parts of the climb) it breaks up into rock ribs
-  const SG = makeGrid(M.x0, M.z0, M.x0 + (M.nx - 1) * M.cell, M.z0 + (M.nz - 1) * M.cell, M.cell);
-  for (let b = 1; b < SG.nz - 1; b++) for (let a = 1; a < SG.nx - 1; a++) {
-    const k = b * SG.nx + a, x = SG.x0 + a * SG.cell, z = SG.z0 + b * SG.cell, e = SG.cell;
-    const hx = gridAt(B, x + e, z, true) + M.v[k + 1] - gridAt(B, x - e, z, true) - M.v[k - 1];
-    const hz = gridAt(B, x, z + e, true) + M.v[k + SG.nx] - gridAt(B, x, z - e, true) - M.v[k - SG.nx];
-    SG.v[k] = smoothstep(0.45, 0.95, Math.hypot(hx, hz) / (2 * e));
-  }
   const T = (x, z) => {
     const q = near(x, z), far = 1 - q, hd = gridAt(HD, x, z, true);
     let h = gridAt(B, x, z, true) - fall(hd) + gridAt(M, x, z) + gridAt(F, x, z);
@@ -14809,8 +14859,9 @@ function loadStage(def, then) {
   l.classList.remove('hidden');
   AudioSys.stopSpeech();
   detailTextures();                           // (starts the detail maps on the first load)
-  setTimeout(() => detailReady.then(() => {
+  setTimeout(() => detailReady.then(() => loadMountainFit(def)).then(() => {
     buildStage(def);
+    saveMountainFit(def);
     l.classList.add('hidden');
     if (then) then();
   }), 40);
