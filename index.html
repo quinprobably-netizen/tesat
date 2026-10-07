@@ -11529,9 +11529,11 @@ function kadettTail(K, c) {
   S.decal(rect(-0.2, 0.62, 0.2, 0.8), K.dark, 'rear', 0.007);
 }
 const NEW_CARS = [
-  { name: 'RS 002', blurb: 'Audi Sport quattro RS 002 (1987), Audi\'s Group S prototype: the S1\'s turbo five turned round behind the driver in a low carbon-kevlar wedge. Two prototypes were built on a tube frame and Group S was cancelled before either raced. Specs mostly estimated.',
-    // the S1 E2's 2,110 cc turbo five, mid-mounted; about 700 bhp claimed; tube frame, two built;
-    // no weight or dimensions were published (est.; the height is the traced drawing's)
+  { name: 'RS 002', blurb: 'Audi Sport quattro RS 002 (1986-87), Audi\'s Group S prototype: the S1 E2\'s turbo five turned round behind the driver in a glass-fibre wedge on a tube frame. Group S was cancelled before the car raced. Power and size are claims or estimates.',
+    // Sources: Autozeitung (2.1 L turbo five, glass-fibre body on a tube frame, a 460 PS manufacturer figure at reduced
+    // boost); Driving.co.uk and The Drive (quattro AWD, about 700 hp claimed, the car ran at Goodwood in 2017); Diario
+    // Motor (about 1,000 kg total). No dimensions, ratios or diff spec were published, so wheelbase, track, size,
+    // gearbox, centre diff and tyres are estimates. Built: one or two, the sources disagree.
     spec: { engine: '2.1 L inline-5, turbo (mid-mounted)', cyl: 5, layout: 'inline', pitch: 1.09, hp: 690, hpAt: 8000, nm: 660, nmAt: 6500, redline: 8400, idle: 1000, lag: 0.7, offBoost: 0.5,
       voice: { cyl: 5, hdr: [0, 0.3, 0.5, 0.2, 0.4], pipe: 1.6, prim: 0.7, tail: 'open', intake: 'turbo', bov: 'dump', burble: 0.4 },   // Audi 20v five, firing 1-2-4-5-3, unequal 5-into-1 manifold (the five's warble), short pipe out of the tail
       curve: [[1000, 190], [2000, 250], [3000, 330], [4000, 480], [5000, 610], [6000, 650], [6500, 660], [7500, 630], [8000, 614], [8400, 560]],
@@ -11545,7 +11547,7 @@ const NEW_CARS = [
     // traced off a side-view drawing of the car: a Group C-style body, a nose that rounds down from the wheel arches,
     // a steep windscreen, a long roof running into a fastback engine cover, the big side intake behind the door and a
     // tall rear wing
-    shape: { trace: { top: '0.76:0.35 0.72:0.42 0.65:0.48 0.56:0.6 0.47:0.7 0.25:0.8 -0.05:0.85 -0.3:0.97 -0.6:1.12 -0.91:1.3 -1.1:1.34 -1.27:1.355 -1.55:1.33 -1.78:1.29 -2.0:1.22 -2.28:1.13 -2.55:1.04 -2.83:0.95 -3.1:0.9 -3.3:0.88 -3.35:0.71 -3.3:0.5',
+    shape: { trace: { top: '0.76:0.44 0.72:0.5 0.65:0.55 0.56:0.62 0.47:0.7 0.25:0.8 -0.05:0.85 -0.3:0.97 -0.6:1.12 -0.91:1.3 -1.1:1.34 -1.27:1.355 -1.55:1.33 -1.78:1.29 -2.0:1.22 -2.28:1.13 -2.55:1.04 -2.83:0.95 -3.1:0.9 -3.3:0.88 -3.35:0.71 -3.3:0.5',
         bot: '0.76:0.16 0.7:0.15 0.5:0.14 0.3:0.14 0:0.13 -0.5:0.13 -1.6:0.13 -2.2:0.12 -2.8:0.15 -3.0:0.26 -3.2:0.32 -3.35:0.4',
         plan: '0.76:0.45 0.72:0.62 0.62:0.78 0.45:0.88 0.25:0.93 0:0.95 -0.3:0.93 -0.6:0.89 -0.9:0.87 -1.7:0.87 -2.0:0.9 -2.3:0.94 -2.5:0.95 -2.8:0.94 -3.1:0.9 -3.35:0.8',
         belt: '-0.05:0.85 -0.67:0.88 -1.72:0.88 -1.85:0.9', cowl: -0.05, roof: [-0.91, -1.78], glassEnd: -1.85,
@@ -11558,14 +11560,15 @@ const NEW_CARS = [
         ep: [[-2.96, 0.86], [-3.1, 1.28], [-3.17, 1.32], [-3.73, 1.35], [-3.43, 0.86]] }],
       windows: [{ lo: [[-0.67, 0.88], [-1.72, 0.88]], hi: [[-0.67, 0.88], [-0.85, 1.07], [-1.05, 1.21], [-1.4, 1.22], [-1.72, 1.19]] }],
       details(K, S, c) {
-        // twin lamps each side under clear covers on the nose's shoulders, a wide mouth below, NACA ducts in the doors,
+        // one round headlamp each side at the nose's shoulders (the car's photos), a narrow slatted mouth between them,
         // four round tail lamps in a black panel under the wing
         const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
         K.both((sx) => {
-          S.decal([[sx * 0.4, 0.5], [sx * 0.8, 0.5], [sx * 0.78, 0.62], [sx * 0.45, 0.66]], K.dark, 'front', 0.006);
-          S.lamp(sx * 0.53, 0.57, 0.05, K.headMat); S.lamp(sx * 0.68, 0.56, 0.05, K.headMat);
+          S.lamp(sx * 0.42, 0.5, 0.07, K.headMat);
           S.lamp(sx * 0.62, 0.62, 0.05, K.tailMat, 'rear'); S.lamp(sx * 0.46, 0.62, 0.05, K.tailMat, 'rear');
         });
+        S.decal(rect(-0.34, 0.3, 0.34, 0.4), K.dark, 'front', 0.006);                                   // the mouth, low under the nose
+        for (let i = 0; i < 4; i++) S.decal(rect(-0.3, 0.315 + i * 0.02, 0.3, 0.325 + i * 0.02), K.trim, 'front', 0.008);   // its slats
         S.decal(rect(-0.55, 0.2, 0.55, 0.36), K.dark, 'front');
         S.decal(rect(-0.8, 0.52, 0.8, 0.72), K.dark, 'rear', 0.005);
         S.bodySide(-0.75, -1.15, (v) => K.lerp(0.45, 0.2, v), 0.5, K.dark);
