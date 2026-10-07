@@ -1186,10 +1186,11 @@ body.hud-min .pn svg *{stroke:var(--text)!important}
       <div id="setControls" class="hidden">
         <table class="ctl-table">
           <tr><th></th><th>KEYBOARD</th><th>GAMEPAD</th><th>TOUCH</th></tr>
-          <tr><td>Throttle / brake, reverse</td><td><kbd>W</kbd><kbd>S</kbd> or <kbd>&uarr;</kbd><kbd>&darr;</kbd></td><td>RT / LT</td><td>GAS / BRAKE</td></tr>
+          <tr><td>Throttle / brake</td><td><kbd>W</kbd><kbd>S</kbd> or <kbd>&uarr;</kbd><kbd>&darr;</kbd></td><td>RT / LT</td><td>GAS / BRAKE</td></tr>
           <tr><td>Steer (in the air: yaw)</td><td><kbd>A</kbd><kbd>D</kbd> or <kbd>&larr;</kbd><kbd>&rarr;</kbd></td><td>Left stick</td><td>Steering pad, or tilt (Settings)</td></tr>
           <tr><td>Handbrake</td><td><kbd>Space</kbd></td><td>A</td><td>HAND BRAKE</td></tr>
           <tr><td>Gear up / down</td><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>RB / LB</td><td>&#9650; / &#9660;</td></tr>
+          <tr><td>Reverse (stopped), then throttle</td><td>Gear down, or hold <kbd>S</kbd> 1 s</td><td>LB, or hold LT 1 s</td><td>&#9660;, or hold BRAKE 1 s</td></tr>
           <tr><td>Reset to checkpoint</td><td><kbd>R</kbd></td><td>Back</td><td>R</td></tr>
           <tr><td>Camera</td><td><kbd>C</kbd></td><td>Y</td><td>CAM</td></tr>
           <tr><td>Racing line: full, braking, off</td><td><kbd>L</kbd></td><td></td><td>Settings</td></tr>
@@ -2220,7 +2221,8 @@ function cleanBuild(b) {
    engines have lag (torque off boost is `offBoost` of the curve and the turbo spools over about `lag`
    seconds, quicker at high revs); `disp` (L) sets the engine braking; `launch` is the rpm the clutch is
    fully home by on a standing start; `Ie` the engine, flywheel and clutch inertia (kg·m²). Gearbox: each
-   gear's ratio, the final drive and reverse; `shift` is how long a change takes (s). Drivetrain: `front` is
+   gear's ratio, the final drive and reverse; `shift` is how long a change takes (s); `boxType` how it shifts
+   (see BOX_TYPES), `noSync` the gears without a synchromesh; `als` the turbo's anti-lag (see ALS). Drivetrain: `front` is
    the centre differential's nominal share of torque to the front axle (0 = rear drive); each differential
    is open, limited-slip (lsd), Torsen, viscous or locking (see DIFF_TYPES). Chassis: wheelbase `wb`,
    `track` front and rear, `wf` the share of weight on the front axle, `cgH` the centre of mass height,
@@ -2231,13 +2233,29 @@ function cleanBuild(b) {
    tyre's size; `disc`: brake disc diameters front and rear (mm). `pitch` is the engine note. */
 const FUEL_KG = 45, REF_PILOT_KG = 75;
 const DIFF_TYPES = {
-  open: { name: 'open' },
+  open: { name: 'open', none: true },
   lsd: { name: 'limited-slip', lf: 0.4, lfCoast: 0.25, pre: 80 },     // plated (ZF type): holds up to 40% of its input torque across its sides on power
   lsdF: { name: 'limited-slip', lf: 0.25, lfCoast: 0.1, pre: 30 },     // the lighter 25% setting the works cars ran at the front, so they still steer
   torsen: { name: 'Torsen', lf: 0.5, lfCoast: 0.5, pre: 0 },          // torque-sensing worm gears, bias ratio 3:1
   viscous: { name: 'viscous', kv: 60, kvCentre: 450 },                  // silicone coupling: torque grows with the speed difference (N·m per rad/s at the wheels)
   locking: { name: 'locking', lock: true },                             // locked solid
+  // hydraulic multi-plate clutch the ECU sets each moment: share of the input torque it holds at idle, flat out and under braking
+  active: { name: 'active (ECU-controlled)', active: true, pre: 60, base: 0.15, thr: 1.1, brake: 0.03 },
+  twin: { name: 'none (an engine for each axle)', none: true },          // no shaft between the axles: SEAT's Ibiza Bimotor
 };
+/* How each gearbox changes gear, as the real ones do:
+   seq: sequential dog box (WRC): flat-shift, the clutch stays home; an upshift is an ignition cut while the dogs
+     swap, a downshift an automatic blip. One gear per pull: pull twice and it shifts twice.
+   dog: H-pattern dog box (Group B / S): the driver lifts and dips the clutch, the dogs go straight in; gears can
+     be skipped (5th to 3rd in one move).
+   synchro: road-type H-pattern with synchromesh: the cones have to match the speeds first, so it is slower, and
+     slower still the more the revs have to change; gears can be skipped. */
+const BOX_TYPES = { seq: { name: 'sequential', clutch: false, skip: false }, dog: { name: 'H-pattern dog box', clutch: true, skip: true },
+  synchro: { name: 'H-pattern with synchromesh', clutch: true, skip: true } };
+/* Turbo anti-lag: what is left of the boost when the driver lifts. 0: none, the blow-off valve dumps it at once;
+   1: a recirculating system (Audi's and Peugeot's late Group B ones) keeps the turbine spinning, about half of the
+   boost; 2: a modern rally ALS (fuel and air into the hot exhaust, the 'bang-bang') keeps nearly all of it. */
+const ALS = [{ floor: 0, bleed: 3 }, { floor: 0.5, bleed: 1.2 }, { floor: 0.9, bleed: 0.6 }];
 const CAR_SPECS = [
   // Lancia Delta S4, 1986 works car: 480 CV at 8,400 rpm, 490 N·m at 5,000; 1986 Hewland ratios with the 2.643 axle
   // and a 2.1 transfer (5.55 overall); Ferguson viscous centre at 30/70 (gravel), ZF plated diffs; 3.99 m long,
@@ -2354,7 +2372,8 @@ const CAR_SPECS = [
   { engine: '1.07 L inline-4 (BMC A-series, works tune)', cyl: 4, layout: 'inline', pitch: 1.3, hp: 90, hpAt: 7000, nm: 95, nmAt: 5000, redline: 7500, idle: 900, lag: 0, offBoost: 1,
     curve: [[900, 55], [2000, 70], [3000, 82], [4000, 91], [5000, 95], [6000, 94], [7000, 91.5], [7500, 84]],
     disp: 1.071, launch: 4000, Ie: 0.05, enginePos: 'front',
-    box: '4-speed close-ratio manual', gears: [2.573, 1.775, 1.24, 1.0], final: 4.133, rev: 2.573, shift: 0.3,
+    box: '4-speed close-ratio manual, no synchro on first', gears: [2.573, 1.775, 1.24, 1.0], final: 4.133, rev: 2.573, shift: 0.3,
+    boxType: 'synchro', noSync: [1],   // the A-series box had no synchromesh on first until 1968: it only goes in at a crawl
     kg: 650, front: 1, centre: 'open', fdiff: 'open', rdiff: 'open',
     wb: 2.036, track: [1.24, 1.2], wf: 0.6, cgH: 0.48, dims: [3.054, 1.41, 1.35], travel: 0.15, unsprung: [18, 16],   // 10 in wheels, rear drums
     tyre: { r: 0.248, w: 0.145, rim: 10, kg: 9, size: 'Dunlop SP3 145-10' }, disc: [181, 178] },
@@ -2522,6 +2541,7 @@ function drivetrainText(spec) {
   const d = (k) => DIFF_TYPES[k].name;
   if (!spec.front) return `Rear-wheel drive, ${d(spec.rdiff)} rear differential`;
   if (spec.front >= 1) return `Front-wheel drive, ${d(spec.fdiff)} front differential`;
+  if (spec.twin) return `Four-wheel drive from two engines, the front one driving the front axle and the rear one the rear, with nothing linking the axles; ${d(spec.fdiff)} front, ${d(spec.rdiff)} rear`;
   if (DIFF_TYPES[spec.centre].lock) return `Four-wheel drive with no centre differential (front and rear axles locked together); ${d(spec.fdiff)} front, ${d(spec.rdiff)} rear`;
   return `Four-wheel drive, ${Math.round(spec.front * 100)}/${Math.round(100 - spec.front * 100)} front/rear through a ${d(spec.centre)} centre differential; ${d(spec.fdiff)} front, ${d(spec.rdiff)} rear`;
 }
@@ -6300,8 +6320,8 @@ const car = {
   nGround: 0, airTime: 0, wasAirborne: false, pitchLatch: false, steerLatch: false,
   damage: 0, drifting: false, slip: 0, hullContact: false, spool: 1, tc: true, tcF: 1, tcCut: false, abs: true, backfire: 0,
   events: [], flipTimer: 0, offTimer: 0, globalTimer: 0, tune: null,
-  gear: 1, rpm: 0.12, we: 105, shiftT: 0, shiftDir: 0, blipRpm: 0, shiftReq: 0, limiter: false, cut: false, autoBox: true, revHold: 0,
-  Tcl: 0, clutchSlip: false, sigma: 1,
+  gear: 1, rpm: 0.12, we: 105, shiftT: 0, shiftDir: 0, blipRpm: 0, shiftReq: 0, limiter: false, cut: false, autoBox: true, revHold: 0, revLatch: false,
+  Tcl: 0, clutchSlip: false, sigma: 1, we2: 105, Tcl2: 0, cut2: false,      // we2, Tcl2, cut2: the second engine (twin-engined cars)
   // damage by corner of the car (0..1): f radiator, r exhaust and drivetrain, l/rt suspension (l is +x)
   zones: { f: 0, r: 0, l: 0, rt: 0 }, pull: 0, heat: 0, dents: [], glassBroken: false,
 };
@@ -6380,53 +6400,74 @@ function gearRatio() {
   return car.gear > 0 ? tn.gears[car.gear - 1] * tn.final : car.gear < 0 ? -tn.spec.rev * tn.final : 0;
 }
 /** Gear selection for one physics step: automatic shifts on engine revs, the player's requests with a
- *  manual box (an over-revving downshift is refused), reverse from a standstill, the turbo's spool and the
- *  anti-lag pops. The engine and wheels themselves are solved in drivelineStep. */
+ *  manual box (an over-revving downshift is refused, and so is first gear on the move where it has no synchromesh),
+ *  reverse from a standstill, the turbo's spool and the anti-lag pops. Each box shifts its own way (BOX_TYPES).
+ *  The engine and wheels themselves are solved in drivelineStep. */
 function gearboxStep(dt, ctl, vFwd, nG) {
-  const tn = car.tune, sp = tn.spec, n = tn.gears.length, auto = gearboxAuto();
+  const tn = car.tune, sp = tn.spec, n = tn.gears.length, auto = gearboxAuto(), box = BOX_TYPES[sp.boxType] || BOX_TYPES.synchro;
+  const crash = (g) => sp.noSync && sp.noSync.includes(g) && Math.abs(vFwd) > 2.5;   // a gear with no synchro won't go in on the move
   car.autoBox = auto;
   if (car.shiftT > 0) { car.shiftT = Math.max(0, car.shiftT - dt); if (car.shiftT <= 0) car.shiftDir = 0; }
-  // reverse: hold the brake at a standstill to engage it; the throttle, or letting go of the brake, takes it back out
-  if (car.gear > 0) {
-    car.revHold = Math.abs(vFwd) < 0.8 && ctl.brake > 0.3 && ctl.throttle === 0 && car.shiftT <= 0 ? car.revHold + dt : 0;
-    if (car.revHold > 0.3) { car.gear = -1; car.revHold = 0; car.shiftT = sp.shift; car.shiftDir = 0; car.events.push({ type: 'shift', up: false }); }
-  } else if (ctl.brake === 0 || (ctl.throttle > 0 && vFwd > -1.5)) { car.gear = 1; car.shiftT = sp.shift; car.shiftDir = 0; car.events.push({ type: 'shift', up: true }); }
+  // reverse is a gear of its own, as in the real car: the brake pedal only ever brakes and the throttle only ever
+  // drives (backwards in reverse). At a standstill a gear-down pull from first selects it and a gear-up pull takes
+  // first back; so does holding the brake for a second with the throttle up (once per press), for touch and the
+  // automatic. Only the driver selects it, and not on the grid.
+  const still = Math.abs(vFwd) < 0.8 && car.shiftT <= 0, driver = !Game.autopilot && Game.state === 'racing';
+  let toRev = 0;
+  if (still && car.shiftReq < 0 && car.gear === 1) toRev = -1;
+  else if (Math.abs(vFwd) < 2 && car.shiftReq > 0 && car.gear < 0) toRev = 1;
+  if (car.revLatch) { car.revHold = 0; if (ctl.brake < 0.3) car.revLatch = false; }
+  else car.revHold = still && driver && ctl.brake > 0.3 && ctl.throttle < 0.05 ? car.revHold + dt : 0;
+  if (car.revHold > 1) { toRev = car.gear < 0 ? 1 : -1; car.revLatch = true; car.revHold = 0; }
+  if (toRev) {
+    car.gear = toRev; car.shiftReq = 0; car.shiftT = sp.shift; car.shiftDir = 0;
+    car.events.push({ type: 'shift', up: toRev > 0 }, { type: toRev < 0 ? 'reverse' : 'first' });
+  }
   const wD = Math.abs(drivenOmega());
   const rpmIn = (gr) => wD * tn.gears[gr - 1] * tn.final * 60 / TAU;
   if (car.gear > 0) {
     // stopped in a tall gear with manual shifting: dip the clutch and pull away in first, as a driver would
-    if (!auto && vFwd < 2 && car.gear > 1 && ctl.throttle > 0 && car.shiftT <= 0) { car.gear = 1; car.shiftReq = 0; }
-    if (car.shiftT <= 0) {
+    if (!auto && vFwd < 2 && car.gear > 1 && ctl.throttle > 0 && car.shiftT <= 0 && !crash(1)) { car.gear = 1; car.shiftReq = 0; }
+    // an H-pattern lever can go on past the next gate while the clutch is still down: 5th to 3rd in one shift
+    const skip = !auto && box.skip && car.shiftT > 0 && car.shiftDir !== 0 && car.shiftReq * car.shiftDir > 0;
+    if (car.shiftT <= 0 || skip) {
       let to = 0;
       const rIn = rpmIn(car.gear);
       if (auto) {
-        if (vFwd < 1.5 && car.gear > 1 && rpmIn(1) < sp.redline * 0.9) to = 1 - car.gear;       // stopped: back to first (not while the wheels still spin, as when sliding on the tail after a crash)
+        if (vFwd < 1.5 && car.gear > 1 && rpmIn(1) < sp.redline * 0.9 && !crash(1)) to = 1 - car.gear;       // stopped: back to first (not while the wheels still spin, as when sliding on the tail after a crash)
         else if (car.gear < n && rIn > tn.upRpm[car.gear - 1] && ctl.throttle > 0.1 && nG > 0) to = 1;
         else if (car.gear > 1) {
           const rDown = rpmIn(car.gear - 1);
-          if (rDown < sp.redline * 0.9 && (rIn < tn.downRpm || (ctl.brake > 0.1 && rDown < sp.redline * 0.8))) to = -1;
+          if (rDown < sp.redline * 0.9 && !crash(car.gear - 1) && (rIn < tn.downRpm || (ctl.brake > 0.1 && rDown < sp.redline * 0.8))) to = -1;
         }
+        car.shiftReq = 0;
       } else if (car.shiftReq) {
-        to = car.shiftReq;
-        if (to < 0 && car.gear > 1 && rpmIn(car.gear - 1) > sp.redline * 1.04) { to = 0; car.events.push({ type: 'overrev' }); }
+        // a sequential takes the pulls one at a time (the rest wait their turn); an H-pattern goes straight to the gear
+        to = box.skip ? car.shiftReq : Math.sign(car.shiftReq);
+        car.shiftReq -= to;
+        to = clamp(car.gear + to, 1, n) - car.gear;
+        if (to < 0 && rpmIn(car.gear + to) > sp.redline * 1.04) { to = 0; car.shiftReq = 0; car.events.push({ type: 'overrev' }); }
+        else if (to < 0 && crash(car.gear + to)) { to = 0; car.shiftReq = 0; car.events.push({ type: 'crash' }); }
       }
-      car.shiftReq = 0;
       const ng = clamp(car.gear + to, 1, n);
       if (ng !== car.gear) {
-        if (to > 0 && car.rpm > 0.8 && ctl.throttle > 0.5) car.backfire = 0.12;                // anti-lag pop on a flat-out upshift
-        car.gear = ng; car.shiftT = sp.shift; car.shiftDir = Math.sign(to); car.blipRpm = rpmIn(ng);
+        if (to > 0 && car.rpm > 0.8 && ctl.throttle > 0.5 && sp.lag > 0) car.backfire = 0.12;  // the cut fuel lights in the hot exhaust on a flat-out upshift
+        // a synchromesh box takes longer the more the revs have to change
+        const dr = Math.abs(rpmIn(ng) - Math.max(rIn, sp.idle)) / sp.redline;
+        car.shiftT = skip ? Math.max(car.shiftT, sp.shift * 0.6) : sp.shift * (sp.boxType === 'synchro' ? 0.7 + 1.2 * dr : 1);
+        car.gear = ng; car.shiftDir = Math.sign(to); car.blipRpm = rpmIn(ng);
         car.events.push({ type: 'shift', up: to > 0 });
       }
     }
-  }
-  car.shiftReq = 0;
-  // turbo: boost builds over about sp.lag seconds on the throttle (faster at high revs) and bleeds
-  // away off it; the rally cars' anti-lag keeps some of it through a quick lift or a gear change
-  const thr = car.gear < 0 ? ctl.brake : ctl.throttle;
+  } else car.shiftReq = 0;
+  // turbo: boost builds over about sp.lag seconds on the throttle (faster at high revs) and goes off it as fast as the
+  // anti-lag lets it (ALS); through a gear change the throttle stays down in a sequential (flat-shift) and comes up in an H-pattern
+  const thr = ctl.throttle;
   if (sp.lag > 0) {
-    const want = car.shiftT > 0 ? Math.max(car.spool, 0.7) : thr;
-    car.spool = want > car.spool ? Math.min(want, car.spool + dt * (0.35 + car.rpm) / sp.lag * Math.sqrt(car.sigma)) : Math.max(want, car.spool - dt * 1.2);
-    if (thr < 0.1 && car.rpm > 0.75 && car.spool > 0.6 && !car.backfire && Math.random() < dt * 6) car.backfire = 0.08;
+    const al = ALS[sp.als || 0], lift = car.shiftT > 0 && box.clutch ? 0 : thr;
+    const want = Math.max(lift, car.rpm > 0.4 ? al.floor : 0);
+    car.spool = want > car.spool ? Math.min(want, car.spool + dt * (0.35 + car.rpm) / sp.lag * Math.sqrt(car.sigma)) : Math.max(want, car.spool - dt * al.bleed);
+    if (thr < 0.1 && car.rpm > 0.75 - 0.15 * (sp.als || 0) && car.spool > 0.45 && !car.backfire && Math.random() < dt * (3 + 4 * (sp.als || 0))) car.backfire = 0.08;
   } else car.spool = 1;
   if (car.backfire > 0) car.backfire = Math.max(0, car.backfire - dt);
 }
@@ -6445,63 +6486,81 @@ function gearboxStep(dt, ctl, vFwd, nG) {
    in J, and the slipping couplings' torques in τ; the couplings that change between holding and slipping
    are re-solved. */
 const DL = {
-  A: new Float64Array(25), b: new Float64Array(5), x: new Float64Array(5), M: new Float64Array(5), om: new Float64Array(5),
-  cpl: Array.from({ length: 8 }, () => ({ on: false, u: new Float64Array(5), K: 0, cap: Infinity, lin: true, sgn: 1, tgt: 0 })),
+  n: 5,                                // spinning parts: 5, or 6 with a second engine (SEAT's Ibiza Bimotor drives each axle with its own)
+  A: new Float64Array(36), b: new Float64Array(6), x: new Float64Array(6), M: new Float64Array(6), om: new Float64Array(6),
+  cpl: Array.from({ length: 9 }, () => ({ on: false, u: new Float64Array(6), K: 0, cap: Infinity, lin: true, sgn: 1, tgt: 0 })),
   F: Array.from({ length: 4 }, () => ({ Fx: 0, Fy: 0, dFx: 0, kap: 0, s: 0 })),
   tk: new Float64Array(16),            // per wheel: contact-patch relaxation over a substep (1 − k, g), low-speed damping, |v|
 };
 DL.cpl[1].u.set([0, 0.5, 0.5, -0.5, -0.5]);                 // centre: front axle against rear axle
 DL.cpl[2].u.set([0, 1, -1, 0, 0]); DL.cpl[3].u.set([0, 0, 0, 1, -1]);   // front and rear axles: left against right
 for (let k = 0; k < 4; k++) DL.cpl[4 + k].u[k + 1] = 1;      // brakes: each wheel against the ground
+                                                               // cpl[8]: the second engine's clutch (twin-engined cars)
 function setCpl(c, on, K, cap) {
   if (on && !c.on) c.lin = true;
   c.on = on; c.K = K; c.cap = cap;
 }
 /** Set up differential coupling c of type `type` carrying input torque Tin (N·m at the wheels). */
-function diffCpl(c, type, Tin, power, centre) {
+function diffCpl(c, type, Tin, power, centre, ctl) {
   const d = DIFF_TYPES[type];
-  if (!d || type === 'open') { c.on = false; return; }
+  if (!d || d.none) { c.on = false; return; }
   if (d.lock) setCpl(c, true, DRIVE.Kc, Infinity);
+  else if (d.active) {
+    // the ECU's map for the hydraulic clutch pack: clamps up with the throttle for traction, lets go under braking so
+    // the car turns in, and eases off with a lot of lock so the front axle isn't dragged straight on
+    const st = Math.abs(ctl.steer || 0), lock = ctl.brake > 0.1 ? d.brake : d.base + d.thr * ctl.throttle * (1 - 0.5 * st);
+    setCpl(c, true, DRIVE.Kc, d.pre + lock * Tin);
+  }
   else if (d.kv) { setCpl(c, true, centre ? d.kvCentre : d.kv, Infinity); c.lin = true; }
   else setCpl(c, true, DRIVE.Kc, d.pre + (power ? d.lf : d.lfCoast) * Tin);
 }
-function dot5(u, v) { return u[0] * v[0] + u[1] * v[1] + u[2] * v[2] + u[3] * v[3] + u[4] * v[4]; }
-function solve5(A, b, x) {
+function dotN(u, v, n) { let s = 0; for (let i = 0; i < n; i++) s += u[i] * v[i]; return s; }
+function solveN(A, b, x, n) {
   // Gaussian elimination; A is symmetric positive definite, so no pivoting is needed
-  for (let i = 0; i < 5; i++) {
-    const p = A[i * 6];
-    for (let j = i + 1; j < 5; j++) {
-      const f = A[j * 5 + i] / p;
+  for (let i = 0; i < n; i++) {
+    const p = A[i * n + i];
+    for (let j = i + 1; j < n; j++) {
+      const f = A[j * n + i] / p;
       if (f === 0) continue;
-      for (let k = i; k < 5; k++) A[j * 5 + k] -= f * A[i * 5 + k];
+      for (let k = i; k < n; k++) A[j * n + k] -= f * A[i * n + k];
       b[j] -= f * b[i];
     }
   }
-  for (let i = 4; i >= 0; i--) {
+  for (let i = n - 1; i >= 0; i--) {
     let s = b[i];
-    for (let k = i + 1; k < 5; k++) s -= A[i * 5 + k] * x[k];
-    x[i] = s / A[i * 6];
+    for (let k = i + 1; k < n; k++) s -= A[i * n + k] * x[k];
+    x[i] = s / A[i * n + i];
   }
 }
 /** One physics step of the powertrain. G: overall ratio (0 = neutral); th0: throttle after the driver aids. */
 function drivelineStep(dt, ctl, G, th0) {
   const tn = car.tune, sp = tn.spec, W = car.wheels, r = CAR.radius, h = dt / DRIVE.sub;
   const om = DL.om, M = DL.M, A = DL.A, b = DL.b, x = DL.x, C = DL.cpl, TF = DL.F;
-  M[0] = sp.Ie; for (let k = 0; k < 4; k++) M[k + 1] = CAR.Iw;
-  om[0] = car.we; for (let k = 0; k < 4; k++) om[k + 1] = W[k].om;
-  const s = sp.front, c0 = s / 2, c2 = (1 - s) / 2;
-  // clutch: an automatic launch clutch (engagement rises with revs from just over idle to the launch revs), open while shifting;
-  // a rear-drive car's driver dips it with the handbrake
-  const cl = C[0], wC = c0 * (om[1] + om[2]) + c2 * (om[3] + om[4]);
-  let eng = G === 0 || car.shiftT > 0 ? 0 : smoothstep(sp.idle * 1.05, sp.launch, Math.max(om[0], Math.abs(G * wC)) * 60 / TAU);
-  if (ctl.handbrake && !s) eng = 0;
-  setCpl(cl, eng > 0.002, DRIVE.Kc, sp.clutchT * eng);
+  // a twin-engined car has a second engine (part 5) driving the rear axle through its own clutch and gearbox, the
+  // front engine only the front axle: each pulls with half the quoted torque and nothing links the axles
+  const twin = !!sp.twin, n = DL.n = twin ? 6 : 5, eSh = twin ? 0.5 : 1;
+  M[0] = M[5] = sp.Ie * eSh; for (let k = 0; k < 4; k++) M[k + 1] = CAR.Iw;
+  om[0] = car.we; for (let k = 0; k < 4; k++) om[k + 1] = W[k].om; om[5] = twin ? car.we2 : 0;
+  const s = sp.front, c0 = twin ? 0.5 : s / 2, c2 = twin ? 0 : (1 - s) / 2;
+  // clutch: an automatic launch clutch (engagement rises with revs from just over idle to the launch revs); an H-pattern
+  // box opens it while shifting, a sequential keeps it home; a rear-drive car's driver dips it with the handbrake
+  const box = BOX_TYPES[sp.boxType] || BOX_TYPES.synchro, dip = car.shiftT > 0 && box.clutch;
+  const clutch = (c, we, wC, hb) => {
+    const eng = G === 0 || dip || hb ? 0 : smoothstep(sp.idle * 1.05, sp.launch, Math.max(we, Math.abs(G * wC)) * 60 / TAU);
+    setCpl(c, eng > 0.002, DRIVE.Kc, sp.clutchT * eSh * eng);
+  };
+  const cl = C[0], cl2 = C[8];
+  clutch(cl, om[0], c0 * (om[1] + om[2]) + c2 * (om[3] + om[4]), ctl.handbrake && !s);
   cl.u[0] = 1; cl.u[1] = cl.u[2] = -G * c0; cl.u[3] = cl.u[4] = -G * c2;
+  if (twin) { clutch(cl2, om[5], 0.5 * (om[3] + om[4]), ctl.handbrake); cl2.u[5] = 1; cl2.u[3] = cl2.u[4] = -G * 0.5; } else cl2.on = false;
   // differentials (the centre one lets go while the handbrake is pulled, so the rears can lock)
   const Tin = Math.abs(G * car.Tcl), power = car.Tcl * G >= 0;
-  if (s && !ctl.handbrake) diffCpl(C[1], sp.centre, Tin, power, true); else C[1].on = false;
-  if (s) diffCpl(C[2], sp.fdiff, Tin * s, power); else C[2].on = false;
-  diffCpl(C[3], sp.rdiff, Tin * (1 - s), power);
+  if (twin) { C[1].on = false; diffCpl(C[2], sp.fdiff, Tin, power, false, ctl); diffCpl(C[3], sp.rdiff, Math.abs(G * car.Tcl2), power, false, ctl); }
+  else {
+    if (s && !ctl.handbrake) diffCpl(C[1], sp.centre, Tin, power, true, ctl); else C[1].on = false;
+    if (s) diffCpl(C[2], sp.fdiff, Tin * s, power, false, ctl); else C[2].on = false;
+    diffCpl(C[3], sp.rdiff, Tin * (1 - s), power, false, ctl);
+  }
   // a brake that holds its wheel holds it where it stopped: the coupling aims to wind back any creep since it locked
   for (let k = 0; k < 4; k++) { const c = C[4 + k]; setCpl(c, W[k].Tb > 1, DRIVE.Kc, W[k].Tb); c.tgt = c.on ? -W[k].bAng * 30 : 0; }
   const dmg = (1 - 0.15 * car.damage - 0.4 * Math.max(0, car.heat - 0.3)) * Raid.engineMul();   // a holed radiator cooks the engine; an empty tank starves it
@@ -6515,15 +6574,21 @@ function drivelineStep(dt, ctl, G, th0) {
     relaxCoeffs(ax, h, TYRE.sigma[w.gs.surf] * TYRE.sigmaX * tn.relax);
     TK[k * 4] = 1 - RLX.k; TK[k * 4 + 1] = RLX.g; TK[k * 4 + 2] = w.wl / TYRE.vd; TK[k * 4 + 3] = ax;
   }
-  let Tcl = 0;
-  for (let st = 0; st < DRIVE.sub; st++) {
-    // engine: driver's throttle (ignition cut on an upshift, a blip to match revs on a downshift), idle control, rev limiter
-    const rpm = om[0] * 60 / TAU;
-    if (rpm > sp.redline) car.cut = true; else if (rpm < sp.redline - 180) car.cut = false;
+  let Tcl = 0, Tcl2 = 0;
+  const air = engineAir(sp, car.sigma), ET = [0, 0, 0, 0, 0, 0];
+  // engine i: driver's throttle (ignition cut on an upshift, a blip to match revs on a downshift), idle control, rev limiter;
+  // puts its torque and its slope against revs in ET[i], ET[i + 1]
+  const engine = (i, cutKey) => {
+    const rpm = om[i] * 60 / TAU;
+    if (rpm > sp.redline) car[cutKey] = true; else if (rpm < sp.redline - 180) car[cutKey] = false;
     let th = car.shiftT > 0 ? (car.shiftDir < 0 && rpm < car.blipRpm ? 1 : 0) : th0;
-    th = car.cut ? 0 : Math.max(th, clamp((sp.idle * 1.1 - rpm) / 400, 0, 0.35));
-    const air = engineAir(sp, car.sigma), Te = engineNet(sp, rpm, th, car.spool, air) * (th > 0 ? dmg : 1);
-    const dTe = Math.min(0, (engineNet(sp, rpm + 60, th, car.spool, air) - engineNet(sp, rpm - 60, th, car.spool, air)) / (120 * TAU / 60));
+    th = car[cutKey] ? 0 : Math.max(th, clamp((sp.idle * 1.1 - rpm) / 400, 0, 0.35));
+    const k = i ? 2 : 0;
+    ET[k] = engineNet(sp, rpm, th, car.spool, air) * (th > 0 ? dmg : 1) * eSh;
+    ET[k + 1] = Math.min(0, (engineNet(sp, rpm + 60, th, car.spool, air) - engineNet(sp, rpm - 60, th, car.spool, air)) / (120 * TAU / 60)) * eSh;
+  };
+  for (let st = 0; st < DRIVE.sub; st++) {
+    engine(0, 'cut'); if (twin) engine(5, 'cut2');
     for (let k = 0; k < 4; k++) {
       const w = W[k], f = TF[k];
       if (!w.grounded) { f.Fx = 0; f.Fy = 0; f.dFx = 0; continue; }
@@ -6534,46 +6599,49 @@ function drivelineStep(dt, ctl, G, th0) {
     }
     for (let it = 0; it < 8; it++) {
       A.fill(0);
-      for (let i = 0; i < 5; i++) { A[i * 6] = M[i]; b[i] = 0; }
-      b[0] = h * Te; A[0] -= h * dTe;
+      for (let i = 0; i < n; i++) { A[i * n + i] = M[i]; b[i] = 0; }
+      b[0] = h * ET[0]; A[0] -= h * ET[1];
+      if (twin) { b[5] = h * ET[2]; A[35] -= h * ET[3]; }
       for (let k = 0; k < 4; k++) {
         const w = W[k], o = om[k + 1], f = TF[k], rr = w.grounded ? w.rr : 0;
         const lin = Math.abs(o) < 2;   // rolling resistance: a torque against the spin, eased in near a standstill
         b[k + 1] = h * (-f.Fx * r - rr * (lin ? o / 2 : Math.sign(o)) - DRIVE.shaftDrag * o);
-        A[(k + 1) * 6] += h * (f.dFx * r + (lin ? rr / 2 : 0) + DRIVE.shaftDrag);
+        A[(k + 1) * (n + 1)] += h * (f.dFx * r + (lin ? rr / 2 : 0) + DRIVE.shaftDrag);
       }
-      for (let ci = 0; ci < 8; ci++) {
+      for (let ci = 0; ci < 9; ci++) {
         const c = C[ci]; if (!c.on) continue;
         const u = c.u;
         if (c.lin) {
-          const du = dot5(u, om) - c.tgt, hk = h * c.K;
-          for (let i = 0; i < 5; i++) {
+          const du = dotN(u, om, n) - c.tgt, hk = h * c.K;
+          for (let i = 0; i < n; i++) {
             if (!u[i]) continue;
             b[i] -= hk * du * u[i];
-            for (let j = 0; j < 5; j++) if (u[j]) A[i * 5 + j] += hk * u[i] * u[j];
+            for (let j = 0; j < n; j++) if (u[j]) A[i * n + j] += hk * u[i] * u[j];
           }
-        } else for (let i = 0; i < 5; i++) if (u[i]) b[i] -= h * c.sgn * c.cap * u[i];
+        } else for (let i = 0; i < n; i++) if (u[i]) b[i] -= h * c.sgn * c.cap * u[i];
       }
-      solve5(A, b, x);
+      solveN(A, b, x, n);
       let changed = false;
-      for (let ci = 0; ci < 8; ci++) {
+      for (let ci = 0; ci < 9; ci++) {
         const c = C[ci]; if (!c.on || c.cap === Infinity) continue;
-        const dn = dot5(c.u, om) + dot5(c.u, x) - c.tgt;
+        const dn = dotN(c.u, om, n) + dotN(c.u, x, n) - c.tgt;
         if (c.lin) { const tq = c.K * dn; if (Math.abs(tq) > c.cap) { c.lin = false; c.sgn = Math.sign(tq); changed = true; } }
         else if (dn * c.sgn < 0) { c.lin = true; changed = true; }
       }
       if (!changed) break;
     }
-    for (let i = 0; i < 5; i++) om[i] += x[i];
-    if (om[0] < 0) om[0] = 0;
+    for (let i = 0; i < n; i++) om[i] += x[i];
+    if (om[0] < 0) om[0] = 0; if (om[5] < 0) om[5] = 0;
     for (let k = 0; k < 4; k++) {                                          // the deflection moves on with the new wheel speed
       const w = W[k]; if (!w.grounded) continue;
       const sv = om[k + 1] * r - w.vLong, lim = Math.max(1.5 * w.ts.kp, Math.abs(sv) / Math.max(TK[k * 4 + 3], 1));
       w.kt = clamp(w.kt * TK[k * 4] + sv * TK[k * 4 + 1], -lim, lim);
     }
-    Tcl = !cl.on ? 0 : cl.lin ? cl.K * dot5(cl.u, om) : cl.sgn * cl.cap;
+    const clT = (c) => !c.on ? 0 : c.lin ? c.K * dotN(c.u, om, n) : c.sgn * c.cap;
+    Tcl = clT(cl); Tcl2 = clT(cl2);
   }
   car.we = om[0]; car.Tcl = Tcl; car.clutchSlip = cl.on && !cl.lin;
+  car.we2 = twin ? om[5] : om[0]; car.Tcl2 = Tcl2;
   car.rpm = om[0] * 60 / TAU / sp.redline;
   for (let k = 0; k < 4; k++) {
     const w = W[k], c = C[4 + k];
@@ -7291,7 +7359,7 @@ function stepVehicle(dt, ctl) {
   // 4) gearbox, brakes and driver aids, then the coupled powertrain solve
   gearboxStep(dt, ctl, vLongBody, nG);
   const rev = car.gear < 0, drv0 = sp.front ? 0 : 2, drv1 = sp.front >= 1 ? 2 : 4;   // driven wheels: drv0 up to drv1
-  const pedal = rev ? ctl.throttle : ctl.brake;                    // in reverse the throttle pedal brakes
+  const pedal = ctl.brake;                                          // the brake pedal brakes, in every gear
   // stability control (Settings > STABILITY; the AI always drives on FULL), done the way a real car's ESC does it:
   // when the car slides further than a keyboard can catch (body slip past b0) or yaws faster than the steering asks
   // for, it wants a yaw moment back toward the direction of travel, and gets it by braking the front wheel on that
@@ -7339,8 +7407,8 @@ function stepVehicle(dt, ctl) {
     w.absOn = car.abs && pedal > 0.02 && w.absP < 0.97;
     w.Tb = pedal * CAR.brakeT[fw ? 0 : 1] * (car.abs ? w.absP : 1) + e * w.absP + (ctl.handbrake && !fw ? CAR.hbT : 0);
   }
-  // throttle; in reverse the brake pedal drives, eased off near the reverse limit
-  let th0 = rev ? ctl.brake * clamp((CAR.reverseVmax + vLongBody) / 3, 0, 1) : ctl.throttle;
+  // throttle, in every gear (in reverse it drives backwards, eased off near the reverse limit)
+  let th0 = rev ? ctl.throttle * clamp((CAR.reverseVmax + vLongBody) / 3, 0, 1) : ctl.throttle;
   // traction control: cuts the engine while a driven wheel spins past the tyre's peak slip
   if (car.tc && th0 > 0) {
     let over = 0;
@@ -7357,7 +7425,7 @@ function stepVehicle(dt, ctl) {
   // wheels resist the body turning their axles (a gyroscope)
   let L1 = 0; for (let k = 0; k < 4; k++) L1 += W[k].om;
   T.addScaledVector(AX, -CAR.Iw * (L1 - L0) / dt).sub(_tmp2.crossVectors(car.w, AX).multiplyScalar(CAR.Iw * L1));
-  car.limiter = car.cut && (rev ? ctl.brake : ctl.throttle) > 0;
+  car.limiter = (car.cut || car.cut2) && ctl.throttle > 0;
   // 5) tyre forces on the body at each contact patch. The suspension links carry part of each tyre's force
   //    straight into the body (the roll and pitch centres): a vertical link load J that loads the tyre without
   //    compressing the spring, so the tyres see the whole weight transfer while the body rolls and dives only on
@@ -7579,7 +7647,8 @@ function resetCarMotion(speed) {
   let gear = 1;
   for (let g = 2; g <= tn.gears.length; g++) if (rpmAt(g) > sp.redline * 0.55) gear = g;
   car.gear = gear; car.we = Math.max(sp.idle, rpmAt(gear)) * TAU / 60; car.rpm = car.we * 60 / TAU / sp.redline;
-  car.shiftT = 0; car.shiftDir = 0; car.shiftReq = 0; car.revHold = 0; car.cut = false; car.limiter = false; car.tcF = 1; car.Tcl = 0;
+  car.shiftT = 0; car.shiftDir = 0; car.shiftReq = 0; car.revHold = 0; car.revLatch = false; car.cut = false; car.limiter = false; car.tcF = 1; car.Tcl = 0;
+  car.we2 = car.we; car.Tcl2 = 0; car.cut2 = false;
   for (const c of DL.cpl) c.lin = true;
   car.steerAngle = 0; car.airTime = 0; car.wasAirborne = false; car.flipTimer = 0; car.offTimer = 0;
   car.spool = 1; car.backfire = 0; car.events.length = 0;
@@ -11135,7 +11204,8 @@ const NEW_CARS = [
     spec: { engine: '2.1 L inline-5, turbo (mid-mounted)', cyl: 5, layout: 'inline', pitch: 1.09, hp: 690, hpAt: 8000, nm: 660, nmAt: 6500, redline: 8400, idle: 1000, lag: 0.7, offBoost: 0.5,
       curve: [[1000, 190], [2000, 250], [3000, 330], [4000, 480], [5000, 610], [6000, 650], [6500, 660], [7500, 630], [8000, 614], [8400, 560]],
       disp: 2.11, launch: 5500, Ie: 0.13, enginePos: 'mid',
-      box: '5-speed manual (S1 ratios)', gears: [3.111, 2.273, 1.706, 1.318, 0.962], final: 4.571, rev: 3.5, shift: 0.12,
+      box: '5-speed manual with synchromesh (S1 ratios)', gears: [3.111, 2.273, 1.706, 1.318, 0.962], final: 4.571, rev: 3.5, shift: 0.12, boxType: 'synchro',
+      als: 1,   // the S1 E2's recirculating system kept the turbine spinning off the throttle
       kg: 1000, front: 0.45, centre: 'torsen', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.5, track: [1.56, 1.56], wf: 0.41, cgH: 0.42, dims: [4.1, 1.9, 1.36], travel: 0.25,
       tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [330, 300] },
@@ -11182,8 +11252,10 @@ const NEW_CARS = [
     spec: { engine: '1.8 L inline-4 turbo (Cosworth BDT)', cyl: 4, layout: 'inline', pitch: 1.03, hp: 444, hpAt: 8000, nm: 490, nmAt: 5500, redline: 8500, idle: 1000, lag: 0.55, offBoost: 0.55,
       curve: [[1000, 160], [2000, 210], [3000, 280], [4000, 390], [5000, 470], [5500, 490], [6500, 470], [7500, 420], [8000, 391], [8500, 350]],
       disp: 1.803, launch: 5000, Ie: 0.1, enginePos: 'mid',
-      box: '5-speed FF Developments, front-mounted (ratios est.)', gears: [2.75, 1.85, 1.38, 1.1, 0.9], final: 4.9, rev: 2.8, shift: 0.12,
-      kg: 1050, front: 0.37, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      // FF Developments 5-speed at the front, rally ratios with the 4.375 axle and 1.043 transfer (4.565 overall);
+      // three viscous couplings (centre, front, rear); no anti-lag: the BDT is all lag, then all boost
+      box: '5-speed FF Developments with synchromesh, front-mounted', gears: [3.091, 2.143, 1.688, 1.368, 1.143], final: 4.565, rev: 3.0, shift: 0.12, boxType: 'synchro', als: 0,
+      kg: 1050, front: 0.37, centre: 'viscous', fdiff: 'viscous', rdiff: 'viscous',
       wb: 2.53, track: [1.5, 1.5], wf: 0.46, cgH: 0.45, dims: [4.0, 1.76, 1.32], travel: 0.25,
       tyre: { r: 0.33, w: 0.195, rim: 16, kg: 20, size: 'Michelin 16 in gravel' }, disc: [300, 300] },
     // drag: Cd 0.40 (Ford, RS200 Evolution) + 0.02 for the works wing and lamp pod, times 0.81 x the real width x height
@@ -11241,7 +11313,7 @@ const NEW_CARS = [
     spec: { engine: '1.6 L inline-4 turbo (mid-mounted, est.)', cyl: 4, layout: 'inline', pitch: 0.98, hp: 350, hpAt: 7000, nm: 400, nmAt: 4500, redline: 7800, idle: 950, lag: 0.6, offBoost: 0.5,
       curve: [[1000, 130], [2000, 190], [3000, 280], [4000, 375], [4500, 400], [5500, 390], [6500, 370], [7000, 356], [7800, 300]],
       disp: 1.6, launch: 4500, Ie: 0.1, enginePos: 'mid',
-      box: '5-speed dog box (ratios est.)', gears: [2.9, 1.95, 1.45, 1.15, 0.94], final: 4.7, rev: 3.0, shift: 0.13,
+      box: '5-speed dog box (ratios est.)', gears: [2.9, 1.95, 1.45, 1.15, 0.94], final: 4.7, rev: 3.0, shift: 0.13, boxType: 'dog', als: 0,
       kg: 980, front: 0.35, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.46, track: [1.48, 1.48], wf: 0.42, cgH: 0.46, dims: [4.0, 1.8, 1.3], travel: 0.25,
       tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [280, 280] },
@@ -11293,7 +11365,7 @@ const NEW_CARS = [
     spec: { engine: '1.8 L inline-4 (Triflux), twin-turbo', cyl: 4, layout: 'inline', pitch: 1, hp: 592, hpAt: 8000, nm: 538, nmAt: 5000, redline: 8600, idle: 1000, lag: 0.35, offBoost: 0.6,
       curve: [[1000, 220], [2000, 300], [3000, 410], [4000, 500], [5000, 538], [6000, 535], [7000, 525], [8000, 527], [8600, 480]],
       disp: 1.759, launch: 5000, Ie: 0.1, enginePos: 'mid',
-      box: '5-speed Hewland dog box (S4 ratios)', gears: [2.538, 1.706, 1.25, 1.0, 0.84], final: 5.55, rev: 2.8, shift: 0.1,
+      box: '5-speed Hewland dog box (S4 ratios)', gears: [2.538, 1.706, 1.25, 1.0, 0.84], final: 5.55, rev: 2.8, shift: 0.1, boxType: 'dog', als: 0,
       kg: 930, front: 0.3, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.44, track: [1.51, 1.535], wf: 0.43, cgH: 0.44, dims: [4.0, 1.88, 1.33], travel: 0.25,
       tyre: { r: 0.33, w: 0.195, rim: 16, kg: 20, size: 'Pirelli 660-16 gravel' }, disc: [300, 300] },
@@ -11335,7 +11407,7 @@ const NEW_CARS = [
     spec: { engine: '1.8 L inline-4 (Triflux), twin-turbo', cyl: 4, layout: 'inline', pitch: 1, hp: 592, hpAt: 8000, nm: 538, nmAt: 5000, redline: 8600, idle: 1000, lag: 0.35, offBoost: 0.6,
       curve: [[1000, 220], [2000, 300], [3000, 410], [4000, 500], [5000, 538], [6000, 535], [7000, 525], [8000, 527], [8600, 480]],
       disp: 1.759, launch: 5000, Ie: 0.1, enginePos: 'mid',
-      box: '6-speed dog box (ratios est.)', gears: [2.538, 1.85, 1.43, 1.17, 0.98, 0.84], final: 5.5, rev: 2.8, shift: 0.1,
+      box: '6-speed dog box (ratios est.)', gears: [2.538, 1.85, 1.43, 1.17, 0.98, 0.84], final: 5.5, rev: 2.8, shift: 0.1, boxType: 'dog', als: 0,
       kg: 910, front: 0.3, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.44, track: [1.53, 1.55], wf: 0.43, cgH: 0.43, dims: [4.05, 1.9, 1.3], travel: 0.25,
       tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [305, 300] },
@@ -11369,7 +11441,7 @@ const NEW_CARS = [
     spec: { engine: '2.1 L inline-4 (503E), turbo', cyl: 4, layout: 'inline', pitch: 1.02, hp: 592, hpAt: 8000, nm: 560, nmAt: 6000, redline: 8800, idle: 1000, lag: 0.6, offBoost: 0.5,
       curve: [[1000, 150], [2000, 200], [3000, 280], [4000, 400], [5000, 510], [6000, 560], [7000, 545], [8000, 527], [8800, 470]],
       disp: 2.14, launch: 5000, Ie: 0.1, enginePos: 'mid',
-      box: '5-speed dog box (ratios est.)', gears: [2.538, 1.706, 1.25, 1.0, 0.84], final: 5.3, rev: 2.8, shift: 0.1,
+      box: '5-speed dog box (ratios est.)', gears: [2.538, 1.706, 1.25, 1.0, 0.84], final: 5.3, rev: 2.8, shift: 0.1, boxType: 'dog', als: 0,
       kg: 950, front: 0.35, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.32, track: [1.53, 1.53], wf: 0.42, cgH: 0.44, dims: [4.0, 1.83, 1.24], travel: 0.25,
       tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [300, 300] },
@@ -11405,7 +11477,7 @@ const NEW_CARS = [
     spec: { engine: '1.9 L inline-4 turbo (Zakspeed)', cyl: 4, layout: 'inline', pitch: 1.0, hp: 493, hpAt: 8000, nm: 500, nmAt: 6000, redline: 8500, idle: 1000, lag: 0.7, offBoost: 0.45,
       curve: [[1000, 140], [2000, 180], [3000, 250], [4000, 360], [5000, 460], [6000, 500], [7000, 480], [8000, 439], [8500, 390]],
       disp: 1.86, launch: 5500, Ie: 0.1, enginePos: 'front',
-      box: '5-speed Xtrac (ratios est.)', gears: [2.8, 1.95, 1.5, 1.2, 1.0], final: 4.4, rev: 3.0, shift: 0.13,
+      box: '5-speed Xtrac dog box (ratios est.)', gears: [2.8, 1.95, 1.5, 1.2, 1.0], final: 4.4, rev: 3.0, shift: 0.13, boxType: 'dog', als: 0,
       kg: 1050, front: 0.4, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.52, track: [1.47, 1.47], wf: 0.57, cgH: 0.48, dims: [4.0, 1.78, 1.39], travel: 0.25,
       tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [300, 280] },
@@ -11434,7 +11506,7 @@ const NEW_CARS = [
     spec: { engine: '2.4 L inline-4, 16-valve', cyl: 4, layout: 'inline', pitch: 0.96, hp: 340, hpAt: 7500, nm: 340, nmAt: 5500, redline: 8000, idle: 950, lag: 0, offBoost: 1,
       curve: [[1000, 180], [2000, 225], [3000, 265], [4000, 300], [5000, 330], [5500, 340], [6500, 335], [7500, 319], [8000, 290]],
       disp: 2.42, launch: 5000, Ie: 0.12, enginePos: 'front',
-      box: '5-speed Xtrac (ratios est.)', gears: [2.8, 1.95, 1.5, 1.2, 1.0], final: 4.4, rev: 3.0, shift: 0.13,
+      box: '5-speed Xtrac dog box (ratios est.)', gears: [2.8, 1.95, 1.5, 1.2, 1.0], final: 4.4, rev: 3.0, shift: 0.13, boxType: 'dog', als: 0,
       kg: 960, front: 0.4, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.52, track: [1.47, 1.47], wf: 0.58, cgH: 0.48, dims: [4.0, 1.78, 1.39], travel: 0.25,
       tyre: { r: 0.32, w: 0.195, rim: 15, kg: 19, size: '15 in gravel (est.)' }, disc: [300, 280] },
@@ -11463,12 +11535,13 @@ const NEW_CARS = [
   { name: 'IBIZA BIMOTOR', blurb: 'SEAT Ibiza Bimotor (1986-87): two System Porsche 1.5 L fours, one driving each axle, for four-wheel drive with no centre shaft. Two Ibiza front ends joined in the middle, one shifter for both boxes; it won Spanish rallies for Josep María Servià. Ratios estimated.',
     // Ibiza Mk1: 3.64 m long, 2.44 m wheelbase (SEAT); two transverse 1,461 cc engines, each on its own
     // gearbox, about 140 hp each (SEAT), 280 hp together;
-    // with no shaft between the axles each engine's torque reaches only its own axle: an open 50/50 split. Weight (est.)
+    // with no shaft between the axles each engine drives only its own axle through its own clutch and gearbox (twin):
+    // a spinning front axle takes nothing from the rear one. Weight (est.)
     spec: { engine: 'Twin 1.5 L inline-4s (System Porsche), one per axle', cyl: 4, layout: 'inline', pitch: 0.94, hp: 280, hpAt: 7200, nm: 310, nmAt: 5500, redline: 7800, idle: 950, lag: 0, offBoost: 1,
       curve: [[1000, 160], [2000, 205], [3000, 245], [4000, 278], [5000, 302], [5500, 310], [6500, 296], [7200, 274], [7800, 240]],
       disp: 2.922, launch: 5000, Ie: 0.14, enginePos: 'front',
-      box: 'Two 5-speed boxes, linked shift (ratios est.)', gears: [3.0, 2.05, 1.55, 1.22, 1.0], final: 4.6, rev: 3.1, shift: 0.15,
-      kg: 1080, front: 0.5, centre: 'open', fdiff: 'lsdF', rdiff: 'lsd',
+      box: 'Two 5-speed synchromesh boxes, linked shift (ratios est.)', gears: [3.0, 2.05, 1.55, 1.22, 1.0], final: 4.6, rev: 3.1, shift: 0.15, boxType: 'synchro',
+      kg: 1080, front: 0.5, twin: true, centre: 'twin', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.44, track: [1.42, 1.42], wf: 0.52, cgH: 0.5, dims: [3.64, 1.72, 1.39], travel: 0.22,
       tyre: { r: 0.31, w: 0.185, rim: 15, kg: 18, size: '15 in gravel (est.)' }, disc: [260, 260] },
     aero: { cda: 0.9, cdaSide: 2.3, claF: 0.06, claR: 0.16, pitch: 0.04, ge: 0.2, text: 'Air dam, rear-engine intakes in the rear quarters, roof-edge spoiler' },
@@ -11514,8 +11587,9 @@ const NEW_CARS = [
     spec: { engine: '1.6 L inline-4 turbo, 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.04, hp: 380, hpAt: 6000, nm: 450, nmAt: 4500, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
       curve: [[1000, 200], [2000, 310], [3000, 390], [4000, 435], [4500, 450], [5000, 450], [6000, 450], [7000, 360], [8000, 290]],
       disp: 1.598, launch: 4500, Ie: 0.08, enginePos: 'front',
-      box: '6-speed Sadev sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05,
-      kg: 1190, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      // 2017 rules: an ECU-controlled active centre differential, mechanical front and rear; anti-lag on every lift
+      box: '6-speed Sadev sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05, boxType: 'seq', als: 2,
+      kg: 1190, front: 0.5, centre: 'active', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.54, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.128, 1.875, 1.52], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     aero: { cda: 1.02, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, swan-neck twin-plane rear wing, full-width diffuser' },
@@ -11568,8 +11642,9 @@ const NEW_CARS = [
     spec: { engine: '1.6 L inline-4 turbo (EcoBoost), 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.03, hp: 380, hpAt: 6000, nm: 450, nmAt: 4500, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
       curve: [[1000, 210], [2000, 320], [3000, 410], [4000, 445], [4500, 450], [5000, 450], [6000, 450], [7000, 360], [8000, 285]],
       disp: 1.6, launch: 4500, Ie: 0.08, enginePos: 'front',
-      box: '6-speed Ricardo sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05,
-      kg: 1190, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      // 2017 rules: an ECU-controlled active centre differential, mechanical front and rear; anti-lag on every lift
+      box: '6-speed Ricardo sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05, boxType: 'seq', als: 2,
+      kg: 1190, front: 0.5, centre: 'active', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.493, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.13, 1.875, 1.51], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     aero: { cda: 1.0, cdaSide: 2.7, claF: 0.26, claR: 0.42, pitch: 0.08, ge: 0.3, text: 'WRC 2017 package: deep splitter with dive planes, louvred front arches, side skirts, tall rear wing on the hatch, full-width diffuser' },
@@ -11620,8 +11695,9 @@ const NEW_CARS = [
     spec: { engine: '2.0 L flat-4 turbo (EJ20)', cyl: 4, layout: 'flat', pitch: 0.95, hp: 300, hpAt: 5500, nm: 650, nmAt: 4000, redline: 7000, idle: 1000, lag: 0.35, offBoost: 0.6,
       curve: [[1000, 250], [2000, 450], [3000, 600], [4000, 650], [4500, 620], [5000, 520], [5500, 390], [6000, 330], [6500, 290], [7000, 250]],
       disp: 1.994, launch: 4000, Ie: 0.1, enginePos: 'front',
-      box: '6-speed Prodrive sequential (ratios est.)', gears: [3.0, 2.25, 1.8, 1.5, 1.27, 1.1], final: 4.0, rev: 2.9, shift: 0.06,
-      kg: 1230, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      // 2006-10 rules: active centre differential, mechanical front and rear
+      box: '6-speed Prodrive sequential (ratios est.)', gears: [3.0, 2.25, 1.8, 1.5, 1.27, 1.1], final: 4.0, rev: 2.9, shift: 0.06, boxType: 'seq', als: 2,
+      kg: 1230, front: 0.5, centre: 'active', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.625, track: [1.55, 1.55], wf: 0.57, cgH: 0.46, dims: [4.415, 1.8, 1.475], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Pirelli 15 in gravel' }, disc: [300, 300] },
     // drag: Impreza WRX hatch Cd 0.36 (Subaru) + 0.12 for the rally kit, times 0.81 x the real width x height
@@ -11679,8 +11755,9 @@ const NEW_CARS = [
     spec: { engine: '1.6 L inline-4 turbo, 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.05, hp: 380, hpAt: 6000, nm: 450, nmAt: 5000, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
       curve: [[1000, 200], [2000, 300], [3000, 390], [4000, 430], [5000, 450], [6000, 450], [7000, 360], [8000, 285]],
       disp: 1.6, launch: 4500, Ie: 0.08, enginePos: 'front',
-      box: '6-speed Xtrac sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05,
-      kg: 1190, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      // 2017 rules: an ECU-controlled active centre differential, mechanical front and rear; anti-lag on every lift
+      box: '6-speed Xtrac sequential, paddle shift (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.2, rev: 2.9, shift: 0.05, boxType: 'seq', als: 2,
+      kg: 1190, front: 0.5, centre: 'active', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.511, track: [1.61, 1.61], wf: 0.56, cgH: 0.45, dims: [4.085, 1.875, 1.42], travel: 0.27,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     // drag: Yaris (XP130) Cd 0.287 (Toyota) + 0.17 for the 2017 rules' bigger wing, splitter and diffuser, times 0.81 x the real width x height
@@ -11729,8 +11806,9 @@ const NEW_CARS = [
     spec: { engine: '1.6 L inline-4 turbo (TSI), 33 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.04, hp: 318, hpAt: 6250, nm: 425, nmAt: 5000, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
       curve: [[1000, 200], [2000, 300], [3000, 380], [4000, 415], [5000, 425], [6250, 362], [7000, 310], [8000, 250]],
       disp: 1.598, launch: 4500, Ie: 0.08, enginePos: 'front',
-      box: '6-speed Ricardo sequential (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.3, rev: 2.9, shift: 0.06,
-      kg: 1200, front: 0.5, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
+      // 2011-16 rules (S2000-based): no centre differential at all, the axles locked together; mechanical front and rear
+      box: '6-speed Ricardo sequential (ratios est.)', gears: [2.92, 2.2, 1.78, 1.47, 1.25, 1.08], final: 4.3, rev: 2.9, shift: 0.06, boxType: 'seq', als: 2,
+      kg: 1200, front: 0.5, centre: 'locking', fdiff: 'lsdF', rdiff: 'lsd',
       wb: 2.48, track: [1.58, 1.58], wf: 0.56, cgH: 0.45, dims: [3.976, 1.82, 1.49], travel: 0.26,
       tyre: { r: 0.33, w: 0.205, rim: 15, kg: 20, size: 'Michelin 15 in gravel' }, disc: [300, 300] },
     // drag: Polo (6R) Cd 0.32 (Volkswagen) + 0.12 for the rally kit, times 0.81 x the real width x height
@@ -13881,6 +13959,8 @@ function processCarEvents() {
     else if (ev.type === 'scrape') { if (!scrape || ev.speed > scrape.speed) scrape = ev; }
     else if (ev.type === 'shift') { if (Game.state !== 'menu') AudioSys.shift(ev.up); }
     else if (ev.type === 'overrev') { AudioSys.beep(220, 0.1); if (racing) HUD.toast('OVER-REV · DOWNSHIFT REFUSED', '#ffb52e', 0.9); }
+    else if (ev.type === 'reverse' || ev.type === 'first') { if (racing) HUD.toast(ev.type === 'reverse' ? 'REVERSE · THROTTLE TO BACK UP' : 'FIRST GEAR', '#c3cce0', 1.2); }
+    else if (ev.type === 'crash') { AudioSys.beep(140, 0.15); if (racing) HUD.toast('NO SYNCHRO ON FIRST · SLOW TO A CRAWL', '#ffb52e', 1.1); }
   }
   car.events.length = 0;
   if (hit && hit.speed > 2) {
@@ -14548,8 +14628,12 @@ function handleActions() {
       case 'gearUp': case 'gearDown':
         if (st === 'garage') { Garage.setTab(Garage.tab + (a === 'gearUp' ? 1 : -1)); break; }   // LB / RB: the garage categories
         if (st !== 'racing' && st !== 'countdown') break;
-        if (!Store.data.settings.manual) { HUD.toast('AUTOMATIC GEARBOX · TURN ON MANUAL GEARS IN SETTINGS', '#c3cce0', 1.4); break; }
-        car.shiftReq = a === 'gearUp' ? 1 : -1;
+        if (!Store.data.settings.manual) {   // the automatic's selector: reverse and first at a standstill only
+          if (car.speed < 2 && (a === 'gearUp' ? car.gear < 0 : car.gear === 1)) car.shiftReq = a === 'gearUp' ? 1 : -1;
+          else HUD.toast('AUTOMATIC GEARBOX · TURN ON MANUAL GEARS IN SETTINGS', '#c3cce0', 1.4);
+          break;
+        }
+        car.shiftReq = clamp(car.shiftReq + (a === 'gearUp' ? 1 : -1), -3, 3);   // pulls made mid-shift wait their turn
         break;
       case 'reset': if (st === 'racing' && !Game.pendingReset) { resetToCheckpoint(0); HUD.toast('RESET TO CHECKPOINT'); } break;
       case 'confirm':
