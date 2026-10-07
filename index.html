@@ -6439,8 +6439,10 @@ function gearboxStep(dt, ctl, vFwd, nG) {
         if (vG < 1.5 && car.gear > 1 && rpmIn(1) < sp.redline * 0.9 && !crash(1)) to = 1 - car.gear;       // stopped: back to first (not while the wheels still spin, as when sliding on the tail after a crash)
         else if (car.gear < n && rIn > tn.upRpm[car.gear - 1] && ctl.throttle > 0.1 && nG > 0) to = 1;
         else if (car.gear > 1) {
+          // braking with the throttle off goes down early, ready for the exit; with both pedals down (left-foot braking)
+          // the driver wants drive, so the box holds its gear until the revs fall to the usual downshift point
           const rDown = rpmIn(car.gear - 1, wG);
-          if (rDown < sp.redline * 0.9 && !crash(car.gear - 1) && (rpmIn(car.gear, wG) < tn.downRpm || (ctl.brake > 0.1 && rDown < sp.redline * 0.8))) to = -1;
+          if (rDown < sp.redline * 0.9 && !crash(car.gear - 1) && (rpmIn(car.gear, wG) < tn.downRpm || (ctl.brake > 0.1 && ctl.throttle < 0.1 && rDown < sp.redline * 0.8))) to = -1;
         }
         car.shiftReq = 0;
       } else if (car.shiftReq) {
@@ -6583,7 +6585,8 @@ function drivelineStep(dt, ctl, G, th0) {
   const engine = (i, cutKey) => {
     const rpm = om[i] * 60 / TAU;
     if (rpm > sp.redline) car[cutKey] = true; else if (rpm < sp.redline - 180) car[cutKey] = false;
-    let th = car.shiftT > 0 ? (car.shiftDir < 0 && rpm < car.blipRpm ? 1 : 0) : th0;
+    // an upshift cuts the ignition (flat shift); a downshift blips to match revs and never takes the driver's throttle away
+    let th = car.shiftT > 0 ? (car.shiftDir < 0 ? Math.max(th0, rpm < car.blipRpm ? 1 : 0) : 0) : th0;
     th = car[cutKey] ? 0 : Math.max(th, clamp((sp.idle * 1.1 - rpm) / 400, 0, 0.35));
     const k = i ? 2 : 0;
     ET[k] = engineNet(sp, rpm, th, car.spool, air) * (th > 0 ? dmg : 1) * eSh;
@@ -7481,7 +7484,9 @@ function stepVehicle(dt, ctl) {
   } else car.tcF = Math.min(1, car.tcF + dt * 4);
   car.tcCut = car.tc && th0 > 0.05 && car.tcF < 0.95;
   if (car.tc) th0 *= car.tcF;
-  if (car.esc) th0 *= 1 - escTrim;   // the stability control trims the engine while it brakes
+  // the stability control trims the engine while it brakes a wheel, but never while the driver is on the brake pedal:
+  // then the throttle stays wholly the driver's
+  if (car.esc && ctl.brake < 0.02) th0 *= 1 - escTrim;
   let L0 = 0; for (let k = 0; k < 4; k++) L0 += W[k].om;
   drivelineStep(dt, ctl, gearRatio(), th0);
   // the wheels' spin (about the car's x axis; forward rolling is +) is angular momentum the body trades with: brakes
