@@ -2370,6 +2370,7 @@ const CAR_SPECS = [
   // four-speed in the sump with the 4.133 final drive, front-wheel drive through an open diff, 650 kg; 3.05 m long on a
   // 2.036 m wheelbase; 145-10 Dunlop tyres, 7 in front discs and rear drums; rubber-cone suspension with little travel
   { engine: '1.07 L inline-4 (BMC A-series, works tune)', cyl: 4, layout: 'inline', pitch: 1.3, hp: 90, hpAt: 7000, nm: 95, nmAt: 5000, redline: 7500, idle: 900, lag: 0, offBoost: 1,
+    voice: { amps: [1, 0.88, 1, 0.88], hdr: [0, 0.25, 0, 0.25], pipe: 3.1, prim: 0.75, tail: 'road', intake: 'carb', intakeHz: 290, crankWhine: 21, burble: 0.25 },   // siamesed ports, twin SUs, single pipe to the back; the gearbox in the sump whines with the crank
     curve: [[900, 55], [2000, 70], [3000, 82], [4000, 91], [5000, 95], [6000, 94], [7000, 91.5], [7500, 84]],
     disp: 1.071, launch: 4000, Ie: 0.05, enginePos: 'front',
     box: '4-speed close-ratio manual, no synchro on first', gears: [2.573, 1.775, 1.24, 1.0], final: 4.133, rev: 2.573, shift: 0.3,
@@ -11219,6 +11220,7 @@ const NEW_CARS = [
     // the S1 E2's 2,110 cc turbo five, mid-mounted; about 700 bhp claimed; tube frame, two built;
     // no weight or dimensions were published (est.; the height is the traced drawing's)
     spec: { engine: '2.1 L inline-5, turbo (mid-mounted)', cyl: 5, layout: 'inline', pitch: 1.09, hp: 690, hpAt: 8000, nm: 660, nmAt: 6500, redline: 8400, idle: 1000, lag: 0.7, offBoost: 0.5,
+      voice: { cyl: 5, hdr: [0, 0.3, 0.5, 0.2, 0.4], pipe: 1.6, prim: 0.7, tail: 'open', intake: 'turbo', bov: 'dump', burble: 0.4 },   // Audi 20v five, firing 1-2-4-5-3, unequal 5-into-1 manifold (the five's warble), short pipe out of the tail
       curve: [[1000, 190], [2000, 250], [3000, 330], [4000, 480], [5000, 610], [6000, 650], [6500, 660], [7500, 630], [8000, 614], [8400, 560]],
       disp: 2.11, launch: 5500, Ie: 0.13, enginePos: 'mid',
       box: '5-speed manual with synchromesh (S1 ratios)', gears: [3.111, 2.273, 1.706, 1.318, 0.962], final: 4.571, rev: 3.5, shift: 0.12, boxType: 'synchro',
@@ -11269,6 +11271,7 @@ const NEW_CARS = [
     // tune (Ford); 2.53 m wheelbase, 4.0 m long, 1.76 m wide, 1.32 m tall; gearbox
     // at the front, 37/63 viscous centre; 1,050 kg works weight; ratios and the rest of the curve (est.)
     spec: { engine: '1.8 L inline-4 turbo (Cosworth BDT)', cyl: 4, layout: 'inline', pitch: 1.03, hp: 444, hpAt: 8000, nm: 490, nmAt: 5500, redline: 8500, idle: 1000, lag: 0.55, offBoost: 0.55,
+      voice: { pipe: 1.5, prim: 0.8, tail: 'race', intake: 'turbo', bov: 'flutter' },   // Cosworth BDT, short exhaust out of the tail, no dump valve: the Garrett flutters on a lift
       curve: [[1000, 160], [2000, 210], [3000, 280], [4000, 390], [5000, 470], [5500, 490], [6500, 470], [7500, 420], [8000, 391], [8500, 350]],
       disp: 1.803, launch: 5000, Ie: 0.1, enginePos: 'mid',
       // FF Developments 5-speed at the front, rally ratios with the 4.375 axle and 1.043 transfer (4.565 overall);
@@ -11339,6 +11342,7 @@ const NEW_CARS = [
     // the EVA's tube frame, fibreglass body and mid-mounted turbo four, plus permanent four-wheel drive and about 350 hp
     // (50 more than the EVA); displacement, weight, ratios and dimensions (est.)
     spec: { engine: '1.6 L inline-4 turbo (mid-mounted, est.)', cyl: 4, layout: 'inline', pitch: 0.98, hp: 350, hpAt: 7000, nm: 400, nmAt: 4500, redline: 7800, idle: 950, lag: 0.6, offBoost: 0.5,
+      voice: { pipe: 1.4, prim: 0.85, tail: 'race', intake: 'turbo', bov: 'flutter' },   // mid-mounted VAZ turbo four, short exhaust, no dump valve (est.)
       curve: [[1000, 130], [2000, 190], [3000, 280], [4000, 375], [4500, 400], [5500, 390], [6500, 370], [7000, 356], [7800, 300]],
       disp: 1.6, launch: 4500, Ie: 0.1, enginePos: 'mid',
       box: '5-speed dog box (ratios est.)', gears: [2.9, 1.95, 1.45, 1.15, 0.94], final: 4.7, rev: 3.0, shift: 0.13, boxType: 'dog', als: 0,
@@ -11395,6 +11399,7 @@ const NEW_CARS = [
     // Triflux 1,759 cc twin-turbo, 600 CV at 8,000 rpm, 538 N·m at 5,000 (Lancia); S4 wheelbase and tracks; S4 gearbox
     // and viscous centre, 930 kg (est.)
     spec: { engine: '1.8 L inline-4 (Triflux), twin-turbo', cyl: 4, layout: 'inline', pitch: 1, hp: 592, hpAt: 8000, nm: 538, nmAt: 5000, redline: 8600, idle: 1000, lag: 0.35, offBoost: 0.6,
+      voice: { turbo: 2, pipe: 1.3, prim: 0.7, tail: 'open', intake: 'turbo', bov: 'dump' },   // Triflux: two turbos, the second joining as boost builds; very short side-exit pipe
       curve: [[1000, 220], [2000, 300], [3000, 410], [4000, 500], [5000, 538], [6000, 535], [7000, 525], [8000, 527], [8600, 480]],
       disp: 1.759, launch: 5000, Ie: 0.1, enginePos: 'mid',
       box: '5-speed Hewland dog box (S4 ratios)', gears: [2.538, 1.706, 1.25, 1.0, 0.84], final: 5.55, rev: 2.8, shift: 0.1, boxType: 'dog', als: 0,
@@ -11448,6 +11453,7 @@ const NEW_CARS = [
   { name: 'ECV II', blurb: 'Lancia ECV2 (1988), the second Group S study: the ECV\'s tub and Triflux engine under a smooth, low, wind-tunnel body. Body by Carlo Gaino\'s Synthesis Design: blunt, boxy and flared, white with Martini stripes. A show and test car only.',
     // the ECV's carbon tub, Triflux engine (600 CV at 8,000 rpm) and running gear, 910 kg (Lancia); body size (est.)
     spec: { engine: '1.8 L inline-4 (Triflux), twin-turbo', cyl: 4, layout: 'inline', pitch: 1, hp: 592, hpAt: 8000, nm: 538, nmAt: 5000, redline: 8600, idle: 1000, lag: 0.35, offBoost: 0.6,
+      voice: { turbo: 2, pipe: 1.3, prim: 0.7, tail: 'open', intake: 'turbo', bov: 'dump' },   // Triflux: two turbos, the second joining as boost builds; very short side-exit pipe
       curve: [[1000, 220], [2000, 300], [3000, 410], [4000, 500], [5000, 538], [6000, 535], [7000, 525], [8000, 527], [8600, 480]],
       disp: 1.759, launch: 5000, Ie: 0.1, enginePos: 'mid',
       box: '6-speed dog box (ratios est.)', gears: [2.538, 1.85, 1.43, 1.17, 0.98, 0.84], final: 5.5, rev: 2.8, shift: 0.1, boxType: 'dog', als: 0,
@@ -11483,6 +11489,7 @@ const NEW_CARS = [
     // 503E 2,140 cc turbo four, about 600 PS (Toyota; some claims higher); MR2 (AW11) 2.32 m wheelbase; weight, tracks,
     // ratios and the curve (est.)
     spec: { engine: '2.1 L inline-4 (503E), turbo', cyl: 4, layout: 'inline', pitch: 1.02, hp: 592, hpAt: 8000, nm: 560, nmAt: 6000, redline: 8800, idle: 1000, lag: 0.6, offBoost: 0.5,
+      voice: { pipe: 1.4, prim: 0.7, tail: 'open', intake: 'turbo', bov: 'flutter' },   // 503E race four revving to 8,800, short open pipe, no dump valve (est.)
       curve: [[1000, 150], [2000, 200], [3000, 280], [4000, 400], [5000, 510], [6000, 560], [7000, 545], [8000, 527], [8800, 470]],
       disp: 2.14, launch: 5000, Ie: 0.1, enginePos: 'mid',
       box: '5-speed dog box (ratios est.)', gears: [2.538, 1.706, 1.25, 1.0, 0.84], final: 5.3, rev: 2.8, shift: 0.1, boxType: 'dog', als: 0,
@@ -11521,6 +11528,7 @@ const NEW_CARS = [
     // Kadett E body (4.0 m long, 2.52 m wheelbase); Zakspeed 1,860 cc turbo four, longitudinal, about 500 hp claimed,
     // Xtrac 4WD gearbox; torque curve, weight, ratios and drive split (est.)
     spec: { engine: '1.9 L inline-4 turbo (Zakspeed)', cyl: 4, layout: 'inline', pitch: 1.0, hp: 493, hpAt: 8000, nm: 500, nmAt: 6000, redline: 8500, idle: 1000, lag: 0.7, offBoost: 0.45,
+      voice: { pipe: 3.0, prim: 0.8, tail: 'race', intake: 'turbo', bov: 'flutter' },   // front-mounted Zakspeed turbo, full-length pipe, no dump valve (est.)
       curve: [[1000, 140], [2000, 180], [3000, 250], [4000, 360], [5000, 460], [6000, 500], [7000, 480], [8000, 439], [8500, 390]],
       disp: 1.86, launch: 5500, Ie: 0.1, enginePos: 'front',
       box: '5-speed Xtrac dog box (ratios est.)', gears: [2.8, 1.95, 1.5, 1.2, 1.0], final: 4.4, rev: 3.0, shift: 0.13, boxType: 'dog', als: 0,
@@ -11552,6 +11560,7 @@ const NEW_CARS = [
     // Astra Mk2 body (4.0 m long, 2.52 m wheelbase); 2.4 L 16-valve four, 340 bhp, longitudinal, Xtrac 4WD, Kevlar
     // panels, 960 kg (GM Dealer Sport); torque curve, ratios and drive split (est.)
     spec: { engine: '2.4 L inline-4, 16-valve', cyl: 4, layout: 'inline', pitch: 0.96, hp: 340, hpAt: 7500, nm: 340, nmAt: 5500, redline: 8000, idle: 950, lag: 0, offBoost: 1,
+      voice: { pipe: 3.0, prim: 0.9, tail: 'race', intake: 'itb', intakeHz: 260 },   // big naturally aspirated sixteen-valve four on individual throttles: the intake honks
       curve: [[1000, 180], [2000, 225], [3000, 265], [4000, 300], [5000, 330], [5500, 340], [6500, 335], [7500, 319], [8000, 290]],
       disp: 2.42, launch: 5000, Ie: 0.12, enginePos: 'front',
       box: '5-speed Xtrac dog box (ratios est.)', gears: [2.8, 1.95, 1.5, 1.2, 1.0], final: 4.4, rev: 3.0, shift: 0.13, boxType: 'dog', als: 0,
@@ -11588,6 +11597,7 @@ const NEW_CARS = [
     // with no shaft between the axles each engine drives only its own axle through its own clutch and gearbox (twin):
     // a spinning front axle takes nothing from the rear one. Weight (est.)
     spec: { engine: 'Twin 1.5 L inline-4s (System Porsche), one per axle', cyl: 4, layout: 'inline', pitch: 0.94, hp: 280, hpAt: 7200, nm: 310, nmAt: 5500, redline: 7800, idle: 950, lag: 0, offBoost: 1,
+      voice: { pipe: 2.4, pipe2: 1.1, prim: 0.8, tail: 'race', intake: 'carb', intakeHz: 300 },   // two engines, each at its own revs: the front's long pipe, the rear's short one
       curve: [[1000, 160], [2000, 205], [3000, 245], [4000, 278], [5000, 302], [5500, 310], [6500, 296], [7200, 274], [7800, 240]],
       disp: 2.922, launch: 5000, Ie: 0.14, enginePos: 'front',
       box: 'Two 5-speed synchromesh boxes, linked shift (ratios est.)', gears: [3.0, 2.05, 1.55, 1.22, 1.0], final: 4.6, rev: 3.1, shift: 0.15, boxType: 'synchro',
@@ -11639,6 +11649,7 @@ const NEW_CARS = [
     // cannot make that, so the curve holds the 450 N·m it needs); 4.128 m long, 1.875 m wide, 2.54 m wheelbase,
     // 1,190 kg minimum; height from the traced body; ratios and tracks (est.); the active centre is modelled as a viscous coupling
     spec: { engine: '1.6 L inline-4 turbo, 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.04, hp: 380, hpAt: 6000, nm: 450, nmAt: 4500, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
+      voice: { pipe: 3.0, prim: 0.55, tail: 'open', intake: 'restrictor', bov: 'dump' },   // Rally-era 1.6: restrictor roar, constant anti-lag, ignition-cut cracks on paddle upshifts
       curve: [[1000, 200], [2000, 310], [3000, 390], [4000, 435], [4500, 450], [5000, 450], [6000, 450], [7000, 360], [8000, 290]],
       disp: 1.598, launch: 4500, Ie: 0.08, enginePos: 'front',
       // 2017 rules: an ECU-controlled active centre differential, mechanical front and rear; anti-lag on every lift
@@ -11697,6 +11708,7 @@ const NEW_CARS = [
     // 1.6 L EcoBoost turbo, 380 hp at 6,000 rpm, 450 N·m (M-Sport); 4.13 m long, 1.875 m wide, 2.493 m wheelbase,
     // 1,190 kg minimum; height from the traced body; ratios and tracks (est.)
     spec: { engine: '1.6 L inline-4 turbo (EcoBoost), 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.03, hp: 380, hpAt: 6000, nm: 450, nmAt: 4500, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
+      voice: { pipe: 2.6, prim: 0.55, tail: 'open', intake: 'restrictor', bov: 'dump' },   // EcoBoost 1.6: restrictor roar, anti-lag, ignition cut; shorter side exit
       curve: [[1000, 210], [2000, 320], [3000, 410], [4000, 445], [4500, 450], [5000, 450], [6000, 450], [7000, 360], [8000, 285]],
       disp: 1.6, launch: 4500, Ie: 0.08, enginePos: 'front',
       // 2017 rules: an ECU-controlled active centre differential, mechanical front and rear; anti-lag on every lift
@@ -11753,6 +11765,7 @@ const NEW_CARS = [
     // EJ20 flat-four turbo, 300 bhp at 5,500 rpm, 650 N·m at 4,000 (Subaru); 4.415 m long, 1.8 m wide, 2.625 m wheelbase,
     // 1,230 kg; active centre modelled as a viscous coupling; ratios (est.)
     spec: { engine: '2.0 L flat-4 turbo (EJ20)', cyl: 4, layout: 'flat', pitch: 0.95, hp: 300, hpAt: 5500, nm: 650, nmAt: 4000, redline: 7000, idle: 1000, lag: 0.35, offBoost: 0.6,
+      voice: { amps: [1, 0.86, 1, 0.86], hdr: [0, 0.45, 0, 0.45], uneven: 1.3, pipe: 3.2, prim: 0.7, tail: 'open', intake: 'restrictor', bov: 'dump' },   // EJ20 boxer: the 1-3-2-4 pulses reach the collector unevenly (the boxer burble)
       curve: [[1000, 250], [2000, 450], [3000, 600], [4000, 650], [4500, 620], [5000, 520], [5500, 390], [6000, 330], [6500, 290], [7000, 250]],
       disp: 1.994, launch: 4000, Ie: 0.1, enginePos: 'front',
       // 2006-10 rules: active centre differential, mechanical front and rear
@@ -11815,6 +11828,7 @@ const NEW_CARS = [
     // cannot make that, so the curve holds the 450 N·m it needs); 4.085 m long, 1.875 m wide, 2.511 m wheelbase,
     // 1,190 kg minimum; height, ratios and tracks (est.)
     spec: { engine: '1.6 L inline-4 turbo, 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.05, hp: 380, hpAt: 6000, nm: 450, nmAt: 5000, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
+      voice: { pipe: 2.8, prim: 0.55, tail: 'open', intake: 'restrictor', bov: 'dump' },   // GR 1.6: restrictor roar, anti-lag, ignition cut
       curve: [[1000, 200], [2000, 300], [3000, 390], [4000, 430], [5000, 450], [6000, 450], [7000, 360], [8000, 285]],
       disp: 1.6, launch: 4500, Ie: 0.08, enginePos: 'front',
       // 2017 rules: an ECU-controlled active centre differential, mechanical front and rear; anti-lag on every lift
@@ -11869,6 +11883,7 @@ const NEW_CARS = [
     // 1.6 L TSI turbo, 318 hp at 6,250 rpm, 425 N·m at 5,000 (Volkswagen); 3.976 m long, 1.82 m wide, 2.48 m wheelbase,
     // 1,200 kg minimum; height from the traced body; ratios and tracks (est.)
     spec: { engine: '1.6 L inline-4 turbo (TSI), 33 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.04, hp: 318, hpAt: 6250, nm: 425, nmAt: 5000, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
+      voice: { pipe: 2.9, prim: 0.55, tail: 'open', intake: 'restrictor', bov: 'dump' },   // 1.6 TSI on the 33 mm restrictor: anti-lag and ignition cut
       curve: [[1000, 200], [2000, 300], [3000, 380], [4000, 415], [5000, 425], [6250, 362], [7000, 310], [8000, 250]],
       disp: 1.598, launch: 4500, Ie: 0.08, enginePos: 'front',
       // 2011-16 rules (S2000-based): no centre differential at all, the axles locked together; mechanical front and rear
@@ -13056,24 +13071,29 @@ const AudioSys = {
 };
 
 /* =============================================================================
-   15b. ENGINE SOUND — synthesised from each engine's real layout
+   15b. ENGINE SOUND — synthesised from each engine's real layout and exhaust
    Source and filter, like a real exhaust. The source: per engine, looping excitation buffers of several engine
-   cycles at five reference revs, one set on full load and one on the overrun, built from its cylinder count,
-   firing intervals and per-cylinder header differences, with cycle-to-cycle combustion variation so the loop
-   never settles into a clean periodic buzz. They play at rate = rpm / reference rpm and are cross-faded by revs
-   and throttle. The filter: the exhaust's own resonances and silencer, which stay put as the revs change (a
-   pitch-shifted recording slides them, which is what made the old note sound like a sped-up tape), a soft
-   saturation that grows with load, and a short room tail. On top: intake roar, turbo whistle and blow-off,
-   supercharger whine, dog-box gear whine, and anti-lag / lift-off pops where the real car had them. The layout
-   is read from CAR_SPECS[].engine ("1.8 L inline-4, turbo", "3.0 L V6, twin-turbo (V64V)", ...); a car may
-   override it with a `sound: { cyl, firing: [crank deg in 720], pipe, uneven, antiLag, burble, whine }` field.
+   cycles at five reference revs, one set on full load and one on the overrun, built from its cylinder count, firing
+   angles and per-cylinder header differences (level and arrival time at the collector), with cycle-to-cycle
+   combustion variation so the loop never settles into a clean periodic buzz. Each pulse is a blow-down spike with the
+   rarefaction that follows it. The loops play at rate = rpm / reference rpm and are cross-faded by revs and throttle.
+   The filter is the car's own exhaust: a tail pipe of its real length modelled as a tube (a delay line with an
+   inverting, damped reflection at the open end, so it rings at odd multiples of c / 4L and the rings stay put as the
+   revs move), the header primaries' resonance, the silencer, a soft saturation that grows with load and a short room
+   tail. Beside it an intake branch: the same pulses through the induction's resonance, loud for carburettors and
+   individual throttles, smothered behind a turbo, and a choked roar through a restrictor. On top: turbo whistle (two
+   for twin turbos), dump valve hiss or compressor flutter on a lift, anti-lag bangs at the car's real ALS level,
+   ignition-cut cracks on flat upshifts, straight-cut gear whine and, on a twin-engined car, the second engine running
+   at its own revs. Each car's `voice` in its spec describes its engine (see VOICE below); without one, the layout is
+   read from the engine name ("1.8 L inline-4, turbo", "3.0 L V6, twin-turbo (V64V)", ...).
    ============================================================================= */
 const EngineSound = {
   ctx: null, bus: null, spec: null, layout: null, L: null, cache: new Map(),
   thr: 0, prevThr: 0, prevPop: false, limT: 0,
-  /** Read cylinders, firing order and induction out of a car's spec, with fallbacks for anything unrecognised. */
+  C_GAS: 520,                                       // speed of sound in the hot exhaust, m/s (gas at ~400 °C)
+  /** Read cylinders, firing, exhaust and induction out of a car's spec (its `voice`), with fallbacks from the name. */
   layoutOf(sp) {
-    const o = sp.sound || {}, name = sp.engine || '';
+    const o = sp.voice || sp.sound || {}, name = sp.engine || '';
     let cyl = o.cyl || sp.cyl, cfg = /^v/i.test(sp.layout || '') ? 'V' : /flat|boxer/i.test(sp.layout || '') ? 'F' : 'I';
     let m;
     if (!cyl && (m = /inline-?(\d+)/i.exec(name))) cyl = +m[1];
@@ -13081,30 +13101,43 @@ const EngineSound = {
     if (!cyl && (m = /\bV(\d{1,2})\b/.exec(name))) { cyl = +m[1]; cfg = 'V'; }
     if (!cyl && (m = /\b[IL](\d)\b/.exec(name))) cyl = +m[1];
     if (!cyl) cyl = sp.disp > 4.5 ? 8 : sp.disp > 2.6 ? 6 : 4;
-    let firing = o.firing, amps = null;
+    let firing = o.firing, amps = o.amps || null;
     if (!firing) {
       if (cyl === 6 && /V64V/i.test(name)) firing = [0, 90, 240, 330, 480, 570];     // 90-degree V6 on a three-pin crank: 90 / 150 degree gaps
       else firing = Array.from({ length: cyl }, (_, i) => i * 720 / cyl);
-      if (cyl === 8 && cfg === 'V') amps = [1, 0.78, 0.95, 0.82, 1, 0.78, 0.95, 0.82];   // cross-plane: the banks fire unevenly
-      if (cfg === 'F' && cyl === 4) amps = [1, 0.8, 1, 0.8];                              // boxer: unequal-length headers
+      if (!amps && cyl === 8 && cfg === 'V') amps = [1, 0.78, 0.95, 0.82, 1, 0.78, 0.95, 0.82];   // cross-plane: the banks fire unevenly
+      if (!amps && cfg === 'F' && cyl === 4) amps = [1, 0.8, 1, 0.8];                              // boxer: unequal-length headers
     }
-    const turbo = /turbo/i.test(name), sc = /supercharg|twin-screw|roots/i.test(name);
+    const turbo = o.turbo != null ? o.turbo > 0 : /turbo/i.test(name), sc = /supercharg|twin-screw|roots/i.test(name);
     const dog = /dog|hewland|sequential|straight/i.test(sp.box || '');
+    const als = sp.als != null ? sp.als : turbo && sp.lag > 0.2 ? 1 : 0;
+    const front = (sp.enginePos || 'front') === 'front';
+    const pipe = o.pipe || (front ? 3 : 1.5) * clamp(Math.pow((sp.disp || 2) / 2, 0.2), 0.85, 1.2);
     return {
-      cyl, firing, amps, turbo, sc, dog,
-      pipe: o.pipe || (176 - cyl * 6) * clamp(Math.pow(2 / (sp.disp || 2), 0.25), 0.85, 1.2),   // exhaust body resonance, Hz: bigger engines ring lower
+      cyl, firing, amps, turbo, sc, dog, mid: !front,
+      hdr: o.hdr || null,                                                                       // per-firing arrival delay at the collector, ms
+      pipe, prim: o.prim || (cyl === 5 ? 0.75 : 0.85),                                         // tail pipe and header primary lengths, m
+      tail: o.tail || (turbo ? 'race' : 'road'),                                                // silencer: 'open', 'race' or 'road'
+      intake: o.intake || (sp.disp && /restrictor/i.test(name) ? 'restrictor' : turbo ? 'turbo' : 'carb'),
+      intakeHz: o.intakeHz || 320,
       uneven: o.uneven != null ? o.uneven : cyl === 5 ? 1.4 : cfg === 'F' ? 1.5 : cfg === 'V' ? 1.2 : 1,   // header-to-header differences
-      antiLag: o.antiLag != null ? o.antiLag : turbo ? (sp.lag > 0.2 ? 1 : 0.5) : 0,         // Group B anti-lag, rally turbo cars
+      antiLag: o.antiLag != null ? o.antiLag : [0, 0.6, 1][als] || 0,                           // the car's real ALS (spec.als)
+      cut: o.cut != null ? o.cut : sp.boxType === 'seq',                                        // sequential flat-shift: ignition cut on an upshift
+      bov: o.bov || (turbo ? 'dump' : 'none'),                                                  // 'dump' valve hiss or compressor 'flutter' on a lift
+      turbos: o.turbo || (turbo ? (/twin-turbo/i.test(name) ? 2 : 1) : 0),
       burble: o.burble != null ? o.burble : sc ? 0.3 : turbo ? 0.35 : 0.15,
-      whine: o.whine != null ? o.whine : sc ? 1 : 0,
+      whine: o.whine != null ? o.whine : sc ? 1 : 0,                                            // supercharger whine
+      crankWhine: o.crankWhine || 0,                                                            // straight-cut transfer gears turning with the crank (teeth)
+      gearWhine: o.gearWhine != null ? o.gearWhine : dog ? 1 : 0,
+      twin: !!sp.twin, pipe2: o.pipe2 || 1.1,
     };
   },
   /**
    * Excitation buffer: several engine cycles of exhaust pressure pulses at `rpm` (source only, no pipe tone).
    * Each firing is a blow-down pulse whose length is a fixed crank angle, so it scales with playback rate the way
-   * a real engine's does; every cylinder has its own header (level, arrival delay) and every cycle its own
-   * combustion (level jitter, crack, misfires off-throttle), so the loop is never a clean periodic buzz.
-   * `on` = full load, otherwise the overrun note (weak, uneven, burbly).
+   * a real engine's does, followed by the rarefaction that scavenges the port; every cylinder has its own header
+   * (level, arrival delay) and every cycle its own combustion (level jitter, crack, misfires off-throttle), so the
+   * loop is never a clean periodic buzz. `on` = full load, otherwise the overrun note (weak, uneven, burbly).
    */
   render(ly, rpm, seed, on) {
     const sr = this.ctx.sampleRate, T = 120 / rpm, C = clamp(Math.round(0.8 / T), 6, 64), N = Math.round(C * T * sr);
@@ -13112,10 +13145,13 @@ const EngineSound = {
     let st = seed >>> 0 || 1;
     const rnd = () => { st = (Math.imul(st, 1664525) + 1013904223) >>> 0; return st / 4294967296; };
     const tau = (on ? 40 : 55) / (6 * rpm);                                                        // blow-down: ~40-55 crank degrees
-    const hdr = ly.firing.map((_, k) => ({ a: (ly.amps ? ly.amps[k % ly.amps.length] : 1) * (1 + (rnd() - 0.5) * 0.3 * ly.uneven), dl: rnd() * 0.0007 * ly.uneven }));
+    const hdr = ly.firing.map((_, k) => ({
+      a: (ly.amps ? ly.amps[k % ly.amps.length] : 1) * (1 + (rnd() - 0.5) * 0.3 * ly.uneven),
+      dl: (ly.hdr ? ly.hdr[k % ly.hdr.length] / 1000 : 0) + rnd() * 0.0007 * ly.uneven,
+    }));
     const idleish = clamp(1 - (rpm - 900) / 2500, 0, 1);
-    const crack = on ? 0.8 : 0.15, rasp = on ? 0.5 : 0.1;
-    const sup = Math.round(Math.min(T, 6 * tau + 0.004) * sr);
+    const crack = on ? 0.8 : 0.15, rasp = on ? 0.5 : 0.1, suck = on ? 0.45 : 0.25;
+    const sup = Math.round(Math.min(T, 8 * tau + 0.004) * sr);
     for (let c = 0; c < C; c++) {
       const cyc = 1 + (rnd() - 0.5) * 0.1;                                                         // cycle-to-cycle charge variation
       for (let k = 0; k < ly.firing.length; k++) {
@@ -13125,7 +13161,8 @@ const EngineSound = {
         const tk = tau * (0.9 + rnd() * 0.2);
         for (let j = 0; j < sup; j++) {
           const x = j / sr, env = (1 - Math.exp(-x / 0.00025)) * Math.exp(-x / tk);                // steep valve-opening front, blow-down decay
-          const v = env + (rnd() * 2 - 1) * (crack * Math.exp(-x / 0.0006) + rasp * env);
+          const sk = suck * (1 - Math.exp(-x / (tk * 1.2))) * Math.exp(-x / (tk * 2.6));             // the rarefaction behind it
+          const v = env - sk + (rnd() * 2 - 1) * (crack * Math.exp(-x / 0.0006) + rasp * env);
           d[(i0 + j) % N] += amp * v;
         }
       }
@@ -13137,6 +13174,16 @@ const EngineSound = {
     for (let i = 0; i < N; i++) d[i] *= 0.9 / pk;
     return buf;
   },
+  /** An open pipe of length len (m): the pulse runs to the open end and back inverted, so it rings at odd multiples
+   *  of c / 4L. A delay line with a damped, inverting feedback; returns { inp, out }. */
+  tube(len, refl, damp, nodes) {
+    const ctx = this.ctx, inp = ctx.createGain(), sum = ctx.createGain(), dl = ctx.createDelay(0.1), lp = ctx.createBiquadFilter(), fb = ctx.createGain();
+    dl.delayTime.value = Math.max(2 * len / this.C_GAS, 256 / ctx.sampleRate);
+    lp.type = 'lowpass'; lp.frequency.value = damp; lp.Q.value = 0.5; fb.gain.value = -refl;
+    inp.connect(sum); sum.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(sum);
+    nodes.push(inp, sum, dl, lp, fb);
+    return { inp, out: sum };
+  },
   setCar(sp) {
     const ctx = this.ctx;
     this.spec = sp; this.layout = this.layoutOf(sp);
@@ -13146,24 +13193,34 @@ const EngineSound = {
       old.bus.gain.setTargetAtTime(0, ctx.currentTime, 0.03);
       setTimeout(() => { try { for (const n of old.nodes) { if (n.stop) n.stop(); n.disconnect(); } } catch (e) { /* gone */ } }, 300);
     }
-    const key = sp.engine + '|' + sp.redline + '|' + (sp.sound ? JSON.stringify(sp.sound) : '');
+    const key = sp.engine + '|' + sp.redline + '|' + JSON.stringify(sp.voice || sp.sound || '');
     let bufs = this.cache.get(key);
     if (!bufs) {
       const refs = [0.14, 0.28, 0.45, 0.65, 0.88].map((f) => Math.max(sp.idle * 0.9, red * f));
       let h = 7; for (let i = 0; i < key.length; i++) h = (Math.imul(h, 31) + key.charCodeAt(i)) >>> 0;
-      bufs = { refs, on: refs.map((r, i) => this.render(ly, r, h + i * 977, true)), off: refs.map((r, i) => this.render(ly, r, h + i * 977 + 13, false)) };
+      const set = (s) => ({ on: refs.map((r, i) => this.render(ly, r, h + s + i * 977, true)), off: refs.map((r, i) => this.render(ly, r, h + s + i * 977 + 13, false)) });
+      bufs = { refs, a: set(0), b: ly.twin ? set(50021) : null };
       this.cache.set(key, bufs);
     }
     const nodes = [], bus = ctx.createGain(); bus.gain.value = 0; bus.connect(this.bus); nodes.push(bus);
     const biq = (type, f, q, g) => { const n = ctx.createBiquadFilter(); n.type = type; n.frequency.value = f; n.Q.value = q; if (g != null) n.gain.value = g; nodes.push(n); return n; };
-    // the exhaust system: fixed resonances that don't slide with revs, then the silencer, then a little space
+    // the exhaust: saturation, the header primaries' ring, the tail pipe as a tube, the silencer, then a little space
     const drive = ctx.createGain(), shaper = ctx.createWaveShaper();
     const curve = new Float32Array(1024);
     for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(x * 2.2) / Math.tanh(2.2); }
     shaper.curve = curve; nodes.push(drive, shaper);
-    const hp = biq('highpass', 28, 0.7), body = biq('lowshelf', 160, 0, 3), p1 = biq('peaking', ly.pipe, 1.6, 7), p2 = biq('peaking', ly.pipe * 3.4, 2, 5);
-    const rasp = biq('peaking', ly.turbo ? 1500 : 2200, 1.2, ly.turbo ? 1 : 4), muff = biq('lowpass', 3000, 0.6);
-    drive.connect(shaper); shaper.connect(hp); hp.connect(body); body.connect(p1); p1.connect(p2); p2.connect(rasp); rasp.connect(muff);
+    const T = { open: [0.62, 5200, 6, 0.75], race: [0.55, 4200, 4, 0.65], road: [0.45, 3000, 1.5, 0.5] }[ly.tail] || [0.5, 3500, 3, 0.6];
+    const hp = biq('highpass', 28, 0.7), body = biq('lowshelf', 160, 0, 3);
+    const prim = biq('peaking', this.C_GAS / (4 * ly.prim), 1.4, 4), tube = this.tube(ly.pipe, T[0], 2400, nodes);
+    const rasp = biq('peaking', ly.turbo ? 1500 : 2200, 1.2, ly.turbo ? T[2] * 0.3 : T[2]), muff = biq('lowpass', T[1], 0.6), out = ctx.createGain();
+    out.gain.value = T[3]; nodes.push(out);
+    drive.connect(shaper); shaper.connect(hp); hp.connect(body); body.connect(prim); prim.connect(tube.inp); tube.out.connect(rasp); rasp.connect(muff); muff.connect(out);
+    // a twin-engined car's second engine has its own short exhaust and joins after the saturation
+    let drive2 = null;
+    if (ly.twin) {
+      drive2 = ctx.createGain(); const sh2 = ctx.createWaveShaper(); sh2.curve = curve; const t2 = this.tube(ly.pipe2, T[0], 2400, nodes);
+      drive2.connect(sh2); sh2.connect(t2.inp); t2.out.connect(rasp); nodes.push(drive2, sh2);
+    }
     const dry = ctx.createGain(), wet = ctx.createGain(), verb = ctx.createConvolver();
     if (!this.ir) {
       const len = Math.round(ctx.sampleRate * 0.35), ir = ctx.createBuffer(1, len, ctx.sampleRate), x = ir.getChannelData(0);
@@ -13171,27 +13228,35 @@ const EngineSound = {
       this.ir = ir;
     }
     verb.buffer = this.ir; dry.gain.value = 0.6; wet.gain.value = 0.1;
-    muff.connect(dry); muff.connect(verb); verb.connect(wet); dry.connect(bus); wet.connect(bus); nodes.push(dry, wet, verb);
-    const mk = (b) => {
+    out.connect(dry); out.connect(verb); verb.connect(wet); dry.connect(bus); wet.connect(bus); nodes.push(dry, wet, verb);
+    // the intake: the same pulses through the induction's own resonance (a carburettor's honk, smothered behind a turbo)
+    const inLvl = { carb: 0.5, itb: 0.65, turbo: 0.1, restrictor: 0.08 }[ly.intake] || 0.2;
+    const inBus = ctx.createGain(), inF = biq('bandpass', ly.intakeHz, 2.2), inF2 = biq('bandpass', ly.intakeHz * 2.7, 3), inG = ctx.createGain();
+    inG.gain.value = 0; inBus.connect(inF); inBus.connect(inF2); inF.connect(inG); inF2.connect(inG); inG.connect(bus); nodes.push(inBus, inG);
+    const mk = (b, dst) => {
       const src = ctx.createBufferSource(); src.buffer = b; src.loop = true;
       const g = ctx.createGain(); g.gain.value = 0;
-      src.connect(g); g.connect(drive); src.start(0, Math.random() * b.duration); nodes.push(src, g);
+      src.connect(g); g.connect(dst); g.connect(inBus); src.start(0, Math.random() * b.duration); nodes.push(src, g);
       return { src, g };
     };
-    const layers = bufs.on.map(mk), offLayers = bufs.off.map(mk);
+    const layers = bufs.a.on.map((b) => mk(b, drive)), offLayers = bufs.a.off.map((b) => mk(b, drive));
+    const layers2 = ly.twin ? bufs.b.on.map((b) => mk(b, drive2)) : null, offLayers2 = ly.twin ? bufs.b.off.map((b) => mk(b, drive2)) : null;
     const osc = (type, filt) => {
       const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; g.gain.value = 0;
       let f = null;
       if (filt) { f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = filt; o.connect(f); f.connect(g); nodes.push(f); } else o.connect(g);
       g.connect(bus); o.start(); nodes.push(o, g); return { o, g, f };
     };
-    const whistle = osc('sine');
+    const whistle = osc('sine'), whistle2 = osc('sine');
     const whine = osc('sawtooth', 2.5);
-    const gear = osc('sine');
-    const intakeSrc = AudioSys.noiseSource(), intakeF = ctx.createBiquadFilter(), intakeG = ctx.createGain();
-    intakeF.type = 'bandpass'; intakeF.Q.value = 0.9; intakeG.gain.value = 0;
-    intakeSrc.connect(intakeF); intakeF.connect(intakeG); intakeG.connect(bus); nodes.push(intakeSrc, intakeF, intakeG);
-    this.L = { bus, layers, offLayers, refs: bufs.refs, drive, muff, wet, whistle, whine, gear, intakeF, intakeG, nodes };
+    const gear = osc('sine'), crank = osc('triangle', 4);
+    const noiseBand = (f, q) => {
+      const s = AudioSys.noiseSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+      fl.type = 'bandpass'; fl.frequency.value = f; fl.Q.value = q; g.gain.value = 0;
+      s.connect(fl); fl.connect(g); g.connect(bus); nodes.push(s, fl, g); return { f: fl, g };
+    };
+    const roar = noiseBand(400, 0.9), choke = noiseBand(3200, 0.8);
+    this.L = { bus, layers, offLayers, layers2, offLayers2, refs: bufs.refs, drive, drive2, muff, maxMuff: T[1], wet, inG, inLvl, whistle, whistle2, whine, gear, crank, roar, choke, nodes };
     bus.gain.setTargetAtTime(1, ctx.currentTime, 0.05);
   },
   /** A single exhaust bang / pop, k = 0..1 loudness. */
@@ -13218,6 +13283,19 @@ const EngineSound = {
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16 * k, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
     s.connect(f); f.connect(g); g.connect(this.bus); s.start(t, Math.random()); s.stop(t + 0.5);
   },
+  /** No dump valve (Group B / S): the compressor surges against the shut throttle, a fluttering chatter that slows. */
+  flutter(k) {
+    if (!this.L) return;
+    const ctx = this.ctx, t0 = ctx.currentTime;
+    let t = t0, gap = 0.032;
+    for (let i = 0; i < 9; i++) {
+      const a = k * 0.13 * Math.pow(0.82, i), s = ctx.createBufferSource(); s.buffer = AudioSys.noiseBuf;
+      const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.4; f.frequency.value = 1700 - i * 90;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(a, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.026);
+      s.connect(f); f.connect(g); g.connect(this.bus); s.start(t, Math.random()); s.stop(t + 0.05);
+      t += gap; gap *= 1.09;
+    }
+  },
   update(dt, st) {
     const ctx = AudioSys.ctx;
     if (!ctx) return;
@@ -13232,38 +13310,61 @@ const EngineSound = {
     const cabin = st.cabin ? 1 : 0, act = st.active;
     this.thr += (st.throttle - this.thr) * Math.min(1, dt * 10);
     const thr = this.thr, boost = ly.turbo ? st.turbo : 0;
+    const lim = st.limiter ? (0.35 + 0.65 * ((t * 20) % 1 < 0.5 ? 1 : 0)) : 1;                // fuel cut at the limiter
+    const idleOn = 0.45 * clamp(1 - (frac - sp.idle / sp.redline) / 0.15, 0, 1);                // a steady idle, not an overrun burble
+    const wOn = Math.max(Math.pow(thr, 0.6), idleOn), wOff = (1 - wOn) * 0.5;                   // overrun is quieter and hollower
     // layer cross-fade along log rpm
     const refs = L.refs, n = refs.length;
-    let lo = 0;
-    while (lo < n - 2 && rpm > refs[lo + 1]) lo++;
-    const f = clamp(Math.log(rpm / refs[lo]) / Math.log(refs[lo + 1] / refs[lo]), 0, 1);
-    const lim = st.limiter ? (0.35 + 0.65 * ((t * 20) % 1 < 0.5 ? 1 : 0)) : 1;                // fuel cut at the limiter
-    const idleOn = 0.6 * clamp(1 - (frac - sp.idle / sp.redline) / 0.15, 0, 1);                // a steady idle, not an overrun burble
-    const wOn = Math.max(Math.pow(thr, 0.6), idleOn), wOff = (1 - wOn) * 0.5;                   // overrun is quieter and hollower
+    const fade = (set, r, k) => {
+      let lo = 0;
+      while (lo < n - 2 && r > refs[lo + 1]) lo++;
+      const f = clamp(Math.log(r / refs[lo]) / Math.log(refs[lo + 1] / refs[lo]), 0, 1);
+      set.forEach((ln, i) => {
+        const w = i === lo ? Math.cos(f * Math.PI / 2) : i === lo + 1 ? Math.sin(f * Math.PI / 2) : 0;
+        ln.g.gain.setTargetAtTime(w * k * lim * act, t, 0.03);
+        ln.src.playbackRate.setTargetAtTime(clamp(r / refs[i], 0.3, 4), t, 0.025);
+      });
+    };
+    fade(L.layers, rpm, wOn); fade(L.offLayers, rpm, wOff);
+    if (L.layers2) {                                                                              // the rear engine, at its own revs
+      const rpm2 = Math.max(sp.idle * 0.9, (st.rpm2 != null ? st.rpm2 : st.rpm) * sp.redline);
+      fade(L.layers2, rpm2, wOn * 0.8); fade(L.offLayers2, rpm2, wOff * 0.8);
+      L.drive2.gain.setTargetAtTime(0.7 + 0.9 * thr, t, 0.04);
+    }
+    // in the cabin the bulkhead takes the top off; a mid engine sits right behind the seats and comes through more
+    const muffK = cabin ? (ly.mid ? 0.5 : 0.3) : 1;
     L.drive.gain.setTargetAtTime(0.7 + 0.9 * thr, t, 0.04);
-    L.muff.frequency.setTargetAtTime((1300 + 4200 * (0.2 + 0.8 * thr) * (0.35 + 0.65 * frac)) * (cabin ? 0.3 : 1), t, 0.05);
+    L.muff.frequency.setTargetAtTime(Math.min(L.maxMuff * 1.6, (1300 + L.maxMuff * (0.2 + 0.8 * thr) * (0.35 + 0.65 * frac)) * muffK), t, 0.05);
     L.wet.gain.setTargetAtTime(cabin ? 0.03 : 0.1, t, 0.1);
-    const fade = (set, k) => set.forEach((ln, i) => {
-      const w = i === lo ? Math.cos(f * Math.PI / 2) : i === lo + 1 ? Math.sin(f * Math.PI / 2) : 0;
-      ln.g.gain.setTargetAtTime(w * k * lim * act, t, 0.03);
-      ln.src.playbackRate.setTargetAtTime(clamp(rpm / refs[i], 0.3, 4), t, 0.025);
-    });
-    fade(L.layers, wOn); fade(L.offLayers, wOff);
-    // intake roar under load
-    L.intakeF.frequency.setTargetAtTime(260 + frac * 900 + thr * 400, t, 0.06);
-    L.intakeG.gain.setTargetAtTime(act * thr * (0.06 + 0.14 * frac) * (cabin ? 1.8 : 1), t, 0.05);
-    // turbo whistle (rises with shaft speed) and supercharger whine (locked to crank speed)
+    // intake: the induction's own note, and the rushing air under load
+    const inCab = cabin ? (ly.mid ? 2.2 : 1.5) : 1;
+    L.inG.gain.setTargetAtTime(act * L.inLvl * (0.25 + 0.75 * thr) * (0.3 + 0.7 * frac) * inCab * 0.5, t, 0.05);
+    L.roar.f.frequency.setTargetAtTime(260 + frac * 900 + thr * 400, t, 0.06);
+    L.roar.g.gain.setTargetAtTime(act * thr * (0.04 + 0.1 * frac) * inCab, t, 0.05);
+    // a restrictor chokes at high revs: a hard rushing roar through the 33-36 mm hole
+    L.choke.f.frequency.setTargetAtTime(2200 + 2400 * frac, t, 0.08);
+    L.choke.g.gain.setTargetAtTime(ly.intake === 'restrictor' ? act * boost * thr * frac * frac * 0.07 * inCab : 0, t, 0.06);
+    // turbo whistle (rises with shaft speed); a second turbo joins as boost builds
     L.whistle.o.frequency.setTargetAtTime(1400 + boost * frac * 2600, t, 0.08);
     L.whistle.g.gain.setTargetAtTime(ly.turbo ? act * boost * boost * (0.005 + thr * 0.014) : 0, t, 0.1);
+    L.whistle2.o.frequency.setTargetAtTime((1400 + boost * frac * 2600) * 1.19, t, 0.08);
+    L.whistle2.g.gain.setTargetAtTime(ly.turbos > 1 ? act * Math.pow(boost, 3) * (0.004 + thr * 0.011) : 0, t, 0.1);
+    // supercharger whine (locked to crank speed)
     L.whine.o.frequency.setTargetAtTime(Math.max(60, rpm / 60 * 5), t, 0.04);
     L.whine.f.frequency.setTargetAtTime(Math.max(200, rpm / 60 * 5 * 1.4), t, 0.05);
     L.whine.g.gain.setTargetAtTime(ly.whine ? act * (0.05 + 0.5 * thr) * (0.012 + 0.016 * frac) * (cabin ? 1.6 : 1) : 0, t, 0.05);
+    // straight-cut transfer gears turning with the crank (the Mini's gearbox lives in its sump)
+    if (ly.crankWhine) {
+      const fc = rpm / 60 * ly.crankWhine;
+      L.crank.o.frequency.setTargetAtTime(fc, t, 0.03); L.crank.f.frequency.setTargetAtTime(fc, t, 0.03);
+      L.crank.g.gain.setTargetAtTime(act * (0.008 + 0.02 * frac) * (0.4 + 0.6 * thr) * (cabin ? 2.2 : 1), t, 0.05);
+    }
     // straight-cut dog-box gears whine with road speed
     L.gear.o.frequency.setTargetAtTime(160 + st.speed * 24, t, 0.06);
-    L.gear.g.gain.setTargetAtTime(ly.dog ? act * clamp(st.speed / 25, 0, 1) * (0.004 + 0.006 * thr) * (cabin ? 2 : 1) : 0, t, 0.08);
-    // dump valve, anti-lag crackle and pops (only while racing)
+    L.gear.g.gain.setTargetAtTime(ly.gearWhine ? act * ly.gearWhine * clamp(st.speed / 25, 0, 1) * (0.004 + 0.006 * thr) * (cabin ? 2 : 1) : 0, t, 0.08);
+    // dump valve or compressor flutter, anti-lag crackle and pops (only while racing)
     if (act >= 1) {
-      if (ly.turbo && this.prevThr > 0.6 && thr < 0.3 && st.turbo > 0.5) this.blowOff(st.turbo);
+      if (ly.turbo && this.prevThr > 0.6 && thr < 0.3 && st.turbo > 0.5) { if (ly.bov === 'flutter') this.flutter(st.turbo); else this.blowOff(st.turbo); }
       if (st.pop && !this.prevPop) this.bang(0.6 + 0.4 * Math.random());
       const lift = thr < 0.12 && frac > 0.4 && st.speed > 6;
       if (lift) {
@@ -13274,8 +13375,8 @@ const EngineSound = {
     }
     this.prevThr = thr; this.prevPop = !!st.pop;
   },
-  /** Anti-lag cars bark on an upshift under load. */
-  shifted(up) { if (up && this.layout && this.layout.antiLag > 0.5 && this.thr > 0.4) this.bang(0.9, 0.04); },
+  /** A sequential's ignition cut cracks on a flat upshift; anti-lag cars bark too. */
+  shifted(up) { const ly = this.layout; if (up && ly && (ly.cut || ly.antiLag > 0.5) && this.thr > 0.4) this.bang(ly.cut ? 0.75 : 0.9, 0.03); },
 };
 
 /* =============================================================================
@@ -16455,7 +16556,7 @@ function update(dt) {
   if (st === 'racing' || st === 'countdown' || st === 'finished' || st === 'paused') HUD.update(dt);
   const w0 = car.wheels[2].grounded ? car.wheels[2].gs : car.wheels[0].gs;
   AudioSys.update(dt, {
-    speed: car.speed, rpm: car.rpm, limiter: car.limiter && st !== 'paused', throttle: st === 'paused' ? 0 : ctl.throttle, turbo: car.tune.spec.lag > 0 ? car.spool : 0, pop: car.backfire > 0 && st !== 'paused', spec: car.tune.spec, cabin: Cam.mode !== 'chase', surf: w0.road ? w0.surf : TR.def.surf.off,
+    speed: car.speed, rpm: car.rpm, limiter: car.limiter && st !== 'paused', throttle: st === 'paused' ? 0 : ctl.throttle, turbo: car.tune.spec.lag > 0 ? car.spool : 0, rpm2: car.we2 * 60 / TAU / car.tune.spec.redline, pop: car.backfire > 0 && st !== 'paused', spec: car.tune.spec, cabin: Cam.mode !== 'chase', surf: w0.road ? w0.surf : TR.def.surf.off,
     grounded: car.nGround > 0 ? 1 : 0, slip: car.slip, active: st === 'paused' || st === 'photo' ? 0 : (st === 'menu' || st === 'service' || st === 'garage') ? 0.35 : 1,
   });
   return true;
