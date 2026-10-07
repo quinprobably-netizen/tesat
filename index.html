@@ -6507,7 +6507,7 @@ function gearboxStep(dt, ctl, vFwd, nG) {
       const rIn = rpmIn(car.gear);
       if (auto) {
         if (vG < 1.5 && car.gear > 1 && rpmIn(1) < sp.redline * 0.9 && !crash(1)) to = 1 - car.gear;       // stopped: back to first (not while the wheels still spin, as when sliding on the tail after a crash)
-        else if (car.gear < n && rIn > tn.upRpm[car.gear - 1] && ctl.throttle > 0.1 && nG > 0) to = 1;
+        else if (car.gear < n && rIn > (ctl.brake < 0.02 ? tn.upRpm[car.gear - 1] : sp.redline * 0.99) && ctl.throttle > 0.1 && nG > 0) to = 1;   // with the brake on, only off the limiter
         else if (car.gear > 1) {
           // braking with the throttle off goes down early, ready for the exit; with both pedals down (left-foot braking)
           // the driver wants drive, so the box holds its gear until the revs fall to the usual downshift point
@@ -7548,7 +7548,9 @@ function stepVehicle(dt, ctl) {
   // throttle, in every gear (in reverse it drives backwards, eased off near the reverse limit)
   let th0 = throttleStep(dt, rev ? ctl.throttle * clamp((CAR.reverseVmax + vLongBody) / 3, 0, 1) : ctl.throttle);
   // traction control: cuts the engine while a driven wheel spins past the tyre's peak slip
-  if (car.tc && th0 > 0) {
+  // (it rests while the brake pedal is down: the driver is managing the wheels' speed with both feet, and the throttle
+  // stays wholly theirs)
+  if (car.tc && th0 > 0 && ctl.brake < 0.02) {
     let over = 0;
     for (let k = drv0; k < drv1; k++) { const w = car.wheels[k]; if (w.grounded) over = Math.max(over, w.kap * Math.sign(rev ? -1 : 1) / w.ts.kp); }
     car.tcF = over > 1.35 ? Math.max(0.05, car.tcF - dt * 6 * (over - 0.9)) : Math.min(1, car.tcF + dt * 2.5);
