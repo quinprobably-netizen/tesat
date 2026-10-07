@@ -1370,12 +1370,13 @@ function fmtDelta(d) { return (d < 0 ? '-' : '+') + Math.abs(d).toFixed(2); }
    ============================================================================= */
 const Store = {
   key: 'regolithRally.v1',
-  era: 8,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost,
+  era: 9,   // physics era of the saved times: 1 = the old per-planet gravity, 2 = Earth gravity everywhere, 3 = real engines and differentials, no boost,
             // 4 = coupled driveline, real gearboxes, chassis and tyres per car, 5 = new layouts for the space stages (Pikes Peak unchanged),
             // 6 = tyre relaxation length, slip-angle steering and the STABILITY setting, 7 = Dyson Swarm without its ice (every other stage unchanged),
-            // 8 = wheels with their own mass, transient tyres, full weight transfer, ESC, thin air on the mountains (every stage changed)
+            // 8 = wheels with their own mass, transient tyres, full weight transfer, ESC, thin air on the mountains (every stage changed),
+            // 9 = the real rally tyre compounds in place of all-terrain, studded and slick (every stage changed)
   data: { best: {}, settings: { muted: false, voice: true, ghost: true, cam: 'chase', name: 'DRIVER' },
-    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 8 },
+    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 9 },
   load() {
     try {
       const raw = window.localStorage.getItem(this.key);
@@ -1399,8 +1400,9 @@ const Store = {
   archiveEra(era) {
     const D = this.data, times = {}, boards = {};
     // era 4 → 5 kept Pikes Peak (layouts only); 6 changed the handling, so nothing older carries over; 6 → 7 changed only the
-    // Dyson Swarm; 8 changed the physics on every stage, so nothing older carries over
-    const keep = (k) => era >= 8;
+    // Dyson Swarm; 8 and 9 changed the physics on every stage, so nothing older carries over
+    const keep = (k) => era >= 9;
+    if (era < 9) for (const k in D.setups) { const su = D.setups[k]; if (su && su.tyre === 1) su.tyre = 6; }   // studded → studded ice (all-terrain → gravel soft, slick → tarmac soft keep their index)
     for (const k in D.best) if (!keep(k)) times[k] = { time: D.best[k].time, splits: D.best[k].splits };
     for (const k in D.boards) if (!keep(k)) boards[k] = D.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own, d: e.d }));
     if (Object.keys(times).length || Object.keys(boards).length || D.rallyBest) {     // the newest era's times replace an older archive
@@ -2035,7 +2037,14 @@ const SETUP_OPTS = {
   damp: { label: 'DAMPERS', names: ['SOFT', 'MEDIUM', 'FIRM'], desc: ['Low bump and rebound damping: the wheels follow rough ground, but the body floats and wallows after crests and landings.', 'Balanced bump and rebound.', 'High damping: tied down over crests and quick direction changes; the wheels skip over ripples.'] },
   arb: { label: 'ANTI-ROLL BARS', names: ['SOFT', 'MEDIUM', 'STIFF'], desc: ['Soft bars: each wheel moves on its own, so a bump under one doesn\'t lift its partner; more body roll, more grip over rough ground.', 'Balanced roll stiffness.', 'Stiff bars: flat and quick to change direction; a bump under one wheel lifts the other, so the car skips on rough ground.'] },
   gear: { label: 'FINAL DRIVE', names: ['SHORT', 'STANDARD', 'LONG'], desc: ['Shorter final drive: +11% pull in every gear, -10% top speed. Twisty stages.', 'Balanced.', 'Longer final drive: +10% top speed, -9% pull. Fast open stages.'] },
-  tyre: { label: 'TYRES', names: ['ALL-TERRAIN', 'STUDDED', 'SLICK'], desc: ['Consistent grip on every surface.', 'Tungsten studs: +60% grip on ice and +40% on snow; they skate a little on steel (-15%) and tarmac (-14%), and the studded blocks bite a moment later.', 'Soft slicks: +18% grip on tarmac and +12% on metal plating, and they bite instantly; poor on anything loose (-20% or worse).'] },
+  tyre: { label: 'TYRES', names: ['GRAVEL SOFT', 'GRAVEL HARD', 'TARMAC SOFT', 'TARMAC HARD', 'WET', 'SNOW', 'STUDDED ICE'], desc: [
+    'Gravel soft (Pirelli Scorpion KX WRC SA): deep blocks in a soft compound for smooth, loose roads. The most grip on gravel and sand, but sharp rock tears the blocks: it wears fast on rough stages.',
+    'Gravel hard (Scorpion KX WRC HA): the same tread in a harder compound with a stronger carcass, for rocky, abrasive roads and the heat. A little less grip, but it lasts and resists cuts.',
+    'Tarmac soft (P Zero RA WRC SA): a near-slick for cool, dry asphalt. +18% grip on tarmac and it bites at once; poor on loose ground and quick to wear on gravel cuts.',
+    'Tarmac hard (P Zero RA WRC HA): for hot or abrasive asphalt and long loops. A touch less grip than the soft, but it wears far slower.',
+    'Wet (Cinturato RA WRC WR): a grooved tarmac tyre that clears water. Barely loses grip in the rain where a slick loses almost half, but it is slower and wears fast on a dry road.',
+    'Snow (Sottozero Snow WRC): a narrow winter tyre with a siped tread that stays soft in the cold. +30% on snow and +20% on ice, decent on cold tarmac: the Monte Carlo choice for mixed roads.',
+    'Studded ice (Sottozero Ice Zero WRC): narrow, with hundreds of tungsten-carbide studs. +60% grip on ice and +40% on snow; it skates on tarmac and steel, the studs pull out on hard ground, and the tall blocks bite a moment later.'] },
 };
 const TUNE = {
   susp: [{ k: 0.8, c: 1, land: 1.5 }, { k: 1, c: 1, land: 0 }, { k: 1.3, c: 1, land: -1.2 }],
@@ -2043,16 +2052,47 @@ const TUNE = {
   damp: [{ b: 0.8, r: 0.82 }, { b: 1, r: 1 }, { b: 1.25, r: 1.2 }],
   arb: [0.55, 1, 1.6],                  // multiplier on both bars (the front/rear split lives in SUSP)
   gear: [{ v: 0.9 }, { v: 1 }, { v: 1.1 }],           // the final drive is the car's own divided by v: road speed per rpm scales with v, pull the other way
-  tyre: [[1, 1, 1, 1, 1, 1], [0.97, 1.6, 0.85, 0.98, 0.86, 1.4], [0.8, 0.7, 1.12, 0.78, 1.18, 0.6]],   // per surface: regolith, ice, metal, gravel, tarmac, snow
-  tyreRelax: [1, 1.08, 0.8],            // relaxation length: studs' tall blocks wind up later, slicks' stiff construction sooner
+  // the real WRC compounds (Pirelli's range), in SETUP_OPTS order; 1 = the reference car's neutral tyre (refTune). Grip per
+  // surface: regolith, ice, metal, gravel, tarmac, snow. The figures are estimates: Pirelli publishes no grip numbers.
+  tyre: [
+    [1.04, 0.95, 0.9, 1.04, 0.9, 0.97],     // gravel soft
+    [1, 0.92, 0.88, 1, 0.88, 0.93],         // gravel hard: the harder compound gives up a little grip everywhere
+    [0.8, 0.7, 1.12, 0.78, 1.18, 0.6],      // tarmac soft
+    [0.78, 0.68, 1.08, 0.76, 1.13, 0.58],   // tarmac hard
+    [0.88, 0.8, 1, 0.9, 1.04, 0.8],         // wet: its grooves and soft blocks cost grip on a dry road
+    [0.94, 1.2, 0.88, 0.95, 0.94, 1.3],     // snow (unstudded winter)
+    [0.97, 1.6, 0.85, 0.98, 0.86, 1.4],     // studded ice
+  ],
+  tyreRelax: [1, 0.95, 0.8, 0.78, 0.88, 1.05, 1.08],   // relaxation length: tall soft blocks and studs wind up later, stiff near-slicks sooner
+  // how much of the rain's (or falling snow's) grip loss the tyre suffers: a slick can't clear water, the wet's grooves can
+  tyreWet: [0.9, 0.95, 1.4, 1.45, 0.35, 0.6, 0.8],
+  // wear rate per surface (as above; × the raid's base rate): soft wears sooner, slicks are cut on loose rock, studs pull
+  // out on hard ground, the wet tyre's soft blocks overheat on a dry road
+  tyreWear: [
+    [1.3, 0.8, 1.2, 1.3, 1.4, 0.9],
+    [0.75, 0.5, 0.7, 0.75, 0.8, 0.55],
+    [2.4, 0.6, 1.2, 2.4, 1.3, 0.8],
+    [1.6, 0.4, 0.75, 1.6, 0.8, 0.5],
+    [2, 0.6, 1.6, 2, 1.8, 0.9],
+    [1.4, 0.6, 1.3, 1.4, 1.4, 0.7],
+    [1.2, 0.5, 2.5, 1.2, 2.5, 0.6],
+  ],
 };
-// per stage, in STAGES order: snow and ice want studs, smooth tarmac slicks, rough gravel the soft settings
-const RECOMMENDED = [{ susp: 1, damp: 1, arb: 1, gear: 0, tyre: 1 }, { susp: 1, damp: 1, arb: 0, gear: 1, tyre: 1 }, { susp: 0, damp: 0, arb: 0, gear: 1, tyre: 0 },
-  { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 }, { susp: 2, damp: 2, arb: 2, gear: 1, tyre: 2 }, { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 },
-  { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 }, { susp: 0, damp: 0, arb: 0, gear: 0, tyre: 0 }, { susp: 1, damp: 1, arb: 0, gear: 2, tyre: 0 },
+// per stage, in STAGES order. Tyres as the WRC teams take them: snow tyres for the Monte's mixed roads, studs in Sweden,
+// hard gravel for rough and hot rounds (Kenya, Portugal, Acropolis, Sardinia, Saudi), soft for smooth fast gravel, soft
+// tarmac for cool asphalt (Croatia, Japan, Pikes Peak) and hard for the abrasive Canaries
+const RECOMMENDED = [{ susp: 1, damp: 1, arb: 1, gear: 0, tyre: 5 }, { susp: 1, damp: 1, arb: 0, gear: 1, tyre: 6 }, { susp: 0, damp: 0, arb: 0, gear: 1, tyre: 1 },
+  { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 }, { susp: 2, damp: 2, arb: 2, gear: 1, tyre: 3 }, { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 1 },
+  { susp: 2, damp: 2, arb: 2, gear: 0, tyre: 2 }, { susp: 0, damp: 0, arb: 0, gear: 0, tyre: 1 }, { susp: 1, damp: 1, arb: 0, gear: 2, tyre: 0 },
   { susp: 0, damp: 1, arb: 0, gear: 2, tyre: 0 }, { susp: 1, damp: 1, arb: 1, gear: 2, tyre: 0 }, { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 },
-  { susp: 0, damp: 0, arb: 0, gear: 0, tyre: 0 }, { susp: 0, damp: 0, arb: 0, gear: 2, tyre: 0 },
-  { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 }, { susp: 1, damp: 1, arb: 1, gear: 0, tyre: 0 }];
+  { susp: 0, damp: 0, arb: 0, gear: 0, tyre: 1 }, { susp: 0, damp: 0, arb: 0, gear: 2, tyre: 1 }, { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 },
+  { susp: 1, damp: 1, arb: 1, gear: 0, tyre: 2 }];
+/** The recommended setup for a stage; on tarmac in the rain, the wet tyre. */
+function recSetup(i, w) {
+  const r = Object.assign({}, RECOMMENDED[i] || DEFAULT_SETUP);
+  if ((w || Cond.pick().w) === 'rain' && (r.tyre === 2 || r.tyre === 3)) r.tyre = 4;
+  return r;
+}
 const DEFAULT_SETUP = { susp: 1, damp: 1, arb: 1, gear: 1, tyre: 0 };
 const SETUP_KEYS = ['susp', 'damp', 'arb', 'gear', 'tyre'];
 /* ---- garage: pilot + car (chosen in the garage, kept for every stage) ----
@@ -2548,8 +2588,8 @@ function tuneFor(setup, build) {
   const mass = sp.kg + REF_PILOT_KG + FUEL_KG, dm = mass - (CAR_SPECS[0].kg + REF_PILOT_KG + FUEL_KG);
   const tn = { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land - dm * 0.003, v: gr.v,
     gears: sp.gears, final: sp.final / gr.v,
-    mu: TUNE.tyre[setup.tyre], steer: sp.steer,
-    relax: TUNE.tyreRelax[setup.tyre] || 1,
+    mu: TUNE.tyre[setup.tyre] || [1, 1, 1, 1, 1, 1], steer: sp.steer,   // no compound (refTune): the neutral reference tyre
+    relax: TUNE.tyreRelax[setup.tyre] || 1, wet: TUNE.tyreWet[setup.tyre] || 1, wear: TUNE.tyreWear[setup.tyre] || null,
     dmg: clamp(1 - dm * 0.0012, 0.7, 1.3), spec: sp, mass, aero,
     geo: carGeometry(build.body, mass) };
   tn.r = tn.geo.r;
@@ -3946,7 +3986,7 @@ function gridKey(ix, iz) { return (ix + 4096) * 8192 + (iz + 4096); }
  *  gears (with the rotating parts' inertia), less drag and rolling resistance. Target times and the AI's speed
  *  plan use it, so they are the same whichever car is in the garage. */
 let _refAcc = null, _refTune = null;
-const refTune = () => _refTune || (_refTune = tuneFor(DEFAULT_SETUP, DEFAULT_BUILD));
+const refTune = () => _refTune || (_refTune = tuneFor(Object.assign({}, DEFAULT_SETUP, { tyre: -1 }), DEFAULT_BUILD));
 function refAccel(v, surf) {
   if (!_refAcc) {
     const tn = refTune(), m = tn.mass;
@@ -13487,7 +13527,7 @@ function currentSetup() {
 /* ---- service park: pick a setup (and repair damage during a rally) ---- */
 const Service = {
   render() {
-    const def = TR.def, su = currentSetup(), rec = RECOMMENDED[def.tpl];
+    const def = TR.def, su = currentSetup(), rec = recSetup(def.tpl, Rally.active ? (Rally.cond[Rally.stage] || {}).w : null);
     document.getElementById('svcStage').textContent = def.name.toUpperCase() + ' · ' + stageCode(def) + ' · ' + surfLabel(def);
     let html = '';
     for (const k of SETUP_KEYS) {
@@ -15178,7 +15218,7 @@ const Menu = {
     on('svcRecce', () => { if (Game.state === 'service' && !Rally.active) { document.getElementById('service').classList.add('hidden'); Recce.start(); } });
     on('pausePhoto', () => { if (Game.state === 'paused') Photo.open(null); });
     on('replayBtn', () => { if (Game.state === 'finished' && Game.result) Photo.open(Game.result.ghost); });
-    on('svcRec', () => { Store.data.setups[Game.stageIdx] = Object.assign({}, RECOMMENDED[Game.stageIdx]); Store.save(); Service.render(); });
+    on('svcRec', () => { Store.data.setups[Game.stageIdx] = recSetup(TR.def.tpl, Rally.active ? (Rally.cond[Rally.stage] || {}).w : null); Store.save(); Service.render(); });
     on('svcGo', () => { if (Game.state === 'service') leaveService(); });
     on('svcBack', () => enterMenu('stages'));
     // modal
@@ -15330,8 +15370,8 @@ const Cond = {
       scene.fog.color.copy(b.col).lerp(this.time === 'night' ? _fogNight : _fogGrey, kind === 'clear' ? 0 : k * 0.85);
     }
     Precip.veil(scene.fog ? scene.fog.color : _fogGrey, kind === 'clear' ? 0 : k * (kind === 'fog' ? 0.92 : 0.6));
-    const m = WET_MU[kind], g = Raid.gripMul();
-    for (let i = 0; i < 6; i++) this.mu[i] = (m ? lerp(1, m[i], k) : 1) * g;
+    const m = WET_MU[kind], g = Raid.gripMul(), wt = car.tune ? car.tune.wet : 1;   // each compound loses its own share in the wet
+    for (let i = 0; i < 6; i++) this.mu[i] = (m ? Math.max(0.2, 1 - (1 - m[i]) * k * wt) : 1) * g;
   },
   update(dt) {
     const st = Game.state;
@@ -15408,7 +15448,8 @@ const Raid = {
   update(dt, ctl) {
     if (!this.on || Game.state !== 'racing') return;
     this.fuel = Math.max(0, this.fuel - (0.006 + 0.05 * ctl.throttle * clamp(car.rpm, 0, 1.05)) * dt);
-    this.wear = Math.min(1, this.wear + dt * (0.0005 + 0.0045 * clamp(car.slip || 0, 0, 1)) * (car.nGround ? 1 : 0));
+    const tw = car.tune && car.tune.wear, gs = car.wheels[0].gs, wr = tw && gs ? tw[gs.surf] : 1;   // the compound on this surface
+    this.wear = Math.min(1, this.wear + dt * wr * (0.0005 + 0.0045 * clamp(car.slip || 0, 0, 1)) * (car.nGround ? 1 : 0));
     if (this.fuel <= 0 && !this.empty) { this.empty = true; HUD.message('OUT OF FUEL', 'LIMPING ON FUMES', '#ff4d5e', 3); AudioSys.speak("we're out of fuel, keep it rolling", true); }
     if (this.fuel < 5 && this.fuel > 0 && !this.low) { this.low = true; HUD.toast('FUEL LOW', '#ffb52e', 2); }
   },
