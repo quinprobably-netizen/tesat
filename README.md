@@ -110,7 +110,7 @@ Manual gears, ABS, traction control, stability, tilt steering and its sensitivit
 | Steer (in the air: yaw) | A / D or ← / → | Left stick | Steering pad, or tilt |
 | Handbrake | Space | A | HAND BRAKE |
 | Gear up / down | E / Q | RB / LB | ▲ / ▼ |
-| Reverse (when stopped) | Gear down, or hold S 1 s | LB, or hold LT 1 s | ▼, or hold BRAKE 1 s |
+| Reverse (when stopped; gear up for first) | Q / E | LB / RB | ▼ / ▲ |
 | Reset to checkpoint | R | Back | R |
 | Camera | C | Y | CAM |
 | Racing line (full / braking / off) | L | | |
