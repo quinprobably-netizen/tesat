@@ -188,7 +188,8 @@ Every build gets a **PI** (performance index, 100 to 999) and a class: D, C (501
 
 | | Keyboard | Gamepad | Touch |
 |---|---|---|---|
-| Throttle / brake & reverse | W / S or ↑ / ↓ | RT / LT | GAS / BRAKE |
+| Throttle / brake | W / S or ↑ / ↓ | RT / LT | GAS / BRAKE |
+| Reverse (stopped; then the throttle backs up, the brake only brakes) | Q, or hold S for 1 s | LB, or hold LT for 1 s | ▼, or hold BRAKE for 1 s |
 | Steer (in the air on SPORT/FULL stability: yaw; W/S pitch) | A / D or ← / → | Left stick / d-pad ← → | Steering pad |
 | Handbrake | Space | A | HAND BRAKE |
 | Gear up / down (manual gears) | E / Q | RB / LB | ▲ / ▼ |

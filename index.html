@@ -1186,10 +1186,11 @@ body.hud-min .pn svg *{stroke:var(--text)!important}
       <div id="setControls" class="hidden">
         <table class="ctl-table">
           <tr><th></th><th>KEYBOARD</th><th>GAMEPAD</th><th>TOUCH</th></tr>
-          <tr><td>Throttle / brake, reverse</td><td><kbd>W</kbd><kbd>S</kbd> or <kbd>&uarr;</kbd><kbd>&darr;</kbd></td><td>RT / LT</td><td>GAS / BRAKE</td></tr>
+          <tr><td>Throttle / brake</td><td><kbd>W</kbd><kbd>S</kbd> or <kbd>&uarr;</kbd><kbd>&darr;</kbd></td><td>RT / LT</td><td>GAS / BRAKE</td></tr>
           <tr><td>Steer (in the air: yaw)</td><td><kbd>A</kbd><kbd>D</kbd> or <kbd>&larr;</kbd><kbd>&rarr;</kbd></td><td>Left stick</td><td>Steering pad, or tilt (Settings)</td></tr>
           <tr><td>Handbrake</td><td><kbd>Space</kbd></td><td>A</td><td>HAND BRAKE</td></tr>
           <tr><td>Gear up / down</td><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>RB / LB</td><td>&#9650; / &#9660;</td></tr>
+          <tr><td>Reverse (stopped), then throttle</td><td>Gear down, or hold <kbd>S</kbd> 1 s</td><td>LB, or hold LT 1 s</td><td>&#9660;, or hold BRAKE 1 s</td></tr>
           <tr><td>Reset to checkpoint</td><td><kbd>R</kbd></td><td>Back</td><td>R</td></tr>
           <tr><td>Camera</td><td><kbd>C</kbd></td><td>Y</td><td>CAM</td></tr>
           <tr><td>Racing line: full, braking, off</td><td><kbd>L</kbd></td><td></td><td>Settings</td></tr>
@@ -6319,7 +6320,7 @@ const car = {
   nGround: 0, airTime: 0, wasAirborne: false, pitchLatch: false, steerLatch: false,
   damage: 0, drifting: false, slip: 0, hullContact: false, spool: 1, tc: true, tcF: 1, tcCut: false, abs: true, backfire: 0,
   events: [], flipTimer: 0, offTimer: 0, globalTimer: 0, tune: null,
-  gear: 1, rpm: 0.12, we: 105, shiftT: 0, shiftDir: 0, blipRpm: 0, shiftReq: 0, limiter: false, cut: false, autoBox: true, revHold: 0,
+  gear: 1, rpm: 0.12, we: 105, shiftT: 0, shiftDir: 0, blipRpm: 0, shiftReq: 0, limiter: false, cut: false, autoBox: true, revHold: 0, revLatch: false,
   Tcl: 0, clutchSlip: false, sigma: 1, we2: 105, Tcl2: 0, cut2: false,      // we2, Tcl2, cut2: the second engine (twin-engined cars)
   // damage by corner of the car (0..1): f radiator, r exhaust and drivetrain, l/rt suspension (l is +x)
   zones: { f: 0, r: 0, l: 0, rt: 0 }, pull: 0, heat: 0, dents: [], glassBroken: false,
@@ -6407,11 +6408,21 @@ function gearboxStep(dt, ctl, vFwd, nG) {
   const crash = (g) => sp.noSync && sp.noSync.includes(g) && Math.abs(vFwd) > 2.5;   // a gear with no synchro won't go in on the move
   car.autoBox = auto;
   if (car.shiftT > 0) { car.shiftT = Math.max(0, car.shiftT - dt); if (car.shiftT <= 0) car.shiftDir = 0; }
-  // reverse: hold the brake at a standstill to engage it; the throttle, or letting go of the brake, takes it back out
-  if (car.gear > 0) {
-    car.revHold = Math.abs(vFwd) < 0.8 && ctl.brake > 0.3 && ctl.throttle === 0 && car.shiftT <= 0 ? car.revHold + dt : 0;
-    if (car.revHold > 0.3) { car.gear = -1; car.revHold = 0; car.shiftT = sp.shift; car.shiftDir = 0; car.events.push({ type: 'shift', up: false }); }
-  } else if (ctl.brake === 0 || (ctl.throttle > 0 && vFwd > -1.5)) { car.gear = 1; car.shiftT = sp.shift; car.shiftDir = 0; car.events.push({ type: 'shift', up: true }); }
+  // reverse is a gear of its own, as in the real car: the brake pedal only ever brakes and the throttle only ever
+  // drives (backwards in reverse). At a standstill a gear-down pull from first selects it and a gear-up pull takes
+  // first back; so does holding the brake for a second with the throttle up (once per press), for touch and the
+  // automatic. Only the driver selects it, and not on the grid.
+  const still = Math.abs(vFwd) < 0.8 && car.shiftT <= 0, driver = !Game.autopilot && Game.state === 'racing';
+  let toRev = 0;
+  if (still && car.shiftReq < 0 && car.gear === 1) toRev = -1;
+  else if (Math.abs(vFwd) < 2 && car.shiftReq > 0 && car.gear < 0) toRev = 1;
+  if (car.revLatch) { car.revHold = 0; if (ctl.brake < 0.3) car.revLatch = false; }
+  else car.revHold = still && driver && ctl.brake > 0.3 && ctl.throttle < 0.05 ? car.revHold + dt : 0;
+  if (car.revHold > 1) { toRev = car.gear < 0 ? 1 : -1; car.revLatch = true; car.revHold = 0; }
+  if (toRev) {
+    car.gear = toRev; car.shiftReq = 0; car.shiftT = sp.shift; car.shiftDir = 0;
+    car.events.push({ type: 'shift', up: toRev > 0 }, { type: toRev < 0 ? 'reverse' : 'first' });
+  }
   const wD = Math.abs(drivenOmega());
   const rpmIn = (gr) => wD * tn.gears[gr - 1] * tn.final * 60 / TAU;
   if (car.gear > 0) {
@@ -6451,7 +6462,7 @@ function gearboxStep(dt, ctl, vFwd, nG) {
   } else car.shiftReq = 0;
   // turbo: boost builds over about sp.lag seconds on the throttle (faster at high revs) and goes off it as fast as the
   // anti-lag lets it (ALS); through a gear change the throttle stays down in a sequential (flat-shift) and comes up in an H-pattern
-  const thr = car.gear < 0 ? ctl.brake : ctl.throttle;
+  const thr = ctl.throttle;
   if (sp.lag > 0) {
     const al = ALS[sp.als || 0], lift = car.shiftT > 0 && box.clutch ? 0 : thr;
     const want = Math.max(lift, car.rpm > 0.4 ? al.floor : 0);
@@ -7348,7 +7359,7 @@ function stepVehicle(dt, ctl) {
   // 4) gearbox, brakes and driver aids, then the coupled powertrain solve
   gearboxStep(dt, ctl, vLongBody, nG);
   const rev = car.gear < 0, drv0 = sp.front ? 0 : 2, drv1 = sp.front >= 1 ? 2 : 4;   // driven wheels: drv0 up to drv1
-  const pedal = rev ? ctl.throttle : ctl.brake;                    // in reverse the throttle pedal brakes
+  const pedal = ctl.brake;                                          // the brake pedal brakes, in every gear
   // stability control (Settings > STABILITY; the AI always drives on FULL), done the way a real car's ESC does it:
   // when the car slides further than a keyboard can catch (body slip past b0) or yaws faster than the steering asks
   // for, it wants a yaw moment back toward the direction of travel, and gets it by braking the front wheel on that
@@ -7396,8 +7407,8 @@ function stepVehicle(dt, ctl) {
     w.absOn = car.abs && pedal > 0.02 && w.absP < 0.97;
     w.Tb = pedal * CAR.brakeT[fw ? 0 : 1] * (car.abs ? w.absP : 1) + e * w.absP + (ctl.handbrake && !fw ? CAR.hbT : 0);
   }
-  // throttle; in reverse the brake pedal drives, eased off near the reverse limit
-  let th0 = rev ? ctl.brake * clamp((CAR.reverseVmax + vLongBody) / 3, 0, 1) : ctl.throttle;
+  // throttle, in every gear (in reverse it drives backwards, eased off near the reverse limit)
+  let th0 = rev ? ctl.throttle * clamp((CAR.reverseVmax + vLongBody) / 3, 0, 1) : ctl.throttle;
   // traction control: cuts the engine while a driven wheel spins past the tyre's peak slip
   if (car.tc && th0 > 0) {
     let over = 0;
@@ -7414,7 +7425,7 @@ function stepVehicle(dt, ctl) {
   // wheels resist the body turning their axles (a gyroscope)
   let L1 = 0; for (let k = 0; k < 4; k++) L1 += W[k].om;
   T.addScaledVector(AX, -CAR.Iw * (L1 - L0) / dt).sub(_tmp2.crossVectors(car.w, AX).multiplyScalar(CAR.Iw * L1));
-  car.limiter = (car.cut || car.cut2) && (rev ? ctl.brake : ctl.throttle) > 0;
+  car.limiter = (car.cut || car.cut2) && ctl.throttle > 0;
   // 5) tyre forces on the body at each contact patch. The suspension links carry part of each tyre's force
   //    straight into the body (the roll and pitch centres): a vertical link load J that loads the tyre without
   //    compressing the spring, so the tyres see the whole weight transfer while the body rolls and dives only on
@@ -7636,7 +7647,7 @@ function resetCarMotion(speed) {
   let gear = 1;
   for (let g = 2; g <= tn.gears.length; g++) if (rpmAt(g) > sp.redline * 0.55) gear = g;
   car.gear = gear; car.we = Math.max(sp.idle, rpmAt(gear)) * TAU / 60; car.rpm = car.we * 60 / TAU / sp.redline;
-  car.shiftT = 0; car.shiftDir = 0; car.shiftReq = 0; car.revHold = 0; car.cut = false; car.limiter = false; car.tcF = 1; car.Tcl = 0;
+  car.shiftT = 0; car.shiftDir = 0; car.shiftReq = 0; car.revHold = 0; car.revLatch = false; car.cut = false; car.limiter = false; car.tcF = 1; car.Tcl = 0;
   car.we2 = car.we; car.Tcl2 = 0; car.cut2 = false;
   for (const c of DL.cpl) c.lin = true;
   car.steerAngle = 0; car.airTime = 0; car.wasAirborne = false; car.flipTimer = 0; car.offTimer = 0;
@@ -13948,6 +13959,7 @@ function processCarEvents() {
     else if (ev.type === 'scrape') { if (!scrape || ev.speed > scrape.speed) scrape = ev; }
     else if (ev.type === 'shift') { if (Game.state !== 'menu') AudioSys.shift(ev.up); }
     else if (ev.type === 'overrev') { AudioSys.beep(220, 0.1); if (racing) HUD.toast('OVER-REV · DOWNSHIFT REFUSED', '#ffb52e', 0.9); }
+    else if (ev.type === 'reverse' || ev.type === 'first') { if (racing) HUD.toast(ev.type === 'reverse' ? 'REVERSE · THROTTLE TO BACK UP' : 'FIRST GEAR', '#c3cce0', 1.2); }
     else if (ev.type === 'crash') { AudioSys.beep(140, 0.15); if (racing) HUD.toast('NO SYNCHRO ON FIRST · SLOW TO A CRAWL', '#ffb52e', 1.1); }
   }
   car.events.length = 0;
@@ -14616,7 +14628,11 @@ function handleActions() {
       case 'gearUp': case 'gearDown':
         if (st === 'garage') { Garage.setTab(Garage.tab + (a === 'gearUp' ? 1 : -1)); break; }   // LB / RB: the garage categories
         if (st !== 'racing' && st !== 'countdown') break;
-        if (!Store.data.settings.manual) { HUD.toast('AUTOMATIC GEARBOX · TURN ON MANUAL GEARS IN SETTINGS', '#c3cce0', 1.4); break; }
+        if (!Store.data.settings.manual) {   // the automatic's selector: reverse and first at a standstill only
+          if (car.speed < 2 && (a === 'gearUp' ? car.gear < 0 : car.gear === 1)) car.shiftReq = a === 'gearUp' ? 1 : -1;
+          else HUD.toast('AUTOMATIC GEARBOX · TURN ON MANUAL GEARS IN SETTINGS', '#c3cce0', 1.4);
+          break;
+        }
         car.shiftReq = clamp(car.shiftReq + (a === 'gearUp' ? 1 : -1), -3, 3);   // pulls made mid-shift wait their turn
         break;
       case 'reset': if (st === 'racing' && !Game.pendingReset) { resetToCheckpoint(0); HUD.toast('RESET TO CHECKPOINT'); } break;
