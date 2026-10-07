@@ -4393,7 +4393,7 @@ function worldAt(s, d, out) {
 /* The physics test rig's proving ground (PhysicsRig, section 10): while `on`, the ground everywhere is the plane
    y = h0 + sx·x + sz·z of one surface, so the car's real physics can be measured away from any stage. */
 const RIG_GROUND = { on: false, h0: 0, sx: 0, sz: 0, surf: 4, rA: 0, rL: 4, rSide: false,   // ripples: amplitude, wavelength, left side only
-  road: false, kap: 0, noise: null };                // road: a straight road along z centred on x = 0 (ROAD's ruts and grip), a corner's curvature, patches
+  road: false, kap: 0 };                             // road: a straight road along z centred on x = 0 (ROAD's ruts and grip), and a corner's curvature
 const RIG_HW = 4;
 function rigHeight(x, z) {
   const G = RIG_GROUND;
@@ -4408,22 +4408,19 @@ function rigGround(x, z, out) {
   out.void = false; out.road = true; out.s = 0; out.d = 0; out.i = 0;
   out.h = h; out.nx = -gx / l; out.ny = 1 / l; out.nz = -gz / l;
   out.surf = G.surf; out.mu = info.mu; out.rr = info.rr;
-  if (G.road) ROAD.apply(out, z, x, G.surf, G.kap, 1, RIG_HW, G.noise || (() => -1), false);
+  if (G.road) ROAD.apply(out, x, G.surf, G.kap, 1, RIG_HW);
   return out;
 }
 /* The road's own surface along a stage (what a rally driver reads): the cars before you have worn two pairs of
    wheel tracks into loose roads (the ruts the ground shader draws, either side of the centre line). The tracks are
    swept clean and pressed down a few cm, so a wheel in one follows it (tramlining); between and outside them the
    loose stones and dust roll under the tyre and grip less, most of all where they are thrown out wide on the
-   outside of corners (and dragged onto tarmac there). In the rain water lies in patches, deepest in the ruts; on a
-   snowy stage there are patches of black ice; a tarmac stage keeps damp patches in the shade even when it's dry.
+   outside of corners (and dragged onto tarmac there).
    RIG_GROUND.road puts the same surface on the proving ground (d = x, s = z, a straight). */
 const ROAD = {
   rut: [0.03, 0, 0, 0.04, 0, 0.035],       // rut depth (m) per surface (SURF order)
   loose: [0.1, 0, 0, 0.12, 0, 0.1],        // grip lost on the loose stuff off the wheel tracks
   marbles: [0.08, 0, 0, 0.1, 0.12, 0.08],  // ... and more on the outside of a corner (tarmac: dirt dragged out)
-  puddle: 0.45, puddleRR: 0.04,            // grip lost in standing water at full rain, and its drag
-  damp: 0.1,                               // grip lost on a damp shaded patch of tarmac
   /** The wheel tracks at d across the road: 1 in a track's middle. */
   tracks(ad) { const a = (ad - 0.85) / 0.32, b = (ad - 2.35) / 0.38; return Math.exp(-a * a) + 0.7 * Math.exp(-b * b); },
   /** Rut depth below the road at (s, d) on road surface `surf`. */
@@ -4437,9 +4434,9 @@ const ROAD = {
     TR._kside = { def: TR.def, v: c > 0 ? -1 : 1 };
     return TR._kside.v;
   },
-  /** Grip and drag on the road surface `out` at track coords (s, d), road surface surf, curvature kap; changes
-   *  out.surf/mu/rr. ks is ROAD.side(); noise(a, b) the stage's own noise (the rig passes its own). */
-  apply(out, s, d, surf, kap, ks, hw, noise, icy) {
+  /** Grip on the road surface `out` at d across the road, road surface surf, curvature kap; changes out.mu.
+   *  ks is ROAD.side(). */
+  apply(out, d, surf, kap, ks, hw) {
     const ad = Math.abs(d);
     let m = 1;
     if (this.loose[surf] || this.marbles[surf]) {
@@ -4447,18 +4444,8 @@ const ROAD = {
       const wide = smoothstep(0.004, 0.02, Math.abs(kap)) * smoothstep(0.2 * hw, hw, d * Math.sign(kap) * ks);
       m *= 1 - this.loose[surf] * off - this.marbles[surf] * wide;
     }
-    if (Cond.kind === 'rain' && Cond.k > 0 && surf !== SURF.ICE) {
-      const p = smoothstep(0.25, 0.45, noise(s / 9, d / 2.5 + 11) + 0.15 * this.tracks(ad)) * Cond.k;
-      m *= 1 - this.puddle * p; out.rr += this.puddleRR * p;
-    } else if (surf === SURF.TARMAC) m *= 1 - this.damp * smoothstep(0.3, 0.5, noise(s / 31, d / 9 + 23));
-    if (icy && surf !== SURF.ICE && surf !== SURF.METAL && noise(s / 23, d / 4 + 40) > 0.38) { out.surf = SURF.ICE; out.mu = SURF_INFO[SURF.ICE].mu; out.rr = SURF_INFO[SURF.ICE].rr; return out; }
     out.mu *= m;
     return out;
-  },
-  /** A snowy stage, where black ice lies in patches. */
-  icy() {
-    const def = TR.def;
-    return def.surf.base === SURF.SNOW || def.surf.off === SURF.SNOW || Cond.kind === 'snow';
   },
 };
 /** Physics ground sample: height, normal (finite differences), surface grip & drag. */
@@ -4483,7 +4470,7 @@ function sampleGround(x, z, hint, out) {
   out.rr = info.rr + (out.road ? 0 : TR.def.offRR);        // soft verges roll heavily
   // deep loose gravel and snow pile up off the road: the wheels plough through it
   if (!out.road && (sidx === SURF.GRAVEL || sidx === SURF.SNOW || sidx === SURF.REGOLITH)) out.rr += 0.06 * smoothstep(TR.hw + 0.6, TR.hw + 2.2, ad);
-  if (out.road) ROAD.apply(out, LQ.s, LQ.d, sidx, TR.kap[LQ.i], ROAD.side(), TR.hw, TR.noiseC, ROAD.icy());
+  if (out.road) ROAD.apply(out, LQ.d, sidx, TR.kap[LQ.i], ROAD.side(), TR.hw);
   return out;
 }
 
@@ -7944,17 +7931,17 @@ const PhysicsRig = {
       setCarTune(tune); RIG_GROUND.on = true; Game.forceCtl = this.ctl;
       return fn(this);
     } finally {
-      Object.assign(RIG_GROUND, { on: false, h0: 0, sx: 0, sz: 0, rA: 0, road: false, kap: 0, noise: null });
+      Object.assign(RIG_GROUND, { on: false, h0: 0, sx: 0, sz: 0, rA: 0, road: false, kap: 0 });
       setCarTune(savedTune); restoreState(car, saved);
       DL.cpl.forEach((c, i) => { c.lin = cpl[i]; });
       Game.forceCtl = fc;
     }
   },
   /** Car at the origin (or o.x across) heading +z (or `o.yaw`) at speed v on surface `surf`; o.sx/o.sz tilt the ground,
-   *  o.drop lifts the car, o.road lays ROAD's surface along z (o.kap a bend's curvature, o.noise its patches). */
+   *  o.drop lifts the car, o.road lays ROAD's surface along z (o.kap a bend's curvature). */
   place(surf, v, o) {
     o = o || {};
-    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4, rSide: !!o.rSide, road: !!o.road, kap: o.kap || 0, noise: o.noise || null });
+    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4, rSide: !!o.rSide, road: !!o.road, kap: o.kap || 0 });
     car.q.set(0, 0, 0, 1); if (o.yaw) car.q.setFromAxisAngle(UP, o.yaw);
     if (o.sx || o.sz) car.q.premultiply(_qiw.setFromUnitVectors(UP, _tmp.set(-(o.sx || 0), 1, -(o.sz || 0)).normalize()));   // sitting on the slope
     car.pos.set(o.x || 0, CAR.cgH + (o.drop || 0) - (o.road ? ROAD.depth(surf, Math.abs(o.x || 0), RIG_HW) : 0), 0);
@@ -8100,10 +8087,8 @@ function physicsTests(build) {
     });
     check(`real ${o.name}: top speed (km/h)`, topSpeed(tT) * 3.6, ...c.top);
   });
-  // 2) the road: ruts, loose stuff off the line and wide in bends, puddles, damp shade, black ice
-  const cond = { kind: Cond.kind, k: Cond.k };
-  try {
-    Cond.kind = 'clear'; Cond.k = 0;
+  // 2) the road: ruts, loose stuff off the line and wide in bends
+  {
     check('road: rut depth on gravel (cm)', ROAD.depth(SURF.GRAVEL, 0.85, 4) * 100, 3, 5);
     check('road: rut depth on tarmac (cm)', ROAD.depth(SURF.TARMAC, 0.85, 4) * 100, 0, 0);
     // the wheel tracks are a modern car's width: a WRC car's wheels sit in them
@@ -8119,18 +8104,7 @@ function physicsTests(build) {
       const m = rigGround(d, 0, {}).mu; RIG_GROUND.road = false; RIG_GROUND.kap = 0; return m; };
     check('road: gravel grip between the wheel tracks / in one', mu(1.6, 0) / mu(0.85, 0), 0.86, 0.94);
     check('road: gravel grip wide on a bend\'s outside / on its inside', mu(3.6, 0.02) / mu(-3.6, 0.02), 0.85, 0.95);
-    PhysicsRig.run(tyred(TT), (rig) => {
-      Cond.kind = 'rain'; Cond.k = 1;
-      const stop = (wet) => rig.brake(SURF.TARMAC, 100 / 3.6, { road: true, noise: () => (wet ? 1 : -1) }).dist;
-      check('road: tarmac ABS stop through a puddle / beside it', stop(true) / stop(false), 1.4, 2.4);
-    });
-    Cond.kind = 'clear'; Cond.k = 0;
-    const o = { surf: SURF.TARMAC, mu: 1, rr: 0 };
-    ROAD.apply(o, 0, 0, SURF.TARMAC, 0, 1, 4, () => 0.6, false);
-    check('road: grip on a damp shaded patch of dry tarmac', o.mu, 0.85, 0.95);
-    Object.assign(o, { surf: SURF.TARMAC, mu: 1, rr: 0 }); ROAD.apply(o, 0, 0, SURF.TARMAC, 0, 1, 4, () => 0.6, true);
-    check('road: a black ice patch on a snowy stage is ice', o.surf === SURF.ICE ? 1 : 0, 1, 1);
-  } finally { Cond.kind = cond.kind; Cond.k = cond.k; }
+  }
   // 3) suspension geometry: camber with roll and compression, bump steer
   const deg = 180 / Math.PI;
   PhysicsRig.run(tyred(TT), (rig) => {
