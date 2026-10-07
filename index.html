@@ -6921,8 +6921,9 @@ function applyAero(tn, nG, rho) {
   }
 }
 
+const _sbh = new THREE.Vector3();
 /* ---- soft body: the car as nodes and beams, the way BeamNG builds one ----
-   With Settings > SOFT-BODY on, the body is a lattice of ~26 point masses (floor, waist and roof) joined by stiff
+   With Settings > SOFT-BODY on, the body is a lattice of 44 point masses (floor, waist and roof) joined by stiff
    spring-damper beams instead of one rigid body. The wheels, tyres, powertrain and aids work as before and push on
    the nodes nearest where they act (addForceAt); whatever the rigid model applies as a pure force or torque (gravity,
    the aids, the wheels' gyroscopes) is spread over the nodes so the car as a whole gets exactly the same push. The
@@ -6930,10 +6931,11 @@ function applyAero(tn, nG, rho) {
    past its yield strain sets at its new length (the metal bends and stays bent), and pulled far enough it snaps.
    The rigid pose the rest of the game reads (car.pos, q, vel, w) is fitted to the nodes each step, the wheel mounts
    ride on the bent body (a bent corner moves its wheel), and the body mesh is skinned to the nodes.
-   The beams are stepped SB.SUB times per physics step (1200 Hz), which keeps them stiff and stable. The physics test
-   rig (RIG_GROUND) always runs the rigid body, so the garage ratings and self-tests are unchanged. */
+   The tyres meet the scenery too (collideWheels). The beams are stepped SB.SUB times per physics step (1200 Hz),
+   which keeps them stiff and stable. The physics test rig (RIG_GROUND) always runs the rigid body, so the garage
+   ratings and self-tests are unchanged. */
 const SB = {
-  SUB: 10, FR: [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1], EA: 4e6, C: 1200, YIELD: 0.004, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22,
+  SUB: 10, FR: [0, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 1], EZ: 0.1, NOSE: 0.65, EA: 4e6, C: 1200, YIELD: 0.004, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22,
   on: false, ready: false, synced: false, key: null, n: 0, M: 0, ver: 0,
   rest: null, loc: null, m: null, x: null, v: null, fe: null, f: null, off: new THREE.Vector3(),
   ba: null, bb: null, l0: null, l00: null, ok: null, nb: 0, gh: null,
@@ -6977,12 +6979,12 @@ const SB = {
     this.nb = A.length; this.ba = Int32Array.from(A); this.bb = Int32Array.from(B);
     this.l00 = Float64Array.from(L); this.l0 = this.l00.slice(); this.ok = new Uint8Array(this.nb).fill(1);
     // strength by region: the cabin (and the roof over it) is a stiff, strong safety cell; the nose and tail crumple
-    const end = (i) => fr[i] >= 0 && (fr[i] <= FR[1] || fr[i] >= FR[ns - 2]), cab = (i) => fr[i] < 0 || (fr[i] >= FR[2] && fr[i] <= FR[ns - 3]);
+    const EZ = this.EZ, end = (i) => fr[i] >= 0 && (fr[i] <= EZ || fr[i] >= 1 - EZ), cab = (i) => fr[i] < 0 || (fr[i] >= 0.25 && fr[i] <= 0.75);
     this.ys = new Float64Array(this.nb); this.ea = new Float64Array(this.nb);
     this.deg = new Float64Array(n); this.lost = new Float64Array(n); this.gone = new Uint8Array(n);
     for (let b = 0; b < this.nb; b++) {
       const i = A[b], j = B[b], c = cab(i) && cab(j), e = end(i) || end(j);
-      this.ys[b] = this.YIELD * (c ? 2.6 : e ? 0.7 : 1); this.ea[b] = this.EA / L[b] * (c ? 1.3 : 1);
+      this.ys[b] = this.YIELD * (c ? 2.6 : e ? 0.7 : 1); this.ea[b] = this.EA / L[b] * (c ? 1.3 : 1) * (e ? this.NOSE : 1);   // nose and tail beams softened: the denser rows put more beams across each section
       this.deg[i]++; this.deg[j]++;
     }
     // substeps: enough that the stiffest node (its beams' stiffness and damping against its mass) stays stable
@@ -7111,7 +7113,7 @@ const SB = {
     for (let i = 0; i < this.n; i++) {
       if (fr[i] < 0) continue;
       const d = Math.hypot(L[i * 3] - R[i * 3], L[i * 3 + 1] - R[i * 3 + 1], L[i * 3 + 2] - R[i * 3 + 2]);
-      if (fr[i] >= FR[FR.length - 2]) fz = Math.max(fz, d); else if (fr[i] <= FR[1]) rz = Math.max(rz, d);
+      if (fr[i] >= 1 - this.EZ) fz = Math.max(fz, d); else if (fr[i] <= this.EZ) rz = Math.max(rz, d);
     }
     const Z = car.zones, mv = (k) => { const w = this.mounts[k]; return this.bent(w, _sbF).sub(_sbT.set(w.p[0], w.p[1], w.p[2])).length(); };
     Z.f = Math.max(Z.f, clamp((fz - 0.04) / 0.3, 0, 1)); Z.r = Math.max(Z.r, clamp((rz - 0.04) / 0.3, 0, 1));
@@ -7134,6 +7136,7 @@ const SB = {
     if (!this.ready || this.key !== CAR.hull || !this.synced) this.place();
     this.fit();
     this.fe.fill(0); this.Fa.set(0, 0, 0); this.Ta.set(0, 0, 0); this.hit = null;
+    this.touch = false; this.Ef = 0;                // whether anything touched the body this step, and the friction work in it
   },
   /** A force f at world point p, onto the three nodes nearest it. */
   push(f, p) {
@@ -7213,9 +7216,10 @@ const SB = {
       }
       if (this.cand.length) this.collideBeams();
       if (this.cand.length || this.blocks.length) this.collidePanels();
+      if (this.cand.length || this.blocks.length) this.collideWheels();
     }
-    if (scrape > 5) car.events.push({ type: 'scrape', speed: scrape, x: sx, y: sy, z: sz });
-    if (this.hit) car.events.push(this.hit);
+    if (scrape > 5) { car.events.push({ type: 'scrape', speed: scrape, x: sx, y: sy, z: sz }); car.scrapeNow = Math.max(car.scrapeNow, scrape); }
+    car.contactHit = this.hit; car.contactTouch = this.touch; car.contactFric = this.Ef;
     this.fit(); this.shape();
   },
   /** Scenery near the car this step: the obstacle buckets and chicane blocks the nodes could reach. */
@@ -7303,8 +7307,35 @@ const SB = {
       if (pen > 0) for (let j = 0; j < 4; j++) if (W[j] > 0.05) this.contact(I[j], nx, ny, nz, pen * W[j] * 2, kind, brk, obj);
     }
   },
+  /** The tyres against the scenery: each hub is a sphere of tyre radius hung from its mount on the bent body, and
+   *  the blow goes to the mount's nodes, as the suspension carries a tyre's push into the body. */
+  collideWheels() {
+    for (let k = 0; k < 4; k++) {
+      const M = this.mounts[k], h = _sbh;
+      this.skin(M, h);
+      h.addScaledVector(AY, -(CAR.rest - car.wheels[k].comp));           // the mount down to the hub
+      for (const c of this.cand) {
+        if (c.gone) continue;
+        const cy = clamp(h.y, c.y0, c.y1), dx = h.x - c.x, dy = h.y - cy, dz = h.z - c.z, d2 = dx * dx + dy * dy + dz * dz, rr = CAR.radius + c.r;
+        if (d2 >= rr * rr || d2 < 1e-8) continue;
+        const d = Math.sqrt(d2), brk = c.brk && BREAK_V[c.kind] ? c : null;
+        for (let j = 0; j < 3; j++) this.contact(M.i[j], dx / d, dy / d, dz / d, (rr - d) * M.w[j], c.kind, brk, null);
+        if (c.gone) break;
+      }
+      for (const o of this.blocks) {
+        if (o.gone) continue;
+        const ex = Math.cos(o.yaw), ez = -Math.sin(o.yaw), t = clamp((h.x - o.x) * ex + (h.z - o.z) * ez, -BLOCK_HL, BLOCK_HL);
+        const qx = o.x + ex * t, qz = o.z + ez * t, cy = clamp(h.y, o.y, o.y + CHICANE.blockH);
+        const dx = h.x - qx, dy = h.y - cy, dz = h.z - qz, d2 = dx * dx + dy * dy + dz * dz, rr = CAR.radius + CHICANE.blockD / 2;
+        if (d2 >= rr * rr || d2 < 1e-8) continue;
+        const hl = Math.hypot(dx, dz) || 1;
+        for (let j = 0; j < 3; j++) this.contact(M.i[j], dx / hl, 0, dz / hl, (rr - Math.sqrt(d2)) * M.w[j], 'barrier', null, o);
+      }
+    }
+  },
   contact(i, nx, ny, nz, pen, kind, brk, obj) {
     const k = i * 3, X = this.x, V = this.v, mi = this.m[i];
+    this.touch = true;
     let ux = V[k], uy = V[k + 1], uz = V[k + 2];
     if (obj) { ux -= obj.vx; uz -= obj.vz; }
     const vn = ux * nx + uy * ny + uz * nz;
@@ -7314,21 +7345,25 @@ const SB = {
     if (vn >= 0) return;
     const broke = brk && -vn > BREAK_V[kind] ? brk : null;
     if (broke) broke.gone = true;
-    const kObj = obj ? 1 / obj.mass : 0, e = obj ? CONTACT.e : 0.05;
-    let jn = -(1 + e) * vn / (1 / mi + kObj);
+    const kObj = obj ? 1 / obj.mass : 0, e = obj ? CONTACT.e : restitution(-vn), invM = 1 / mi + kObj;
+    let jn = -(1 + e) * vn / invM;
     if (broke) jn *= 0.3;                                         // snapping it takes only part of the blow
+    _jr.set(X[k] - car.pos.x, X[k + 1] - car.pos.y, X[k + 2] - car.pos.z); _jn.set(nx, ny, nz);
+    const Ec = (broke ? 0.5 : 1) * 0.5 * (1 - e * e) * vn * vn / (contactInvMass(_jr, _jn) + kObj);   // impact energy, as the rigid path takes it
     const tx = ux - vn * nx, ty = uy - vn * ny, tz = uz - vn * nz, vt = Math.hypot(tx, ty, tz);
     const jt = vt > 1e-4 ? Math.min(CONTACT.mu * jn, vt / (1 / mi + kObj)) / vt : 0;
+    if (vt > 1e-4) { _jt.set(tx, ty, tz).multiplyScalar(1 / vt); const Jf = jt * vt; this.Ef += Jf * vt - 0.5 * Jf * Jf * (contactInvMass(_jr, _jt) + kObj); }   // sliding dissipates
     V[k] += (nx * jn - tx * jt) / mi; V[k + 1] += (ny * jn - ty * jt) / mi; V[k + 2] += (nz * jn - tz * jt) / mi;
     if (obj) knockBlock(obj, nx, nz, -jn * kObj, X[k], X[k + 2]);
-    const H = this.hit || (this.hit = { type: 'hit', speed: 0, broke: null });
+    const H = this.hit || (this.hit = { type: 'hit', speed: 0, broke: null, E: 0 });
     if (-vn > H.speed) Object.assign(H, { speed: -vn, x: X[k] - nx * this.RN, y: X[k + 1], z: X[k + 2] - nz * this.RN, kind, nx, ny, nz });
     if (broke) H.broke = broke;
+    if (Ec > H.E) H.E = Ec;
   },
   /** Has the frame at node i given way? Half its beams gone, or a nose or tail node shoved in past 30 cm. */
   loose(i) {
     if (this.lost[i] >= 0.45 * this.deg[i]) return true;
-    if (this.fr[i] < 0 || (this.fr[i] > this.FR[1] && this.fr[i] < this.FR[this.FR.length - 2])) return false;
+    if (this.fr[i] < 0 || (this.fr[i] > this.EZ && this.fr[i] < 1 - this.EZ)) return false;
     const k = i * 3; return Math.hypot(this.loc[k] - this.rest[k], this.loc[k + 1] - this.rest[k + 1], this.loc[k + 2] - this.rest[k + 2]) > 0.3;
   },
   /** The bodywork hanging from failed nodes tears off: those triangles leave the car's mesh and tumble away as a piece. */
@@ -7517,6 +7552,7 @@ function brakeStep(dt, ctl, escK, escT) {
 }
 function stepVehicle(dt, ctl) {
   SB.begin();
+  car.contactHit = null; car.contactTouch = false; car.contactFric = 0; car.scrapeNow = 0;   // this step's contacts, for Impacts
   const def = RIG_GROUND.on ? EARTH : TR.def, m = CAR.mass, g = def.gravity, tn = car.tune, sp = tn.spec;
   const rho = AIR_RHO * (car.sigma = airSigma(carAltitudeM()));
   carAxes();
@@ -7783,7 +7819,7 @@ function stepVehicle(dt, ctl) {
     let fx = -_vp.x * m * 0.8 / 3, fz = -_vp.z * m * 0.8 / 3;
     const fl = Math.hypot(fx, fz), lim = fn * 0.7;
     if (fl > lim) { fx *= lim / fl; fz *= lim / fl; }
-    if (vn < -5) car.events.push({ type: 'scrape', speed: -vn, x: _cp.x, y: _cp.y, z: _cp.z });
+    if (vn < -5) { car.events.push({ type: 'scrape', speed: -vn, x: _cp.x, y: _cp.y, z: _cp.z }); car.scrapeNow = Math.max(car.scrapeNow, -vn); }
     addForceAt(_ft.set(fx, fn, fz), _cp);
   }
   // 7) integrate (semi-implicit Euler); the soft body steps its nodes, which meet the ground and scenery themselves
@@ -7820,6 +7856,8 @@ function stepVehicle(dt, ctl) {
   const vl = car.vel.dot(AZ), vs = car.vel.dot(AX);
   car.slip = Math.atan2(Math.abs(vs), Math.abs(vl) + 0.01);
   car.drifting = nG >= 2 && car.speed > 9 && vl > 5 && car.slip > 0.18;
+  if (car.scrapeNow > 7) addDamage((car.scrapeNow - 7) * 0.02 * dt * 60, 'scrape');   // per second of grinding, whatever the frame rate
+  Impacts.step(car.contactHit, car.contactTouch, car.contactFric, dt);
 }
 
 function collideObstacles() {
@@ -7879,6 +7917,7 @@ function contactInvMass(r, d) {
   return bodyInvMass(d) + _jx.cross(r).dot(d);
 }
 function resolveContact(nx, ny, nz, pen, kind, px, py, pz, obj, brk) {
+  car.contactTouch = true;
   const share = obj ? obj.mass / (obj.mass + CAR.mass) : 1;
   car.pos.x += nx * pen * share; car.pos.y += ny * pen * share; car.pos.z += nz * pen * share;
   if (obj) { obj.x -= nx * pen * (1 - share); obj.z -= nz * pen * (1 - share); obj.moving = true; obj.ch.moving = true; }
@@ -7892,22 +7931,32 @@ function resolveContact(nx, ny, nz, pen, kind, px, py, pz, obj, brk) {
   _jn.set(nx, ny, nz);
   const vn = _jv.dot(_jn);
   if (vn >= 0) return;
-  const kObj = obj ? 1 / obj.mass : 0;
-  let jn = -(1 + (obj ? CONTACT.e : restitution(-vn))) * vn / (contactInvMass(_jr, _jn) + kObj);
+  const kObj = obj ? 1 / obj.mass : 0, invM = contactInvMass(_jr, _jn) + kObj;
+  let jn = -(1 + (obj ? CONTACT.e : restitution(-vn))) * vn / invM;
   const broke = brk && brk.brk && -vn > BREAK_V[kind] ? brk : null;
   if (broke) { broke.gone = true; jn *= 0.3; }
   // friction: against the sliding velocity across the contact, capped by μ·jn and by what would just stop the slide
   _jt.copy(_jv).addScaledVector(_jn, -vn);
   const vt = _jt.length();
   let jt = 0;
-  if (vt > 1e-4) { _jt.multiplyScalar(1 / vt); jt = Math.min(CONTACT.mu * jn, vt / (contactInvMass(_jr, _jt) + kObj)); }
+  if (vt > 1e-4) {
+    _jt.multiplyScalar(1 / vt);
+    const invT = contactInvMass(_jr, _jt) + kObj;
+    jt = Math.min(CONTACT.mu * jn, vt / invT);
+    car.contactFric += jt * vt - 0.5 * jt * jt * invT;   // sliding dissipates
+  }
   applyImpulseAt(_jx.copy(_jn).multiplyScalar(jn).addScaledVector(_jt, -jt), _jr);
   if (obj) knockBlock(obj, nx, nz, -jn * kObj, px, pz);
-  car.events.push({ type: 'hit', speed: -vn, x: px, y: py, z: pz, kind, nx, ny, nz, broke });
+  const Ec = (broke ? 0.5 : 1) * 0.5 * (1 - (obj ? CONTACT.e : restitution(-vn)) ** 2) * vn * vn / invM;   // impact energy: the car's mass here, halved if the object gives way
+  const H = car.contactHit || (car.contactHit = { speed: 0, E: 0, broke: null });
+  if (-vn > H.speed) Object.assign(H, { speed: -vn, x: px, y: py, z: pz, kind, nx, ny, nz });
+  if (broke) H.broke = broke;
+  if (Ec > H.E) H.E = Ec;
 }
 
 /** Put the car on the road at (s,d), aligned with the track and ground. */
 function placeCar(s, d, speed) {
+  car.impact = null;
   s = clamp(s, 4, TR.total - 4);
   const i = clamp(Math.round(s / DS), 1, TR.N - 2);
   worldAt(s, d, WP);
@@ -14437,9 +14486,36 @@ function updateDamageFx(dt, ctl) {
   if (Z.r > 0.3 && ctl.throttle < 0.2 && car.rpm > 0.4 && !car.backfire && Math.random() < dt * Z.r * 5) car.backfire = 0.06;
 }
 
+/* ---- impacts: one crash is one episode, however many physics steps it runs over. Each contact carries the energy
+   it delivers, the normal kinetic energy the car's mass at that point gives up in it (½·μ·(1−e²)·vn², with μ the
+   car's effective mass there, the same whichever body model runs), halved when the object gives way. Damage is
+   charged once per impact, from that energy, so a crash costs the same at any frame rate. The sound, shove and
+   debris come when the impact starts (and again for a harder knock or a snapped object inside it); the dents and
+   the glass come when it ends. */
+const IMPACT = { E_REF: 4.4e5, GAP: 0.05 };   // J for a full 1.0 of damage (before car.tune.dmg); s without contact that ends an impact
+const Impacts = {
+  absorbed: 0,                                 // J charged (impacts and rubbing), summed over runs; a check can read it
+  step(hit, touch, fric, dt) {
+    let o = car.impact || null;
+    if (hit && hit.speed > 2) {
+      if (!o) o = car.impact = { E: 0, fired: 0, peak: hit, idle: 0 };
+      if (hit.speed > o.peak.speed) o.peak = hit;
+      if (!o.fired || hit.broke || hit.speed > o.fired + 4) {
+        o.fired = hit.speed; o.E += hit.E; this.absorbed += hit.E;
+        addDamage(hit.E / IMPACT.E_REF, 'hit_' + hit.kind);
+        car.events.push({ type: 'impact', hit });
+      }
+    }
+    if (fric > 0) { this.absorbed += fric; addDamage(fric / IMPACT.E_REF, 'rub'); if (o) o.E += fric; }   // a scrape charges as it slides
+    if (!o) return;
+    o.idle = touch ? 0 : o.idle + dt;
+    if (o.idle > IMPACT.GAP) { car.events.push({ type: 'impactEnd', hit: o.peak, E: o.E }); car.impact = null; }
+  },
+};
 function processCarEvents() {
   const def = TR.def, racing = Game.state === 'racing';
-  let hit = null, scrape = null;
+  let scrape = null;
+  const impacts = [], ends = [];
   const S = Game.stats;
   for (const ev of car.events) {
     if (racing) S[ev.type] = (S[ev.type] || 0) + 1;
@@ -14458,7 +14534,8 @@ function processCarEvents() {
         addDamage((ev.impact - hardAt) * 0.035, 'landing');
         if (racing) HUD.toast('HARD LANDING', '#ff4d5e');
       } else if (ev.air > 0.7 && ev.align > 0.9 && racing) HUD.toast('CLEAN LANDING', '#58f0ff');
-    } else if (ev.type === 'hit') { if (!hit || ev.speed > hit.speed) hit = ev; }
+    } else if (ev.type === 'impact') impacts.push(ev.hit);
+    else if (ev.type === 'impactEnd') ends.push(ev);
     else if (ev.type === 'scrape') { if (!scrape || ev.speed > scrape.speed) scrape = ev; }
     else if (ev.type === 'shift') { if (Game.state !== 'menu') AudioSys.shift(ev.up); }
     else if (ev.type === 'overrev') { AudioSys.beep(220, 0.1); if (racing) HUD.toast('OVER-REV · DOWNSHIFT REFUSED', '#ffb52e', 0.9); }
@@ -14466,29 +14543,34 @@ function processCarEvents() {
     else if (ev.type === 'crash') { AudioSys.beep(140, 0.15); if (racing) HUD.toast('NO SYNCHRO ON FIRST · SLOW TO A CRAWL', '#ffb52e', 1.1); }
   }
   car.events.length = 0;
-  if (hit && hit.speed > 2) {
-    if (racing) { S.hitDmg = (S.hitDmg || 0) + Math.max(0, (hit.speed - 5) * 0.022); S.hitKinds = S.hitKinds || {}; S.hitKinds[hit.kind] = (S.hitKinds[hit.kind] || 0) + 1; }
-    const k = Math.min(1, hit.speed / 14), amt = (hit.speed - 5) * (hit.kind === 'barrier' ? 0.008 : 0.022) * (hit.broke ? 0.5 : 1);   // snapping it took half the blow
-    const glass = racing && hit.speed > 5 ? CarDamage.hit(hit, amt) : false;
-    AudioSys.crash(k, hit.kind, glass);
+  for (const hit of impacts) {                                    // one per impact: its sound, sparks, shove and debris
+    const k = Math.min(1, hit.speed / 14);
+    if (racing) { S.hitKinds = S.hitKinds || {}; S.hitKinds[hit.kind] = (S.hitKinds[hit.kind] || 0) + 1; }
+    AudioSys.crash(k, hit.kind, false);
     if (hit.broke) { AudioSys.snap(k); Breakables.knock(hit.broke, car.vel.x, car.vel.z, hit.speed); }
     FX.impact(hit.kind, hit.x, hit.y, hit.z, hit.speed, hit.nx, hit.nz);
-    if (glass) for (let i = 0; i < 30; i++) FX.glow.emit(hit.x, hit.y + 0.4, hit.z, car.vel.x * 0.4 + (Math.random() - 0.5) * 5, 1 + Math.random() * 3, car.vel.z * 0.4 + (Math.random() - 0.5) * 5, 0.6, 0.04, 0, 0.6, 0.75, 0.85, 0.8, 1, 0.3);
     Cam.shake = Math.max(Cam.shake, Math.min(1, hit.speed * 0.06));
     Cam.kick(hit.nx, hit.nz, k);
     Input.rumble(k, Math.min(1, k * 1.4), 120 + 260 * k);
-    if (racing && hit.speed > 9) Game.hitStop = Math.min(0.1, 0.035 + (hit.speed - 9) * 0.006);   // a beat of stillness sells the weight
+    if (racing && hit.speed > 9) { Game.hitStop = Math.min(0.1, 0.035 + (hit.speed - 9) * 0.006); HUD.toast('HEAVY IMPACT', '#ff4d5e'); }   // a beat of stillness sells the weight
     if (racing && hit.speed > 10 && Game.carModel) {                    // panels torn off
       for (let i = 0, n = Math.min(4, Math.floor((hit.speed - 7) / 3)); i < n; i++) {
         Debris.spawn(hit.x, hit.y, hit.z, car.vel.x * 0.5 + hit.nx * 3 + (Math.random() - 0.5) * 4, 2 + Math.random() * 3, car.vel.z * 0.5 + hit.nz * 3 + (Math.random() - 0.5) * 4,
           Math.random() < 0.6 ? Game.carModel.paint : Debris.trim(), 0.25 + Math.random() * 0.35);
       }
     }
-    if (hit.speed > 5) { addDamage(amt, 'hit_' + hit.kind); if (racing && hit.speed > 9) HUD.toast('HEAVY IMPACT', '#ff4d5e'); }
+  }
+  for (const ev of ends) {                                        // the impact is over: its energy dents the body and may break the glass
+    const hit = ev.hit, k = Math.min(1, hit.speed / 14);
+    const glass = racing && hit.speed > 5 ? CarDamage.hit(hit, ev.E / IMPACT.E_REF) : false;
+    if (glass) {
+      AudioSys.crash(k, hit.kind, true);
+      for (let i = 0; i < 30; i++) FX.glow.emit(hit.x, hit.y + 0.4, hit.z, car.vel.x * 0.4 + (Math.random() - 0.5) * 5, 1 + Math.random() * 3, car.vel.z * 0.4 + (Math.random() - 0.5) * 5, 0.6, 0.04, 0, 0.6, 0.75, 0.85, 0.8, 1, 0.3);
+    }
   }
   if (scrape) {
     FX.sparks(scrape.x, scrape.y, scrape.z, 12, car.vel.x * 0.5, 1, car.vel.z * 0.5, 4);
-    if (scrape.speed > 7) { addDamage((scrape.speed - 7) * 0.02, 'scrape'); AudioSys.crash(scrape.speed / 20); }
+    if (scrape.speed > 7) AudioSys.crash(scrape.speed / 20);
   }
 }
 
@@ -16928,7 +17010,7 @@ function init() {
   window.RegolithRally = {
     AudioSys, EngineSound, Game, Cam, car, Post, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
-    placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, ROAD, GEO, perfRatings, tuneFor,
+    placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, Impacts, ROAD, GEO, perfRatings, tuneFor,
     openService, leaveService, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, recSetup, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
