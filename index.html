@@ -15723,7 +15723,7 @@ const Garage = {
     if (k === 'livery') {
       document.getElementById('garOpts').innerHTML = LiveryEd.html();
       document.querySelectorAll('#garOpts .cp').forEach((c) => LiveryEd.paintPicker(c));
-      document.getElementById('garDesc').innerHTML = 'Pick a base, a pattern and your own layers. Saved per car. <em>Looks only.</em>';
+      document.getElementById('garDesc').innerHTML = 'Pick a base colour and add your own layers. Saved per car. <em>Looks only.</em>';
       this.renderStats(); return;
     }
     document.getElementById('garOpts').innerHTML = this.order(k).map((v) => {
@@ -16605,10 +16605,8 @@ const LiveryEd = {
     const wk = this.worksIdx(), isWorks = g.color === wk && !D.plain, paint = this.baseHex();
     const base = `<button class="gtile lvb${isWorks ? ' sel' : ''}" data-base="works" style="--c:${LIVERIES[g.body].base}"><i class="wk"></i><b>WORKS</b></button>` +
       `<button class="gtile lvb cust${isWorks ? '' : ' sel'}" data-base="paint" style="--c:${paint}"><i></i><b>PAINT</b></button>`;
-    const pat = GARAGE.decal.opts.map((o, v) => `<button class="gtile dc${g.decal === v ? ' sel' : ''}" data-dec="${v}"><img src="${decalPreview(v, this.baseHex())}" alt=""><b>${o.name}</b></button>`).join('');
     const slider = (k, label, min, max, step) => `<label class="lv-sl">${label}<input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${cur[k] || 0}"></label>`;
     return `<section class="lv-sec"><h4>BASE</h4><div class="lv-grid base">${base}</div>${isWorks ? '' : this.picker('base', paint)}</section>` +
-      `<section class="lv-sec"><h4>PATTERN</h4><div class="lv-grid pat">${pat}</div></section>` +
       `<section class="lv-sec"><h4>LAYERS <small>${L.length}/16</small></h4>` +
       `<div class="lv-add">${Object.keys(LIV_KINDS).map((t) => `<button class="mini" data-add="${t}">+ ${LIV_KINDS[t]}</button>`).join('')}</div>` +
       `<div class="lv-layers">${L.map((l, i) => `<button class="mini${i === this.sel ? ' on' : ''}" data-sel="${i}"><i class="lv-dot" style="background:${l.c}"></i>${i + 1} ${LIV_KINDS[l.t]}</button>`).join('') || '<em>No layers yet. Add a stripe, number or text above.</em>'}</div>` +
@@ -16639,7 +16637,6 @@ const LiveryEd = {
       const D = this.data(), L = D.layers, d = b.dataset;
       if (d.base === 'works') { const had = D.plain; D.plain = null; if (Store.data.garage.color !== this.worksIdx()) Garage.pick('color', this.worksIdx()); else if (had) this.changed(); }
       else if (d.base === 'paint') { if (!D.plain) { D.plain = this.baseHex(); Store.data.garage.color = this.worksIdx(); this.changed(); } }
-      else if (d.dec) Garage.pick('decal', +d.dec);
       else if (d.add) this.add(d.add);
       else if (d.sel) { this.sel = +d.sel; Garage.render(); }
       else if (d.mv && L[this.sel]) { const j = this.sel + +d.mv; if (j >= 0 && j < L.length) { [L[j], L[this.sel]] = [L[this.sel], L[j]]; this.sel = j; this.changed(); } }
@@ -17164,6 +17161,7 @@ window.addEventListener('resize', () => {
 function init() {
   Store.load();
   Store.data.garage = cleanBuild(Store.data.garage);
+  Store.data.garage.decal = 0;   // stock patterns are gone from the livery tab: your own layers do that job now
   // a rally record from the old three-stage rally isn't comparable with the full-length one: keep it aside
   const rbOld = Store.data.rallyBest;
   if (rbOld && rbOld.count !== RALLY_STAGES) { Store.data.rallyBestClassic = rbOld; Store.data.rallyBest = null; }
