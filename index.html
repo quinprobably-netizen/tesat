@@ -6944,7 +6944,7 @@ for (let j = 0; j < 12; j++) {
    which keeps them stiff and stable. The physics test rig (RIG_GROUND) always runs the rigid body, so the garage
    ratings and self-tests are unchanged. */
 const SB = {
-  SUB: 10, FR: [0, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 1], EZ: 0.1, NOSE: 0.65, EA: 4e6, C: 1200, YIELD: 0.004, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22,
+  SUB: 10, FR: [0, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 1], EZ: 0.1, NOSE: 0.65, EA: 4e6, C: 1200, YIELD: 0.004, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22, DENT: 1, DENT_MAX: 0.15, DENSE: 0.6, DENSE_K: 3,
   on: false, ready: false, synced: false, key: null, n: 0, M: 0, ver: 0,
   rest: null, loc: null, m: null, x: null, v: null, fe: null, f: null, off: new THREE.Vector3(),
   ba: null, bb: null, l0: null, l00: null, ok: null, nb: 0, gh: null,
@@ -6990,12 +6990,12 @@ const SB = {
     this.l00 = Float64Array.from(L); this.l0 = this.l00.slice(); this.ok = new Uint8Array(this.nb).fill(1);
     // strength by region: the cabin (and the roof over it) is a stiff, strong safety cell; the nose and tail crumple
     const EZ = this.EZ, end = (i) => fr[i] >= 0 && (fr[i] <= EZ || fr[i] >= 1 - EZ), cab = (i) => fr[i] < 0 || (fr[i] >= 0.25 && fr[i] <= 0.75);
-    this.ys = new Float64Array(this.nb); this.ea = new Float64Array(this.nb);
+    this.ys = new Float64Array(this.nb); this.ea = new Float64Array(this.nb); this.dz = new Uint8Array(this.nb);
     this.deg = new Float64Array(n); this.lost = new Float64Array(n); this.gone = new Uint8Array(n);
     for (let b = 0; b < this.nb; b++) {
       const i = A[b], j = B[b], c = cab(i) && cab(j), e = end(i) || end(j);
       this.ys[b] = this.YIELD * (c ? 2.6 : e ? 0.7 : 1); this.ea[b] = this.EA / L[b] * (c ? 1.3 : 1) * (e ? this.NOSE : 1);   // nose and tail beams softened: the denser rows put more beams across each section
-      this.deg[i]++; this.deg[j]++;
+      this.dz[b] = e ? 1 : 0; this.deg[i]++; this.deg[j]++;
     }
     // substeps: enough that the stiffest node (its beams' stiffness and damping against its mass) stays stable
     const kS = new Float64Array(n), cS = new Float64Array(n);
@@ -7187,7 +7187,7 @@ const SB = {
       const nl = Math.hypot(nx, 1, nz); this.gn[k] = nx / nl; this.gn[k + 1] = 1 / nl; this.gn[k + 2] = nz / nl;
     }
     this.gather();
-    const h = dt / this.sub, f = this.f, ba = this.ba, bb = this.bb, l0 = this.l0, l00 = this.l00, ok = this.ok, ys = this.ys, ea = this.ea;
+    const h = dt / this.sub, f = this.f, ba = this.ba, bb = this.bb, l0 = this.l0, l00 = this.l00, ok = this.ok, ys = this.ys, ea = this.ea, endB = this.dz;
     let scrape = 0, sx = 0, sy = 0, sz = 0;
     car.hullContact = false;
     for (let s = 0; s < this.sub; s++) {
@@ -7202,7 +7202,9 @@ const SB = {
         if (L > L00 * (1 + this.BREAK) || l0[b] < 0.5 * L00) { ok[b] = 0; this.lost[ba[b]]++; this.lost[bb[b]]++; this.broke++; this.ver++; continue; }
         const yb = ys[b] * L00;
         if (L - l0[b] > yb) l0[b] = L - yb; else if (l0[b] - L > yb) l0[b] = L + yb;
-        const fs = ea[b] * (L - l0[b]) + this.C * ((V[b3] - V[a3]) * ux + (V[b3 + 1] - V[a3 + 1]) * uy + (V[b3 + 2] - V[a3 + 2]) * uz);
+        let fs = ea[b] * (L - l0[b]) + this.C * ((V[b3] - V[a3]) * ux + (V[b3 + 1] - V[a3 + 1]) * uy + (V[b3 + 2] - V[a3 + 2]) * uz);
+        // densification: a crumple-zone beam crushed past DENSE of its length is packed solid, and pushes back harder the further it goes
+        if (endB[b] && L < this.DENSE * L00) fs -= ea[b] * this.DENSE_K * (this.DENSE * L00 - L);
         f[a3] += fs * ux; f[a3 + 1] += fs * uy; f[a3 + 2] += fs * uz;
         f[b3] -= fs * ux; f[b3 + 1] -= fs * uy; f[b3 + 2] -= fs * uz;
       }
@@ -7455,6 +7457,14 @@ const SB = {
     M.group.updateMatrixWorld(true);
     _sbm.copy(M.group.matrixWorld).invert();
     const R = this.rest, L = this.loc, n = this.n, any = this.on || this.synced, cut = [];
+    // a node's dent: how far its beams have been set on average (m). The metal is pushed in along its own normals by
+    // it, so each panel creases between the nodes too, not just where the nodes sit
+    const dent = new Float64Array(n);
+    if (any) for (let b = 0; b < this.nb; b++) {
+      if (!this.ok[b]) continue;
+      const s = Math.abs(this.l0[b] - this.l00[b]), i = this.ba[b], j = this.bb[b];
+      dent[i] += s / this.deg[i]; dent[j] += s / this.deg[j];
+    }
     if (any) for (let i = 0; i < n; i++) {
       if (!this.gone[i] && this.loose(i)) { this.gone[i] = 1; cut.push(i); } else if (bound && this.gone[i]) cut.push(i);   // (a rebuilt model loses them again)
     }
@@ -7494,6 +7504,12 @@ const SB = {
         A[v * 3] = O[v * 3] + e[0] * dx + e[4] * dy + e[8] * dz;
         A[v * 3 + 1] = O[v * 3 + 1] + e[1] * dx + e[5] * dy + e[9] * dz;
         A[v * 3 + 2] = O[v * 3 + 2] + e[2] * dx + e[6] * dy + e[10] * dz;
+        if (any && u.norig) {                                   // pushed in along the normal where the metal has set
+          let dv = 0;
+          for (let j = 0; j < 3; j++) dv += W[v * 3 + j] * dent[I[v * 3 + j]];
+          const p = Math.min(this.DENT_MAX, this.DENT * dv), nx = u.norig[v * 3], ny = u.norig[v * 3 + 1], nz = u.norig[v * 3 + 2], nl = Math.hypot(nx, ny, nz) || 1;
+          A[v * 3] -= p * nx / nl; A[v * 3 + 1] -= p * ny / nl; A[v * 3 + 2] -= p * nz / nl;
+        }
       }
       if (u.sbHide) for (let t = 0; t < A.length; t += 9) if (u.sbHide[t / 9]) for (let j = 3; j < 9; j++) A[t + j] = A[t + j % 3];   // torn-off triangles collapse
       pa.needsUpdate = true; g.computeBoundingSphere();
@@ -8162,8 +8178,8 @@ const PhysicsRig = {
   /** A landing at 20 m/s from `drop` m, nose up by `pitch` and rolled by `roll` (rad), so one corner lands first: how
    *  often the body's pitch and roll rates reverse within 0.3 s of touchdown (a body that chatters reverses every
    *  step), and the time it then spends on two wheels or fewer (bouncing back up off one side). */
-  tiltDrop(drop, pitch, roll) {
-    this.place(SURF.TARMAC, 20, { drop });
+  tiltDrop(drop, pitch, roll, soft) {
+    this.place(SURF.TARMAC, 20, { drop, soft });
     car.q.multiply(_dq.setFromEuler(_eT.set(-pitch, 0, roll)));
     let i = 0, t0 = -1, all4 = -1, rev = 0, few = 0, px = 0, pz = 0, dx = 0, dz = 0;
     this.step(480, () => {
@@ -8323,6 +8339,47 @@ function physicsTests(build) {
     check('soft: 0.5 m drop, rebound vs rigid (%)', (soft.d.rebound / rigid.d.rebound - 1) * 100, -10, 10);
     check('soft: 0.5 m drop, fastest node (m/s)', soft.d.vMax, 0, 10);
     check('soft: 0.5 m drop, beams broken', soft.d.broke, 0, 0);
+  }
+  // 6) the soft body in a crash and a roll-over: a 25 m/s wall with the progressive crush on and off (folded beams pack
+  //    solid and push back harder), and a car set down upside down stays there and does not spring up off the ground
+  {
+    const WALL = [];
+    for (let x = -1.8; x <= 1.81; x += 0.6) WALL.push({ x, z: 0, r: 0.5, y0: -1, y1: 2.5, kind: 'wall', gone: false, brk: false });
+    const gather = SB.gather, K = SB.DENSE_K;
+    const crash = (k) => {
+      const res = {};
+      SB.DENSE_K = k;
+      SB.gather = function () { this.cand.length = 0; this.blocks.length = 0; for (const c of WALL) this.cand.push(c); };
+      PhysicsRig.run(tyred(TT), (rig) => {
+        rig.place(SURF.TARMAC, 25, { soft: true });
+        let nose = -1e9; for (let i = 0; i < SB.n; i++) nose = Math.max(nose, SB.rest[3 * i + 2]);
+        for (const c of WALL) c.z = car.pos.z + nose + 1.0;
+        res.crush = 0;
+        rig.step(300, (i) => {
+          if (!i) return;                                // the nodes are re-placed on the first step
+          _sbq.copy(car.q).invert();
+          for (let n = 0; n < SB.n; n++) {
+            _sbv.set(SB.x[3 * n] - car.pos.x, SB.x[3 * n + 1] - car.pos.y, SB.x[3 * n + 2] - car.pos.z).applyQuaternion(_sbq);
+            res.crush = Math.max(res.crush, SB.rest[3 * n + 2] - _sbv.z);
+          }
+        });
+        res.broke = SB.broke;
+      });
+      SB.gather = gather; SB.DENSE_K = K;
+      return res;
+    };
+    const on = crash(K), off = crash(0);
+    check('soft: 25 m/s wall, nose crush with progressive crush vs without (%)', (on.crush / off.crush - 1) * 100, -30, -5);
+    check('soft: 25 m/s wall, beams broken with progressive crush vs without (count)', on.broke, 0, off.broke);
+    let up = 0, climb = 0;
+    PhysicsRig.run(tyred(TT), (rig) => {
+      rig.place(SURF.TARMAC, 0, { drop: 0.8, soft: true });
+      car.q.multiply(_dq.setFromEuler(_eT.set(0, 0, Math.PI)));
+      rig.step(480, (i) => { if (i > 1) climb = Math.max(climb, car.vel.y); });
+      up = _sbv.copy(UP).applyQuaternion(car.q).y;
+    });
+    check('soft: set down upside down, still upside down after 4 s (up.y)', up, -1, -0.9);
+    check('soft: set down upside down, peak upward speed after landing (m/s)', climb, 0, 2);
   }
   return R;
 }
