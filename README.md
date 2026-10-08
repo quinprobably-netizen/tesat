@@ -68,7 +68,7 @@ Each body is lofted from traces of the real car's side, top and plan views, at i
 - **Aero.** Drag, side drag and front and rear downforce act on the air each part of the car meets, including each stage's wind; a car nose-up off a jump makes lift.
 - **Soft-body crashes** (on by default). The body is a frame of nodes and beams, BeamNG-style: hits crumple the corner that hit, beams bend for good or break, panels tear off, and a bent mount moves its wheel so the car pulls. Off, the car is a rigid body with dents.
 - **Driver aids** in SETTINGS: ABS, traction control and STABILITY (FULL, SPORT or OFF). FULL and SPORT also give air control; on OFF the only way to pitch the car in the air is braking or throttle. Brake and throttle are fully separate pedals.
-- **Racing line** (FULL, BRAKING or OFF): chevrons that go green, amber or red for your speed, with a board at each braking point. The AI drives the same line.
+- **Racing line** (FULL, BRAKING or OFF): chevrons that go green, amber or red for your speed, with a board at each braking point. Each car plans its own line on each stage from its grip, downforce, power and drag, and the AI drives that line.
 
 ## Tyres and service
 
