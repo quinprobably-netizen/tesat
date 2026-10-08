@@ -11612,11 +11612,11 @@ const LIVERIES = [
     },
     top(P) { P.rect(2.8, 0.5, 0.25, 0.37, '#d71920'); P.rect(2.8, 0.5, 0.39, 0.45, '#f26522'); P.rect(2.8, 0.5, 0.47, 0.51, '#f9c80e'); P.text('TOYOTA', 1.6, 0, 0.12, '#d71920', { rot: Math.PI / 2, w: 0.7 }); } },
 ];
-/** The atlas texture for a car's works livery. */
-const LIV_CACHE = new Map();
+/** The atlas texture for a car's works livery. Each is a 1024² canvas (about 4 MB), so only the last few are kept. */
+const LIV_CACHE = new Map(), LIV_CACHE_MAX = 6;
 function liveryAtlas(body, num, decal, solid) {
   const key = body + ':' + num + ':' + (decal || 0) + ':' + liveryKey(body) + ':' + (solid || '');
-  if (LIV_CACHE.has(key)) return LIV_CACHE.get(key);
+  if (LIV_CACHE.has(key)) { const hit = LIV_CACHE.get(key); LIV_CACHE.delete(key); LIV_CACHE.set(key, hit); return hit; }   // (re-inserted, so the most recently used is last)
   const L = LIVERIES[body], F = liveryFrame(body), CL = customLivery(body);
   const tex = makeCanvas(LIV.W, 2 * LIV.S + LIV.T, (c) => {
     for (const side of [0, 1, 'top']) {
@@ -11630,7 +11630,10 @@ function liveryAtlas(body, num, decal, solid) {
       c.restore();
     }
   });
-  const at = { tex, F }; LIV_CACHE.set(key, at); return at;
+  const at = { tex, F }; LIV_CACHE.set(key, at);
+  // (an evicted atlas still on a car lives on through its material; disposeObject frees it when that car is rebuilt)
+  while (LIV_CACHE.size > LIV_CACHE_MAX) LIV_CACHE.delete(LIV_CACHE.keys().next().value);
+  return at;
 }
 const _livP = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], _livN = new THREE.Vector3(), _livE = new THREE.Vector3(), _livM = new THREE.Matrix3();
 /** Texture coordinates for a painted mesh from where each face sits on the car (see above). */
