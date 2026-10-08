@@ -689,8 +689,22 @@ body.hud-min .pn svg *{stroke:var(--text)!important}
 .lv-add,.lv-layers,.lv-cols{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
 .lv-add .mini,.lv-layers .mini{font-size:11px;padding:6px 10px}
 .lv-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
-.lv-c{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.25);padding:0;cursor:pointer}
-.lv-c.on,.lv-c.pad-focus{border-color:var(--accent)}
+/* colour picker: drag on the square for saturation and brightness, or use the three sliders (d-pad left/right) */
+.cp{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:4px 0 8px}
+.cp-sv{position:relative;height:132px;border-radius:10px;touch-action:none;cursor:crosshair;
+  background:linear-gradient(0deg,#000,transparent),linear-gradient(90deg,#fff,hsl(var(--h),100%,50%))}
+.cp-sv i{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.4);pointer-events:none}
+.cp-row{display:flex;align-items:center;gap:10px}
+.cp-prev{width:40px;height:40px;flex:none;border-radius:10px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
+.cp-hex{width:110px;text-transform:uppercase}
+.cp-row small{flex:1;font-size:11px;color:var(--dim);line-height:1.35}
+.cp-sl{display:grid;grid-template-columns:86px 1fr;align-items:center;gap:8px;font-size:10px;font-weight:600;letter-spacing:.12em;color:var(--dim)}
+.cp-sl input{-webkit-appearance:none;appearance:none;height:16px;border-radius:8px;margin:0;background:var(--tr);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+.cp-sl input::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:0;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.cp-sl input::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:0;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.cp-sl input.pad-focus{box-shadow:var(--focus)}
+.lvb.cust i{background:conic-gradient(from 90deg,#f33,#ff3,#3f3,#3ff,#33f,#f3f,#f33)}
+.lvb.cust.sel i{background:var(--c)}
 .lv-edit{background:rgba(255,255,255,.04);border-radius:10px;padding:8px 10px;margin:8px 0}
 .lv-sls{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:6px 0}
 .lv-sl,.lv-txt{display:flex;flex-direction:column;gap:3px;font-size:10px;letter-spacing:.1em;opacity:.9}
@@ -950,6 +964,8 @@ body.m-ui.ls .fin-main .vlist .btn{min-height:44px}
 /* livery editor, ghost codes, photo mode */
 body.m-ui .le-sl{width:100%}
 body.m-ui .le-row .mini,body.m-ui .lv-sec .mini{min-height:40px}
+body.m-ui .cp-sv{height:150px}
+body.m-ui .cp-sl input{height:22px}
 body.m-ui #modal{justify-content:center}
 body.m-ui #modal .panel{margin:auto 0!important}
 body.m-ui #modal textarea{width:100%;height:140px}
@@ -15122,6 +15138,7 @@ const PadNav = {
   scope() {
     if (this.vis('modal')) return this.vis('modal');
     if (this.vis('hub')) return this.vis('hub');
+    if (Game.state === 'garage' && GARAGE_TABS[Garage.tab] === 'livery') return document.getElementById('garOpts');   // swatches, sliders and the colour picker
     if (Game.state === 'photo') return document.getElementById('photo');
     if (Settings.from) return null;
     if (Game.state === 'service') return this.vis('service');
@@ -15699,6 +15716,7 @@ const Garage = {
     document.getElementById('garOpts').className = 'gar-opts ' + k;
     if (k === 'livery') {
       document.getElementById('garOpts').innerHTML = LiveryEd.html();
+      document.querySelectorAll('#garOpts .cp').forEach((c) => LiveryEd.paintPicker(c));
       document.getElementById('garDesc').innerHTML = 'Pick a base, a pattern and your own layers. Saved per car. <em>Looks only.</em>';
       this.renderStats(); return;
     }
@@ -16472,6 +16490,18 @@ const Dash = {
 
 /* ---- livery editor: layers (stripes, diagonals, circles, stars, numbers, text, a roof stripe) over the works
    livery or a plain colour, per car, shareable as a code ---- */
+/** Colour picker maths: hue 0-360, saturation and value 0-100, to and from #rrggbb. */
+function hsvHex(h, sv, v) {
+  const f = (n) => { const k = (n + h / 60) % 6, x = v / 100 * (1 - sv / 100 * Math.max(0, Math.min(k, 4 - k, 1))); return Math.round(x * 255).toString(16).padStart(2, '0'); };
+  return '#' + f(5) + f(3) + f(1);
+}
+function hexHsv(hex) {
+  const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), d = mx - Math.min(r, g, b);
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: Math.round((h * 60 + 360) % 360), s: Math.round(mx ? d / mx * 100 : 0), v: Math.round(mx * 100) };
+}
 const LIV_COLORS = ['#f4f4f0', '#111317', '#e8322e', '#ff7a1a', '#ffd21f', '#2ee07a', '#138a6b', '#19c8e6', '#1d4fd8', '#0d2a5c', '#8b5cff', '#ff6fae', '#c3cad4', '#c8773a'];
 const LIV_KINDS = { stripe: 'STRIPE', diag: 'DIAGONAL', circle: 'CIRCLE', star: 'STAR', num: 'NUMBER', text: 'TEXT', roof: 'ROOF STRIPE' };
 function customLivery(body) { const L = Store.data.livery && Store.data.livery[body]; return L && (L.layers && L.layers.length || L.plain) ? L : null; }
@@ -16518,24 +16548,66 @@ const LiveryEd = {
     L.push({ t, c: t === 'num' ? '#111317' : LIV_COLORS[2 + L.length % 10], z: 0.5, y: t === 'stripe' ? 0.62 : 0.5, s: t === 'roof' ? 0.25 : t === 'stripe' ? 0.08 : 0.16, r: 0, txt: t === 'num' ? '7' : t === 'text' ? 'RALLY' : '' });
     this.sel = L.length - 1; this.changed();
   },
+  worksIdx() { return GARAGE.color.opts.findIndex((o) => o.works); },
+  /** The base colour as #rrggbb: your own paint, else the preset an older save picked, else the works livery's base. */
+  baseHex() {
+    const D = this.data(), o = GARAGE.color.opts[Store.data.garage.color];
+    return D.plain || (o && !o.works ? '#' + new THREE.Color(o.hex).getHexString() : LIVERIES[this.body()].base);
+  },
+  hsv: {},   // the picker's own hue and saturation, kept while brightness or saturation is at 0
+  picker(target, hex) {
+    const k = target + ':' + this.body() + ':' + (target === 'layer' ? this.sel : '');
+    let c = this.hsv[k];
+    if (!c || hsvHex(c.h, c.s, c.v) !== hex) c = this.hsv[k] = hexHsv(hex);
+    const sl = (key, label, max) => `<label class="cp-sl">${label}<input type="range" data-cp-k="${key}" min="0" max="${max}" step="1" value="${c[key]}"></label>`;
+    return `<div class="cp" data-cp="${target}" data-key="${k}"><div class="cp-sv"><i></i></div>` +
+      `<div class="cp-row"><i class="cp-prev"></i><input class="field cp-hex" maxlength="7" spellcheck="false" autocomplete="off" value="${hex.toUpperCase()}"><small>Drag on the square, or type a hex code.</small></div>` +
+      sl('h', 'HUE', 360) + sl('s', 'SATURATION', 100) + sl('v', 'BRIGHTNESS', 100) + '</div>';
+  },
+  /** Show the picker's colour everywhere it appears (square, knob, preview, slider tracks) without redrawing the tab. */
+  paintPicker(el) {
+    const c = this.hsv[el.dataset.key], hex = hsvHex(c.h, c.s, c.v);
+    const sv = el.querySelector('.cp-sv'), kn = sv.querySelector('i');
+    sv.style.setProperty('--h', c.h);
+    kn.style.left = c.s + '%'; kn.style.top = (100 - c.v) + '%'; kn.style.background = hex;
+    el.querySelector('.cp-prev').style.background = hex;
+    const hx = el.querySelector('.cp-hex'); if (document.activeElement !== hx) hx.value = hex.toUpperCase();
+    const tr = { h: 'linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)', s: `linear-gradient(90deg,${hsvHex(c.h, 0, c.v)},${hsvHex(c.h, 100, c.v)})`, v: `linear-gradient(90deg,#000,${hsvHex(c.h, c.s, 100)})` };
+    for (const r of el.querySelectorAll('[data-cp-k]')) { r.style.setProperty('--tr', tr[r.dataset.cpK]); if (document.activeElement !== r) r.value = c[r.dataset.cpK]; }
+    return hex;
+  },
+  /** The picker changed: put the colour on the base paint or the chosen layer. */
+  pickColour(el, exact) {
+    const hex = exact || this.paintPicker(el), D = this.data();
+    if (exact) this.paintPicker(el);
+    if (el.dataset.cp === 'base') {
+      D.plain = hex;
+      Store.data.garage.color = this.worksIdx();   // your own paint is drawn on the works atlas, without the works graphics
+      const t = document.querySelector('#garOpts .lvb.cust'); if (t) t.style.setProperty('--c', hex);
+    } else {
+      const L = D.layers[this.sel]; if (!L) return;
+      L.c = hex;
+      const dot = document.querySelector(`#garOpts [data-sel="${this.sel}"] .lv-dot`); if (dot) dot.style.background = hex;
+    }
+    this.refresh(150);
+  },
   /** The LIVERY tab: base paint (the works livery or a colour), a pattern, then your own layers. */
   html() {
     const g = Store.data.garage, D = this.data(), L = D.layers;
     if (this.last !== g.body) { this.last = g.body; this.sel = L.length - 1; }
     const cur = L[this.sel];
-    const base = GARAGE.color.opts.map((o, v) => {
-      const on = g.color === v && !D.plain ? ' sel' : '', c = o.works ? LIVERIES[g.body].base : '#' + new THREE.Color(o.hex).getHexString();
-      return `<button class="gtile lvb${on}" data-base="${v}" style="--c:${c}"><i${o.works ? ' class="wk"' : ''}></i><b>${o.name}</b></button>`;
-    }).join('');
+    // base: the car's works livery, or any colour from the picker
+    const wk = this.worksIdx(), isWorks = g.color === wk && !D.plain, paint = this.baseHex();
+    const base = `<button class="gtile lvb${isWorks ? ' sel' : ''}" data-base="works" style="--c:${LIVERIES[g.body].base}"><i class="wk"></i><b>WORKS</b></button>` +
+      `<button class="gtile lvb cust${isWorks ? '' : ' sel'}" data-base="paint" style="--c:${paint}"><i></i><b>PAINT</b></button>`;
     const pat = GARAGE.decal.opts.map((o, v) => `<button class="gtile dc${g.decal === v ? ' sel' : ''}" data-dec="${v}"><img src="${decalPreview(v, g.color)}" alt=""><b>${o.name}</b></button>`).join('');
-    const sw = (val) => LIV_COLORS.map((c) => `<button class="lv-c${val === c ? ' on' : ''}" data-col="${c}" style="background:${c}" aria-label="${c}"></button>`).join('');
     const slider = (k, label, min, max, step) => `<label class="lv-sl">${label}<input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${cur[k] || 0}"></label>`;
-    return `<section class="lv-sec"><h4>BASE</h4><div class="lv-grid base">${base}</div></section>` +
+    return `<section class="lv-sec"><h4>BASE</h4><div class="lv-grid base">${base}</div>${isWorks ? '' : this.picker('base', paint)}</section>` +
       `<section class="lv-sec"><h4>PATTERN</h4><div class="lv-grid pat">${pat}</div></section>` +
       `<section class="lv-sec"><h4>LAYERS <small>${L.length}/16</small></h4>` +
       `<div class="lv-add">${Object.keys(LIV_KINDS).map((t) => `<button class="mini" data-add="${t}">+ ${LIV_KINDS[t]}</button>`).join('')}</div>` +
       `<div class="lv-layers">${L.map((l, i) => `<button class="mini${i === this.sel ? ' on' : ''}" data-sel="${i}"><i class="lv-dot" style="background:${l.c}"></i>${i + 1} ${LIV_KINDS[l.t]}</button>`).join('') || '<em>No layers yet. Add a stripe, number or text above.</em>'}</div>` +
-      (cur ? `<div class="lv-edit"><div class="lv-cols">${sw(cur.c)}</div>` +
+      (cur ? `<div class="lv-edit">${this.picker('layer', cur.c)}` +
         `<div class="lv-sls">${slider('z', 'FRONT ↔ BACK', 0, 1, 0.01)}${slider('y', 'UP ↕ DOWN', 0, 1, 0.01)}${slider('s', 'SIZE', 0.02, 0.6, 0.01)}${slider('r', 'ANGLE', -1.2, 1.2, 0.02)}</div>` +
         (cur.t === 'num' || cur.t === 'text' ? `<label class="lv-txt">TEXT <input class="field" id="leTxt" maxlength="18" value="${esc(cur.txt || '')}"></label>` : '') +
         `<div class="lv-add"><button class="mini" data-mv="-1">&#9664; BACK A LAYER</button><button class="mini" data-mv="1">FORWARD A LAYER &#9654;</button><button class="mini" data-del="1">&#10005; DELETE</button></div></div>` : '') +
@@ -16560,19 +16632,44 @@ const LiveryEd = {
       if (!here()) return;
       const b = e.target.closest('button'); if (!b) return;
       const D = this.data(), L = D.layers, d = b.dataset;
-      if (d.base) { const had = D.plain; D.plain = null; if (Store.data.garage.color !== +d.base) Garage.pick('color', +d.base); else if (had) this.changed(); }
+      if (d.base === 'works') { const had = D.plain; D.plain = null; if (Store.data.garage.color !== this.worksIdx()) Garage.pick('color', this.worksIdx()); else if (had) this.changed(); }
+      else if (d.base === 'paint') { if (!D.plain) { D.plain = this.baseHex(); Store.data.garage.color = this.worksIdx(); this.changed(); } }
       else if (d.dec) Garage.pick('decal', +d.dec);
       else if (d.add) this.add(d.add);
       else if (d.sel) { this.sel = +d.sel; Garage.render(); }
-      else if (d.col && L[this.sel]) { L[this.sel].c = d.col; this.changed(); }
       else if (d.mv && L[this.sel]) { const j = this.sel + +d.mv; if (j >= 0 && j < L.length) { [L[j], L[this.sel]] = [L[this.sel], L[j]]; this.sel = j; this.changed(); } }
       else if (d.del && L[this.sel]) { L.splice(this.sel, 1); this.sel = Math.min(this.sel, L.length - 1); this.changed(); }
       else if (d.code) copyText(this.code(), 'LIVERY CODE', b);
       else if (d.imp) this.importCode();
     });
+    // the square: saturation across, brightness up; the drag stays with the finger
+    let drag = null;
+    const svAt = (e) => {
+      const r = drag.sv.getBoundingClientRect(), c = this.hsv[drag.cp.dataset.key];
+      c.s = Math.round(clamp((e.clientX - r.left) / r.width, 0, 1) * 100); c.v = Math.round(clamp(1 - (e.clientY - r.top) / r.height, 0, 1) * 100);
+      this.pickColour(drag.cp);
+    };
+    el.addEventListener('pointerdown', (e) => {
+      const sv = here() && e.target.closest('.cp-sv'); if (!sv) return;
+      e.preventDefault(); e.stopPropagation();
+      drag = { sv, cp: sv.closest('.cp'), id: e.pointerId };
+      try { sv.setPointerCapture(e.pointerId); } catch (err) { /* capture unsupported */ }
+      svAt(e);
+    });
+    el.addEventListener('pointermove', (e) => { if (drag && e.pointerId === drag.id) svAt(e); });
+    const end = (e) => { if (drag && e.pointerId === drag.id) drag = null; };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
     el.addEventListener('input', (e) => {
       if (!here()) return;
-      const L = this.data().layers[this.sel]; if (!L) return;
+      const L = this.data().layers[this.sel];
+      const cp = e.target.closest('.cp');
+      if (cp) {
+        const c = this.hsv[cp.dataset.key];
+        if (e.target.dataset.cpK) c[e.target.dataset.cpK] = +e.target.value;
+        else if (e.target.classList.contains('cp-hex')) { const v = e.target.value.trim(), h = (v[0] === '#' ? v : '#' + v).toLowerCase(); if (!/^#[0-9a-f]{6}$/.test(h)) return; Object.assign(c, hexHsv(h)); this.pickColour(cp, h); return; }
+        this.pickColour(cp); return;
+      }
+      if (!L) return;
       if (e.target.dataset.k) { L[e.target.dataset.k] = +e.target.value; this.refresh(60); }
       else if (e.target.id === 'leTxt') { L.txt = e.target.value.toUpperCase(); this.refresh(300); }
     });
