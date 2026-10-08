@@ -1725,7 +1725,7 @@ const WRC_STAGES = [
     length: TURINI_TRACE.len + 285, hw: 3.1, roadLines: 2, roadRough: 0.04, offRR: 0.04,
     trace: TURINI_TRACE, course: TURINI_COURSE, altitude: [544, 1604], altUnit: 'M', climb: 1057, surfLabel: 'TARMAC · SNOW · ICE',
     fill: { r: [22, 140], ang: [20, 95], s: [12, 70], dev: 70 },
-    surf: { base: SURF.TARMAC, off: SURF.SNOW, patches: [SURF.SNOW, SURF.SNOW, SURF.ICE], patchChance: 0.22, patchLen: [20, 55] },
+    surf: { base: SURF.TARMAC, off: SURF.SNOW, patches: [SURF.SNOW, SURF.SNOW, SURF.ICE], patchChance: 0.22, patchLen: [20, 55], tarmacAt: [[3476, 3520]] },
     crest: { h: 1.0, L: 40, landing: 50 }, rocksKm: 40,
     sky: { day: true, sunDir: [-0.55, 0.3, 0.5], sunColor: 0xffe6c8, sunIntensity: 2.9, sunSize: 1.0, zenith: [0.1, 0.24, 0.55], horizon: [0.66, 0.72, 0.82], fog: [380, 4600] },
     hemi: { sky: 0xbcd0ec, ground: 0x8c8e94, intensity: 0.75 },
@@ -3983,6 +3983,7 @@ function generateTrack(def) {
       for (let i = 0; i < N; i++) { let a = 0, n = 0; for (let k = Math.max(0, i - K); k <= Math.min(N - 1, i + K); k++) { a += w[k]; n++; } b[i] = a / n; }
     }
   }
+  for (const [a, b] of def.surf.tarmacAt || []) for (let i = Math.round(a / DS); i <= Math.round(b / DS) && i < N; i++) tr.surf[i] = SURF.TARMAC;   // stretches the stage's data takes back to tarmac
   // ---- Checkpoint gates: prefer mid-straights and ends of landing zones ----
   const cands = [];
   for (const sg of tr.segs) if (sg.type === 'straight') {
@@ -6652,7 +6653,7 @@ function gearboxStep(dt, ctl, vFwd, nG) {
       const rIn = rpmIn(car.gear);
       if (auto) {
         if (vG < 1.5 && car.gear > 1 && rpmIn(1) < sp.redline * 0.9 && !crash(1)) to = 1 - car.gear;       // stopped: back to first (not while the wheels still spin, as when sliding on the tail after a crash)
-        else if (car.gear < n && rIn > (ctl.brake < 0.02 ? tn.upRpm[car.gear - 1] : sp.redline * 0.99) && ctl.throttle > 0.1 && nG > 0) to = 1;   // with the brake on, only off the limiter
+        else if (car.gear < n && vG > 1.5 && rIn > (ctl.brake < 0.02 ? tn.upRpm[car.gear - 1] : sp.redline * 0.99) && ctl.throttle > 0.1 && nG > 0) to = 1;   // with the brake on, only off the limiter; not from a standstill, where the driven wheels spinning up would send the box up and back (each shift opens the clutch)
         else if (car.gear > 1) {
           // braking with the throttle off goes down early, ready for the exit; with both pedals down (left-foot braking)
           // the driver wants drive, so the box holds its gear until the revs fall to the usual downshift point
