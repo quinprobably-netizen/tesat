@@ -4184,10 +4184,11 @@ function stageAirF() {
   const a = TR.def.altitude;
   return a ? engineAir(refTune().spec, airSigma((a[0] + a[1]) / 2 * (TR.def.altUnit === 'M' ? 1 : 0.3048))) : 1;
 }
-/** Lap-time style speed profile (curvature-limited, then accel/brake passes). Drives the AI and target times. */
+/** Lap-time style speed profile (curvature-limited, then accel/brake passes). Sets the target time. The AI drives its
+ *  own per-car plan (planLine), which caps speeds with the crest limits in TR.crestCap. */
 function computeSpeedProfile() {
   const N = TR.N, def = TR.def;
-  const v = new Float32Array(N), cum = new Float32Array(N);
+  const v = new Float32Array(N), cum = new Float32Array(N), crest = new Float32Array(N).fill(Infinity);
   const vmax = REF_VMAX() * 0.97;
   for (let i = 0; i < N; i++) {
     const kk = Math.max(Math.abs(TR.kap[i]), 1e-5);
@@ -4199,8 +4200,14 @@ function computeSpeedProfile() {
   for (const f of TR.feats) if (f.type === 'crest') {
     const Rv = f.P.L * f.P.L / (2 * Math.PI * Math.PI * f.P.h);
     const vc = Math.sqrt(def.gravity * Rv) * 0.95;   // stays (mostly) planted
-    for (let i = Math.max(0, Math.floor((f.s0 - 10) / DS)); i < Math.min(N, (f.sc + 10) / DS); i++) v[i] = Math.min(v[i], vc);
+    for (let i = Math.max(0, Math.floor((f.s0 - 10) / DS)); i < Math.min(N, (f.sc + 10) / DS); i++) { v[i] = Math.min(v[i], vc); crest[i] = Math.min(crest[i], vc); }
   }
+  // the AI also eases off where a crest falls inside a corner, so the car doesn't go light mid-turn and sail off the outside
+  for (let i = 4; i < N - 4; i++) {
+    const kv = -(TR.cy[i + 4] - 2 * TR.cy[i] + TR.cy[i - 4]) / (16 * DS * DS);
+    if (kv > 1e-4 && Math.abs(TR.kap[i]) > 1 / 220) crest[i] = Math.min(crest[i], Math.max(12, Math.sqrt(def.gravity * 0.9 / kv)));
+  }
+  TR.crestCap = crest;
   // chicanes: the weave through the rows sets its own corner speeds
   const chicaneCap = (arr, f) => {
     for (const ch of TR.chicanes) for (let i = Math.max(0, Math.floor(ch.a / DS)); i <= Math.min(N - 1, Math.ceil(ch.b / DS)); i++) {
@@ -4220,24 +4227,10 @@ function computeSpeedProfile() {
   for (let i = N - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * brakeAt(i) * DS));
   for (let i = 1; i < N; i++) cum[i] = cum[i - 1] + DS / Math.max(1, 0.5 * (v[i] + v[i - 1]));
   TR.vprof = v; TR.simTime = cum;
-  // The AI also eases off where a crest falls inside a corner, so the car doesn't go light mid-turn
-  // and sail off the outside. (AI only: the target times above keep using the plain profile.)
-  const ai = Float32Array.from(v), gEff = def.gravity;
-  for (let i = 4; i < N - 4; i++) {
-    const kv = -(TR.cy[i + 4] - 2 * TR.cy[i] + TR.cy[i - 4]) / (16 * DS * DS);
-    if (kv > 1e-4 && Math.abs(TR.kap[i]) > 1 / 220) ai[i] = Math.min(ai[i], Math.max(12, Math.sqrt(gEff * 0.9 / kv)));
-  }
-  chicaneCap(ai, 0.54);   // the AI threads chicanes with a margin
-  for (let i = 0; i < N; i++) {   // and keeps a little grip in hand in every corner, for the bumps and its own corrections
-    const kk = Math.max(Math.abs(TR.kap[i]), 1e-5);
-    ai[i] = Math.min(ai[i], Math.sqrt(cornerMu(TR.surf[i]) * def.gripG * 0.56 * (1 / kk + def.hw * 0.6)));
-  }
-  for (let i = N - 2; i >= 0; i--) ai[i] = Math.min(ai[i], Math.sqrt(ai[i + 1] * ai[i + 1] + 2 * brakeAt(i) * DS));
-  TR.aiV = ai;
   const i0 = Math.round(TR.startS / DS), i1 = Math.round(TR.finishS / DS);
   TR.targetTime = Math.round((cum[i1] - cum[i0]) * def.targetFactor * 10) / 10;
-  computeLineProfile();
 }
+
 /* ---- racing line: the smoothest path through the road's usable width, clear of crater clusters and
    corner boulders, and weaving through the chicane rows. Each point relaxes toward the chord between its
    neighbours (long spans first, then short ones), which converges on a minimum-curvature line clamped to the road. ---- */
@@ -4285,12 +4278,54 @@ function computeRacingLine() {
     }
   }
   d[0] = d[1]; d[N - 1] = d[N - 2];
-  TR.lineD = d;
+  TR.baseD = TR.lineD = d; TR.lineLo = lo; TR.lineHi = hi;
 }
-/** Speeds along the racing line: its own curvature and length, the same crest and chicane limits, and the
- *  same accel/brake passes as the stage profile. Feeds the line's colours and its braking points. */
-function computeLineProfile() {
-  const N = TR.N, def = TR.def, d = TR.lineD, v = new Float32Array(N), seg = new Float32Array(N), kap = new Float32Array(N);
+/* ---- racing line per car. Each car plans its own line on the stage from its own speed model: its tyres on each
+   surface, its downforce on its own weight, its engine through its gears, and its drag. A dynamic programme picks one
+   offset per 4 m station inside the road's usable width (clear of craters, boulders and chicane rows); a step may move
+   at most PLAN.reach levels, so the line can't zigzag. Each path is scored by the lap time its speed profile gives.
+   Each pass limits corners by the braking the last line needs, then the result is smoothed and kept only if the same
+   model beats the geometric line (TR.baseD). A plan is cached per stage and set-up. ---- */
+const PLAN = { M: 11, spacing: 0.6, step: 2, reach: 2, passes: 4, corner: 0.58, chicane: 0.54, brake: 0.75, traction: 0.9 };
+/** The car's speed model: engine through its gears, drag, downforce on its own mass, and grip per surface (its tyre
+ *  compound, calibrated like the target speeds). Cached on the tune. */
+function planModel(tn) {
+  if (tn._pm) return tn._pm;
+  const m = tn.mass, cal = gripCal(), acc = new Float32Array(141);
+  for (let k = 0; k <= 140; k++) {
+    const u = k * 0.5, drag = aeroLevel(tn, u).drag;
+    let best = 0;
+    for (let g = 0; g < tn.gears.length; g++) {
+      const f = gearPull(tn, g, u), G = tn.gears[g] * tn.final;
+      if (f > 0) best = Math.max(best, (f - drag) / (m + (4 * tn.geo.Iw + tn.spec.Ie * G * G) / (tn.r * tn.r)));
+    }
+    acc[k] = best;
+  }
+  const alt = TR.def.altitude, raw = SURF_INFO.map((si, s) => si.mu * tn.mu[s]);
+  return (tn._pm = {
+    G: TR.def.gripG, g: TR.def.gravity, K: 0.5 * AIR_RHO * (tn.aero.claF + tn.aero.claR) / m, vmax: tn.vmax * 0.97, acc,
+    airF: alt ? engineAir(tn.spec, airSigma((alt[0] + alt[1]) / 2 * (TR.def.altUnit === 'M' ? 1 : 0.3048))) : 1,
+    muC: raw.map((mu, s) => mu * cal.corner[s]), muB: raw.map((mu, s) => mu * cal.brake[s]), muT: raw, gr: null,
+  });
+}
+/** Corner speed on surface s at curvature kap, at grip f of the car's own: v²·kap = mu·(G + K·v²), so downforce adds grip. */
+function planCorner(pm, kap, s, f) {
+  const mu = pm.muC[s] * f, den = Math.abs(kap) - mu * pm.K;
+  return den > 1e-9 ? Math.min(pm.vmax, Math.sqrt(mu * pm.G / den)) : pm.vmax;
+}
+/** Accel (m/s², before grade) at v on surface s: the engine through the gears, less rolling resistance, capped by traction. */
+function planAccel(pm, v, s) {
+  const t = clamp(v / 0.5, 0, 140), k = Math.min(139, Math.floor(t)), q = pm.K * v * v;
+  const eng = pm.acc[k] + (pm.acc[k + 1] - pm.acc[k]) * (t - k);
+  return Math.min((eng - SURF_INFO[s].rr * (9.81 + q)) * pm.airF, pm.muT[s] * PLAN.traction * (pm.G + q));
+}
+/** Braking decel (m/s², positive) at v on surface s; uphill helps. */
+function planBrake(pm, v, s, grade) { return Math.max(1, pm.muB[s] * PLAN.brake * (pm.G + pm.K * v * v) + pm.g * grade); }
+/** Speeds along a line of offsets d: corners by the path's own curvature, then accel and brake passes. `cap` holds the
+ *  chicane and crest limits. Returns the speeds, the curvature, the lead envelope (the most speed that can still brake
+ *  for the corners ahead) and the lap time from start to finish. */
+function planProfile(pm, d, cap) {
+  const N = TR.N, seg = new Float32Array(N), kap = new Float32Array(N), v = new Float32Array(N), lead = new Float32Array(N);
   const X = (i) => TR.cx[i] + TR.rx[i] * d[i], Z = (i) => TR.cz[i] + TR.rz[i] * d[i];
   for (let i = 1; i < N; i++) seg[i] = Math.max(0.2, Math.hypot(X(i) - X(i - 1), Z(i) - Z(i - 1)));
   for (let i = 2; i < N - 2; i++) {
@@ -4298,35 +4333,110 @@ function computeLineProfile() {
     let dh = h1 - h0; dh -= Math.round(dh / TAU) * TAU;
     kap[i] = dh / (0.5 * (seg[i - 1] + seg[i] + seg[i + 1] + seg[i + 2]));
   }
-  const vmax = REF_VMAX() * 0.97;
-  for (let i = 0; i < N; i++) v[i] = Math.min(vmax, Math.sqrt(cornerMu(TR.surf[i]) * def.gripG * 0.66 / Math.max(Math.abs(kap[i]), 1e-5)));
-  for (const f of TR.feats) if (f.type === 'crest') {
-    const vc = Math.sqrt(def.gravity * f.P.L * f.P.L / (2 * Math.PI * Math.PI * f.P.h)) * 0.95;
-    for (let i = Math.max(0, Math.floor((f.s0 - 10) / DS)); i < Math.min(N, (f.sc + 10) / DS); i++) v[i] = Math.min(v[i], vc);
-  }
-  const grade = (i) => (TR.cy[Math.min(i + 1, N - 1)] - TR.cy[Math.max(i - 1, 0)]) / (2 * DS);
-  const brake = new Float32Array(N);
-  for (let i = 0; i < N; i++) brake[i] = Math.max(1, brakeMu(TR.surf[i]) * def.gripG * 0.75 + def.gravity * grade(i));
+  for (let i = 0; i < N; i++) v[i] = Math.min(cap[i], planCorner(pm, kap[i], TR.surf[i], PLAN.corner));
+  lead[N - 1] = Infinity;
+  for (let i = N - 2; i >= 0; i--) lead[i] = Math.sqrt(Math.min(v[i + 1], lead[i + 1]) ** 2 + 2 * planBrake(pm, v[i + 1], TR.surf[i + 1], pm.gr[i + 1]) * seg[i + 1]);
   v[0] = 0;
-  for (let i = 1; i < N; i++) {
-    const a = Math.max(0.4, Math.min(refAccel(v[i - 1], TR.surf[i]) * stageAirF(), SURF_INFO[TR.surf[i]].mu * def.gripG * 0.9) - def.gravity * grade(i));
-    v[i] = Math.min(v[i], Math.sqrt(v[i - 1] * v[i - 1] + 2 * a * seg[i]));
+  for (let i = 1; i < N; i++) v[i] = Math.min(v[i], Math.sqrt(v[i - 1] * v[i - 1] + 2 * Math.max(0.4, planAccel(pm, v[i - 1], TR.surf[i]) - pm.g * pm.gr[i]) * seg[i]));
+  for (let i = N - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * planBrake(pm, v[i + 1], TR.surf[i + 1], pm.gr[i + 1]) * seg[i + 1]));
+  let time = 0;
+  for (let i = Math.round(TR.startS / DS) + 1; i <= Math.round(TR.finishS / DS); i++) time += seg[i] / Math.max(0.5, 0.5 * (v[i - 1] + v[i]));
+  return { v, kap, lead, time };
+}
+/** One pass of the line's dynamic programme. A state is the pair of offset levels at two neighbouring stations, and a step
+ *  adds the next station's level (at most PLAN.reach levels from the last). It keeps the fastest arrival per state, with
+ *  corner speed from the path's curvature at that station, accel from the speed before, and no speed above lim (the
+ *  chicane, crest and braking limits). Returns the offset at every sample. */
+function planDP(pm, base, L, H, lim) {
+  const N = TR.N, M = PLAN.M, R = PLAN.reach, step = PLAN.step, K = Math.floor((N - 1) / step) + 1, NS = M * M;
+  const PX = new Float64Array(K * M), PZ = new Float64Array(K * M), PD = new Float64Array(K * M);
+  for (let k = 0; k < K; k++) {
+    const i = Math.min(N - 1, k * step);
+    for (let j = 0; j < M; j++) {
+      const D = clamp(base[i] + (j - (M - 1) / 2) * PLAN.spacing, L[i], H[i]);   // levels around the geometric line, which is one of them
+      PD[k * M + j] = D; PX[k * M + j] = TR.cx[i] + TR.rx[i] * D; PZ[k * M + j] = TR.cz[i] + TR.rz[i] * D;
+    }
   }
-  for (let i = N - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * brake[i] * seg[i + 1]));
-  // the AI drives this line, so its speeds respect the line's own bends too (an S through the width can be tighter than the road)
-  const ai = TR.aiV, kS = boxBlur(kap, Math.round(10 / DS));   // over about 20 m: small wiggles inside the road width don't count
-  for (let i = 0; i < N; i++) ai[i] = Math.min(ai[i], Math.sqrt(cornerMu(TR.surf[i]) * def.gripG * 0.58 / Math.max(Math.abs(kS[i]), 1e-5)));
-  for (let i = N - 2; i >= 0; i--) ai[i] = Math.min(ai[i], Math.sqrt(ai[i + 1] * ai[i + 1] + 2 * brake[i] * seg[i + 1]));
-  // braking points: where the line's speed starts to fall by a real margin into a corner (or a crest)
-  const marks = [], i0 = Math.round(TR.startS / DS) + 4, i1 = Math.round(TR.finishS / DS);
-  for (let i = i0; i < i1; i++) {
+  let T = new Float64Array(NS), V = new Float64Array(NS), nT = new Float64Array(NS), nV = new Float64Array(NS);   // the car starts from rest
+  const pred = new Uint8Array(K * NS);   // pred[k·NS + state]: the level two stations back from that state's first station
+  for (let k = 1; k <= K - 2; k++) {
+    nT.fill(Infinity);
+    const i = Math.min(N - 1, k * step), surf = TR.surf[i], gr = pm.gr[i];
+    for (let a = 0; a < M; a++) for (let b = 0; b < M; b++) {
+      const s = a * M + b, t0 = T[s], v0 = V[s];
+      const ax = PX[(k - 1) * M + a], az = PZ[(k - 1) * M + a], bx = PX[k * M + b], bz = PZ[k * M + b];
+      const abx = bx - ax, abz = bz - az, ab = Math.sqrt(abx * abx + abz * abz) || 1e-3;
+      for (let c = Math.max(0, b - R); c <= Math.min(M - 1, b + R); c++) {
+        const cx = PX[(k + 1) * M + c], cz = PZ[(k + 1) * M + c];
+        const bcx = cx - bx, bcz = cz - bz, bc = Math.sqrt(bcx * bcx + bcz * bcz) || 1e-3, ac = Math.sqrt((cx - ax) ** 2 + (cz - az) ** 2) || 1e-3;
+        const kap = 2 * Math.abs(abx * bcz - abz * bcx) / (ab * bc * ac);
+        let v = Math.min(lim[i], planCorner(pm, kap, surf, PLAN.corner));
+        v = Math.min(v, Math.sqrt(v0 * v0 + 2 * Math.max(0.4, planAccel(pm, v0, surf) - pm.g * gr) * ab));
+        const t = t0 + ab / Math.max(0.5, 0.5 * (v0 + v)), ns = b * M + c;
+        if (t < nT[ns]) { nT[ns] = t; nV[ns] = v; pred[(k + 1) * NS + ns] = a; }
+      }
+    }
+    [T, nT] = [nT, T]; [V, nV] = [nV, V];
+  }
+  // the best finish, then back through the levels that led to it
+  let best = Infinity, ba = 0, bb = 0;
+  for (let s = 0; s < NS; s++) if (T[s] < best) { best = T[s]; ba = Math.floor(s / M); bb = s % M; }
+  const lev = new Uint8Array(K);
+  lev[K - 1] = bb; lev[K - 2] = ba;
+  for (let k = K - 1; k >= 2; k--) lev[k - 2] = pred[k * NS + lev[k - 1] * M + lev[k]];
+  const out = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    const k = Math.min(K - 2, Math.floor(i / step)), t = Math.min(1, (i - k * step) / step);
+    const p0 = PD[k * M + lev[k]], p1 = PD[(k + 1) * M + lev[k + 1]];
+    out[i] = p0 + (p1 - p0) * t;
+  }
+  return out;
+}
+/** The car's plan for this stage: its line, speeds and brake boards. Falls back to the geometric line when that is already
+ *  the fastest in the car's model. */
+function planLine(tn) {
+  const N = TR.N, pm = planModel(tn), base = TR.baseD;
+  pm.gr = new Float32Array(N);
+  for (let i = 0; i < N; i++) pm.gr[i] = (TR.cy[Math.min(i + 1, N - 1)] - TR.cy[Math.max(i - 1, 0)]) / (2 * DS);
+  const cap = Float32Array.from(TR.crestCap), L = Float32Array.from(TR.lineLo), H = Float32Array.from(TR.lineHi);
+  for (const ch of TR.chicanes) for (let i = Math.max(0, Math.floor(ch.a / DS)); i <= Math.min(N - 1, Math.ceil(ch.b / DS)); i++) {
+    cap[i] = Math.min(cap[i], planCorner(pm, TR.kap[i] - chicaneLine(ch, i * DS).d2, TR.surf[i], PLAN.chicane));
+    L[i] = H[i] = base[i];   // the weave keeps the geometric line
+  }
+  let best = { d: base, ...planProfile(pm, base, cap) }, last = best;
+  for (let pass = 0; pass < PLAN.passes; pass++) {
+    const lim = new Float32Array(N);   // the braking the last pass's line needs for the corners ahead
+    for (let i = 0; i < N; i++) lim[i] = Math.min(cap[i], last.lead[i]);
+    const d = boxBlur(planDP(pm, base, L, H, lim), 3);
+    for (let i = 0; i < N; i++) d[i] = clamp(d[i], L[i], H[i]);
+    last = { d, ...planProfile(pm, d, cap) };
+    if (last.time < best.time) best = last;
+  }
+  const v = best.v, brake = new Float32Array(N), marks = [];
+  for (let i = 0; i < N; i++) brake[i] = planBrake(pm, v[i], TR.surf[i], pm.gr[i]);
+  const i0 = Math.round(TR.startS / DS) + 4, i1 = Math.round(TR.finishS / DS);
+  for (let i = i0; i < i1; i++) {                       // braking points: where the speed starts to fall by a real margin
     if (!(v[i + 1] < v[i] - 0.01 && v[i] >= v[i - 1] - 0.01)) continue;
     let j = i + 1; while (j < i1 && v[j + 1] < v[j] - 0.005) j++;
     if (v[i] - v[j] >= 5 && (j - i) * DS >= 8) marks.push({ s: i * DS, v: v[j], end: j * DS });
     i = j;
   }
-  Object.assign(TR, { lineV: v, lineKap: kap, lineBrake: brake, lineMarks: marks });
+  return { d: Float32Array.from(best.d), v, kap: best.kap, brake, marks, time: best.time };
 }
+/** Lays this car's plan on the stage (its line, speeds and brake boards) and rebuilds the line's mesh. Plans are kept per
+ *  stage and per set-up (tyres, final drive), so going back to a car is free. */
+function planForCar(tn) {
+  if (!TR || !TR.lineLo) return null;
+  const key = CAR_SPECS.indexOf(tn.spec) + '|' + tn.mu.join() + '|' + tn.final.toFixed(4);
+  if (TR.planKey === key) return TR.plan;
+  const plans = TR.plans || (TR.plans = new Map());
+  const p = plans.get(key) || planLine(tn);
+  plans.set(key, p);
+  Object.assign(TR, { plan: p, planKey: key, planTime: p.time, lineD: p.d, lineV: p.v, lineKap: p.kap, lineBrake: p.brake, lineMarks: p.marks, aiV: p.v });
+  RacingLine.build();
+  return p;
+}
+
 function targetSplit(s) {
   const i0 = Math.round(TR.startS / DS), i = clamp(Math.round(s / DS), 0, TR.N - 1);
   const i1 = Math.round(TR.finishS / DS);
@@ -4479,8 +4589,8 @@ const ROAD = {
    *  the racing line runs: it cuts to the inside. Worked out once per stage. */
   side() {
     if (TR._kside && TR._kside.def === TR.def) return TR._kside.v;
-    if (!TR.lineD) return 1;                                          // (the line isn't laid yet while the stage builds)
-    let c = 0; for (let i = 0; i < TR.N; i++) c += TR.kap[i] * TR.lineD[i];
+    if (!TR.baseD) return 1;                                          // (the line isn't laid yet while the stage builds)
+    let c = 0; for (let i = 0; i < TR.N; i++) c += TR.kap[i] * TR.baseD[i];
     TR._kside = { def: TR.def, v: c > 0 ? -1 : 1 };
     return TR._kside.v;
   },
@@ -6079,6 +6189,7 @@ void main(){
 const RacingLine = {
   mesh: null,
   build() {
+    if (this.mesh) { this.mesh.parent?.remove(this.mesh); this.mesh.geometry.dispose(); this.mesh.material.dispose(); }
     this.mesh = null;
     const N = TR.N, d = TR.lineD, half = 0.7;
     const pos = [], aS = [], aV = [], aB = [], aU = [], aSide = [], aMark = [], idx = [];
@@ -15060,7 +15171,7 @@ function buildStage(def) {
   if (def.style === 'hills') buildLunarDecor(rng); else if (def.style === 'ring') buildIceDecor(rng);
   else if (def.style === 'mountain') buildMountainDecor(rng); else buildWreckDecor(rng);
   buildChicanes(rng);
-  RacingLine.build();
+  planForCar(tuneFor(DEFAULT_SETUP, Store.data.garage));   // the AI's line and the line on screen: this car's, rebuilt when the car changes
   buildPaceNotes();
   linearizeMaterials(stageGroup);
   const culled = new Set(TR.cells.map((c) => c.mesh));
@@ -15114,6 +15225,7 @@ function enterMenu(screen) {
   document.getElementById('hub').classList.add('hidden');
   if (Cond.weather !== 'clear' || Cond.time !== 'day') Cond.reset();
   setCarTune(tuneFor(DEFAULT_SETUP, Store.data.garage));
+  planForCar(car.tune);
   camera.clearViewOffset();
   for (const id of ['pause', 'finish', 'service', 'garage', 'settings']) document.getElementById(id).classList.add('hidden');
   Settings.from = null;
@@ -15130,6 +15242,7 @@ function startRace() {
   for (const id of ['menu', 'home', 'garage', 'pause', 'finish', 'service', 'settings']) document.getElementById(id).classList.add('hidden');
   Settings.from = null;
   setCarTune(tuneFor(currentSetup(), Store.data.garage));
+  planForCar(car.tune);
   resetRunState();
   placeCar(TR.startS - 6, 0, 0);
   AI.line = 0;
