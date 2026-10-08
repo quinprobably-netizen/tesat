@@ -4444,7 +4444,7 @@ function worldAt(s, d, out) {
 /* The physics test rig's proving ground (PhysicsRig, section 10): while `on`, the ground everywhere is the plane
    y = h0 + sx·x + sz·z of one surface, so the car's real physics can be measured away from any stage. */
 const RIG_GROUND = { on: false, h0: 0, sx: 0, sz: 0, surf: 4, rA: 0, rL: 4, rSide: false,   // ripples: amplitude, wavelength, left side only
-  road: false, kap: 0, verge: 0 };                             // road: a straight road along z centred on x = 0 (ROAD's ruts and grip), and a corner's curvature
+  road: false, kap: 0, verge: 0, soft: false };                             // road: a straight road along z centred on x = 0 (ROAD's ruts and grip), and a corner's curvature
 const RIG_HW = 4;
 function rigHeight(x, z) {
   const G = RIG_GROUND;
@@ -6922,7 +6922,16 @@ function applyAero(tn, nG, rho) {
   }
 }
 
-const _sbh = new THREE.Vector3();
+const _sbh = new THREE.Vector3(), _sba = new THREE.Vector3(), _sbu = new THREE.Vector3(), _sbf = new THREE.Vector3();
+/* The tyre disc, sampled in its own plane: the tread at its middle and both shoulders on twelve angles round the hub,
+   and the rim faces inside it at half the radius. Each sample: across (a share of the half-width, −1 to +1), rad (a
+   share of the tyre radius) and c, s (the cosine and sine of its angle from the wheel's up). */
+const DISC = [];
+for (let j = 0; j < 12; j++) {
+  const c = Math.cos(j * Math.PI / 6), s = Math.sin(j * Math.PI / 6);
+  for (const across of [-1, 0, 1]) DISC.push({ across, rad: 1, c, s });
+  for (const across of [-1, 1]) DISC.push({ across, rad: 0.5, c, s });
+}
 /* ---- soft body: the car as nodes and beams, the way BeamNG builds one ----
    With Settings > SOFT-BODY on, the body is a lattice of 44 point masses (floor, waist and roof) joined by stiff
    spring-damper beams instead of one rigid body. The wheels, tyres, powertrain and aids work as before and push on
@@ -6941,7 +6950,8 @@ const SB = {
   rest: null, loc: null, m: null, x: null, v: null, fe: null, f: null, off: new THREE.Vector3(),
   ba: null, bb: null, l0: null, l00: null, ok: null, nb: 0, gh: null,
   Fa: new THREE.Vector3(), Ta: new THREE.Vector3(), Ii: new Float64Array(9), cand: [], blocks: [], hit: null, mounts: [],
-  active() { return !RIG_GROUND.on && Store.data.settings.soft !== false; },
+  disc: new Float64Array(DISC.length * 3),                                  // the tyre disc's sample points (collideWheels)
+  active() { return (!RIG_GROUND.on || RIG_GROUND.soft) && Store.data.settings.soft !== false; },
   /** The lattice for the current car, from its hull (width, waist, roof, length) and ride height. */
   build() {
     let xm = 0, ym = -1e9, yb = 1e9, z0 = 1e9, z1 = -1e9;
@@ -7017,7 +7027,7 @@ const SB = {
   },
   /** Nodes onto the car's pose and speed, keeping whatever shape the body has been bent into. */
   place() {
-    if (RIG_GROUND.on) return;
+    if (RIG_GROUND.on && !RIG_GROUND.soft) return;
     if (!this.ready || this.key !== CAR.hull) this.build();
     const q = car.q, X = this.x, V = this.v, L = this.loc;
     for (let i = 0; i < this.n; i++) {
@@ -7308,29 +7318,61 @@ const SB = {
       if (pen > 0) for (let j = 0; j < 4; j++) if (W[j] > 0.05) this.contact(I[j], nx, ny, nz, pen * W[j] * 2, kind, brk, obj);
     }
   },
-  /** The tyres against the scenery: each hub is a sphere of tyre radius hung from its mount on the bent body, and
-   *  the blow goes to the mount's nodes, as the suspension carries a tyre's push into the body. */
+  /** The tyres against the scenery. Each tyre is a disc of its real radius and width on its axle, hung from its mount on
+   *  the bent body: its tread and rim faces are sampled (DISC), and the deepest sample inside a piece of scenery pushes
+   *  it out along that piece's normal. The blow goes to the mount's nodes, as the suspension carries a tyre's push into
+   *  the body. */
   collideWheels() {
+    const P = this.disc, half = car.tune.spec.tyre.w / 2, R = CAR.radius, rb = Math.hypot(R, half);   // rb: the disc's reach from its hub
     for (let k = 0; k < 4; k++) {
-      const M = this.mounts[k], h = _sbh;
+      const M = this.mounts[k], h = _sbh, a = _sba, u = _sbu, f = _sbf;
       this.skin(M, h);
       h.addScaledVector(AY, -(CAR.rest - car.wheels[k].comp));           // the mount down to the hub
+      // the axle turns with the steer and the bent toe; u and f are the wheel's up and forward in its plane
+      const yaw = (CAR.wheels[k].front ? car.steerAngle : 0) + this.toe[k];
+      a.set(Math.cos(yaw), 0, -Math.sin(yaw)).applyQuaternion(car.q);
+      u.set(0, 1, 0).applyQuaternion(car.q); u.addScaledVector(a, -u.dot(a)).normalize();
+      f.crossVectors(a, u);
+      for (let j = 0; j < DISC.length; j++) {
+        const s = DISC[j], lat = half * s.across, r = R * s.rad, o = j * 3;
+        P[o] = h.x + lat * a.x + r * (s.c * u.x + s.s * f.x);
+        P[o + 1] = h.y + lat * a.y + r * (s.c * u.y + s.s * f.y);
+        P[o + 2] = h.z + lat * a.z + r * (s.c * u.z + s.s * f.z);
+      }
       for (const c of this.cand) {
         if (c.gone) continue;
-        const cy = clamp(h.y, c.y0, c.y1), dx = h.x - c.x, dy = h.y - cy, dz = h.z - c.z, d2 = dx * dx + dy * dy + dz * dz, rr = CAR.radius + c.r;
-        if (d2 >= rr * rr || d2 < 1e-8) continue;
-        const d = Math.sqrt(d2), brk = c.brk && BREAK_V[c.kind] ? c : null;
-        for (let j = 0; j < 3; j++) this.contact(M.i[j], dx / d, dy / d, dz / d, (rr - d) * M.w[j], c.kind, brk, null);
+        const cy = clamp(h.y, c.y0, c.y1), dx = h.x - c.x, dy = h.y - cy, dz = h.z - c.z, rr = rb + c.r;
+        if (dx * dx + dy * dy + dz * dz >= rr * rr) continue;
+        let pen = 0, nx = 0, ny = 0, nz = 0;
+        for (let j = 0; j < P.length; j += 3) {
+          const ex = P[j] - c.x, ey = P[j + 1] - clamp(P[j + 1], c.y0, c.y1), ez = P[j + 2] - c.z, d2 = ex * ex + ey * ey + ez * ez;
+          if (d2 >= c.r * c.r || d2 < 1e-8) continue;
+          const d = Math.sqrt(d2);
+          if (c.r - d > pen) { pen = c.r - d; nx = ex / d; ny = ey / d; nz = ez / d; }
+        }
+        if (!pen) continue;
+        const brk = c.brk && BREAK_V[c.kind] ? c : null;
+        for (let i = 0; i < 3; i++) this.contact(M.i[i], nx, ny, nz, pen * M.w[i], c.kind, brk, null);
         if (c.gone) break;
       }
       for (const o of this.blocks) {
         if (o.gone) continue;
         const ex = Math.cos(o.yaw), ez = -Math.sin(o.yaw), t = clamp((h.x - o.x) * ex + (h.z - o.z) * ez, -BLOCK_HL, BLOCK_HL);
         const qx = o.x + ex * t, qz = o.z + ez * t, cy = clamp(h.y, o.y, o.y + CHICANE.blockH);
-        const dx = h.x - qx, dy = h.y - cy, dz = h.z - qz, d2 = dx * dx + dy * dy + dz * dz, rr = CAR.radius + CHICANE.blockD / 2;
-        if (d2 >= rr * rr || d2 < 1e-8) continue;
-        const hl = Math.hypot(dx, dz) || 1;
-        for (let j = 0; j < 3; j++) this.contact(M.i[j], dx / hl, 0, dz / hl, (rr - Math.sqrt(d2)) * M.w[j], 'barrier', null, o);
+        const dx = h.x - qx, dy = h.y - cy, dz = h.z - qz, rr = rb + CHICANE.blockD / 2;
+        if (dx * dx + dy * dy + dz * dz >= rr * rr) continue;
+        const bh = CHICANE.blockD / 2;
+        let pen = 0, nx = 0, nz = 0;
+        for (let j = 0; j < P.length; j += 3) {
+          const t2 = clamp((P[j] - o.x) * ex + (P[j + 2] - o.z) * ez, -BLOCK_HL, BLOCK_HL);
+          const px = P[j] - (o.x + ex * t2), py = P[j + 1] - clamp(P[j + 1], o.y, o.y + CHICANE.blockH), pz = P[j + 2] - (o.z + ez * t2);
+          const d2 = px * px + py * py + pz * pz;
+          if (d2 >= bh * bh || d2 < 1e-8) continue;
+          const d = Math.sqrt(d2), hl = Math.hypot(px, pz) || 1;
+          if (bh - d > pen) { pen = bh - d; nx = px / hl; nz = pz / hl; }
+        }
+        if (!pen) continue;
+        for (let i = 0; i < 3; i++) this.contact(M.i[i], nx, 0, nz, pen * M.w[i], 'barrier', null, o);
       }
     }
   },
@@ -8029,7 +8071,7 @@ const PhysicsRig = {
       setCarTune(tune); RIG_GROUND.on = true; Game.forceCtl = this.ctl;
       return fn(this);
     } finally {
-      Object.assign(RIG_GROUND, { on: false, h0: 0, sx: 0, sz: 0, rA: 0, road: false, kap: 0, verge: 0 });
+      Object.assign(RIG_GROUND, { on: false, h0: 0, sx: 0, sz: 0, rA: 0, road: false, kap: 0, verge: 0, soft: false });
       setCarTune(savedTune); restoreState(car, saved);
       DL.cpl.forEach((c, i) => { c.lin = cpl[i]; });
       Game.forceCtl = fc;
@@ -8039,7 +8081,7 @@ const PhysicsRig = {
    *  o.drop lifts the car, o.road lays ROAD's surface along z (o.kap a bend's curvature). */
   place(surf, v, o) {
     o = o || {};
-    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4, rSide: !!o.rSide, road: !!o.road, kap: o.kap || 0, verge: o.verge || 0 });
+    Object.assign(RIG_GROUND, { surf, h0: 0, sx: o.sx || 0, sz: o.sz || 0, rA: o.rA || 0, rL: o.rL || 4, rSide: !!o.rSide, road: !!o.road, kap: o.kap || 0, verge: o.verge || 0, soft: !!o.soft });
     car.q.set(0, 0, 0, 1); if (o.yaw) car.q.setFromAxisAngle(UP, o.yaw);
     if (o.sx || o.sz) car.q.premultiply(_qiw.setFromUnitVectors(UP, _tmp.set(-(o.sx || 0), 1, -(o.sz || 0)).normalize()));   // sitting on the slope
     car.pos.set(o.x || 0, CAR.cgH + (o.drop || 0) - (o.road ? ROAD.depth(surf, Math.abs(o.x || 0), RIG_HW) : 0), 0);
@@ -8047,6 +8089,7 @@ const PhysicsRig = {
     car.i = 0; car.s = 0; car.d = 0; car.damage = 0;
     Object.assign(car.zones, { f: 0, r: 0, l: 0, rt: 0 }); car.pull = 0; car.heat = 0;
     resetCarMotion(v);
+    SB.synced = false;                                       // the soft body's nodes are re-placed from the new pose
     Object.assign(this.ctl, { steer: 0, throttle: 0, brake: 0, handbrake: false, abs: true, tc: true, stab: 'off' }, o.ctl);
   },
   step(n, each) { for (let i = 0; i < n; i++) { if (each && each(i) === false) return i; stepVehicle(this.dt, this.ctl); } return n; },
@@ -8100,19 +8143,22 @@ const PhysicsRig = {
     return { dist: d, muEff: v0 * v0 / (2 * Math.max(d, 0.1)) / (9.81 * mu) };
   },
   /** Flat drop of `drop` m onto tarmac: the most suspension travel used, the dip below ride height and the highest
-   *  rebound above it once the car has landed. */
-  drop(drop) {
-    this.place(SURF.TARMAC, 0, { drop });
-    let maxComp = 0, landed = false, minY = Infinity, top = -Infinity;
+   *  rebound above it once the car has landed. Also the peak wheel load (× weight), and with the soft body (`soft`) the
+   *  fastest node and the beams broken. */
+  drop(drop, soft) {
+    this.place(SURF.TARMAC, 0, { drop, soft });
+    let maxComp = 0, peak = 0, vMax = 0, landed = false, minY = Infinity, top = -Infinity;
     this.step(480, (i) => {
       if (!i) return;                                  // car.nGround is from before the reset until the first step
       for (const w of car.wheels) maxComp = Math.max(maxComp, w.comp);
+      peak = Math.max(peak, car.wheels.reduce((a, w) => a + w.N, 0));
+      if (SB.on) for (let k = 0; k < SB.v.length; k += 3) vMax = Math.max(vMax, Math.hypot(SB.v[k], SB.v[k + 1], SB.v[k + 2]));
       if (car.nGround) landed = true;
       if (!landed) return;
       if (car.pos.y < minY) { minY = car.pos.y; top = -Infinity; }   // the rebound counts from the deepest point
       else top = Math.max(top, car.pos.y);
     });
-    return { maxComp, rebound: top - CAR.cgH, dip: CAR.cgH - minY };
+    return { maxComp, rebound: top - CAR.cgH, dip: CAR.cgH - minY, peak: peak / (CAR.mass * 9.81), vMax, broke: SB.on ? SB.broke : 0 };
   },
   /** A landing at 20 m/s from `drop` m, nose up by `pitch` and rolled by `roll` (rad), so one corner lands first: how
    *  often the body's pitch and roll rates reverse within 0.3 s of touchdown (a body that chatters reverses every
@@ -8252,6 +8298,33 @@ function physicsTests(build) {
     const g0 = rig.launch(SURF.GRAVEL, 40).t100, g1 = rig.launch(SURF.GRAVEL, 40, { verge: 0.04 }).t100;
     check('verge: 0-100 km/h on grass off the road / on gravel (ratio)', g1 / g0, 1.0, 1.6);
   });
+  // 5) the soft body, which the rig runs only when asked (rig.place(..., { soft: true }) and rig.drop(h, true)): at rest
+  //    it sits where the rigid car does with no beam set, and a 0.5 m drop lands within the rigid car's own figures
+  {
+    const rigid = {}, soft = {};
+    PhysicsRig.run(tyred(TT), (rig) => {
+      rig.place(SURF.TARMAC, 0); rig.step(900);
+      rigid.y = car.pos.y; rigid.N = car.wheels.map((w) => w.N);
+      rigid.d = rig.drop(0.5);
+    });
+    PhysicsRig.run(tyred(TT), (rig) => {
+      rig.place(SURF.TARMAC, 0, { soft: true }); rig.step(900);
+      soft.y = car.pos.y; soft.N = car.wheels.map((w) => w.N);
+      soft.mass = SB.m.reduce((a, b) => a + b, 0) / CAR.mass;
+      soft.set = SB.l0.reduce((n, l, b) => n + (Math.abs(l - SB.l00[b]) > 1e-6 * SB.l00[b] ? 1 : 0), 0) + SB.broke;
+      soft.d = rig.drop(0.5, true);
+    });
+    check('soft: node masses / car mass', soft.mass, 0.999, 1.001);
+    check('soft: ride height at rest vs rigid (cm)', (soft.y - rigid.y) * 100, -0.2, 0.2);
+    check('soft: largest corner load off rigid at rest (%)', Math.max(...soft.N.map((n, k) => Math.abs(n / rigid.N[k] - 1))) * 100, 0, 1);
+    check('soft: beams set or broken at rest (count)', soft.set, 0, 0);
+    check('soft: 0.5 m drop, peak wheel load / rigid', soft.d.peak / rigid.d.peak, 0.9, 1.1);
+    check('soft: 0.5 m drop, deepest point vs rigid (cm)', (soft.d.dip - rigid.d.dip) * 100, -2, 2);
+    check('soft: 0.5 m drop, most compression vs rigid (%)', (soft.d.maxComp / rigid.d.maxComp - 1) * 100, -5, 5);
+    check('soft: 0.5 m drop, rebound vs rigid (%)', (soft.d.rebound / rigid.d.rebound - 1) * 100, -10, 10);
+    check('soft: 0.5 m drop, fastest node (m/s)', soft.d.vMax, 0, 10);
+    check('soft: 0.5 m drop, beams broken', soft.d.broke, 0, 0);
+  }
   return R;
 }
 
