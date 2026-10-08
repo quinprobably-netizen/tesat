@@ -5765,7 +5765,7 @@ function buildMountainDecor(rng) {
   const kinds = E.trees || ['spruce'], geos = new Map(), snowy = E.snowyTrees || 0;
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, flatShading: true, envMapIntensity: 0.3 });
   const CELL = 250, cells = new Map(), tint = new THREE.Color();
-  for (let k = 0, n = (E.density || 10000) / (LOW_SPEC ? 2 : 1); k < n; k++) {
+  for (let k = 0, n = (E.density ?? 10000) / (LOW_SPEC ? 2 : 1); k < n; k++) {
     const s = rng.range(0, TR.total), d = rng.sign() * (hw + 5 + Math.pow(rng.next(), E.nearPow || 1.5) * (W - hw - 8));
     const r1 = rng.next(), r2 = rng.next(), r3 = rng.next();
     const i = clamp(Math.round(s / DS), 0, TR.N - 1), x = TR.cx[i] + TR.rx[i] * d, z = TR.cz[i] + TR.rz[i] * d;
