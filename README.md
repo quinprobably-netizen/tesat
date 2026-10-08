@@ -2,7 +2,7 @@
 
 A point-to-point rally game in one self-contained HTML file. You drive real rally cars, from a 1964 Mini to a 2017 World Rally Car, against the clock on real roads: one stage from every round of the 2026 World Rally Championship, the full Pikes Peak hillclimb, and a test park. Terrain, textures, sky, scenery and sound are all generated in the browser.
 
-**Play:** open `index.html` in a modern browser. It loads three.js 0.186.1 from jsdelivr and needs no build step or server. Keyboard, gamepad and touch (phones in portrait or landscape) all work.
+**Play:** open `index.html` in a modern browser. It loads three.js 0.186.0 from jsdelivr and needs no build step or server. Keyboard, gamepad and touch (phones in portrait or landscape) all work.
 
 ## Stages
 
