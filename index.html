@@ -6652,7 +6652,7 @@ function gearboxStep(dt, ctl, vFwd, nG) {
       const rIn = rpmIn(car.gear);
       if (auto) {
         if (vG < 1.5 && car.gear > 1 && rpmIn(1) < sp.redline * 0.9 && !crash(1)) to = 1 - car.gear;       // stopped: back to first (not while the wheels still spin, as when sliding on the tail after a crash)
-        else if (car.gear < n && rIn > (ctl.brake < 0.02 ? tn.upRpm[car.gear - 1] : sp.redline * 0.99) && ctl.throttle > 0.1 && nG > 0) to = 1;   // with the brake on, only off the limiter
+        else if (car.gear < n && vG > 1.5 && rIn > (ctl.brake < 0.02 ? tn.upRpm[car.gear - 1] : sp.redline * 0.99) && ctl.throttle > 0.1 && nG > 0) to = 1;   // with the brake on, only off the limiter; not from a standstill, where the driven wheels spinning up would send the box up and back (each shift opens the clutch)
         else if (car.gear > 1) {
           // braking with the throttle off goes down early, ready for the exit; with both pedals down (left-foot braking)
           // the driver wants drive, so the box holds its gear until the revs fall to the usual downshift point
