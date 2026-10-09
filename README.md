@@ -88,8 +88,8 @@ Before each stage the service park sets springs, dampers, anti-roll bars, final 
 
 ## Garage
 
-- **CAR.** The fifteen cars above on a live 3D preview you can spin, with every real figure and its aero package.
-- **DRIVER.** Eight real drivers, each sitting in the car with their real co-driver: Henri Toivonen, Michèle Mouton, Ari Vatanen, Walter Röhrl, Stig Blomqvist, Tony Pond, Kalle Rovanperä, and Ivan "Ironman" Stewart, who drives solo. The driver is looks only.
+- **CAR.** The sixteen cars above on a live 3D preview you can spin, with every real figure and its aero package.
+- **DRIVER.** Sixteen real drivers, each sitting in the car with their real co-driver: Henri Toivonen, Michèle Mouton, Ari Vatanen, Walter Röhrl, Stig Blomqvist, Tony Pond, Kalle Rovanperä, Thierry Neuville, Ott Tänak, Marcus Grönholm, Paddy Hopkirk, Colin McRae, Sébastien Ogier, Hannu Mikkola, Sébastien Loeb, and Ivan "Ironman" Stewart, who drives solo. The driver is looks only.
 - **LIVERY.** The car's WORKS livery (repainted from period photos) or a PAINT colour from a full-spectrum picker, then up to 16 layers of your own stripes, numbers, text and roof colour.
 
 Every build gets a **PI** (performance index, 100 to 999) and a class: D, C, B, A, S1, S2 and X. Six ratings (speed, handling, acceleration, launch, braking and offroad) are measured on the same physics you drive.
