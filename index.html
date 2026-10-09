@@ -2692,9 +2692,8 @@ function perfRatings(build, setup) {
     const L = rig.launch(SURF.TARMAC, 25);
     return { t100: L.t100, t160: L.t160, corner: (rig.skidpad(SURF.GRAVEL, 15).g + rig.skidpad(SURF.GRAVEL, 30).g) / 2, brakeDist: rig.brake(SURF.GRAVEL, 100 / 3.6).dist };
   });
-  // turn-in (yaw inertia against the wheelbase, steering lock) sharpens what the skidpad holds
-  const agility = Math.sqrt(m * tn.geo.a * tn.geo.b / tn.geo.inertia.y);
-  const corner = run.corner * Math.sqrt(tn.steer) * agility, brakeDist = run.brakeDist;
+  // the skidpad's corner speed, scaled by the steering lock (the yaw inertia is a fixed multiple of m·a·b in the model, so a turn-in term here would only reward the engine's position)
+  const corner = run.corner * Math.sqrt(tn.steer), brakeDist = run.brakeDist;
   const offroad = ((surfMu(SURF.GRAVEL) + surfMu(SURF.REGOLITH) + surfMu(SURF.ICE)) / 3) * (!sp.front ? 0.86 : sp.front >= 1 ? 0.93 : 1);
   const vTop = tn.vmax * 3.6;                         // where the best gear's pull meets drag and rolling resistance (topSpeed)
   const r = (x, [a, b]) => clamp((x - a) / (b - a) * 10, 0, 10);
@@ -6895,7 +6894,8 @@ function drivelineStep(dt, ctl, G, th0) {
   // launch clutch still keeps the engine from stalling, so whichever is further out wins
   const pedal = 1 - smoothstep(0.15, 0.8, ctl.clutch || 0);
   const clutch = (c, we, wC, hb) => {
-    const eng = G === 0 || dip || hb ? 0 : pedal * smoothstep(sp.idle * 1.05, sp.launch, Math.max(we, Math.abs(G * wC)) * 60 / TAU);
+    // (rolling back against the gear, the driveline would turn the engine backwards: the clutch lets go rather than clamp it)
+    const eng = G === 0 || dip || hb || G * wC < -1 ? 0 : pedal * smoothstep(sp.idle * 1.05, sp.launch, Math.max(we, Math.abs(G * wC)) * 60 / TAU);
     setCpl(c, eng > 0.002, DRIVE.Kc, sp.clutchT * eSh * eng);
   };
   const cl = C[0], cl2 = C[8];
@@ -7690,7 +7690,7 @@ function throttleType(sp) {
 }
 // bar; pads' running gap as a share of full pressure; hydraulic lag (s); ABS dump and build rates (bar/s) and the braking
 // slip (share of the tyre's peak) it dumps above and holds above; handbrake lever (s)
-const BRAKES = { pMax: 110, gap: 0.02, tau: 0.035, dump: 800, build: 800, hi: 1.5, lo: 1.15, hbOn: 0.08, hbOff: 0.05 };
+const BRAKES = { pMax: 110, gap: 0.02, tau: 0.035, dump: 800, build: 800, hi: 1.15, lo: 1.05, hbOn: 0.08, hbOff: 0.05 };   // ABS: dump 15% past the peak slip, hold near it, rebuild below 5%
 /** Manifold load (0-1) the butterfly's open area A gives at engine speed rf (share of the redline): 1 when wide open. */
 function throttleLoad(tt, A, rf) {
   return (1 - Math.exp(-tt.area * A / rf)) / (1 - Math.exp(-tt.area / rf));
@@ -7888,7 +7888,7 @@ function stepVehicle(dt, ctl) {
   // when the car slides further than a keyboard can catch (body slip past b0) or yaws faster than the steering asks
   // for, it wants a yaw moment back toward the direction of travel, and gets it by braking the front wheel on that
   // side, up to that tyre's grip; the engine is trimmed while it works. It rests
-  // while the handbrake is held and while you drift on purpose. SPORT only steps in on a big slide, and gently.
+  // while the handbrake is held. FULL straightens every slide (its yaw term eases off in a drift on purpose); SPORT only steps in on a big slide, and gently.
   const sm = fc && fc.stab ? fc.stab : Game.autopilot || Game.state !== 'racing' ? 'full' : stabMode();
   const SA = car.stab = STAB[sm] || STAB.full;
   if (ctl.handbrake) car.hbTimer = 0.35; else car.hbTimer = Math.max(0, (car.hbTimer || 0) - dt);
@@ -7929,7 +7929,7 @@ function stepVehicle(dt, ctl) {
   if (car.tc && th0 > 0 && ctl.brake < 0.02) {
     let over = 0;
     for (let k = drv0; k < drv1; k++) { const w = car.wheels[k]; if (w.grounded) over = Math.max(over, w.kap * Math.sign(rev ? -1 : 1) / w.ts.kp); }
-    car.tcF = over > 1.35 ? Math.max(0.05, car.tcF - dt * 6 * (over - 0.9)) : Math.min(1, car.tcF + dt * 2.5);
+    car.tcF = over > 1.1 ? Math.max(0.05, car.tcF - dt * 6 * (over - 0.9)) : Math.min(1, car.tcF + dt * 2.5);
   } else car.tcF = Math.min(1, car.tcF + dt * 4);
   // the traction control eases the throttle only off the brake: the driver's pedal is never cut while braking
   const tcOn = car.tc && ctl.brake < 0.02;
@@ -15160,6 +15160,8 @@ function frame(now) {
   adaptResolution(raw);
   if (update(dt)) { if (Game.state === 'photo') Photo.draw(); else Post.render(); }
 }
+/** The controls the car last drove on: a frame with no physics step shows these. */
+let lastCtl = IDLE_CTL;
 /** Advance the whole game by dt seconds. Returns false while nothing is ready to draw. */
 function update(dt) {
   Input.poll(dt);
@@ -15171,12 +15173,12 @@ function update(dt) {
   if (st !== 'paused' && st !== 'photo') {
     if (Game.hitStop > 0) { Game.hitStop -= dt; dt *= 0.06; }
     Game.clock += dt;
-    AI.dt = dt;
-    ctl = chooseControls();
     Game.acc += dt;
     let steps = 0;
-    while (Game.acc >= PHYS_DT && steps < 8) { Draw.keep(); stepVehicle(PHYS_DT, ctl); Game.acc -= PHYS_DT; steps++; }
+    // the controls are read for every physics step, so the driver's inputs reach the car at 120 Hz, not once a frame
+    while (Game.acc >= PHYS_DT && steps < 8) { Draw.keep(); AI.dt = PHYS_DT; ctl = chooseControls(); stepVehicle(PHYS_DT, ctl); Game.acc -= PHYS_DT; steps++; }
     if (steps >= 8) Game.acc = 0;
+    if (steps) lastCtl = ctl; else ctl = lastCtl;
     Draw.blend(Game.acc / PHYS_DT);
     processCarEvents();
     updateCarVisual(dt, ctl);
