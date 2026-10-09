@@ -6524,28 +6524,278 @@ function buildTunnel(T, E) {
   }
   for (let s = s0; s <= s1; s += 2) for (const side of [-1, 1]) { worldAt(s, side * (R + 0.3), WP); addCollider({ x: WP.x, z: WP.z, r: 0.5, y0: WP.h - 1, y1: WP.h + 5, kind: 'wall' }); }
 }
-/** The Pikes Peak summit house: a long, low stone building beside the end of the road. */
+/* ---- Roadside houses ---------------------------------------------------------------------------------------------
+   makeHouse(o) draws each house from canvas textures (cached per style and colour, so houses of one colour share
+   them) and merges its geometry into one mesh per material: wall, roof, trim, glass, plinth and accent. */
+const HOUSE_CACHE = new Map();
+function houseCached(key, make) { let v = HOUSE_CACHE.get(key); if (!v) { v = make(); HOUSE_CACHE.set(key, v); } return v; }
+function houseSeed(key) { return parseInt(hashStr(key), 36); }
+function houseRGB(hex) { return [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255]; }
+function houseShade(c, f, a = 1) {
+  const k = (v) => clamp(Math.round(v * f), 0, 255);
+  return a < 1 ? `rgba(${k(c[0])},${k(c[1])},${k(c[2])},${a})` : `rgb(${k(c[0])},${k(c[1])},${k(c[2])})`;
+}
+function shadeHex(hex, f) {
+  const c = houseRGB(hex), k = (v) => clamp(Math.round(v * f), 0, 255);
+  return (k(c[0]) << 16) | (k(c[1]) << 8) | k(c[2]);
+}
+function houseTiled(T, w, h, draw) { const t = makeCanvas(w, h, draw); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.userData.T = T; return t; }
+function houseRoundRect(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+/** Vertical boards with gaps, grain and the odd knot; 13 boards per 2 m tile. */
+function woodSidingTex(hex) {
+  const c = houseRGB(hex), r = new RNG(houseSeed('siding' + hex));
+  return houseTiled(2.0, 256, 256, (g, w, h) => {
+    const n = 13, bw = w / n;
+    for (let k = 0; k < n; k++) {
+      const x0 = k * bw;
+      g.fillStyle = houseShade(c, 0.9 + r.next() * 0.16); g.fillRect(x0, 0, bw, h);
+      for (let q = 0; q < 5; q++) {
+        const gx = x0 + r.next() * bw, dx = r.range(-3, 3);
+        g.strokeStyle = r.next() < 0.5 ? 'rgba(0,0,0,0.12)' : 'rgba(255,235,210,0.07)';
+        g.lineWidth = 0.6 + r.next(); g.beginPath(); g.moveTo(gx, 0);
+        g.bezierCurveTo(gx + dx, h * 0.33, gx - dx, h * 0.66, gx, h); g.stroke();
+      }
+      if (r.next() < 0.3) { g.fillStyle = houseShade(c, 0.55, 0.8); g.beginPath(); g.ellipse(x0 + bw / 2, r.next() * h, 2.5, 5, 0, 0, 7); g.fill(); }
+      for (let q = 0; q < 2; q++) { g.fillStyle = 'rgba(20,8,6,0.35)'; g.fillRect(x0, r.next() * h, bw, 1.5); }   // board ends
+      g.fillStyle = 'rgba(20,8,6,0.6)'; g.fillRect(x0, 0, 1.5, h);                                             // the gap
+    }
+  });
+}
+/** A blotchy lime render (or, with a dark colour, concrete). Blotches are drawn at the wrapped offsets: a seamless tile. */
+function renderTex(hex, T) {
+  const c = houseRGB(hex), r = new RNG(houseSeed('render' + hex));
+  return houseTiled(T, 256, 256, (g, w, h) => {
+    g.fillStyle = houseShade(c, 1); g.fillRect(0, 0, w, h);
+    for (let k = 0; k < 70; k++) {
+      const x = r.next() * w, y = r.next() * h, rad = 8 + r.next() * 30, f = r.next() < 0.5 ? 1.07 : 0.92;
+      for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) {
+        const gr = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, rad);
+        gr.addColorStop(0, houseShade(c, f, 0.3)); gr.addColorStop(1, houseShade(c, f, 0));
+        g.fillStyle = gr; g.fillRect(x + dx - rad, y + dy - rad, 2 * rad, 2 * rad);
+      }
+    }
+    for (let k = 0; k < 1200; k++) { g.fillStyle = houseShade(c, r.next() < 0.5 ? 0.82 : 1.1, 0.35); g.fillRect(r.next() * w, r.next() * h, 1, 1); }
+  });
+}
+/** Coursed rubble: 11 rows of blocks 0.33 to 0.85 m long in 2.4 m tiles, with mortar joints. */
+function stoneTex(hex) {
+  const c = houseRGB(hex), r = new RNG(houseSeed('stone' + hex)), rows = 11;
+  return houseTiled(2.4, 512, 512, (g, w, h) => {
+    g.fillStyle = 'rgb(198,192,182)'; g.fillRect(0, 0, w, h);
+    const rh = h / rows;
+    for (let row = 0; row < rows; row++) {
+      let x = 0;
+      while (x < w - 2) {
+        const bw = Math.min(w - x, 70 + r.next() * 110);
+        g.fillStyle = houseShade(c, 0.8 + r.next() * 0.3); g.fillRect(x + 2, row * rh + 2, bw - 4, rh - 4);
+        g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(x + 2, row * rh + 2, bw - 4, 2);
+        for (let q = 0; q < 6; q++) { g.fillStyle = `rgba(0,0,0,${0.1 + r.next() * 0.15})`; g.fillRect(x + 4 + r.next() * (bw - 8), row * rh + 4 + r.next() * (rh - 8), 1.5, 1.5); }
+        x += bw;
+      }
+    }
+  });
+}
+/** Corrugated sheet: 16 ridges per 1.2 m, running down the slope (the v axis), with laps and rust streaks. */
+function metalRoofTex(hex) {
+  const c = houseRGB(hex), r = new RNG(houseSeed('metal' + hex));
+  return houseTiled(1.2, 256, 256, (g, w, h) => {
+    g.fillStyle = houseShade(c, 1); g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x++) {
+      const a = Math.sin((x / w) * Math.PI * 32);
+      g.fillStyle = a > 0 ? `rgba(255,255,255,${0.12 * a})` : `rgba(0,0,0,${-0.16 * a})`;
+      g.fillRect(x, 0, 1, h);
+    }
+    for (let k = 0; k < 2; k++) { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, (k * h) / 2, w, 2); }
+    for (let k = 0; k < 8; k++) { g.fillStyle = `rgba(110,70,40,${0.04 + r.next() * 0.07})`; g.fillRect(r.next() * w, 0, 2 + r.next() * 4, h); }
+  });
+}
+/** Pantile or slate rows: 6 tiles across and 8 rows in a 0.9 m tile, each row offset by half a tile. */
+function tileRoofTex(hex) {
+  const c = houseRGB(hex), r = new RNG(houseSeed('tile' + hex));
+  return houseTiled(0.9, 256, 256, (g, w, h) => {
+    g.fillStyle = houseShade(c, 0.6); g.fillRect(0, 0, w, h);
+    const cols = 6, rows = 8, tw = w / cols, th = h / rows;
+    for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
+      const x = col * tw + (row % 2 ? tw / 2 : 0), y = row * th, f = 0.88 + r.next() * 0.22;
+      for (const dx of [-w, 0, w]) {
+        g.fillStyle = houseShade(c, f); houseRoundRect(g, x + dx + 1, y + 1, tw - 2, th - 1, 7); g.fill();
+        g.strokeStyle = 'rgba(0,0,0,0.4)'; g.lineWidth = 1.5; g.stroke();
+        g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(x + dx + 5, y + 3, tw - 10, 2);
+      }
+    }
+  });
+}
+function houseMaterials(style, wall, roof, trim, accent) {
+  return houseCached(['mat', style, wall, roof, trim, accent].join('|'), () => {
+    const roofKind = style === 'wood' ? 'metal' : 'tile';
+    const wallT = houseCached(`wall|${style}|${wall}`, () => style === 'wood' ? woodSidingTex(wall) : style === 'plaster' ? renderTex(wall, 3) : stoneTex(wall));
+    const roofT = houseCached(`roof|${roofKind}|${roof}`, () => roofKind === 'metal' ? metalRoofTex(roof) : tileRoofTex(roof));
+    const plinthT = houseCached(`plinth|${style}|${wall}`, () => renderTex(style === 'wood' ? 0x8c8880 : shadeHex(wall, style === 'plaster' ? 0.7 : 0.8), 1.5));
+    return {
+      wall: new THREE.MeshStandardMaterial({ map: wallT, roughness: 0.9 }),
+      roof: new THREE.MeshStandardMaterial({ map: roofT, roughness: roofKind === 'metal' ? 0.45 : 0.8, metalness: roofKind === 'metal' ? 0.3 : 0, side: THREE.DoubleSide }),
+      trim: new THREE.MeshStandardMaterial({ color: trim, roughness: 0.7 }),
+      glass: houseCached('glass', () => new THREE.MeshStandardMaterial({ color: 0x1a2430, roughness: 0.15, metalness: 0.4 })),
+      plinth: new THREE.MeshStandardMaterial({ map: plinthT, roughness: 0.95 }),
+      accent: new THREE.MeshStandardMaterial({ color: accent, roughness: 0.6 }),
+      TW: wallT.userData.T, TRO: roofT.userData.T, TP: plinthT.userData.T,
+    };
+  });
+}
+/**
+ * A roadside house. Origin at the ground centre of the footprint, +z along the length (the ridge), +x across it.
+ * o: w, l (footprint), h (eaves height above the origin), foot (wall depth below the origin, for sloped ground),
+ * wall and roof (sRGB hex), style ('wood' | 'plaster' | 'stone'), big (three storeys), floors, bay (metres between
+ * window columns), win ([width, height] of a window), pitch (roof pitch in degrees), accent (door and shutter hex),
+ * doorSide (+1 or -1: which long face has the door), rng. Returns a Group of at most six meshes, materials linearised.
+ */
+function makeHouse(o) {
+  const w = o.w, l = o.l, h = o.h, foot = o.foot || 0, style = o.style || 'wood', big = !!o.big;
+  const rng = o.rng || new RNG(houseSeed(style + o.wall + o.roof));
+  const hw = w / 2, hl = l / 2, ov = 0.4, PL = 0.34;                    // PL: plinth top, which is the ground-floor level
+  const pitch = (o.pitch || (big ? 24 : style === 'wood' ? 38 : 27)) * Math.PI / 180;
+  const tanT = Math.tan(pitch), cosT = Math.cos(pitch), sinT = Math.sin(pitch);
+  const rise = hw * tanT, Yr = h + rise, xE = hw + ov, zE = hl + ov, Ye = Yr - xE * tanT;   // ridge, overhang, eave height at the overhang
+  const trim = style === 'wood' ? 0xf2efe8 : style === 'plaster' ? 0xeee8dc : 0xcfc7b8;
+  const accent = o.accent || (style === 'wood' ? 0x3b3f44 : style === 'plaster' ? 0x2f4a3a : 0x4a3a2c);
+  const M = houseMaterials(style, o.wall, o.roof, trim, accent);
+  const TW = M.TW, TRO = M.TRO, TP = M.TP;
+  const bk = {};
+  const bucket = (key) => bk[key] || (bk[key] = { p: [], n: [], u: [] });
+  const tri = (key, a, b, c, n, uvf) => {
+    if (new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)).dot(n) < 0) [b, c] = [c, b];
+    const B = bucket(key);
+    for (const p of [a, b, c]) {
+      B.p.push(p.x, p.y, p.z); B.n.push(n.x, n.y, n.z);
+      const uv = uvf ? uvf(p) : [0, 0]; B.u.push(uv[0], uv[1]);
+    }
+  };
+  const quad = (key, a, b, c, d, n, uvf) => { tri(key, a, b, c, n, uvf); tri(key, a, c, d, n, uvf); };
+  /** An axis-aligned box (half sizes hx, hy, hz) centred at c, optionally turned by q. Textured keys get metre UVs. */
+  const box = (key, cx, cy, cz, hx, hy, hz, q) => {
+    const H = [hx, hy, hz], C = new THREE.Vector3(cx, cy, cz), T = key === 'plinth' ? TP : key === 'roof' ? TRO : key === 'wall' ? TW : 0;
+    const at = (L) => { const v = new THREE.Vector3(L[0], L[1], L[2]); if (q) v.applyQuaternion(q); return v.add(C); };
+    for (let ax = 0; ax < 3; ax++) for (const s of [-1, 1]) {
+      const o1 = (ax + 1) % 3, o2 = (ax + 2) % 3, L = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
+      [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([a, b], k) => { L[k][ax] = s * H[ax]; L[k][o1] = a * H[o1]; L[k][o2] = b * H[o2]; });
+      const n = new THREE.Vector3(); n.setComponent(ax, s); if (q) n.applyQuaternion(q);
+      const uvf = T ? (p) => [p.getComponent(o1) / T, p.getComponent(o2) / T] : null;
+      quad(key, at(L[0]), at(L[1]), at(L[2]), at(L[3]), n, uvf);
+    }
+  };
+  /** A point on a long face (ax 0, x = s*(hw+d)) or a gable face (ax 2, z = s*(hl+d)): u along the wall, y up, d out. */
+  const onFace = (fc, u, y, d) => fc.ax === 0 ? new THREE.Vector3(fc.s * (hw + d), y, u) : new THREE.Vector3(u, y, fc.s * (hl + d));
+  /** A box on a wall face, centred at (u, y), su wide and sy high, standing out from d0 by sd. */
+  const boxOn = (key, fc, u, y, d0, su, sy, sd) => {
+    const c = onFace(fc, u, y, d0 + sd / 2);
+    if (fc.ax === 0) box(key, c.x, c.y, c.z, sd / 2, sy / 2, su / 2); else box(key, c.x, c.y, c.z, su / 2, sy / 2, sd / 2);
+  };
+  /** An inset window: glass set back in a painted frame, glazing bars, a projecting sill, and shutters on plaster houses. */
+  const win = (fc, u, yc, ww, wh) => {
+    boxOn('glass', fc, u, yc, 0.01, ww, wh, 0.025);
+    boxOn('trim', fc, u, yc + wh / 2 + 0.035, 0, ww + 0.14, 0.07, 0.06);
+    boxOn('trim', fc, u, yc - wh / 2 - 0.035, 0, ww + 0.14, 0.07, 0.06);
+    boxOn('trim', fc, u - ww / 2 - 0.035, yc, 0, 0.07, wh, 0.06);
+    boxOn('trim', fc, u + ww / 2 + 0.035, yc, 0, 0.07, wh, 0.06);
+    boxOn('trim', fc, u, yc, 0.03, 0.04, wh, 0.03);
+    boxOn('trim', fc, u, yc, 0.03, ww, 0.04, 0.03);
+    boxOn('trim', fc, u, yc - wh / 2 - 0.1, 0, ww + 0.26, 0.06, 0.14);
+    if (style === 'plaster') for (const k of [-1, 1]) boxOn('accent', fc, u + k * (ww / 2 + 0.29), yc, 0, 0.4, wh + 0.1, 0.04);
+  };
+  /** A door with jambs, a head, a small canopy and two steps. */
+  const door = (fc, u) => {
+    boxOn('accent', fc, u, PL + 1.02, 0, 0.95, 2.04, 0.05);
+    boxOn('trim', fc, u - 0.55, PL + 1.05, 0, 0.1, 2.14, 0.08);
+    boxOn('trim', fc, u + 0.55, PL + 1.05, 0, 0.1, 2.14, 0.08);
+    boxOn('trim', fc, u, PL + 2.2, 0, 1.2, 0.1, 0.08);
+    boxOn('trim', fc, u, PL + 2.5, 0, 1.6, 0.06, 0.55);
+    boxOn('plinth', fc, u, 0.08, 0, 1.5, 0.16, 0.6);
+    boxOn('plinth', fc, u, 0.24, 0, 1.5, 0.16, 0.36);
+  };
+
+  // Walls: two long faces and two gables (pentagons), from below the ground up to the eaves and the gable apex.
+  const uvX = (p) => [p.z / TW, p.y / TW], uvZ = (p) => [p.x / TW, p.y / TW];
+  for (const s of [-1, 1]) quad('wall', new THREE.Vector3(s * hw, -foot, -hl), new THREE.Vector3(s * hw, -foot, hl), new THREE.Vector3(s * hw, h, hl), new THREE.Vector3(s * hw, h, -hl), new THREE.Vector3(s, 0, 0), uvX);
+  for (const s of [-1, 1]) {
+    const z = s * hl, n = new THREE.Vector3(0, 0, s), P = (x, y) => new THREE.Vector3(x, y, z);
+    quad('wall', P(-hw, -foot), P(hw, -foot), P(hw, h), P(-hw, h), n, uvZ);
+    tri('wall', P(-hw, h), P(hw, h), P(0, Yr), n, uvZ);
+  }
+  // Plinth: a concrete (or darker render or stone) band that shows where the ground falls away.
+  box('plinth', 0, (PL - foot) / 2, 0, hw + 0.05, (PL + foot) / 2, hl + 0.05, null);
+  // Roof: two planes from the ridge, with an overhang of 0.4 m on the eaves and the gables, and a ridge cap.
+  const uvRoof = (p) => [p.z / TRO, Math.abs(p.x) / cosT / TRO];
+  for (const s of [-1, 1]) quad('roof', new THREE.Vector3(0, Yr, -zE), new THREE.Vector3(0, Yr, zE), new THREE.Vector3(s * xE, Ye, zE), new THREE.Vector3(s * xE, Ye, -zE), new THREE.Vector3(s * sinT, cosT, 0), uvRoof);
+  box('roof', 0, Yr + 0.03, 0, 0.14, 0.05, zE, null);
+  // Fascia boards along the eaves, and bargeboards along the sloping gable edges.
+  for (const s of [-1, 1]) box('trim', s * (xE - 0.02), Ye - 0.12, 0, 0.025, 0.12, zE, null);
+  for (const sz of [-1, 1]) for (const sx of [-1, 1]) {
+    const E = new THREE.Vector3(sx * xE, Ye, sz * zE), R = new THREE.Vector3(0, Yr, sz * zE);
+    const mid = E.clone().add(R).multiplyScalar(0.5), dir = R.clone().sub(E).normalize();
+    box('trim', mid.x, mid.y, mid.z, E.distanceTo(R) / 2, 0.12, 0.03, new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir));
+  }
+  // Chimneys: one, or two on the bigger houses, standing out of the roof.
+  for (let k = 0; k < (big ? 2 : 1); k++) {
+    const cx = (k ? -1 : 1) * hw * rng.range(0.3, 0.5), cz = (k ? 0.35 : -0.3) * l, top = Yr + 1.0;
+    box('plinth', cx, (h - 0.6 + top) / 2, cz, 0.36, (top - h + 0.6) / 2, 0.36, null);
+    box('plinth', cx, top + 0.05, cz, 0.5, 0.05, 0.5, null);
+  }
+  // Windows: storeys of columns on the long faces (the door face has the door in its first column), and on the gables.
+  const floors = o.floors || (big ? 3 : 1), sh = (h - PL) / floors;
+  const wW = o.win ? o.win[0] : 1.0, wH = o.win ? o.win[1] : big ? 1.3 : 1.2;
+  const bay = o.bay || (big ? 2.6 : 3.4);
+  const nC = Math.max(2, Math.round(l / bay)), nG = big ? Math.max(2, Math.round(w / bay)) : 1;
+  const winY = (f) => PL + f * sh + Math.min((sh - wH) / 2, 0.9) + wH / 2;
+  const doorFace = { ax: 0, s: o.doorSide || 1 }, backFace = { ax: 0, s: -(o.doorSide || 1) };
+  for (let f = 0; f < floors; f++) for (let c = 0; c < nC; c++) {
+    const u = -l / 2 + (c + 0.5) * l / nC;
+    if (!(f === 0 && c === 0)) win(doorFace, u, winY(f), wW, wH);
+    win(backFace, u, winY(f), wW, wH);
+  }
+  door(doorFace, -l / 2 + 0.5 * l / nC);
+  for (const s of [-1, 1]) {
+    const fc = { ax: 2, s };
+    for (let f = 0; f < floors; f++) for (let c = 0; c < nG; c++) win(fc, -w / 2 + (c + 0.5) * w / nG, winY(f), wW, wH);
+    if (!big && rise > 1.2) win(fc, 0, h + 0.45 * rise, 0.7, 0.8);            // a little attic window in the gable
+  }
+
+  const g = new THREE.Group(); g.name = 'house';
+  for (const key of ['wall', 'roof', 'trim', 'glass', 'plinth', 'accent']) {
+    const B = bk[key];
+    if (!B) continue;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(B.p, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(B.n, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(B.u, 2));
+    const mesh = new THREE.Mesh(geo, M[key]);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    g.add(mesh);
+  }
+  linearizeMaterials(g);
+  return g;
+}
+/** The Pikes Peak summit house: a long, low stone building beside the end of the road, with big windows. */
 function buildSummitHouse() {
   const hw = TR.hw, s0 = TR.total - 34, i0 = clamp(Math.round(s0 / DS), 0, TR.N - 1), dH = -(hw + 21);
   worldAt(s0, dH, WP);
   let lo = Infinity, hi = -Infinity;
   for (const a of [-13, 13]) for (const b of [-6, 6]) { const h = heightGlobal(WP.x + TR.tx[i0] * a + TR.rx[i0] * b, WP.z + TR.tz[i0] * a + TR.rz[i0] * b); lo = Math.min(lo, h); hi = Math.max(hi, h); }
-  const house = new THREE.Group(), stone = new THREE.MeshStandardMaterial({ color: 0x8e8176, roughness: 0.92 });
-  const roof = new THREE.MeshStandardMaterial({ color: 0x3e4247, roughness: 0.6, metalness: 0.3 }), glass = new THREE.MeshStandardMaterial({ color: 0x1c2a36, roughness: 0.12, metalness: 0.5 });
-  const base = hi - lo + 0.5, body = new THREE.Mesh(new THREE.BoxGeometry(12, base + 4.5, 26), stone);
-  body.position.y = (hi - lo) + 2.25 - base / 2; house.add(body);
-  const top = new THREE.Mesh(new THREE.BoxGeometry(13, 0.5, 27), roof); top.position.y = (hi - lo) + 4.75; house.add(top);
-  const win = new THREE.Mesh(new THREE.BoxGeometry(12.1, 1.5, 22), glass); win.position.y = (hi - lo) + 2.6; house.add(win);
+  const house = makeHouse({ w: 12, l: 26, h: hi - lo + 4.5, foot: 0.5, style: 'stone', floors: 1, bay: 4.2, win: [2.4, 1.9], pitch: 12, wall: 0x8e8176, roof: 0x3e4247, accent: 0x2a2e33 });
   house.position.set(WP.x, lo, WP.z); house.rotation.y = trackYaw(i0);
-  house.traverse((o) => { o.castShadow = true; o.receiveShadow = true; });
   stageGroup.add(house);
 }
-/** A few gabled houses beside the road: Falu-red wooden houses in Värmland, the Yellow House at Ouninpohja, stone
- *  village houses at La Bollène and Ghisoni, the hotels on the Col de Turini (big). */
+/** Wooden houses for the saturated walls (Falu red, yellow, brown), plaster for the pale ones. */
+function houseStyle(hex) {
+  const r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  return (mx - mn) / mx > 0.4 ? 'wood' : 'plaster';
+}
+/** A few houses beside the road: Falu-red wooden houses in Värmland, the Yellow House at Ouninpohja, plaster village
+ *  houses at La Bollène and Ghisoni, the hotels on the Col de Turini (big). */
 function buildHouses(hs, rng) {
-  const hw = TR.hw, wall = new THREE.MeshStandardMaterial({ color: hs.wall, roughness: 0.85 }), roofM = new THREE.MeshStandardMaterial({ color: hs.roof, roughness: 0.7 });
-  const trim = new THREE.MeshStandardMaterial({ color: 0xf2efe8, roughness: 0.8 }), glass = new THREE.MeshStandardMaterial({ color: 0x1a2430, roughness: 0.15, metalness: 0.4 });
-  const s0 = placeS(hs.at) + (hs.at === 'start' ? 45 : 20);
+  const hw = TR.hw, s0 = placeS(hs.at) + (hs.at === 'start' ? 45 : 20), style = houseStyle(hs.wall);
   for (let k = 0; k < hs.n; k++) {
     const side = hs.d || (k % 2 ? -1 : 1), s = s0 + k * (hs.big ? 34 : 26) + rng.range(-4, 4);
     const Wd = hs.big ? 11 : rng.range(6, 8), Ln = hs.big ? 18 : rng.range(8, 11), Ht = hs.big ? 9 : rng.range(3.2, 4.4);
@@ -6557,21 +6807,13 @@ function buildHouses(hs, rng) {
     if (dj < hw + 4 + Wd / 2) continue;                      // too close to another stretch of road
     let lo = Infinity;
     for (const a of [-Ln / 2, Ln / 2]) for (const b of [-Wd / 2, Wd / 2]) lo = Math.min(lo, heightGlobal(WP.x + TR.tx[i] * a + TR.rx[i] * b, WP.z + TR.tz[i] * a + TR.rz[i] * b));
-    const grp = new THREE.Group(), foot = WP.h - lo + 0.3;
-    const body = new THREE.Mesh(new THREE.BoxGeometry(Wd, Ht + foot, Ln), wall); body.position.y = (Ht + foot) / 2 - foot; grp.add(body);
-    const roofG = new THREE.CylinderGeometry(1, 1, Ln + 0.8, 3, 1); roofG.rotateZ(Math.PI / 2); roofG.rotateY(Math.PI / 2);   // a triangular prism along the house
-    const roof = new THREE.Mesh(roofG, roofM); roof.scale.set(Wd * 0.62, Wd * 0.3, 1); roof.position.y = Ht + Wd * 0.13; grp.add(roof);
-    for (const z of [-Ln / 2 - 0.02, Ln / 2 + 0.02]) for (const x of hs.big ? [-3, 0, 3] : [-1.5, 1.5]) for (let fl = 0; fl < (hs.big ? 3 : 1); fl++) {
-      const w = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.3, 0.08), glass); w.position.set(x, 1.6 + fl * 2.7, z); grp.add(w);
-      const f = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.55, 0.05), trim); f.position.set(x, 1.6 + fl * 2.7, z + Math.sign(z) * -0.02); grp.add(f);
-    }
-    for (const x of hs.big ? [-3, 0, 3] : [-1.5, 1.5]) for (const z of [-Ln / 4, Ln / 4]) for (let fl = 0; fl < (hs.big ? 3 : 1); fl++) {
-      const w = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.3, 1.1), glass); w.position.set(-side * (Wd / 2 + 0.02), 1.6 + fl * 2.7, z * (Ln > 12 ? 1.4 : 1)); if (Math.abs(x) < 0.1) grp.add(w);
-    }
-    grp.position.set(WP.x, WP.h, WP.z); grp.rotation.y = trackYaw(i);
-    grp.traverse((o) => { o.castShadow = true; o.receiveShadow = true; });
-    stageGroup.add(grp);
-    for (const a of [-Ln / 3, 0, Ln / 3]) addCollider({ x: WP.x + TR.tx[i] * a, z: WP.z + TR.tz[i] * a, r: Wd / 2, y0: WP.h - 1, y1: WP.h + Ht, kind: 'house' });
+    const yaw = trackYaw(i), hx = WP.x, hz = WP.z, hy = WP.h;
+    // The door goes on the long face toward the road. Local +x in the world is (cos yaw, -sin yaw) in (x, z).
+    const toRoad = -side * (Math.cos(yaw) * TR.rx[i] - Math.sin(yaw) * TR.rz[i]);
+    const house = makeHouse({ w: Wd, l: Ln, h: Ht, foot: hy - lo + 0.3, style, big: !!hs.big, wall: hs.wall, roof: hs.roof, doorSide: toRoad >= 0 ? 1 : -1, rng });
+    house.position.set(hx, hy, hz); house.rotation.y = yaw;
+    stageGroup.add(house);
+    for (const a of [-Ln / 3, 0, Ln / 3]) addCollider({ x: hx + TR.tx[i] * a, z: hz + TR.tz[i] * a, r: Wd / 2, y0: hy - 1, y1: hy + Ht, kind: 'house' });
   }
 }
 /** Low dry-stone parapets along the outside of the bends where the ground falls away, as on the Alpine and Corsican roads. */
@@ -16457,7 +16699,7 @@ function init() {
   linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
   // Small debugging / automation surface (autopilot lets you watch the AI drive a full stage).
   window.RegolithRally = {
-    AudioSys, EngineSound, Game, Birds, Cam, car, Post, TyreMarks, Trample, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
+    AudioSys, EngineSound, Game, Birds, makeHouse, Cam, car, Post, TyreMarks, Trample, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     HAZE_U, WET_U, DIRT_U, CLOUD_U, FX, placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, Impacts, ROAD, GEO, perfRatings, tuneFor,
     openService, leaveService, pauseGame, finishRace, showFinish, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, recSetup, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
