@@ -5617,7 +5617,7 @@ function buildGates() {
     Object.assign(g, { x: cx, z: cz, halfW, top, k });   // gates are not solid: the car drives straight through the pylons
     if (g.start || g.finish) {
       const tex = g.start ? textBanner('START', '#10141c', '#ffb52e') : textBanner('FINISH', '#f4f4f4', '#111111');
-      const face = new THREE.MeshBasicMaterial({ map: tex });
+      const face = signMaterial(tex);
       const banner = new THREE.Mesh(new THREE.BoxGeometry(2 * halfW + 0.8, 2.2, 0.35), [darkMat, darkMat, darkMat, darkMat, face, face]);
       banner.position.set(cx, top + 1.45, cz); banner.quaternion.copy(_q);
       banner.castShadow = true;
@@ -5687,7 +5687,7 @@ function buildChevrons() {
     for (const off of [-12, 0, 12]) boards.push({ s: c.apexS + off, d: outside * (TR.hw + 3.4), mirror: c.dir > 0 });
   }
   if (!boards.length) return;
-  const mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(2.6, 0.95), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }), boards.length);
+  const mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(2.6, 0.95), signMaterial(tex, THREE.DoubleSide), boards.length);
   const postGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.2, 5); postGeo.translate(0, 0.6, 0);
   const posts = new THREE.InstancedMesh(postGeo, new THREE.MeshStandardMaterial({ color: 0x30343c }), boards.length);
   boards.forEach((b, k) => {
@@ -5883,6 +5883,11 @@ const TREE_KINDS = {
   // dry desert and hillside scrub: a low grey-green tuft
   scrub: { h: [0.5, 1.4], w: [1.2, 1.8], low: true, parts: (s) => treeGeometry([[crownGeometry(0.4, 6, 4, 111), 0.35, 0x7a7a52, [1, 0.7, 1]], [crownGeometry(0.26, 6, 4, 112), 0.5, 0x8a8458, [1.2, 0.6, 0.9]]], s) },
 };
+/** A painted board (chevrons, banners): lit by the scene like anything else, so it goes dark at night, with a faint
+ *  glow of its own for the retroreflective sheeting; the headlights light it up properly. */
+function signMaterial(map, side) {
+  return new THREE.MeshLambertMaterial({ map, side: side || THREE.FrontSide, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 0.06 });
+}
 function signTexture(lines, w, h) {
   return makeCanvas(w, h, (g) => {
     g.fillStyle = '#5a3a22'; g.fillRect(0, 0, w, h);
@@ -6586,7 +6591,7 @@ function buildChicanes(rng) {
   stageGroup.add(mesh);
   Scenery.chicaneMesh = mesh;
   const rows = TR.chicanes.reduce((a, ch) => a + ch.rows.length, 0);
-  const boards = new THREE.InstancedMesh(new THREE.PlaneGeometry(2.0, 0.75), new THREE.MeshBasicMaterial({ map: chevronTexture(), side: THREE.DoubleSide }), rows);
+  const boards = new THREE.InstancedMesh(new THREE.PlaneGeometry(2.0, 0.75), signMaterial(chevronTexture(), THREE.DoubleSide), rows);
   const backs = new THREE.InstancedMesh(new THREE.BoxGeometry(2.08, 0.83, 0.05), new THREE.MeshStandardMaterial({ color: 0x1a1d22, roughness: 0.6 }), rows);
   for (const m of [boards, backs]) { m.frustumCulled = false; stageGroup.add(m); }
   backs.castShadow = true;
@@ -11556,8 +11561,10 @@ const FX = {
     const scale = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
     this.dust.mat.uniforms.uScale.value = scale; this.glow.mat.uniforms.uScale.value = scale;
     // dust and spray are lit like the scene around them: dim under cloud, dark at night (the glow lights itself)
-    if (this.dayRef) this.dust.mat.uniforms.uLight.value = clamp((sunLight.intensity + 1.5 * hemiLight.intensity) / this.dayRef, 0.12, 1.1);
+    this.dust.mat.uniforms.uLight.value = this.light();
   },
+  /** How lit the open air is now against the stage's day light (dust, spray, rain and snow are drawn unlit). */
+  light() { return this.dayRef ? clamp((sunLight.intensity + 1.5 * hemiLight.intensity) / this.dayRef, 0.12, 1.1) : 1; },
   clear() { this.dust.clear(); this.glow.clear(); },
   /** What flies off an impact depends on what was hit: chips and leaves off a tree, grit off rock, water and plastic off
    *  a barrier, sparks off metal. Flecks of the car's paint come off every hard one. */
@@ -14940,6 +14947,7 @@ const Cond = {
 };
 
 /** Rain streaks and snowflakes in a box that travels with the camera, and a veil of fog over the distant sky. */
+const _rainCol = new THREE.Color(0xb8c8dc), _snowCol = new THREE.Color(0xf4f8ff);
 const Precip = {
   N: 1400, box: 44, rain: null, snow: null, pos: null, vel: null, veilMesh: null,
   init() {
@@ -14981,10 +14989,12 @@ const Precip = {
       }
       A.needsUpdate = true; this.rain.geometry.setDrawRange(0, N * 2);
       this.rain.material.opacity = 0.32 * k;
+      this.rain.material.color.copy(_rainCol).multiplyScalar(FX.light());   // dark streaks at night, lit only near the lamps
     } else {
       const A = this.snow.geometry.attributes.position, S = A.array;
       for (let i = 0; i < N; i++) { const j = i * 3; S[j] = c.x + P[j]; S[j + 1] = c.y + P[j + 1]; S[j + 2] = c.z + P[j + 2]; }
       A.needsUpdate = true; this.snow.geometry.setDrawRange(0, N);
+      this.snow.material.color.copy(_snowCol).multiplyScalar(FX.light());
     }
   },
 };
