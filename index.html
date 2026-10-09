@@ -7082,7 +7082,7 @@ for (let j = 0; j < 12; j++) {
    which keeps them stiff and stable. The physics test rig (RIG_GROUND) always runs the rigid body, so the garage
    ratings and self-tests are unchanged. */
 const SB = {
-  SUB: 10, FR: [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 0.75, 0.8, 0.85, 0.9, 0.95, 1], EZ: 0.15, NOSE: 0.035, EA: 4e6, C: 1200, CE: 60, YIELD: 0.008, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22, DENT: 1, DENT_MAX: 0.15, DENSE: 0.6, DENSE_K: 3,
+  SUB: 10, FR: [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 0.75, 0.8, 0.85, 0.9, 0.95, 1], EZ: 0.15, NOSE: 0.035, EA: 4e6, C: 1200, CE: 60, YIELD: 0.008, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22, DENT: 1, DENT_MAX: 0.15, DENSE: 0.6, DENSE_K: 5.2,
   on: false, ready: false, synced: false, key: null, n: 0, M: 0, ver: 0,
   rest: null, loc: null, m: null, x: null, v: null, fe: null, f: null, off: new THREE.Vector3(),
   ba: null, bb: null, l0: null, l00: null, ok: null, nb: 0, gh: null,
@@ -7101,17 +7101,23 @@ const SB = {
       for (const s of [1, -1]) { P.push([s * hw, yF, z]); P.push([s * hw, yW, z]); fr.push(FR[j], FR[j]); }
     }
     for (let j = 0; j < 3; j++) { const t = 0.3 + 0.2 * j, z = lerp(z0, z1, t); for (const s of [1, -1]) { P.push([s * hw * 0.8, yR, z]); fr.push(-t); } }   // roof: tagged < 0
+    const n0 = P.length;
     P.push([0, (yF + yW) / 2, z1 + 0.02]); fr.push(1); P.push([0, (yF + yW) / 2, z0 - 0.02]); fr.push(0);   // nose and tail
     const n = this.n = P.length;
     this.fr = Float64Array.from(fr); this.ns = ns;
-    // masses: the whole car's, weighted so the nodes' centre of mass sits at the car's (the origin)
+    // masses: the whole car's, each row's share the length of car it stands for, so the close-set crumple rows are
+    // light (as the real ends are) and the lattice turns with about the car's own inertia; the roof is thin sheet.
+    // (Weighted every node alike, the ends carried a fifth to a third of the car each: a tail that heavy bent itself
+    // on its soft crumple beams when the nose hit a wall, and the lattice had a third more inertia than the car.)
+    const span = (i) => i >= n0 ? 0.02 : fr[i] < 0 ? 0.04 : (FR[Math.min(ns - 1, (i >> 2) + 1)] - FR[Math.max(0, (i >> 2) - 1)]) / 2;
+    const wt = P.map((p, i) => span(i));
+    // then weighted so the nodes' centre of mass sits at the car's (the origin)
     let sy = 0, sz = 0, syy = 0, szz = 0, syz = 0;
-    for (const p of P) { sy += p[1]; sz += p[2]; syy += p[1] * p[1]; szz += p[2] * p[2]; syz += p[1] * p[2]; }
+    P.forEach((p, i) => { const w = wt[i]; sy += w * p[1]; sz += w * p[2]; syy += w * p[1] * p[1]; szz += w * p[2] * p[2]; syz += w * p[1] * p[2]; });
     const det = syy * szz - syz * syz, a = (-sy * szz + sz * syz) / det, b = (-sz * syy + sy * syz) / det;
     this.m = new Float64Array(n); let M = 0;
-    // (no node much lighter than the rest: a light node on stiff beams shakes itself apart; what's left of the
-    // offset is carried by `off`)
-    for (let i = 0; i < n; i++) { this.m[i] = clamp(1 + a * P[i][1] + b * P[i][2], 0.6, 1.8); M += this.m[i]; }
+    // (that weighting is kept within limits; what's left of the offset is carried by `off`)
+    for (let i = 0; i < n; i++) { this.m[i] = wt[i] * clamp(1 + a * P[i][1] + b * P[i][2], 0.6, 1.8); M += this.m[i]; }
     this.off.set(0, 0, 0);
     for (let i = 0; i < n; i++) { this.m[i] *= CAR.mass / M; this.off.x += this.m[i] * P[i][0]; this.off.y += this.m[i] * P[i][1]; this.off.z += this.m[i] * P[i][2]; }
     this.M = CAR.mass; this.off.multiplyScalar(1 / this.M);
@@ -7128,6 +7134,7 @@ const SB = {
     this.l00 = Float64Array.from(L); this.l0 = this.l00.slice(); this.ok = new Uint8Array(this.nb).fill(1);
     // strength by region: the cabin (and the roof over it) is a stiff, strong safety cell; the nose and tail crumple
     const EZ = this.EZ, end = (i) => fr[i] >= 0 && (fr[i] <= EZ || fr[i] >= 1 - EZ), cab = (i) => fr[i] < 0 || (fr[i] >= 0.25 && fr[i] <= 0.75);
+    this.cab = []; for (let i = 0; i < n; i++) if (cab(i)) this.cab.push(i);
     this.ys = new Float64Array(this.nb); this.ea = new Float64Array(this.nb); this.dz = new Uint8Array(this.nb);
     this.deg = new Float64Array(n); this.lost = new Float64Array(n); this.gone = new Uint8Array(n);
     for (let b = 0; b < this.nb; b++) {
@@ -7195,19 +7202,7 @@ const SB = {
       A[3] += w * dy * rx; A[4] += w * dy * ry; A[5] += w * dy * rz;
       A[6] += w * dz * rx; A[7] += w * dz * ry; A[8] += w * dz * rz;
     }
-    const q = car.q;
-    for (let it = 0; it < 12; it++) {
-      _sbm.makeRotationFromQuaternion(q); const e = _sbm.elements;   // column-major: column j = e[4j..4j+2]
-      let ox = 0, oy = 0, oz = 0, dd = 0;
-      for (let j = 0; j < 3; j++) {
-        const rx = e[4 * j], ry = e[4 * j + 1], rz = e[4 * j + 2], ax = A[j], ay = A[3 + j], az = A[6 + j];
-        ox += ry * az - rz * ay; oy += rz * ax - rx * az; oz += rx * ay - ry * ax; dd += rx * ax + ry * ay + rz * az;
-      }
-      const s = 1 / (Math.abs(dd) + 1e-9); ox *= s; oy *= s; oz *= s;
-      const wl = Math.hypot(ox, oy, oz);
-      if (wl < 1e-9) break;
-      _sbq.setFromAxisAngle(_sbv.set(ox / wl, oy / wl, oz / wl), wl); q.premultiply(_sbq).normalize();
-    }
+    const q = this.turn(A, car.q);
     car.pos.set(cx, cy, cz).sub(_sbv.copy(o).applyQuaternion(q)); car.vel.set(vx, vy, vz);
     // angular velocity: I⁻¹·L about the centre of mass
     let Lx = 0, Ly = 0, Lz = 0, Ixx = 0, Iyy = 0, Izz = 0, Ixy = 0, Ixz = 0, Iyz = 0;
@@ -7222,6 +7217,22 @@ const SB = {
     I[0] = ie[0]; I[1] = ie[4]; I[2] = ie[8]; I[3] = ie[1]; I[4] = ie[5]; I[5] = ie[9]; I[6] = ie[2]; I[7] = ie[6]; I[8] = ie[10];
     car.w.set(I[0] * Lx + I[1] * Ly + I[2] * Lz, I[3] * Lx + I[4] * Ly + I[5] * Lz, I[6] * Lx + I[7] * Ly + I[8] * Lz);
     this.c = _sbc.set(cx, cy, cz);
+  },
+  /** Turn q into the rotation that best carries the rest shape onto the bent one, A = Σ m (x−c)(r−r̄)ᵀ (row-major). */
+  turn(A, q) {
+    for (let it = 0; it < 12; it++) {
+      _sbm.makeRotationFromQuaternion(q); const e = _sbm.elements;   // column-major: column j = e[4j..4j+2]
+      let ox = 0, oy = 0, oz = 0, dd = 0;
+      for (let j = 0; j < 3; j++) {
+        const rx = e[4 * j], ry = e[4 * j + 1], rz = e[4 * j + 2], ax = A[j], ay = A[3 + j], az = A[6 + j];
+        ox += ry * az - rz * ay; oy += rz * ax - rx * az; oz += rx * ay - ry * ax; dd += rx * ax + ry * ay + rz * az;
+      }
+      const s = 1 / (Math.abs(dd) + 1e-9); ox *= s; oy *= s; oz *= s;
+      const wl = Math.hypot(ox, oy, oz);
+      if (wl < 1e-9) break;
+      _sbq.setFromAxisAngle(_sbv.set(ox / wl, oy / wl, oz / wl), wl); q.premultiply(_sbq).normalize();
+    }
+    return q;
   },
   /** The bent shape in the car's frame (for the mesh, the wheel mounts and a re-placed car). */
   shape() {
@@ -7248,7 +7259,10 @@ const SB = {
     return out;
   },
   /** What the bent frame means for the car: each wheel's toe and camber from how its mount is twisted, and the
-   *  damage zones (radiator, exhaust, suspension each side) from how far that part of the frame was pushed in. */
+   *  damage zones (radiator, exhaust, suspension each side) from how far that part of the frame was pushed in.
+   *  How far a part was pushed in is measured from where the cabin, the strong cell in the middle, says it belongs:
+   *  the car's pose is the whole body's best fit, which a crushed nose drags back, so against the pose an untouched
+   *  tail would read as pushed in. */
   assess() {
     for (let k = 0; k < 4; k++) {
       const m = this.bent(this.mounts[k], _sbF), f = this.bent(this.mFwd[k], _sbT).sub(m);
@@ -7256,14 +7270,24 @@ const SB = {
       const u = this.bent(this.mUp[k], _sbT).sub(m);
       this.camber[k] = clamp(Math.atan2(u.x, u.y), -0.3, 0.3);
     }
-    const L = this.loc, R = this.rest, fr = this.fr, FR = this.FR;
+    const L = this.loc, R = this.rest, fr = this.fr, C = this.cab, cl = _sbcl.set(0, 0, 0), cr = _sbcr.set(0, 0, 0);
+    for (const i of C) { cl.x += L[i * 3]; cl.y += L[i * 3 + 1]; cl.z += L[i * 3 + 2]; cr.x += R[i * 3]; cr.y += R[i * 3 + 1]; cr.z += R[i * 3 + 2]; }
+    cl.multiplyScalar(1 / C.length); cr.multiplyScalar(1 / C.length);
+    const A = _sbA.fill(0);                       // Σ (x−c)(r−r̄)ᵀ over the cabin, row-major
+    for (const i of C) {
+      const k = i * 3, dx = L[k] - cl.x, dy = L[k + 1] - cl.y, dz = L[k + 2] - cl.z, rx = R[k] - cr.x, ry = R[k + 1] - cr.y, rz = R[k + 2] - cr.z;
+      A[0] += dx * rx; A[1] += dx * ry; A[2] += dx * rz; A[3] += dy * rx; A[4] += dy * ry; A[5] += dy * rz; A[6] += dz * rx; A[7] += dz * ry; A[8] += dz * rz;
+    }
+    const q = this.turn(A, _sbqc.identity());
+    // how far car-frame point (x, y, z) sits from where the cabin carries rest point (px, py, pz)
+    const off = (x, y, z, px, py, pz) => _sbT.set(px, py, pz).sub(cr).applyQuaternion(q).add(cl).sub(_sbF.set(x, y, z)).length();
     let fz = 0, rz = 0;
     for (let i = 0; i < this.n; i++) {
       if (fr[i] < 0) continue;
-      const d = Math.hypot(L[i * 3] - R[i * 3], L[i * 3 + 1] - R[i * 3 + 1], L[i * 3 + 2] - R[i * 3 + 2]);
+      const k = i * 3, d = off(L[k], L[k + 1], L[k + 2], R[k], R[k + 1], R[k + 2]);
       if (fr[i] >= 1 - this.EZ) fz = Math.max(fz, d); else if (fr[i] <= this.EZ) rz = Math.max(rz, d);
     }
-    const Z = car.zones, mv = (k) => { const w = this.mounts[k]; return this.bent(w, _sbF).sub(_sbT.set(w.p[0], w.p[1], w.p[2])).length(); };
+    const Z = car.zones, mv = (k) => { const w = this.mounts[k], b = this.bent(w, _sbv); return off(b.x, b.y, b.z, w.p[0], w.p[1], w.p[2]); };
     Z.f = Math.max(Z.f, clamp((fz - 0.04) / 0.3, 0, 1)); Z.r = Math.max(Z.r, clamp((rz - 0.04) / 0.3, 0, 1));
     Z.l = Math.max(Z.l, clamp((Math.max(mv(0), mv(2)) - 0.02) / 0.12, 0, 1)); Z.rt = Math.max(Z.rt, clamp((Math.max(mv(1), mv(3)) - 0.02) / 0.12, 0, 1));
   },
@@ -7673,8 +7697,8 @@ const SB = {
     S.key = this.key; S.ver = this.ver;
   },
 };
-const _sbv = new THREE.Vector3(), _sbw = new THREE.Vector3(), _sbc = new THREE.Vector3(), _sbF = new THREE.Vector3(), _sbT = new THREE.Vector3();
-const _sbq = new THREE.Quaternion(), _sbm = new THREE.Matrix4(), _sbm2 = new THREE.Matrix4(), _sbm3 = new THREE.Matrix4(), _sbA = new Float64Array(9);
+const _sbv = new THREE.Vector3(), _sbw = new THREE.Vector3(), _sbc = new THREE.Vector3(), _sbcl = new THREE.Vector3(), _sbcr = new THREE.Vector3(), _sbF = new THREE.Vector3(), _sbT = new THREE.Vector3();
+const _sbq = new THREE.Quaternion(), _sbqc = new THREE.Quaternion(), _sbm = new THREE.Matrix4(), _sbm2 = new THREE.Matrix4(), _sbm3 = new THREE.Matrix4(), _sbA = new Float64Array(9);
 
 /* ---- PEDALS: the throttle and the brakes, built the way the real hardware works ----
    THROTTLE. The pedal works a butterfly in the intake: by cable through a progressive cam on the older cars, or by an
@@ -8518,7 +8542,7 @@ function physicsTests(build) {
             res.crush = Math.max(res.crush, SB.rest[3 * n + 2] - _sbv.z);
           }
         });
-        res.broke = SB.broke;
+        res.broke = SB.broke; res.zr = car.zones.r;
       });
       SB.gather = gather; SB.DENSE_K = K;
       return res;
@@ -8526,6 +8550,7 @@ function physicsTests(build) {
     const on = crash(K), off = crash(0);
     check('soft: 25 m/s wall, nose crush with progressive crush vs without (%)', (on.crush / off.crush - 1) * 100, -30, -5);
     check('soft: 25 m/s wall, beams broken with progressive crush vs without (count)', on.broke, 0, off.broke);
+    check('soft: 25 m/s wall, damage the nose hit puts on the tail (exhaust zone, 0-1)', on.zr, 0, 0.1);   // the tail isn't hit: at most a little bending from its own weight
     // a tree trunk at the nose: a 7 m tree snaps at 10 m/s, a 20 m one (20 cm across) stands at 15 m/s
     const treeHit = (h, v) => {
       const r = 0.005 * h, T = { x: 0, z: 0, r, y0: -1, y1: 3, kind: 'tree', brk: true, base: 0, mcap: TREE_STRENGTH * Math.PI * r ** 3 / 4, gone: false, sway: null };
