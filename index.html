@@ -5927,6 +5927,73 @@ function buildMountainDecor(rng) {
   if (TR.def.trace && TR.def.trace.tunnel) buildTunnel(TR.def.trace.tunnel, E);
   if (TR.lakeY !== null && TR.lakeY !== undefined) buildLake(E.lake);
 }
+/** Roadside clump at unit size: five crossed blade cards (dark roots, lit tips) on a squat low-poly dome. Scaled per
+    instance into grass tufts (short) or low bushes (tall); the vertex shading gives the dark base and light top. */
+function clumpGeometry() {
+  const P = [], C = [];
+  const tri = (...vs) => vs.forEach(([v, k]) => { P.push(...v); C.push(k, k, k); });
+  for (let b = 0; b < 5; b++) {
+    const a = b * Math.PI / 5 + 0.3, ux = Math.cos(a), uz = Math.sin(a), wx = -uz * 0.08, wz = ux * 0.08;
+    const lx = ux * 0.16, lz = uz * 0.16;                                           // the blade leans out a little
+    const L = [-wx, 0, -wz], R = [wx, 0, wz], ML = [-wx * 0.6 + lx * 0.5, 0.55, -wz * 0.6 + lz * 0.5], MR = [wx * 0.6 + lx * 0.5, 0.55, wz * 0.6 + lz * 0.5], T = [lx, 1, lz];
+    tri([L, 0.4], [R, 0.4], [MR, 0.75]); tri([L, 0.4], [MR, 0.75], [ML, 0.75]); tri([ML, 0.75], [MR, 0.75], [T, 1]);
+  }
+  const dome = new THREE.IcosahedronGeometry(0.42, 0), dp = dome.attributes.position;   // non-indexed: 20 faces
+  for (let i = 0; i < dp.count; i++) {
+    const x = dp.getX(i), y = dp.getY(i) * 0.55 + 0.1, z = dp.getZ(i);
+    P.push(x, y, z); const k = clamp(0.35 + (y + 0.13) / 0.46 * 0.65, 0.35, 1); C.push(k, k, k);
+  }
+  dome.dispose();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+  g.computeVertexNormals();
+  return g;
+}
+/** Roadside ground clutter on Earth stages: grass tufts and low bushes (clumps), and small stones, scattered on both
+    verges from the road edge out to 25 m from the centre line, denser at the edge. The ground colour beside each item
+    comes from offroadColor, so tufts follow the stage's grass, straw or snow. Looks only: no colliders, no physics.
+    Its own RNG stream (seeded from the stage seed), so the existing decor is laid out exactly as before. */
+function buildVerge(rng) {
+  const def = TR.def, hw = def.hw, E = def.earth || {}, zone = hw + def.shoulder, OUT = 25;
+  const snowGround = E.snowLine < 0;                                // wrc-sweden: flat ground is snow, so fewer clumps and no stones
+  const total = Math.round(25000 * (LOW_SPEC ? 0.25 : 1) * (snowGround ? 0.3 : 1));
+  const clumps = [], stones = [], light = PAL.offC, forest = PAL.mtn.forest, granite = PAL.mtn.granite;
+  const gc = new THREE.Color(), tc = new THREE.Color(), q = new THREE.Quaternion(), T = TR.terrain.T, lake = TR.lakeY;
+  for (let k = 0; k < total; k++) {
+    const s = rng.range(0, TR.total), side = rng.sign(), u = rng.next();
+    const r1 = rng.next(), r2 = rng.next(), r3 = rng.next(), r4 = rng.next(), r5 = rng.next();
+    const d0 = side * (zone + (OUT - zone) * Math.pow(u, 1.7));    // pow > 1: denser near the road edge
+    const i = clamp(Math.round(s / DS), 0, TR.N - 1), x = TR.cx[i] + TR.rx[i] * d0, z = TR.cz[i] + TR.rz[i] * d0;
+    locateFrom(x, z, locateGlobal(x, z), LQ2);                     // clear of every part of the road (switchbacks)
+    if (Math.abs(LQ2.d) < zone) continue;
+    const y = heightSD(LQ2.s, LQ2.d, x, z);
+    if (lake !== null && lake !== undefined && y < lake + 0.6) continue;     // not in the lake
+    const e = 1.2, sl = Math.hypot(T(x + e, z) - T(x - e, z), T(x, z + e) - T(x, z - e)) / (2 * e);
+    if (sl > 0.6) continue;                                        // no clumps or stones on steep slopes
+    offroadColor(x, z, 1 / Math.sqrt(1 + sl * sl), gc, y);        // the ground colour here (linear)
+    q.setFromAxisAngle(UP, r5 * TAU);
+    if (r1 < 0.28 && !snowGround) {                                // a small stone, partly sunk
+      const sc = 0.1 + 0.35 * r2 * r2;
+      tc.copy(granite).lerp(gc, 0.25).multiplyScalar(0.8 + 0.4 * r3);
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y - 0.25 * sc, z), q, new THREE.Vector3(sc, sc * lerp(0.6, 1, r3), sc * lerp(0.8, 1.2, r4)));
+      stones.push({ m, c: tc.clone(), x, y, z, r: sc * 1.6 });
+    } else {                                                       // a grass tuft, or a low bush
+      const bush = r2 < 0.16;
+      const h = bush ? lerp(0.8, 1.5, r3) : lerp(0.22, 0.55, r3), w = h * (bush ? lerp(1.1, 1.5, r4) : lerp(0.9, 1.4, r4));
+      tc.copy(gc).lerp(bush ? forest : light, bush ? 0.45 : 0.3).multiplyScalar(0.9 + 0.2 * r5);
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y - 0.02, z), q, new THREE.Vector3(w, h, w));
+      clumps.push({ m, c: tc.clone(), x, y, z, r: Math.hypot(w, h) });
+    }
+  }
+  const clumpGeo = clumpGeometry(), stoneGeo = makeRockGeometry(def.seed + 5, 1);
+  const clumpMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true, side: THREE.DoubleSide, envMapIntensity: 0.3 });
+  const stoneMat = new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true, envMapIntensity: 0.3 });
+  // culled squares of 100 m; short far factor so they only draw near the camera. Clumps and stones cast no shadow.
+  const meshes = cellInstances(clumpGeo, clumpMat, clumps, 100, 0.3).concat(cellInstances(stoneGeo, stoneMat, stones, 100, 0.3));
+  for (const m of meshes) m.receiveShadow = true;
+  clumpGeo.dispose(); stoneGeo.dispose();
+}
 /** Wind turbines on the high ground beside the road (the Fafe hills): white towers, three blades turning in the wind. */
 function buildTurbines(T, rng) {
   const white = new THREE.MeshStandardMaterial({ color: 0xeef0f2, roughness: 0.5, metalness: 0.1 });
@@ -13347,7 +13414,8 @@ function buildStage(def) {
   const rng = new RNG(def.seed + 404);
   buildGates(); buildMarkers(); buildChevrons(); buildRocks(rng);
   if (def.style === 'hills') buildLunarDecor(rng); else if (def.style === 'ring') buildIceDecor(rng);
-  else if (def.style === 'mountain') buildMountainDecor(rng); else buildWreckDecor(rng);
+  else if (def.style === 'mountain') { buildMountainDecor(rng); if (!def.moon) buildVerge(new RNG(def.seed + 909)); }
+  else buildWreckDecor(rng);
   buildChicanes(rng);
   planForCar(tuneFor(DEFAULT_SETUP, Store.data.garage));   // the AI's line and the line on screen: this car's, rebuilt when the car changes
   buildPaceNotes();
