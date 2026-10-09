@@ -6852,6 +6852,171 @@ function updateScenery(dt, t) {
 }
 
 /* =============================================================================
+   BIRDS — crows and pigeons on the open ground and in the treetops of the Earth stages, by day and at dusk (fewer
+   in rain or snow, none at night). A flock sits until the car comes within 45 m, or within 70 m above 15 m/s; then
+   it takes off in a staggered burst, climbs to 15-30 m and flies away from the road, and is gone after 20 s. Some
+   stages also have a pair of soaring hawks circling high above the road. One InstancedMesh holds every bird; the
+   wings are folded in the vertex shader from a per-instance phase, so they cost no extra draws. Visual only: no
+   colliders. Flocks more than 250 m from the car are frozen and culled (their birds are zeroed), and they resume
+   where they left off when the car comes back. Birds.flocks is the list.
+   ============================================================================= */
+const BIRD_U = { uBTime: { value: 0 } };
+const BIRD_COLS = [0x1b1b20, 0x2a2c33, 0x3c3f47, 0x55595f, 0x4a3f33];   // crow black, slate, pigeon grey, brown
+const BIRD_ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+const _bM = new THREE.Matrix4(), _bP = new THREE.Vector3(), _bS = new THREE.Vector3(), _bQ = new THREE.Quaternion(), _bE = new THREE.Euler();
+/** One bird, 0.36 m across the wings and 0.26 m long: a body, a head, a tail, and two wing quads (aWing = 1). */
+function birdGeometry() {
+  const pos = [], nrm = [], wing = [];
+  const addGeo = (g, m) => {
+    g.applyMatrix4(m);
+    const ng = g.toNonIndexed(), p = ng.attributes.position.array, n = ng.attributes.normal.array;
+    for (let k = 0; k < p.length; k += 3) { pos.push(p[k], p[k + 1], p[k + 2]); nrm.push(n[k], n[k + 1], n[k + 2]); wing.push(0); }
+    g.dispose(); ng.dispose();
+  };
+  const quad = (a, b, c, d, w) => { for (const v of [a, b, c, a, c, d]) { pos.push(v[0], v[1], v[2]); nrm.push(0, 1, 0); wing.push(w); } };
+  const ident = new THREE.Quaternion(), mirror = (p) => [-p[0], p[1], p[2]];
+  addGeo(new THREE.IcosahedronGeometry(1, 0), new THREE.Matrix4().compose(new THREE.Vector3(), ident, new THREE.Vector3(0.055, 0.06, 0.13)));
+  addGeo(new THREE.IcosahedronGeometry(1, 0), new THREE.Matrix4().compose(new THREE.Vector3(0, 0.02, 0.13), ident, new THREE.Vector3(0.045, 0.045, 0.045)));
+  quad([-0.03, 0, -0.1], [0.03, 0, -0.1], [0.02, 0, -0.2], [-0.02, 0, -0.2], 0);            // tail
+  const rf = [0.015, 0, 0.05], tf = [0.18, 0, 0.02], tb = [0.17, 0, -0.05], rb = [0.015, 0, -0.04];   // right wing: root front, tip front, tip back, root back
+  quad(rf, tf, tb, rb, 1);
+  quad(mirror(rf), mirror(tf), mirror(tb), mirror(rb), 1);                                  // left wing
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  g.setAttribute('aWing', new THREE.Float32BufferAttribute(wing, 1));
+  return g;
+}
+/** Lit, double-sided, dark; the wings fold in the vertex shader: angle = side * (amp * sin(t * 13 + phase) + rest). */
+function birdMaterial() {
+  const m = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+  m.onBeforeCompile = (sh) => {
+    hazeUniforms(sh); Object.assign(sh.uniforms, BIRD_U);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute float aWing;
+attribute vec3 aFlap;   // per bird: flap phase, flap amplitude, wings' rest angle
+uniform float uBTime;
+float birdFold(float x) { return aWing * sign(x) * (aFlap.y * sin(uBTime * 13.0 + aFlap.x) + aFlap.z); }`)
+      .replace('#include <beginnormal_vertex>', `vec3 objectNormal = vec3( normal );
+float wA = birdFold( position.x );
+objectNormal = vec3( objectNormal.x * cos( wA ) - objectNormal.y * sin( wA ), objectNormal.x * sin( wA ) + objectNormal.y * cos( wA ), objectNormal.z );`)
+      .replace('#include <begin_vertex>', `float wB = birdFold( position.x );
+vec3 transformed = vec3( position.x * cos( wB ) - position.y * sin( wB ), position.x * sin( wB ) + position.y * cos( wB ), position.z );`);
+  };
+  m.customProgramCacheKey = () => 'regolith-birds';
+  return m;
+}
+const Birds = {
+  flocks: [], mesh: null, flap: null, flapAttr: null, run: 0, t: 0,
+  /** Place the flocks along the stage, 15-60 m off the road's edge, and the soaring pair if this stage has one. */
+  build(rng) {
+    this.flocks = []; this.mesh = null; this.t = 0; this.run = Game.runCount;
+    const def = TR.def;
+    if (!def.earth || def.moon) return;
+    const hw = TR.hw, want = LOW_SPEC ? 12 : 25, flocks = [];
+    const bird = (px, py, pz) => ({ idx: 0, px, py, pz, delay: rng.range(0, 0.7), vj: rng.range(0.9, 1.1), sc: rng.range(0.9, 1.1),
+      ph: rng.range(0, TAU), pr: rng.range(2.5, 4), hp: rng.range(0, TAU), hr: rng.range(0.8, 1.6), yaw: rng.range(0, TAU) });
+    for (let tries = 0; flocks.length < want && tries < want * 4; tries++) {
+      const s = rng.range(TR.startS + 30, TR.total - 30), side = rng.sign();
+      worldAt(s, side * (hw + rng.range(15, 60)), WP);
+      if (WP.h <= VOID_H + 1 || WP.h < baseY(s) - 4) continue;                  // (not down a chasm)
+      const i = WP.i, tree = forestAt(WP.x, WP.z, WP.h) > 0.5;
+      const top = tree ? WP.h + rng.range(8, 12) : WP.h;                         // the perch: a treetop or the ground
+      const f = { kind: 'perch', state: 'perch', hawk: false, x: WP.x, z: WP.z, dx: 0, dz: 0, speed: rng.range(11, 15),
+        ceil: Math.max(WP.h + rng.range(15, 30), top + 8), rank: rng.next(), t: 0, shown: false, col: rng.pick(BIRD_COLS), birds: [] };
+      // away from the road, on the side the flock sits, with a little turn
+      const ang = rng.range(-0.5, 0.5), bx = side * TR.rx[i], bz = side * TR.rz[i];
+      f.dx = bx * Math.cos(ang) - bz * Math.sin(ang); f.dz = bx * Math.sin(ang) + bz * Math.cos(ang);
+      const n = rng.int(5, 15);
+      for (let j = 0; j < n; j++) {
+        const a = rng.range(0, TAU), r = Math.sqrt(rng.next()) * 2.5, px = WP.x + Math.cos(a) * r, pz = WP.z + Math.sin(a) * r;
+        f.birds.push(bird(px, tree ? top + rng.range(-0.5, 0.5) : heightGlobal(px, pz), pz));
+      }
+      flocks.push(f);
+    }
+    if (rng.next() < 0.5) {                                                      // soaring hawks, a pair circling high over the stage
+      const s = rng.range(TR.startS + 60, TR.total - 60);
+      worldAt(s, rng.sign() * (hw + rng.range(80, 200)), WP);
+      const f = { kind: 'soar', state: 'soar', hawk: true, scale: 1.3, x: WP.x, z: WP.z, R: rng.range(35, 55), Yc: WP.h + rng.range(120, 170),
+        w: rng.range(0.18, 0.28), a0: rng.range(0, TAU), rank: 0, t: 0, shown: false, col: BIRD_COLS[0], birds: [] };
+      for (let j = 0; j < 2; j++) f.birds.push({ idx: 0, off: j * Math.PI, sc: 1, ph: rng.range(0, TAU) });
+      flocks.push(f);
+    }
+    let total = 0; for (const f of flocks) total += f.birds.length;
+    if (!total) return;
+    const geo = birdGeometry(), flap = new Float32Array(total * 3), flapAttr = new THREE.InstancedBufferAttribute(flap, 3);
+    geo.setAttribute('aFlap', flapAttr);
+    const mesh = new THREE.InstancedMesh(geo, birdMaterial(), total);
+    let k = 0;
+    for (const f of flocks) for (const b of f.birds) { b.idx = k; mesh.setMatrixAt(k, BIRD_ZERO); mesh.setColorAt(k, srgb(f.col)); k++; }
+    mesh.frustumCulled = false;
+    stageGroup.add(mesh);
+    Object.assign(this, { flocks, mesh, flap, flapAttr });
+  },
+  /** Every frame: alarms, the flight clock, and each live flock's pose. Dark or rainy stages keep the perched flocks hidden. */
+  update(dt) {
+    if (!this.mesh) return;
+    const step = Math.min(dt, 0.1);
+    this.t += step;
+    BIRD_U.uBTime.value = this.t;
+    if (Game.runCount !== this.run) {                       // a new run: flocks that flew off are back on their perches
+      this.run = Game.runCount;
+      for (const f of this.flocks) if (f.state === 'gone') { f.state = 'perch'; f.t = 0; }
+    }
+    const wf = Cond.time === 'night' ? 0 : (Cond.kind === 'rain' || Cond.kind === 'snow') ? 0.4 : 1;
+    const cx = car.pos.x, cz = car.pos.z, loud = car.speed > 15;
+    let dirty = false;
+    for (const f of this.flocks) {
+      if (f.state === 'gone') continue;                     // (zeroed when it left)
+      const allowed = f.hawk ? wf >= 1 : f.rank < wf;
+      const fx = f.state === 'flee' ? f.x + f.dx * f.speed * f.t : f.x, fz = f.state === 'flee' ? f.z + f.dz * f.speed * f.t : f.z;
+      const dd = Math.hypot(fx - cx, fz - cz);
+      if (!(dd < 250 && (f.state === 'flee' || allowed))) {  // frozen and culled (a flock in flight is not stopped by the weather)
+        if (f.shown) { this.zeroFlock(f); f.shown = false; dirty = true; }
+        continue;
+      }
+      if (f.state === 'perch' && (dd < 45 || (loud && dd < 70))) { f.state = 'flee'; f.t = 0; }
+      if (f.state === 'flee') {
+        f.t += step;
+        if (f.t > 20) { f.state = 'gone'; this.zeroFlock(f); f.shown = false; dirty = true; continue; }
+      }
+      this.poseFlock(f);
+      f.shown = true; dirty = true;
+    }
+    if (dirty) { this.mesh.instanceMatrix.needsUpdate = true; this.flapAttr.needsUpdate = true; }
+  },
+  zeroFlock(f) { for (const b of f.birds) this.mesh.setMatrixAt(b.idx, BIRD_ZERO); },
+  poseFlock(f) {
+    const T = this.t, m = this.mesh, fl = this.flap;
+    for (const b of f.birds) {
+      let x, y, z, rx = 0, ry = 0, rz = 0, s = b.sc, amp = 0, rest = -0.45;     // (perched: wings drooped, still)
+      if (f.state === 'soar') {
+        const a = f.a0 + T * f.w + b.off, ca = Math.cos(a), sa = Math.sin(a);
+        x = f.x + f.R * ca; y = f.Yc; z = f.z + f.R * sa;
+        ry = Math.atan2(-sa, ca); rz = -0.22; s *= f.scale; amp = 0; rest = 0.2;   // gliding: wings held out, banked into the turn
+      } else {
+        const tb = f.state === 'flee' ? f.t - b.delay : -1;
+        if (tb > 0) {                                        // airborne: away from the road, climbing to the ceiling
+          const V = f.speed * b.vj, up = Math.max(0, f.ceil - b.py), e = Math.exp(-tb / 2.2);
+          const h = V * tb, lat = Math.sin(tb * 1.1 + b.ph) * 2.2 * Math.min(1, tb / 3);
+          x = b.px + f.dx * h - f.dz * lat; z = b.pz + f.dz * h + f.dx * lat; y = b.py + up * (1 - e);
+          rx = -Math.atan2(up * e / 2.2, V); ry = Math.atan2(f.dx, f.dz); rz = Math.sin(tb * 1.1 + b.ph) * 0.12;
+          amp = 0.85 * (0.8 + 0.2 * Math.sin(tb * 0.9 + b.ph)); rest = 0.1;
+          s *= clamp((20 - f.t) / 2.5, 0, 1);                // shrinks away over the last 2.5 s
+        } else {                                             // perched: pecking at the ground, the odd hop
+          const peck = Math.pow(Math.max(0, Math.sin(T * b.pr + b.ph)), 6), hop = Math.pow(Math.max(0, Math.sin(T * b.hr + b.hp)), 12);
+          x = b.px; y = b.py + 0.05 * hop; z = b.pz; rx = 0.6 * peck; ry = b.yaw;
+        }
+      }
+      _bP.set(x, y, z); _bQ.setFromEuler(_bE.set(rx, ry, rz, 'YXZ')); _bS.setScalar(s);
+      m.setMatrixAt(b.idx, _bM.compose(_bP, _bQ, _bS));
+      fl[b.idx * 3] = b.ph; fl[b.idx * 3 + 1] = amp; fl[b.idx * 3 + 2] = rest;
+    }
+  },
+};
+
+/* =============================================================================
    10. VEHICLE — model & physics
    One rigid body integrated at 120 Hz. Each car brings its real chassis: weight and weight split,
    centre-of-mass height, wheelbase and tracks (which also set its inertia), tyre size, gear ratios,
@@ -13772,6 +13937,7 @@ function buildStage(def) {
   else if (def.style === 'mountain') { buildMountainDecor(rng); if (!def.moon) { buildVerge(new RNG(def.seed + 909)); buildSpectators(); } }
   else buildWreckDecor(rng);
   buildChicanes(rng);
+  Birds.build(new RNG(def.seed + 777));
   planForCar(tuneFor(DEFAULT_SETUP, Store.data.garage));   // the AI's line and the line on screen: this car's, rebuilt when the car changes
   buildPaceNotes();
   TyreMarks.build(stageGroup);                          // fresh marks for each stage (the old mesh is disposed with stageGroup)
@@ -15923,6 +16089,7 @@ function update(dt) {
     TyreMarks.update(ctl);
     updateDamageFx(dt, ctl);
     updateScenery(dt, Game.clock);
+    Birds.update(dt);
     raceLogic(dt);
     Raid.update(dt, ctl);
     if (st === 'menu' && car.s > TR.finishS + 40) { resetRunState(); placeCar(TR.startS + 2, 0, 0); Cam.snap(); }
@@ -15985,7 +16152,7 @@ function init() {
   linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
   // Small debugging / automation surface (autopilot lets you watch the AI drive a full stage).
   window.RegolithRally = {
-    AudioSys, EngineSound, Game, Cam, car, Post, TyreMarks, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
+    AudioSys, EngineSound, Game, Birds, Cam, car, Post, TyreMarks, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     HAZE_U, WET_U, FX, placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, Impacts, ROAD, GEO, perfRatings, tuneFor,
     openService, leaveService, pauseGame, finishRace, showFinish, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, recSetup, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
