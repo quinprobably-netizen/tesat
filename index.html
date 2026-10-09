@@ -2839,7 +2839,7 @@ function carGeometry(body, mass) {
   // model space → car space (origin at the centre of mass)
   const sx = (tF + tR) / 2 / MODEL.X, sy = sp.dims[2] / (box[0] - MODEL.GY), sz = wb / (MODEL.FZ - MODEL.RZ);
   const zf = MODEL.FZ + MODEL.ARCH, zr = MODEL.RZ - MODEL.ARCH;
-  const so = clamp((sp.dims[0] - (zf - zr) * sz) / ((box[1] - zf) + (zr - box[2])), 0.55, 1.1);
+  const so = clamp((sp.dims[0] - (zf - zr) * sz) / ((box[1] - zf) + (zr - box[2])), 0.55, Math.max(1.1, sz));   // a truck's wheelbase makes sz top 1.1
   const map = {
     sx, sy, sz, so,
     x: (x) => x * sx,
@@ -2877,7 +2877,7 @@ function tuneFor(setup, build) {
     gears: sp.gears, final: sp.final / gr.v,
     // grip per surface: the compound's (no compound, refTune: the neutral reference tyre), on a tyre of the car's own
     // width: a wider tread grips a little more for its load (a 1960s 145 grips about 7% less than a 205 rally tyre)
-    mu: (TUNE.tyre[setup.tyre] || [1, 1, 1, 1, 1, 1]).map((m) => m * (TUNE.tyre[setup.tyre] && sp.tyre ? Math.pow(clamp(sp.tyre.w / 0.205, 0.6, 1.4), 0.2) : 1)), steer: sp.steer,
+    mu: (TUNE.tyre[setup.tyre] || [1, 1, 1, 1, 1, 1]).map((m) => m * (TUNE.tyre[setup.tyre] && sp.tyre ? Math.pow(clamp(sp.tyre.w / 0.205, 0.6, 1.4), 0.2) : 1) * (sp.muScale || 1)), steer: sp.steer,
     relax: TUNE.tyreRelax[setup.tyre] || 1, wet: TUNE.tyreWet[setup.tyre] || 1, wear: TUNE.tyreWear[setup.tyre] || null,
     dmg: clamp(1 - dm * 0.0012, 0.7, 1.3), spec: sp, mass, aero,
     geo: carGeometry(build.body, mass) };
@@ -8593,12 +8593,13 @@ const REAL_CLASS = {
   W11: { t100: [3.3, 4.6], b100: [28, 40], skT: [0.95, 1.45], skG: [0.62, 0.92], b100G: [42, 57], top: [180, 230] },
   W17: { t100: [3.0, 4.4], b100: [27, 40], skT: [1.0, 1.5], skG: [0.62, 0.95], b100G: [42, 57], top: [185, 235] },
   M:   { t100: [9.2, 13.8], b100: [33, 52], skT: [0.72, 1.05], skG: [0.5, 0.8], b100G: [46, 68], top: [145, 180] },
+  T5:  { t100: [10, 22], b100: [35, 60], skT: [0.45, 0.85], skG: [0.3, 0.7], b100G: [55, 100], top: [130, 190] },   // 9-10 t trucks: no published 0-100 or skidpad
 };
 const REAL_REF = {
   'MINI': { cls: 'M', src: 'Cooper S 1275: 0-60 mph 10.9 s, 96 mph (road test, 1964)' },
   'RS 002': { cls: 'B' }, 'RS200': { cls: 'B' }, 'SAMARA S': { cls: 'B2' }, 'ECV': { cls: 'B' }, 'ECV II': { cls: 'B' },
   '222D': { cls: 'B' }, 'KADETT 4X4': { cls: 'B' }, 'ASTRA 4S': { cls: 'B2' }, 'IBIZA BIMOTOR': { cls: 'B2' },
-  'C3 WRC': { cls: 'W17' }, 'FIESTA WRC': { cls: 'W17' }, 'YARIS WRC': { cls: 'W17' },
+  'C3 WRC': { cls: 'W17' }, 'FIESTA WRC': { cls: 'W17' }, 'YARIS WRC': { cls: 'W17' }, 'POWERSTAR': { cls: 'T5' }, 'PHOENIX': { cls: 'T5' },
   'IMPREZA WRC': { cls: 'W11' },
   'POLO R WRC': { cls: 'W11', t100: [3.5, 4.4], src: 'Volkswagen: 0-100 km/h 3.9 s (2013)' },
 };
@@ -12091,6 +12092,40 @@ function kadettTail(K, c) {
   });
   S.decal(rect(-0.2, 0.62, 0.2, 0.8), K.dark, 'rear', 0.007);
 }
+/** A rally-raid truck's body (FIA T5): a bumper and a flat front, a cab over the front axle with a raked windscreen, and
+ *  a flat-topped box behind it. o gives the real overhangs (nose, tail), the cab's rear wall (cabR), the cab's top (hood),
+ *  the body's bottom (yb) and widest (ys) heights, the belt under the side glass and the height of the roof (H). Stations
+ *  are in real metres (see gsCar). */
+function truckShape(o) {
+  const { nose, tail, cabR, hood, yb, ys, belt, H } = o;
+  const cabF = nose - 0.25, winF = cabF - 0.5;
+  return {
+    nose, tail, b: cabF - 0.9, arch: 0.07, flare: 0, mid: false, aero: { planes: false },
+    body: (c) => [
+      [nose, yb + 0.02, ys - 0.3, hood - 0.1, c.HW - 0.12, c.HW - 0.22, 0.04],   // bumper and front face
+      [cabF, yb, ys, hood, c.HW - 0.02, c.HW - 0.12, 0.05],                     // the cab's front corners
+      [winF, yb, ys, H, c.HW, c.HW - 0.1, 0.06],                                // the windscreen's top and the roof
+      [cabR, yb, ys, H, c.HW, c.HW - 0.1, 0.06],                                // the cab's rear wall and the box
+      [c.T + 0.2, yb, ys, H, c.HW, c.HW - 0.1, 0.06],                           // the box's rear
+      [c.T, yb + 0.02, ys - 0.1, H - 0.2, c.HW - 0.1, c.HW - 0.2, 0.04],        // the tail
+    ],
+    // only the windscreen is glass: the cab's roof is the body's own steel
+    glass: (c) => [[cabF - 0.05, hood + 0.01, c.HW - 0.11, 0.01], [winF, H - 0.2, c.HW - 0.16, 0.02]],
+    ws: [cabF - 0.05, winF], roofEnd: cabR, hood: [hood, hood], belt, back: [cabR - 0.05, H - 0.1],
+    windows: [{ lo: [[cabF - 0.12, belt], [cabR + 0.25, belt]], hi: [[cabF - 0.12, belt], [winF + 0.12, H - 0.2], [cabR + 0.25, H - 0.2]] }],
+    shuts: [cabF - 0.6, cabR + 0.3], lamps: 'none', grille: false, tailLamps: false, rearPanel: false,
+    details(K, S, c) {
+      const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+      const ly = hood - 0.35;                                                   // the headlamps sit low on the cab's corners
+      K.both((sx) => {
+        S.lamp(sx * (c.HW - 0.3), ly, 0.09, K.headMat);
+        S.lamp(sx * (c.HW - 0.22), H - 0.45, 0.06, K.tailMat, 'rear');
+      });
+      S.decal(rect(-c.HW + 0.3, yb + 0.1, c.HW - 0.3, ly - 0.3), K.dark, 'front', 0.006);    // the grille
+      S.decal(rect(-c.HW + 0.1, yb + 0.02, c.HW - 0.1, yb + 0.12), K.trim, 'front', 0.008);  // the bumper's step
+    },
+  };
+}
 const NEW_CARS = [
   { name: 'RS 002', blurb: 'Audi Sport quattro RS 002 (1986-87), Audi\'s Group S prototype: the S1 E2\'s turbo five turned round behind the driver in a glass-fibre body on a tube frame. Group S was cancelled before the car raced. Power and size are claims or estimates.',
     // Sources: Autozeitung (2.1 L turbo five, glass-fibre body on a tube frame, a 460 PS manufacturer figure at reduced
@@ -12815,6 +12850,44 @@ const NEW_CARS = [
         P.plate(n, -0.62, -0.02);
       },
       top(P) { P.rect(2.6, 0.2, -1.45, 1.45, '#0b1c48'); P.text('VOLKSWAGEN', 1.5, 0, 0.12, '#f4f4f2', { rot: Math.PI / 2, w: 0.9 }); P.text('Red Bull', -1.0, 0, 0.1, '#0b1c48', { rot: -Math.PI / 2, w: 0.6 }); for (let k = 0; k < 3; k++) P.rect(0.2 - k * 0.2, 0.12 - k * 0.2, -1.45, 1.45, k % 2 ? '#0b1c48' : '#1b9ad6'); } } },
+  // ---- FIA T5 rally-raid trucks: 4x4, the physics' four wheels, real dimensions and mass where published ----
+  { name: 'POWERSTAR', blurb: 'Iveco Powerstar Dakar truck (2012), the works 4x4 Gerard de Rooy drove: a 12.9 L Cursor 13 six with 840 hp and 3,600 N·m, a 16-speed ZF box and 9.3 t ready to start. Tyres, track, ratios and aero are estimates.',
+    // Sources: Iveco's Dakar 2012 release (Dec 2011): 6.80 m long, 2.55 m wide, 3.00 m tall, 4.40 m wheelbase; 4x4 with
+    // driven front and rear axles; 8,500 kg empty and 9,300 kg ready to start, 50/50; 840 hp at 2,200 rpm and 3,600 N·m
+    // at 1,200 rpm; ZF 16-speed box with a 0.89 transfer case and no centre differential. Tracks, tyres, the ratios and
+    // the axle ratio are estimates.
+    spec: { engine: '12.9 L inline-6 turbo diesel (Iveco Cursor 13)', cyl: 6, layout: 'inline', pitch: 1, hp: 840, hpAt: 2200, nm: 3600, nmAt: 1200, redline: 2600, idle: 600, lag: 1, offBoost: 0.5,
+      voice: { cyl: 6, pipe: 2, prim: 0.6, tail: 'open', intake: 'turbo', bov: 'dump', burble: 0.2 },   // a six with a big turbo, a dump valve and an open stack
+      curve: [[600, 2700], [900, 3300], [1200, 3600], [1600, 3350], [2000, 2950], [2200, 2720], [2400, 2350], [2600, 1900]],
+      disp: 12.9, launch: 1200, Ie: 0.9, enginePos: 'front',
+      box: 'ZF 16-speed servo-shift, 0.89 transfer (ratios est.)', gears: [11.54, 9.69, 8.14, 6.83, 5.74, 4.82, 4.05, 3.4, 2.85, 2.4, 2.01, 1.69, 1.42, 1.19, 1, 0.84], final: 3.69, rev: 2.8, shift: 0.25, boxType: 'seq', als: 0,
+      kg: 9300, front: 0.5, centre: 'locking', fdiff: 'lsd', rdiff: 'lsd', muScale: 0.65,   // truck tyres grip about a third less than the car compounds (est.)
+      wb: 4.4, track: [2.05, 2.05], wf: 0.5, cgH: 1.05, dims: [6.8, 2.55, 3], travel: 0.4,
+      tyre: { r: 0.58, w: 0.4, rim: 20, kg: 60, size: '20 in truck tyre (est.)' }, disc: [420, 400] },
+    // drag: a tall box on a cab-over (Cd about 0.9 on about 5.6 m²); no wing, very little downforce (est.)
+    aero: { cda: 5, cdaSide: 8, claF: 0.05, claR: 0.08, pitch: 0.02, ge: 0.1, text: 'A tall flat-sided box over a cab-over nose, with a slatted grille and a bumper; no wing, and little downforce' },
+    shape: truckShape({ nose: 1.15, tail: 1.25, cabR: -0.9, hood: 2.25, yb: 0.5, ys: 1.6, belt: 2.3, H: 3 }),
+    livery: { name: 'Iveco Powerstar, 2012', base: '#eef0f0', rim: 0xdfe3e8, num: 1,
+      side(P, n) { P.rect(2, -2, -0.55, -0.42, '#d32f2f'); P.plate(n, 0.35, -0.2); } },
+    rim: { spokes: 10, spokeW: 0.07, color: 0xaeb4bd, caliper: 0xe53935 }, pipes: [0.9] },
+  { name: 'PHOENIX', blurb: 'Tatra Phoenix Dakar truck (2016), Tatra Buggyra Racing\'s 4x4: a 12.5 L turbo six with about 900 hp and 3,800 N·m, and 9.5 t race weight. Dimensions, engine and gears are estimates.',
+    // Sources: Tatra Buggyra Racing's 2016 Dakar entry: 4x4 (team documents), 14.00R20 tyres on 20 in rims, 50/50, 9.5 t
+    // race weight (8.5 t minimum). Length, width, height, wheelbase, tracks and the engine (the Gyrtech MK14 shared with
+    // the Fat Boy) are estimates from a Phoenix G2 magazine comparison and the team's own figures; the 16-speed box
+    // and the axle ratio are estimates too.
+    spec: { engine: '12.5 L inline-6 turbo (Gyrtech MK14, est.)', cyl: 6, layout: 'inline', pitch: 1, hp: 900, hpAt: 2200, nm: 3800, nmAt: 1200, redline: 2600, idle: 600, lag: 1, offBoost: 0.5,
+      voice: { cyl: 6, pipe: 2, prim: 0.6, tail: 'open', intake: 'turbo', bov: 'dump', burble: 0.2 },
+      curve: [[600, 2800], [900, 3450], [1200, 3800], [1600, 3550], [2000, 3150], [2200, 2900], [2400, 2500], [2600, 2000]],
+      disp: 12.5, launch: 1200, Ie: 0.9, enginePos: 'front',
+      box: 'ZF/Gyrtech 16-speed manual (ratios est.)', gears: [12, 10.06, 8.43, 7.07, 5.92, 4.96, 4.16, 3.49, 2.92, 2.45, 2.05, 1.72, 1.44, 1.21, 1.01, 0.85], final: 3.73, rev: 2.8, shift: 0.25, boxType: 'seq', als: 0,
+      kg: 9500, front: 0.5, centre: 'locking', fdiff: 'lsd', rdiff: 'lsd', muScale: 0.65,
+      wb: 4.29, track: [2.1, 2.075], wf: 0.5, cgH: 1.05, dims: [6.53, 2.5, 3.21], travel: 0.4,
+      tyre: { r: 0.55, w: 0.36, rim: 20, kg: 60, size: '14.00R20 (est.)' }, disc: [420, 400] },
+    aero: { cda: 4.8, cdaSide: 7.5, claF: 0.05, claR: 0.08, pitch: 0.02, ge: 0.1, text: 'A tall flat-sided box over a cab-over nose, with a bumper and a grille; no wing, and little downforce' },
+    shape: truckShape({ nose: 1.05, tail: 1.19, cabR: -0.85, hood: 2.45, yb: 0.5, ys: 1.7, belt: 2.4, H: 3.21 }),
+    livery: { name: 'Tatra Phoenix, 2016', base: '#f4f2ea', rim: 0xdfe3e8, num: 2,
+      side(P, n) { P.rect(2, -2, -0.6, -0.45, '#1b3a6b'); P.plate(n, 0.35, -0.2); } },
+    rim: { spokes: 8, spokeW: 0.08, color: 0xaeb4bd, caliper: 0x1b3a6b }, pipes: [0.9] },
 ];
 for (const c of NEW_CARS) {
   const sp = c.spec, d = c.shape;

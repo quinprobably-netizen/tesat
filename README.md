@@ -46,7 +46,7 @@ The stage select groups them as SPACE, WRC 2026, HILLCLIMB and TEST. Every stage
 
 ## Cars
 
-Fifteen cars, each built from its real specifications: engine, power and torque curve, gearbox, differentials, weight and weight split, wheelbase and tracks, wheel travel, tyre size, brake discs and dimensions. Where a figure was never published (most Group S prototypes, many gear ratios), it is an estimate and the garage CAR tab says so.
+Seventeen cars, each built from its real specifications: engine, power and torque curve, gearbox, differentials, weight and weight split, wheelbase and tracks, wheel travel, tyre size, brake discs and dimensions. Where a figure was never published (most Group S prototypes, many gear ratios), it is an estimate and the garage CAR tab says so.
 
 | Car | Real car | Engine | Power | Torque | Weight | Gearbox | Drive |
 |---|---|---|---|---|---|---|---|
@@ -65,6 +65,8 @@ Fifteen cars, each built from its real specifications: engine, power and torque 
 | IMPREZA WRC | Subaru Impreza WRC2008 | 2.0 L flat-4 turbo (EJ20) | 300 hp | 650 N·m | 1,230 kg | 6-speed Prodrive sequential | 4WD, active centre |
 | YARIS WRC | Toyota Yaris WRC (2017-21) | 1.6 L I4 turbo, 36 mm restrictor | 380 hp | 450 N·m | 1,190 kg | 6-speed Xtrac sequential | 4WD, active centre |
 | POLO R WRC | Volkswagen Polo R WRC (2013-16) | 1.6 L I4 turbo (TSI), 33 mm restrictor | 318 hp | 425 N·m | 1,200 kg | 6-speed Ricardo sequential | 4WD, no centre diff |
+| POWERSTAR | Iveco Powerstar Dakar truck (2012), FIA T5 | 12.9 L I6 turbo diesel | 840 hp | 3,600 N·m | 9,300 kg | 16-speed ZF | 4WD, locked centre |
+| PHOENIX | Tatra Phoenix Dakar truck (2016), FIA T5 | 12.5 L I6 turbo (est.) | 900 hp (est.) | 3,800 N·m (est.) | 9,500 kg | 16-speed (est.) | 4WD, locked centre |
 
 Each body is lofted from traces of the real car's side, top and plan views, at its real length, width, height and overhangs, with its own glasshouse, lamps, intakes, splitter, rear wing and wheels. Drag uses the published drag coefficient where one exists; downforce is estimated.
 
