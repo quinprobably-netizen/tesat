@@ -6064,6 +6064,178 @@ function buildVerge(rng) {
   for (const m of meshes) m.receiveShadow = true;
   clumpGeo.dispose(); stoneGeo.dispose();
 }
+/* ---- spectators (Earth stages): crowds of simple low-poly people at the tightest corners, the start and the finish,
+   standing back behind red-and-white tape on posts, with a marshal car or tent now and then. One InstancedMesh per
+   crowd, culled like the trees. Scenery only: no colliders, nothing the car feels. ---- */
+const SPEC_SHIRTS = [0xc8332b, 0x2f5fa8, 0xf0c02a, 0x2e8b57, 0xeeeae2, 0x252527, 0xf28c28, 0x7a4fa0, 0x8fc1e0, 0xd9587a];
+/** Boxes merged into one non-indexed geometry: each box w x h x d at (x, y, z), turned by yaw, with a vertex colour.
+ *  shirt = 1 marks the parts a crowd member tints with its instance colour (the torso and arms). */
+function boxBuilder() {
+  const pos = [], nor = [], col = [], shr = [], c = new THREE.Color(), m = new THREE.Matrix4();
+  return {
+    box(w, h, d, x, y, z, yaw, hex, shirt = 0) {
+      const g = new THREE.BoxGeometry(w, h, d).toNonIndexed();
+      g.applyMatrix4(m.compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(UP, yaw), new THREE.Vector3(1, 1, 1)));
+      const P = g.attributes.position, N = g.attributes.normal;
+      c.setHex(hex);
+      for (let k = 0; k < P.count; k++) {
+        pos.push(P.getX(k), P.getY(k), P.getZ(k)); nor.push(N.getX(k), N.getY(k), N.getZ(k));
+        col.push(c.r, c.g, c.b); shr.push(shirt);
+      }
+      g.dispose();
+      return this;
+    },
+    geometry() {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      geo.setAttribute('aShirt', new THREE.Float32BufferAttribute(shr, 1));
+      return geo;
+    },
+  };
+}
+/** One person, about 1.75 m tall facing +z: legs, torso, arms and head. */
+function spectatorBody() {
+  return boxBuilder()
+    .box(0.36, 0.84, 0.24, -0.11, 0.42, 0, 0, 0x2e3038)
+    .box(0.36, 0.84, 0.24, 0.11, 0.42, 0, 0, 0x2e3038)
+    .box(0.46, 0.7, 0.26, 0, 1.17, 0, 0, 0xffffff, 1)
+    .box(0.12, 0.62, 0.13, -0.33, 1.17, 0, 0, 0xffffff, 1)
+    .box(0.12, 0.62, 0.13, 0.33, 1.17, 0, 0, 0xffffff, 1)
+    .box(0.2, 0.22, 0.2, 0, 1.64, 0, 0, 0xb88a68)
+    .geometry();
+}
+/** The crowd material: the instance colour (the shirt) tints only the parts with aShirt = 1, not the legs or head. */
+function spectatorMaterial() {
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, flatShading: true });
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = 'attribute float aShirt;\n' + sh.vertexShader.replace('#include <color_vertex>',
+      THREE.ShaderChunk.color_vertex.replace('vColor.rgb *= instanceColor.rgb;', 'vColor.rgb *= mix(vec3(1.0), instanceColor.rgb, aShirt);'));
+  };
+  return mat;
+}
+/** Place one crowd member: foot position p.x/p.y/p.z, facing p.yaw, p.sx wide and p.sy tall (1.75 m = 1), lifted by `lift`. */
+function poseSpectator(mesh, k, p, lift) {
+  mesh.setMatrixAt(k, _m4.compose(_p.set(p.x, p.y + lift, p.z), _q.setFromAxisAngle(UP, p.yaw), _s.set(p.sx, p.sy, p.sx)));
+}
+/** The spectator spots: the tightest corners plus the start and the finish (12-20 in all), each with the side the crowd
+ *  stands on. A corner's crowd mostly stands on the outside of the bend (8 m from the road edge; 4 m on the inside);
+ *  straights, the start and the finish get 6 m. A spot is kept only where the ground will do (no steep bank, no lake;
+ *  woods are fine, spectators stand among the trees) and spots are at least 300 m apart. Every other spot along the
+ *  stage is one that LOW_SPEC builds. */
+function spectatorSpots(R) {
+  const hw = TR.def.hw, N = TR.N, idx = (s) => clamp(Math.round(s / DS), 0, N - 1);
+  const iS = idx(TR.startS + 60), iF = idx(TR.finishS - 40);
+  const tight = new Float32Array(N);                               // |curvature| averaged over 12 m
+  for (let i = 0; i < N; i++) {
+    let a = 0, c = 0;
+    for (let j = Math.max(0, i - 6); j <= Math.min(N - 1, i + 6); j++) { a += Math.abs(TR.kap[j]); c++; }
+    tight[i] = a / c;
+  }
+  const peaks = [];                                                // corners: local maxima over 120 m, radius under 90 m
+  for (let i = iS + 20; i <= iF - 20; i++) {
+    const k = tight[i];
+    if (k < 1 / 90) continue;
+    let top = true;
+    for (let j = Math.max(0, i - 60); j <= Math.min(N - 1, i + 60) && top; j++) if (j !== i && (tight[j] > k || (tight[j] === k && j < i))) top = false;
+    if (top) peaks.push(i);
+  }
+  peaks.sort((a, b) => tight[b] - tight[a]);
+  const spots = [];
+  const place = (i, kind) => {
+    if (spots.some((q) => Math.abs(q.i - i) * DS < 300)) return null;
+    const a = Math.max(0, i - 6), b = Math.min(N - 1, i + 6), hx = TR.tx[i], hz = TR.tz[i];
+    // the bend turns toward the centre of curvature (the cross product of the two half-chords; a single chord
+    // would be parallel to the tangent on an arc); the road's right vector says which side of the road that is
+    const turn = Math.sign((TR.cx[i] - TR.cx[a]) * (TR.cz[b] - TR.cz[i]) - (TR.cz[i] - TR.cz[a]) * (TR.cx[b] - TR.cx[i])) || 1;
+    const inSide = turn * Math.sign(-hz * TR.rx[i] + hx * TR.rz[i]);
+    let side = R.sign(), gap = 6;
+    if (kind === 'corner') { const out = R.next() < 0.75; side = out ? -inSide : inSide; gap = out ? 8 : 4; }
+    worldAt(i * DS, side * (hw + gap + 1.5), WP);
+    const T = TR.terrain.T, e = 2, sl = Math.hypot(T(WP.x + e, WP.z) - T(WP.x - e, WP.z), T(WP.x, WP.z + e) - T(WP.x, WP.z - e)) / (2 * e);
+    if (sl > 0.45 || Math.abs(WP.h - TR.cy[i]) > 4 || (TR.lakeY !== null && TR.lakeY !== undefined && WP.h < TR.lakeY + 1)) return null;
+    return { s: i * DS, i, kind, side, gap, tight: tight[i], n: R.int(15, 40), extra: R.next() < 0.4 ? (R.next() < 0.6 ? 'car' : 'tent') : null, low: false };
+  };
+  const want = R.int(12, 20);
+  // the start and the finish: the first ground that will do, searching up to 200 m along the road from each
+  for (let o = 0; o <= 200; o += 20) { const sp = place(Math.round(iS + o / DS), 'start'); if (sp) { spots.push(sp); break; } }
+  for (let o = 0; o <= 200; o += 20) { const sp = place(Math.round(iF - o / DS), 'finish'); if (sp) { spots.push(sp); break; } }
+  for (const i of peaks) {
+    if (spots.length >= want) break;
+    const sp = place(i, 'corner');
+    if (sp) spots.push(sp);
+  }
+  spots.sort((p, q) => p.s - q.s);
+  spots.forEach((sp, k) => { sp.low = k % 2 === 0; });
+  return spots;
+}
+/** Builds every spectator spot of the stage. Own random stream: the shared rng also sets the chicane blocks' yaw. */
+function buildSpectators() {
+  const def = TR.def, hw = def.hw, R = new RNG(def.seed + 515);
+  const spots = (TR.spectatorSpots = spectatorSpots(R));
+  const crowds = (Scenery.crowds = []);
+  if (!spots.length) return;
+  const body = spectatorBody(), bodyMat = spectatorMaterial(), props = boxBuilder(), tape = { pos: [], uv: [], idx: [] };
+  const tint = new THREE.Color();
+  for (const sp of spots) {
+    if (LOW_SPEC && !sp.low) continue;
+    const i = sp.i, rows = sp.n >= 28 ? 3 : 2, L = Math.max(8, Math.ceil(sp.n / rows) * 0.8);
+    const faceYaw = Math.atan2(-sp.side * TR.rx[i], -sp.side * TR.rz[i]);   // the road lies in the -side * right direction
+    const pts = [];
+    for (let k = 0; k < sp.n; k++) {
+      const row = k % rows, u = (R.next() - 0.5) * L, d = sp.side * (hw + sp.gap + row * 0.9 + R.next() * 0.3);
+      worldAt(sp.s + u, d, WP);
+      pts.push({ x: WP.x, y: WP.h - 0.03, z: WP.z, yaw: faceYaw + (R.next() - 0.5) * 0.6, sx: 0.9 + R.next() * 0.2,
+        sy: (1.6 + R.next() * 0.3) / 1.75, ph: R.next() * TAU, col: R.int(0, SPEC_SHIRTS.length - 1) });
+    }
+    const mesh = new THREE.InstancedMesh(body, bodyMat, pts.length), ctr = new THREE.Vector3();
+    pts.forEach((p, k) => { poseSpectator(mesh, k, p, 0); mesh.setColorAt(k, tint.setHex(SPEC_SHIRTS[p.col])); ctr.x += p.x; ctr.y += p.y; ctr.z += p.z; });
+    ctr.multiplyScalar(1 / pts.length);
+    let rad = 0; for (const p of pts) rad = Math.max(rad, Math.hypot(p.x - ctr.x, p.y - ctr.y, p.z - ctr.z));
+    mesh.castShadow = false; mesh.receiveShadow = true;
+    cullCell(mesh, ctr, rad + 2, LOW_SPEC ? 0.7 : 1);
+    stageGroup.add(mesh);
+    crowds.push({ mesh, ctr, pts });
+    // barrier: posts every 4 m, red-and-white tape between them, on the road side of the crowd
+    const td = sp.side * (hw + sp.gap * 0.5), A = [];
+    for (let u = -L / 2 - 2; u <= L / 2 + 2.01; u += 4) { worldAt(sp.s + u, td, WP); A.push([WP.x, WP.h, WP.z]); }
+    for (const [x, y, z] of A) props.box(0.06, 1.1, 0.06, x, y + 0.55, z, 0, 0xe6e6e0);
+    for (let k = 0; k + 1 < A.length; k++) {
+      const [ax, ay, az] = A[k], [bx, by, bz] = A[k + 1], len = Math.hypot(bx - ax, bz - az), v = tape.pos.length / 3;
+      tape.pos.push(ax, ay + 0.8, az, bx, by + 0.8, bz, bx, by + 1.05, bz, ax, ay + 1.05, az);
+      tape.uv.push(0, 0, len, 0, len, 1, 0, 1);
+      tape.idx.push(v, v + 1, v + 2, v, v + 2, v + 3);
+    }
+    // now and then a marshal car or a small tent, parked beyond the end of the barrier on the road's shoulder
+    if (sp.extra) {
+      const ms = sp.s + L / 2 + 4.5, yaw = trackYaw(clamp(Math.round(ms / DS), 0, TR.N - 1));
+      const fx = Math.sin(yaw), fz = Math.cos(yaw);                    // forward; right is (fz, -fx)
+      worldAt(ms, sp.side * (hw + 2.2), WP);
+      const put = (f, l, y) => [WP.x + fx * f + fz * l, WP.h + y, WP.z + fz * f - fx * l];
+      const parts = sp.extra === 'car'
+        ? [[1.8, 0.7, 4.3, 0, 0.8, 0xf2f2ee], [1.82, 0.12, 4.3, 0, 1.15, 0xf28c28], [1.5, 0.6, 2.2, -0.3, 1.45, 0x2f3a48]]
+        : [[2.8, 1.6, 2.6, 0, 0.8, 0xf0e8d0], [3.1, 0.14, 2.9, 0, 1.67, 0xc84a2a]];
+      for (const [w, h, d, f, y, hex] of parts) { const [x, yy, z] = put(f, 0, y); props.box(w, h, d, x, yy, z, yaw, hex); }
+      if (sp.extra === 'car') for (const [f, l] of [[1.4, 0.85], [1.4, -0.85], [-1.4, 0.85], [-1.4, -0.85]]) { const [x, yy, z] = put(f, l, 0.35); props.box(0.42, 0.7, 0.7, x, yy, z, yaw, 0x1c1c1c); }
+    }
+  }
+  const pm = new THREE.Mesh(props.geometry(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, flatShading: true }));
+  pm.castShadow = !LOW_SPEC; pm.receiveShadow = true;
+  stageGroup.add(pm);
+  const tg = new THREE.BufferGeometry();
+  tg.setAttribute('position', new THREE.Float32BufferAttribute(tape.pos, 3));
+  tg.setAttribute('uv', new THREE.Float32BufferAttribute(tape.uv, 2));
+  tg.setIndex(tape.idx); tg.computeVertexNormals();
+  const tex = makeCanvas(64, 16, (g, w, h) => {                  // one red and one white stripe per metre
+    g.fillStyle = '#d7261e'; g.fillRect(0, 0, w / 2, h);
+    g.fillStyle = '#f4f4f0'; g.fillRect(w / 2, 0, w / 2, h);
+  }, false);
+  tex.wrapS = THREE.RepeatWrapping;
+  const tm = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, side: THREE.DoubleSide }));
+  tm.receiveShadow = true;
+  stageGroup.add(tm);
+}
 /** Wind turbines on the high ground beside the road (the Fafe hills): white towers, three blades turning in the wind. */
 function buildTurbines(T, rng) {
   const white = new THREE.MeshStandardMaterial({ color: 0xeef0f2, roughness: 0.5, metalness: 0.1 });
@@ -6660,6 +6832,11 @@ function updateScenery(dt, t) {
       f.setMatrixAt(k, _m4.compose(_p.set(o.x, o.y + Math.sin(t * 0.2 + o.ph) * 1.5, o.z), _q, _s.setScalar(o.sc)));
     }
     f.instanceMatrix.needsUpdate = true;
+  }
+  if (Scenery.crowds) for (const c of Scenery.crowds) {        // idle bob, only for the crowds near the camera
+    if (!c.mesh.visible || c.ctr.distanceTo(camera.position) > 150) continue;
+    c.pts.forEach((p, k) => poseSpectator(c.mesh, k, p, 0.02 * (1 + Math.sin(t * 3.2 + p.ph))));
+    c.mesh.instanceMatrix.needsUpdate = true;
   }
   if (Scenery.skyStruct) {
     const ss = Scenery.skyStruct;
@@ -13568,7 +13745,7 @@ function buildStage(def) {
   Game.def = def; Game.stageIdx = def.tpl;
   scene.remove(stageGroup); disposeObject(stageGroup);
   stageGroup = new THREE.Group(); scene.add(stageGroup);
-  Object.assign(Scenery, { gateAll: [], chicaneMesh: null, chicaneBoards: null, beacons: null, beaconPhase: [], floaters: null, floaterData: [], skyStruct: null });
+  Object.assign(Scenery, { gateAll: [], chicaneMesh: null, chicaneBoards: null, beacons: null, beaconPhase: [], floaters: null, floaterData: [], skyStruct: null, crowds: null });
   generateTrack(def);
   setStageAir(def);
   buildPalette(def);
@@ -13582,7 +13759,7 @@ function buildStage(def) {
   const rng = new RNG(def.seed + 404);
   buildGates(); buildMarkers(); buildChevrons(); buildRocks(rng);
   if (def.style === 'hills') buildLunarDecor(rng); else if (def.style === 'ring') buildIceDecor(rng);
-  else if (def.style === 'mountain') { buildMountainDecor(rng); if (!def.moon) buildVerge(new RNG(def.seed + 909)); }
+  else if (def.style === 'mountain') { buildMountainDecor(rng); if (!def.moon) { buildVerge(new RNG(def.seed + 909)); buildSpectators(); } }
   else buildWreckDecor(rng);
   buildChicanes(rng);
   planForCar(tuneFor(DEFAULT_SETUP, Store.data.garage));   // the AI's line and the line on screen: this car's, rebuilt when the car changes
