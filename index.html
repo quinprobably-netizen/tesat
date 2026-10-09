@@ -2669,7 +2669,8 @@ function topSpeed(tn) {
     let f = 0;
     for (let k = 0; k < tn.gears.length; k++) f = Math.max(f, gearPull(tn, k, v));
     const A = aeroLevel(tn, v);
-    if (f >= A.drag + crr * (m * 9.81 + A.df)) best = v;
+    // (the driveline's shaft drag too: each of the four wheel shafts gives up DRIVE.shaftDrag·ω, 4·shaftDrag·v/r² at the road)
+    if (f >= A.drag + crr * (m * 9.81 + A.df) + 4 * DRIVE.shaftDrag * v / (tn.r * tn.r)) best = v;
   }
   return best;
 }
@@ -6602,7 +6603,7 @@ function relaxCoeffs(ax, h, sig) {
 const DRIVE = {
   sub: 4,              // implicit substeps per physics step
   Kc: 20000,           // stiffness of a coupling that holds (a locked clutch or diff, a brake holding its wheel), N·m per rad/s
-  shaftDrag: 0.3,      // bearing and gear drag at each wheel (N·m per rad/s)
+  shaftDrag: 0.15,     // bearing and gear drag at each wheel (N·m per rad/s); the gears' own loss is in eta, so this is the rest. At 0.3 the MINI topped out at 134 km/h against its road test's 154 (96 mph)
 };
 const GEARBOX = { idle: 0.12, redline: 8500, rpmMax: 9300 };   // follow the car (setCarTune), for the rev counter
 const AIR_RHO = 1.2;   // at sea level (the space stages breathe it too)
