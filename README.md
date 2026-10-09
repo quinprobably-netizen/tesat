@@ -1,33 +1,44 @@
 # Regolith Rally
 
-A point-to-point rally game in one self-contained HTML file. You drive real rally cars, from a 1964 Mini to a 2017 World Rally Car, against the clock on real roads: one stage from every round of the 2026 World Rally Championship, the full Pikes Peak hillclimb, and a test park. Terrain, textures, sky, scenery and sound are all generated in the browser.
+A point-to-point rally game in one self-contained HTML file. You drive real rally cars, from a 1964 Mini to a 2017 World Rally Car, against the clock on real roads: one stage from every round of the 2026 World Rally Championship, the full Pikes Peak hillclimb, a test park, and six off-world stages on the Moon, Phobos, Triton, Titan, Titania and Ganymede. Terrain, textures, sky, scenery and sound are all generated in the browser.
 
 **Play:** open `index.html` in a modern browser. It loads three.js 0.186.0 from jsdelivr and needs no build step or server. Keyboard, gamepad and touch (phones in portrait or landscape) all work.
 
 ## Stages
 
-Every stage is a real road at 1:1 scale, traced from its rally-maps.com stage line and OpenStreetMap, with heights from SRTM / EU-DEM elevation data. Corners, grades, climbs and road widths are the real ones, and the ground around the road follows the real hills. The co-driver calls each named section as you reach it.
+Every Earth stage is a real road at 1:1 scale, traced from its rally-maps.com stage line and OpenStreetMap, with heights from SRTM / EU-DEM elevation data. Corners, grades, climbs and road widths are the real ones, and the ground around the road follows the real hills. Pikes Peak, Hell's Gate, Platak, Artenara, Arula and Ouninpohja are re-traced from OpenStreetMap roads, and the ground beside their roads follows ESA WorldCover land cover. The co-driver calls each named section as you reach it.
 
 | Round | Rally | Stage | Length | Surface |
 |---|---|---|---|---|
-| 1 | Rallye Monte-Carlo | Col de Turini, up the hairpins to the 1,604 m col | 15.3 km | Tarmac, snow, ice |
-| 2 | Rally Sweden | Bygdsiljum, Västerbotten forest and a frozen mire | 28.5 km | Snow, ice |
-| 3 | Safari Rally Kenya | Hell's Gate, 1,900 m up in the Rift Valley | 10.7 km | Gravel, fesh-fesh |
-| 4 | Croatia Rally | Platak, bumpy tarmac up to the ski area | 17.1 km | Tarmac |
-| 5 | Rally Islas Canarias | Artenara, the caldera ridge on Gran Canaria | 15.6 km | Tarmac |
-| 6 | Rally de Portugal | Fafe, with the jump at Pedra Sentada | 11.4 km | Gravel |
-| 7 | Rally Japan | Isegami's Tunnel, narrow tarmac through cedar forest | 20.3 km | Tarmac |
-| 8 | Acropolis Rally | Loutraki, rocky mountain gravel | 13.2 km | Rocky gravel |
-| 9 | Rally Estonia | Arula, fast sandy gravel and jumps | 12.9 km | Gravel |
-| 10 | Rally Finland | Ouninpohja, blind crests and the Yellow House | 24.1 km | Gravel |
-| 11 | Rally del Paraguay | Cantera, red earth in Itapúa | 14.3 km | Gravel |
-| 12 | Rally Chile Bío Bío | Rere, pine and eucalyptus plantations | 13.4 km | Gravel |
-| 13 | Rally Italia Sardegna | Monte Lerno, granite and cork oaks | 24.7 km | Sandy gravel |
-| 14 | Rally Saudi Arabia | Khulays, wadis between black volcanic hills | 11.7 km | Gravel, sand |
-| Hillclimb | Pikes Peak | The Race to the Clouds, 156 turns from 9,390 ft to the 14,115 ft summit; tarmac, then gravel above Glen Cove | 20.0 km | Tarmac, gravel |
+| 1 | Rallye Monte-Carlo | Col de Turini, up the hairpins to the 1,604 m col | 15.6 km | Tarmac, snow, ice |
+| 2 | Rally Sweden | Bygdsiljum, Västerbotten forest and a frozen mire | 28.8 km | Snow, ice |
+| 3 | Safari Rally Kenya | Hell's Gate, 1,900 m up in the Rift Valley | 10.8 km | Gravel, fesh-fesh |
+| 4 | Croatia Rally | Platak, bumpy tarmac up to the ski area | 16.5 km | Tarmac |
+| 5 | Rally Islas Canarias | Artenara, the caldera ridge on Gran Canaria | 14.4 km | Tarmac |
+| 6 | Rally de Portugal | Fafe, with the jump at Pedra Sentada | 11.7 km | Gravel |
+| 7 | Rally Japan | Isegami's Tunnel, narrow tarmac through cedar forest | 20.6 km | Tarmac |
+| 8 | Acropolis Rally | Loutraki, rocky mountain gravel | 13.4 km | Rocky gravel |
+| 9 | Rally Estonia | Arula, fast sandy gravel and jumps | 13.0 km | Gravel |
+| 10 | Rally Finland | Ouninpohja, blind crests and the Yellow House | 24.3 km | Gravel |
+| 11 | Rally del Paraguay | Cantera, red earth in Itapúa | 14.6 km | Gravel |
+| 12 | Rally Chile Bío Bío | Rere, pine and eucalyptus plantations | 13.7 km | Gravel |
+| 13 | Rally Italia Sardegna | Monte Lerno, granite and cork oaks | 25.0 km | Sandy gravel |
+| 14 | Rally Saudi Arabia | Khulays, wadis between black volcanic hills | 12.0 km | Gravel, sand |
+| Hillclimb | Pikes Peak | The Race to the Clouds at full length, from the start line at 9,390 ft to the 14,115 ft summit, all tarmac through the forest and above the treeline | 20.0 km | Tarmac |
 | Test | Proving Ground | Launch strip, braking zone, slalom, skidpad, kickers and crests at three sizes, snow and ice loops, a chasm and a chicane | 3.8 km | All six |
 
-The stage select groups them as WRC 2026, HILLCLIMB and TEST. Each surface (tarmac, gravel, snow, ice, regolith dust and steel deck) has its own grip and rolling resistance. The HUD altimeter and the engines' power follow the altitude, so the thin air at Hell's Gate and near the Pikes Peak summit costs power.
+**Off-world stages.** Six stages run on the Moon, Phobos, Titan, Titania, Triton and Ganymede, each about 14 to 16 km. Where a body has measured elevation, the road uses it; elsewhere the ground is simulated from published statistics, and each stage's description says which.
+
+| Stage | Body | Length | Ground |
+|---|---|---|---|
+| Taurus-Littrow | Moon, Apollo 17 valley | 14.6 km | Packed regolith, LOLA elevations |
+| Stickney | Phobos, Stickney crater | 14.8 km | Regolith, Gaskell shape model |
+| Monad Regio | Triton, cantaloupe terrain | 14.8 km | Packed regolith, simulated |
+| Titan Dune Sea | Titan, equatorial dunes | 15.5 km | Cassini radar relief, simulated dunes |
+| Messina Chasmata | Titania, rift floor | 15.5 km | Regolith, simulated |
+| Uruk Sulcus | Ganymede, grooved terrain | 14.4 km | Loose gravel, simulated grooves |
+
+The stage select groups them as SPACE, WRC 2026, HILLCLIMB and TEST. Every stage runs at standard Earth gravity. Each surface (tarmac, gravel, snow, ice, regolith and steel deck) has its own grip and rolling resistance. The HUD altimeter and the engines' power follow the altitude, so the thin air at Hell's Gate and near the Pikes Peak summit costs power.
 
 **Weather and time of day.** Each run can be clear, rain, fog, snow or changing mid-stage, at day, dusk or night (headlights). Rain takes about a third of the grip off tarmac and little off gravel; falling snow turns tarmac and gravel close to packed snow.
 
@@ -78,7 +89,7 @@ Before each stage the service park sets springs, dampers, anti-roll bars, final 
 
 - **CAR.** The fifteen cars above on a live 3D preview you can spin, with every real figure and its aero package.
 - **DRIVER.** Eight real drivers, each sitting in the car with their real co-driver: Henri Toivonen, Michèle Mouton, Ari Vatanen, Walter Röhrl, Stig Blomqvist, Tony Pond, Kalle Rovanperä, and Ivan "Ironman" Stewart, who drives solo. The driver is looks only.
-- **LIVERY.** The car's WORKS livery (repainted from period photos) or a paint colour, a pattern, and up to 16 layers of your own stripes, numbers, text and roof colour.
+- **LIVERY.** The car's WORKS livery (repainted from period photos) or a PAINT colour from a full-spectrum picker, then up to 16 layers of your own stripes, numbers, text and roof colour.
 
 Every build gets a **PI** (performance index, 100 to 999) and a class: D, C, B, A, S1, S2 and X. Six ratings (speed, handling, acceleration, launch, braking and offroad) are measured on the same physics you drive.
 
@@ -100,7 +111,7 @@ Every build gets a **PI** (performance index, 100 to 999) and a class: D, C, B, 
 
 ## Settings
 
-Manual gears, ABS, traction control, stability, tilt steering and its sensitivity (phones), soft-body, camera (chase, cockpit, bumper), ghost, racing line, HUD (MINIMAL by default, or FULL), post effects (bloom and SMAA), sound, volume, co-driver voice, driver name, and a controls reference.
+Manual gears, ABS, traction control, stability, tilt steering and its sensitivity (phones, on by default on touch), soft-body, graphics (LOW, MEDIUM or HIGH, applied on reload), camera (chase, cockpit, bumper), ghost, racing line, HUD (MINIMAL by default, or FULL), post effects (bloom and SMAA), sound, volume, co-driver voice, driver name, and a controls reference.
 
 ## Controls
 
@@ -124,6 +135,13 @@ Every menu works with the keyboard (arrows, Enter, Esc), the gamepad (d-pad, A, 
 
 Everything is kept in `localStorage`: best times, splits, ghosts, the garage, set-ups, career and settings. When a physics change makes old times unfair, the old leaderboards are archived and start fresh; the garage and set-ups are kept.
 
+## Data and credits
+
+- Earth roads: rally-maps.com stage lines and map data © OpenStreetMap contributors (ODbL).
+- Heights: SRTM and EU-DEM elevation data.
+- Ground beside the re-traced Earth roads: ESA WorldCover 2021 (contains modified Copernicus Sentinel data 2021), CC BY 4.0.
+- Off-world ground: LRO LOLA for Taurus-Littrow, the Gaskell Phobos shape model, Cassini radar for Titan, and published Voyager and Galileo studies for the terrain statistics. Anything not measured is simulated.
+
 ## Code layout
 
 `index.html` holds the CSS, the menus and HUD markup, and one module script in numbered, commented sections:
@@ -132,7 +150,7 @@ Everything is kept in `localStorage`: best times, splits, ghosts, the garage, se
 2. Persistent storage
 3. Stage definitions (the traced roads)
 4. Renderer and scene setup
-5. Sky and environment lighting
+5. Sky, planets and environment lighting
 6. Track generation
 7. Terrain queries
 8. Terrain meshes
@@ -153,4 +171,4 @@ For automation and debugging, `window.RegolithRally` exposes the game's objects,
 - `setAutopilot(true)` hands control to the AI driver.
 - `loadStage(i, then)` builds a stage and `startRace()` starts it (skipping the service park).
 - `startRally()`, `openService()` and `startEvent(...)` drive the other modes.
-- `physicsTests()` runs the physics self-test and returns each check with its value, its allowed range and whether it passed. Four groups: every car against real-world figures (0-100 and 100-0 km/h, tarmac and gravel skidpad g, top speed; published where a figure exists, otherwise its class in period), the road surface (ruts, loose stuff off the line and wide in bends), the suspension geometry (camber with roll, bump steer) and the core model (statics, landings, timestep error, airborne momentum, collisions, holding on a slope).
+- `physicsTests()` runs the physics self-test and returns each check with its value, its allowed range and whether it passed. Six groups: every car against real-world figures (0-100 and 100-0 km/h, tarmac and gravel skidpad g, top speed; published where a figure exists, otherwise its class in period), the road surface (ruts, loose stuff off the line and wide in bends), the suspension geometry (camber with roll, bump steer) and the core model (statics, landings, timestep error, airborne momentum, collisions, holding on a slope), and the soft body (at rest and on drops, then a crash and a roll-over).
