@@ -4958,19 +4958,33 @@ float lum = dot(vc, vec3(0.299, 0.587, 0.114));
 float wSn = smoothstep(0.32, 0.55, lum);
 float wGr = smoothstep(0.004, 0.03, vc.g - max(vc.r, vc.b)) * (1.0 - wSn);
 #ifdef RR_LC
-// real land cover (ESA WorldCover) replaces that guess where the grid has a class; 0 = no data
-float lc = floor(texture2D(uLC, (wp - uLCo) * uLCs).r * 255.0 + 0.5);
-lcOn = step(0.5, lc);
-wSn = mix(wSn, rrEq(lc, 70.0), lcOn);
-wGr = mix(wGr, (0.3 * rrEq(lc, 10.0) + 0.55 * rrEq(lc, 20.0) + rrEq(lc, 30.0) + 0.9 * rrEq(lc, 40.0) + rrEq(lc, 90.0) + 0.9 * rrEq(lc, 95.0) + 0.8 * rrEq(lc, 100.0)) * (1.0 - wSn), lcOn);
-lcTint = mix(lcTint, vec3(0.8, 0.74, 0.62), rrEq(lc, 10.0));     // forest floor: needle and leaf litter
-lcTint = mix(lcTint, vec3(0.92, 0.9, 0.8), rrEq(lc, 20.0));      // scrub
-lcTint = mix(lcTint, vec3(1.08, 1.02, 0.8), rrEq(lc, 40.0));     // crops: stubble and straw
-lcTint = mix(lcTint, vec3(0.85, 0.85, 0.87), rrEq(lc, 50.0));    // built-up: grey
-lcTint = mix(lcTint, vec3(1.08, 1.0, 0.9), rrEq(lc, 60.0));      // bare: pale soil and scree
-lcTint = mix(lcTint, vec3(0.45, 0.5, 0.52), rrEq(lc, 80.0));     // water: dark wet ground
-lcTint = mix(lcTint, vec3(0.7, 0.75, 0.6), rrEq(lc, 90.0));      // wetland
-lcTint = mix(lcTint, vec3(0.6, 0.66, 0.5), rrEq(lc, 100.0));     // moss and lichen
+// real land cover (ESA WorldCover) replaces that guess where the grid has a class; 0 = no data. The four nearest 30 m
+// cells are blended, so class borders are soft rather than square, and nothing is read past the grid's edge (the clamped
+// edge row used to streak out across the ground beyond it).
+vec2 lcT = (wp - uLCo) / 30.0 - 0.5, lcI = floor(lcT), lcF = lcT - lcI;
+float lcSn = 0.0, lcGr = 0.0;
+vec3 lcTn = vec3(0.0);
+for (int q = 0; q < 4; q++) {
+  vec2 o = vec2(float(q - 2 * (q / 2)), float(q / 2)), bw2 = mix(1.0 - lcF, lcF, o), uvq = (lcI + o + 0.5) * 30.0 * uLCs;
+  float bw = bw2.x * bw2.y, lc = floor(texture2D(uLC, uvq).r * 255.0 + 0.5);
+  float on = step(0.5, lc) * step(0.0, min(uvq.x, uvq.y)) * step(max(uvq.x, uvq.y), 1.0);
+  lc *= on;
+  vec3 t = vec3(1.0);
+  t = mix(t, vec3(0.8, 0.74, 0.62), rrEq(lc, 10.0));     // forest floor: needle and leaf litter
+  t = mix(t, vec3(0.92, 0.9, 0.8), rrEq(lc, 20.0));      // scrub
+  t = mix(t, vec3(1.08, 1.02, 0.8), rrEq(lc, 40.0));     // crops: stubble and straw
+  t = mix(t, vec3(0.85, 0.85, 0.87), rrEq(lc, 50.0));    // built-up: grey
+  t = mix(t, vec3(1.08, 1.0, 0.9), rrEq(lc, 60.0));      // bare: pale soil and scree
+  t = mix(t, vec3(0.45, 0.5, 0.52), rrEq(lc, 80.0));     // water: dark wet ground
+  t = mix(t, vec3(0.7, 0.75, 0.6), rrEq(lc, 90.0));      // wetland
+  t = mix(t, vec3(0.6, 0.66, 0.5), rrEq(lc, 100.0));     // moss and lichen
+  float sn = rrEq(lc, 70.0);
+  lcOn += bw * on; lcSn += bw * on * sn; lcTn += bw * t;
+  lcGr += bw * on * (0.3 * rrEq(lc, 10.0) + 0.55 * rrEq(lc, 20.0) + rrEq(lc, 30.0) + 0.9 * rrEq(lc, 40.0) + rrEq(lc, 90.0) + 0.9 * rrEq(lc, 95.0) + 0.8 * rrEq(lc, 100.0)) * (1.0 - sn);
+}
+wSn = mix(wSn, lcSn / max(lcOn, 1e-3), lcOn);
+wGr = mix(wGr, lcGr / max(lcOn, 1e-3), lcOn);
+lcTint = lcTn;
 #endif
 float blades = mix(B1.g, B2.g, 0.5);
 float dry = smoothstep(0.55, 0.85, mott);
