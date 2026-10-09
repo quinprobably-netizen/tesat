@@ -13233,6 +13233,8 @@ const TyreMarks = {
     group.add(this.mesh);
     this.wheels = car.wheels.map(() => ({ on: false, x: 0, y: 0, z: 0, lx: 0, ly: 0, lz: 0, nx: 0, ny: 1, nz: 0 }));
     this.head = 0; this.count = 0; this.dLo = -1; this.dHi = -1;
+    // a groove is the surface's own colour, darker (each surface's, once per stage)
+    this.groove = Array.from({ length: 6 }, (_, k) => { const hex = TR.def.colors.surf[k]; return srgb(hex !== undefined ? hex : 0x55575a).multiplyScalar(0.45); });
   },
   /** Run start, restart, menu loop: every mark goes. */
   clear() {
@@ -13254,8 +13256,7 @@ const TyreMarks = {
       if (surf === SURF.TARMAC) {
         if (slide || hard) { alpha = slide ? 0.55 : 0.3; c = TYRE_RUBBER; }
       } else if (surf === SURF.GRAVEL || surf === SURF.SNOW || surf === SURF.REGOLITH) {
-        const hex = def.colors.surf[surf];
-        alpha = slide ? 0.6 : 0.3; c = srgb(hex !== undefined ? hex : 0x55575a).multiplyScalar(0.45);
+        alpha = slide ? 0.6 : 0.3; c = this.groove[surf];
       }
       if (!alpha) { st.on = false; continue; }
       const x = w.mount.x - AY.x * w.dist, y = w.mount.y - AY.y * w.dist, z = w.mount.z - AY.z * w.dist;
