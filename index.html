@@ -1377,7 +1377,7 @@ const Store = {
             // 8 = wheels with their own mass, transient tyres, full weight transfer, ESC, thin air on the mountains (every stage changed),
             // 9 = the real rally tyre compounds in place of all-terrain, studded and slick (every stage changed)
   data: { best: {}, settings: { muted: false, voice: true, ghost: true, cam: 'chase', name: 'DRIVER' },
-    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 9 },
+    targets: {}, setups: {}, boards: {}, rival: {}, rallyBest: null, garage: null, era: 9, cars: 1 },
   load() {
     try {
       const raw = window.localStorage.getItem(this.key);
@@ -1393,6 +1393,7 @@ const Store = {
         this.data.garage = d.garage;
         if (d.archive && typeof d.archive === 'object') this.data.archive = d.archive;
         if ((d.era || 1) < this.era) this.archiveEra(d.era || 1);
+        if ((d.cars || 0) < 1) this.dropBody(1);           // 1 = the RS 002 left the garage (it was car 1)
         // setups were kept per stage index for whichever car was in the garage; they are now per stage and car
         for (const k in this.data.setups) if (!k.includes('|')) delete this.data.setups[k];
       }
@@ -1418,12 +1419,21 @@ const Store = {
     delete D.rallyBestClassic;
     this.save();
   },
+  /** A car left the garage at index i: the saved garage, liveries, setups and career cars after it move down one
+   *  (the removed car's own fall back to the MINI, index 0). */
+  dropBody(i) {
+    const D = this.data, m = (b) => (b === i ? 0 : b > i ? b - 1 : b);
+    if (D.garage && Number.isInteger(D.garage.body)) D.garage.body = m(D.garage.body);
+    if (D.livery) { const L = {}; for (const k in D.livery) if (+k !== i) L[m(+k)] = D.livery[k]; D.livery = L; }
+    const S = {}; for (const k in D.setups) { const [st, b] = k.split('|'); if (+b !== i) S[st + '|' + m(+b)] = D.setups[k]; } D.setups = S;
+    const C = D.career; if (C && Array.isArray(C.owned)) { C.owned = [...new Set(C.owned.map(m))]; C.car = m(C.car); }
+  },
   save() {
     try { window.localStorage.setItem(this.key, JSON.stringify(this.data)); }
     catch (e) {
       // Probably quota: retry without ghost replays, which are the bulk of the data.
       try {
-        const slim = { best: {}, settings: this.data.settings, targets: this.data.targets, setups: this.data.setups, rallyBest: this.data.rallyBest, garage: this.data.garage, boards: {}, rival: {}, era: this.data.era, archive: this.data.archive,
+        const slim = { best: {}, settings: this.data.settings, targets: this.data.targets, setups: this.data.setups, rallyBest: this.data.rallyBest, garage: this.data.garage, boards: {}, rival: {}, era: this.data.era, cars: this.data.cars, archive: this.data.archive,
           career: this.data.career, recce: this.data.recce, myNotes: this.data.myNotes, livery: this.data.livery, weekly: this.data.weekly, cond: this.data.cond, climbBest: this.data.climbBest, raidBest: this.data.raidBest, raidSeed: this.data.raidSeed };
         for (const k in this.data.boards) slim.boards[k] = this.data.boards[k].map((e) => ({ n: e.n, t: e.t, own: e.own }));
         for (const k in this.data.best) { const b = this.data.best[k]; slim.best[k] = { time: b.time, splits: b.splits }; }
@@ -8597,7 +8607,7 @@ const REAL_CLASS = {
 };
 const REAL_REF = {
   'MINI': { cls: 'M', src: 'Cooper S 1275: 0-60 mph 10.9 s, 96 mph (road test, 1964)' },
-  'RS 002': { cls: 'B' }, 'RS200': { cls: 'B' }, 'SAMARA S': { cls: 'B2' }, 'ECV': { cls: 'B' }, 'ECV II': { cls: 'B' },
+  'RS200': { cls: 'B' }, 'SAMARA S': { cls: 'B2' }, 'ECV': { cls: 'B' }, 'ECV II': { cls: 'B' },
   '222D': { cls: 'B' }, 'KADETT 4X4': { cls: 'B' }, 'ASTRA 4S': { cls: 'B2' }, 'IBIZA BIMOTOR': { cls: 'B2' },
   'C3 WRC': { cls: 'W17' }, 'FIESTA WRC': { cls: 'W17' }, 'YARIS WRC': { cls: 'W17' }, 'POWERSTAR': { cls: 'T5' }, 'PHOENIX': { cls: 'T5' },
   'IMPREZA WRC': { cls: 'W11' },
@@ -12140,70 +12150,6 @@ function truckShape(o) {
   };
 }
 const NEW_CARS = [
-  { name: 'RS 002', blurb: 'Audi Sport quattro RS 002 (1986-87), Audi\'s Group S prototype: the S1 E2\'s turbo five turned round behind the driver in a glass-fibre body on a tube frame. Group S was cancelled before the car raced. Power and size are claims or estimates.',
-    // Sources: Autozeitung (2.1 L turbo five, glass-fibre body on a tube frame, a 460 PS manufacturer figure at reduced
-    // boost); Driving.co.uk and The Drive (quattro AWD, about 700 hp claimed; the car ran at Goodwood in 2017); Diario
-    // Motor (about 1,000 kg total). The silhouette is traced from the side photo (Carscoops) and the front photos
-    // (Carscoops, Ableitet). Its 16 in tyres (about 0.66 m across) set the scale: wheelbase about 2.6 m, length about
-    // 4.4 m, roof about 1.35 m. Width, track, gearbox ratios, diffs, weight split and drag were not published, so they
-    // stay estimates.
-    spec: { engine: '2.1 L inline-5, turbo (mid-mounted)', cyl: 5, layout: 'inline', pitch: 1.09, hp: 690, hpAt: 8000, nm: 660, nmAt: 6500, redline: 8400, idle: 1000, lag: 0.7, offBoost: 0.5,
-      voice: { cyl: 5, hdr: [0, 0.3, 0.5, 0.2, 0.4], pipe: 1.6, prim: 0.7, tail: 'open', intake: 'turbo', bov: 'dump', burble: 0.4 },   // Audi 20v five, firing 1-2-4-5-3, unequal 5-into-1 manifold (the five's warble), short pipe out of the tail
-      curve: [[1000, 190], [2000, 250], [3000, 330], [4000, 480], [5000, 610], [6000, 650], [6500, 660], [7500, 630], [8000, 614], [8400, 560]],
-      disp: 2.11, launch: 5500, Ie: 0.13, enginePos: 'mid',
-      box: '5-speed manual with synchromesh (S1 ratios, est.)', gears: [3.111, 2.273, 1.706, 1.318, 0.962], final: 4.571, rev: 3.5, shift: 0.12, boxType: 'synchro',
-      als: 1,   // the S1 E2's recirculating system kept the turbine spinning off the throttle
-      kg: 1000, front: 0.45, centre: 'torsen', fdiff: 'lsdF', rdiff: 'lsd',
-      wb: 2.61, track: [1.56, 1.56], wf: 0.41, cgH: 0.42, dims: [4.39, 1.9, 1.35], travel: 0.25,
-      tyre: { r: 0.33, w: 0.205, rim: 16, kg: 20, size: '16 in gravel (est.)' }, disc: [330, 300] },
-    aero: { cda: 0.82, cdaSide: 2.3, claF: 0.22, claR: 0.44, pitch: 0.07, ge: 0.35, text: 'Low nose with a wide mouth under it, a flat floor into a rear diffuser, and one tall wing on endplates that stands on the tail and overhangs it' },
-    // traced off the side photo: a low nose that rounds up to the fenders, a steep bonnet to the windscreen, a short roof
-    // over the cabin, a bubble engine cover running back over the wing's struts, and the big flank intake ahead of the
-    // rear wheel
-    shape: { trace: { top: '0.87:0.42 0.8:0.5 0.7:0.56 0.55:0.62 0.39:0.68 0.0:0.69 -0.42:0.92 -0.94:1.35 -1.99:1.25 -2.2:1.2 -2.65:1.12 -2.93:1.0 -3.2:0.9 -3.45:0.82 -3.52:0.7',
-        bot: '0.87:0.14 0.6:0.12 0.2:0.13 -0.5:0.12 -1.5:0.12 -2.2:0.14 -3.0:0.2 -3.52:0.26',
-        plan: '0.87:0.42 0.8:0.6 0.7:0.8 0.5:0.9 0.2:0.94 -0.3:0.95 -1.0:0.95 -2.0:0.94 -2.8:0.92 -3.2:0.86 -3.52:0.75',
-        belt: '-0.42:0.92 -0.66:0.93 -1.84:0.94 -2.0:0.9', cowl: -0.42, roof: [-0.94, -1.99], glassEnd: -2.0,
-        ys: '0.87:0.25 0.0:0.4 -1.5:0.5 -2.6:0.5 -3.52:0.4', tum: '0.87:0.1 0.0:0.12 -1.0:0.1 -2.0:0.08 -3.0:0.1 -3.52:0.1',
-        crown: '0.87:0.02 0.0:0.04 -0.42:0.04 -0.94:0.06 -2.0:0.05 -3.52:0.03', roofW: '-0.42:0.78 -0.94:0.62 -1.99:0.6', gcrown: '-0.42:0.04 -0.94:0.06 -1.99:0.05' },
-      mid: true, arch: 0.07, flare: 0, b: -1.6, backlight: 0.2, deck: false, lamps: 'none', grille: false, tailLamps: false, rearPanel: false,
-      shuts: [-0.66, -1.6], aero: { planes: false },
-      // the wing: a steep plane between two tall endplates standing on the tail and overhanging it
-      wings: [{ z: -3.2, y: 1.22, ch: 0.7, aoa: 14, span: 1.6, gurney: 0.02, epT: 0.016,
-        ep: [[-2.85, 0.95], [-2.95, 1.2], [-3.92, 1.43], [-3.45, 0.95]] }],
-      windows: [{ lo: [[-0.66, 0.93], [-1.84, 0.93]], hi: [[-0.66, 0.93], [-0.9, 1.3], [-1.9, 1.3], [-1.84, 0.93]] }],
-      details(K, S, c) {
-        // round headlamps in black bezels, wide on the nose's shoulder; a slatted mouth low under the nose; two small
-        // rectangular red lamps at the upper rear corners and a slatted vent high on the tail; a NACA slot in the bonnet
-        // by the cowl; and the side intake low between the axles (the flank scoop, 0.12 to 0.6 m up)
-        const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
-        K.both((sx) => {
-          S.lamp(sx * 0.62, 0.34, 0.085, K.headMat);
-          S.decal(rect(sx * 0.46, 0.6, sx * 0.62, 0.65), K.tailMat, 'rear', 0.008);
-        });
-        S.decal(rect(-0.42, 0.14, 0.42, 0.31), K.dark, 'front', 0.006);                                    // the mouth
-        for (let i = 0; i < 6; i++) S.decal(rect(-0.4, 0.15 + i * 0.0267, 0.4, 0.16 + i * 0.0267), K.trim, 'front', 0.008);   // its six slats
-        S.decal(rect(-0.26, 0.51, 0.26, 0.64), K.dark, 'rear', 0.006);                                     // the tail vent
-        for (let i = 0; i < 5; i++) { const y = 0.51 + (i + 1) * 0.13 / 6; S.decal(rect(-0.24, y - 0.005, 0.24, y + 0.005), K.trim, 'rear', 0.008); }   // its five louvres
-        // the NACA slot: a dark teardrop, rounded at the front and tapering to a point at the back, on the car's right of centre
-        const cx = -0.1, zf = -0.12, zr = -0.3, hw = 0.07, n = 20, naca = [];
-        const nw = (s) => hw * Math.sqrt(Math.sin(Math.PI * s)) * (1.1 - 0.35 * s);
-        for (let i = 0; i <= n; i++) { const s = i / n; naca.push([cx + nw(s), zf + (zr - zf) * s]); }
-        for (let i = n - 1; i >= 1; i--) { const s = i / n; naca.push([cx - nw(s), zf + (zr - zf) * s]); }
-        S.decal(naca, K.dark, 'top', 0.012);
-        // the flank intake: a dark scoop from the sill to 0.6 m, between the axles
-        S.bodySide(-1.56, -2.2, -1, 0, K.dark);
-        S.bodySide(-1.56, -2.2, 0, 0.2, K.dark);
-      } },
-    livery: { name: 'Audi Sport, 1986', base: '#efefeb', rim: 0xe2e4e8, num: 1,
-      // as the car was built and as Audi Tradition runs it: plain white, the four rings low on the doors behind the
-      // front wheels and nothing else (it never ran an event, so the door plate is the game's)
-      side(P, n) {
-        P.plate(n, 0.05, -0.12);
-        for (let k = 0; k < 4; k++) P.ellipse(0.72 - k * 0.075, -0.56, 0.05, '#5d6066', 0.012);
-      },
-      top() {} },
-    rim: { spokes: 12, spokeW: 0.05, color: 0xc4c8ce, caliper: 0xd8262e }, pipes: [-0.35, 0.35] },
   { name: 'RS200', blurb: 'Ford RS200 (1986), the Group B works car: a Ghia-styled mid-engined coupé with the gearbox up front for balance and a 1.8 L Cosworth BDT turbo.',
     // 1,803 cc BDT, 444 bhp at 8,000 rpm and 490 N·m (361 lb ft) at 5,500 in works
     // tune (Ford); 2.53 m wheelbase, 4.0 m long, 1.76 m wide, 1.32 m tall; gearbox
@@ -15392,7 +15338,9 @@ function emitCarParticles(dt, ctl) {
     Game.popEmit += dt * 90;
     while (Game.popEmit >= 1) {
       Game.popEmit -= 1;
-      _tmp.set(0.42, 0.3, -2.2).applyQuaternion(Draw.q).add(Draw.pos);
+      const fl = Game.carModel && Game.carModel.flames;      // out of this car's own pipes
+      if (fl && fl.length) fl[Math.floor(Math.random() * fl.length)].getWorldPosition(_tmp);
+      else _tmp.set(0.42, 0.3, -2.2).applyQuaternion(Draw.q).add(Draw.pos);
       const v = 6 + Math.random() * 6;
       FX.glow.emit(_tmp.x, _tmp.y, _tmp.z, car.vel.x - AZ.x * v + (Math.random() - 0.5), car.vel.y - AZ.y * v + Math.random() * 0.8, car.vel.z - AZ.z * v + (Math.random() - 0.5),
         0.12 + Math.random() * 0.08, 0.3, -1.2, 1.0, 0.55, 0.2, 0.9, 0, 3);
@@ -17453,7 +17401,7 @@ const ERAS = [
   { name: 'GROUP B 1982-86', cars: ['TWINCHARGER', 'FIVE-POT', 'T16', 'STRADALE', 'RS WEDGE', 'SIX-R', 'RS200', 'KADETT 4X4', 'SAMARA S', 'ASTRA 4S', 'IBIZA BIMOTOR'], events: [
     { name: 'TOUR DE ASFALTO', stages: ['wrc-canarias', 'wrc-italy'], prize: [42000, 26000, 15000], diff: 1.06 },
     { name: '1000 LAKES', stages: ['wrc-finland', 'wrc-estonia', 'wrc-sweden'], prize: [52000, 32000, 18000], diff: 1.05 }] },
-  { name: 'GROUP S 1986-87', cars: ['222D', 'RS002', 'RS 002', 'ECV', 'ECV II'], events: [
+  { name: 'GROUP S 1986-87', cars: ['222D', 'RS002', 'ECV', 'ECV II'], events: [
     { name: 'GROUP S TEST DAYS', stages: ['wrc-portugal', 'wrc-croatia'], prize: [60000, 38000, 22000], diff: 1.03 }] },
   { name: 'GROUP A 1987-96', cars: ['INTEGRALE'], events: [
     { name: 'SAFARI & ACROPOLIS', stages: ['wrc-kenya', 'wrc-acropolis'], prize: [55000, 34000, 20000], diff: 1.04 }] },
