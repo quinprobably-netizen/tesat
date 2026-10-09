@@ -6903,8 +6903,9 @@ function drivelineStep(dt, ctl, G, th0) {
   cl.u[0] = 1; cl.u[1] = cl.u[2] = -G * c0; cl.u[3] = cl.u[4] = -G * c2;
   if (twin) { clutch(cl2, om[5], 0.5 * (om[3] + om[4]), ctl.handbrake || ctl.clutchIn); cl2.u[5] = 1; cl2.u[3] = cl2.u[4] = -G * 0.5; } else cl2.on = false;
   // differentials (the centre one lets go while the handbrake is pulled, so the rears can lock)
-  const Tin = Math.abs(G * car.Tcl), power = car.Tcl * G >= 0;
-  if (twin) { C[1].on = false; diffCpl(C[2], sp.fdiff, Tin, power, false, ctl); diffCpl(C[3], sp.rdiff, Math.abs(G * car.Tcl2), power, false, ctl); }
+  // power: the engine is driving its axle (Tcl > 0 in every gear, reverse included; the gear's sign is in G, not here)
+  const Tin = Math.abs(G * car.Tcl), power = car.Tcl >= 0, power2 = car.Tcl2 >= 0;
+  if (twin) { C[1].on = false; diffCpl(C[2], sp.fdiff, Tin, power, false, ctl); diffCpl(C[3], sp.rdiff, Math.abs(G * car.Tcl2), power2, false, ctl); }
   else {
     if (s && !ctl.handbrake) diffCpl(C[1], sp.centre, Tin, power, true, ctl); else C[1].on = false;
     if (s) diffCpl(C[2], sp.fdiff, Tin * s, power, false, ctl); else C[2].on = false;
@@ -7394,7 +7395,7 @@ const SB = {
       const dx = X[k] - qx, dy = X[k + 1] - cy, dz = X[k + 2] - qz, d2 = dx * dx + dy * dy + dz * dz, rr = R + CHICANE.blockD / 2;
       if (d2 >= rr * rr || d2 < 1e-8) continue;
       const hl = Math.hypot(dx, dz) || 1;
-      this.contact(i, dx / hl, 0, dz / hl, rr - Math.sqrt(d2), 'barrier', null, o);
+      this.contact(i, dx / hl, 0, dz / hl, rr - hl, 'barrier', null, o);
     }
   },
   /** Posts and trunks thinner than the gaps between nodes meet the beams too, so they can't slip into the car:
@@ -7432,7 +7433,8 @@ const SB = {
         if (c.gone) continue;
         const cy = clamp(p.y, c.y0, c.y1), dx = p.x - c.x, dy = p.y - cy, dz = p.z - c.z, d2 = dx * dx + dy * dy + dz * dz, rr = R + c.r;
         if (d2 >= rr * rr || d2 < 1e-8) continue;
-        const d = Math.sqrt(d2); nx = dx / d; ny = dy / d; nz = dz / d; pen = rr - d; kind = c.kind; brk = c.brk && BREAK_V[c.kind] ? c : null;
+        const d = Math.sqrt(d2);
+        if (rr - d > pen) { pen = rr - d; nx = dx / d; ny = dy / d; nz = dz / d; kind = c.kind; brk = c.brk && BREAK_V[c.kind] ? c : null; }
       }
       for (const o of this.blocks) {
         if (o.gone || pen > 0) continue;
@@ -7440,7 +7442,7 @@ const SB = {
         const qx = o.x + ex * t, qz = o.z + ez * t, cy = clamp(p.y, o.y, o.y + CHICANE.blockH);
         const dx = p.x - qx, dy = p.y - cy, dz = p.z - qz, d2 = dx * dx + dy * dy + dz * dz, rr = R + CHICANE.blockD / 2;
         if (d2 >= rr * rr || d2 < 1e-8) continue;
-        const hl = Math.hypot(dx, dz) || 1; nx = dx / hl; ny = 0; nz = dz / hl; pen = rr - Math.sqrt(d2); kind = 'barrier'; obj = o;
+        const hl = Math.hypot(dx, dz) || 1; nx = dx / hl; ny = 0; nz = dz / hl; pen = rr - hl; kind = 'barrier'; obj = o;
       }
       if (pen > 0) for (let j = 0; j < 4; j++) if (W[j] > 0.05) this.contact(I[j], nx, ny, nz, pen * W[j] * 2, kind, brk, obj);
     }
@@ -7495,8 +7497,8 @@ const SB = {
           const px = P[j] - (o.x + ex * t2), py = P[j + 1] - clamp(P[j + 1], o.y, o.y + CHICANE.blockH), pz = P[j + 2] - (o.z + ez * t2);
           const d2 = px * px + py * py + pz * pz;
           if (d2 >= bh * bh || d2 < 1e-8) continue;
-          const d = Math.sqrt(d2), hl = Math.hypot(px, pz) || 1;
-          if (bh - d > pen) { pen = bh - d; nx = px / hl; nz = pz / hl; }
+          const hl = Math.hypot(px, pz);
+          if (hl > 1e-6 && bh - hl > pen) { pen = bh - hl; nx = px / hl; nz = pz / hl; }
         }
         if (!pen) continue;
         for (let i = 0; i < 3; i++) this.contact(M.i[i], nx, 0, nz, pen * M.w[i], 'barrier', null, o);
@@ -7929,8 +7931,10 @@ function stepVehicle(dt, ctl) {
     for (let k = drv0; k < drv1; k++) { const w = car.wheels[k]; if (w.grounded) over = Math.max(over, w.kap * Math.sign(rev ? -1 : 1) / w.ts.kp); }
     car.tcF = over > 1.35 ? Math.max(0.05, car.tcF - dt * 6 * (over - 0.9)) : Math.min(1, car.tcF + dt * 2.5);
   } else car.tcF = Math.min(1, car.tcF + dt * 4);
-  car.tcCut = car.tc && th0 > 0.05 && car.tcF < 0.95;
-  if (car.tc) th0 *= car.tcF;
+  // the traction control eases the throttle only off the brake: the driver's pedal is never cut while braking
+  const tcOn = car.tc && ctl.brake < 0.02;
+  car.tcCut = tcOn && th0 > 0.05 && car.tcF < 0.95;
+  if (tcOn) th0 *= car.tcF;
   // the stability control trims the engine while it brakes a wheel, but never while the driver is on the brake pedal:
   // then the throttle stays wholly the driver's
   if (car.esc && ctl.brake < 0.02) th0 *= 1 - escTrim;
@@ -7951,7 +7955,7 @@ function stepVehicle(dt, ctl) {
     if (!w.grounded) { w.J = 0; continue; }
     w.sliding = w.slip > 1.15;
     w.locked = w.pB > BRAKES.gap * BRAKES.pMax && Math.abs(w.vLong) > 2 && Math.abs(w.om * CAR.radius) < 0.15 * Math.abs(w.vLong);
-    w.spinning = k >= drv0 && k < drv1 && w.kap > 1.6 * w.ts.kp && Math.abs(w.om * CAR.radius) > 2;
+    w.spinning = k >= drv0 && k < drv1 && w.kap * (rev ? -1 : 1) > 1.6 * w.ts.kp && Math.abs(w.om * CAR.radius) > 2;
     w.slipLat = w.vLat;
     _ft.copy(w.fw).multiplyScalar(w.Fx).addScaledVector(w.lt, w.Fy);
     addForceAt(_ft, w.cp);
@@ -8075,8 +8079,8 @@ function collideObstacles() {
         const dx = _sc.x - qx, dy = _sc.y - cy, dz = _sc.z - qz;
         const d2 = dx * dx + dy * dy + dz * dz, rr = R + CHICANE.blockD / 2;
         if (d2 >= rr * rr || d2 < 1e-8) continue;
-        const d = Math.sqrt(d2), hl = Math.hypot(dx, dz) || 1;   // blocks shove sideways, never launch
-        resolveContact(dx / hl, 0, dz / hl, rr - d, 'barrier', qx + dx / hl * 0.3, cy, qz + dz / hl * 0.3, o);
+        const hl = Math.hypot(dx, dz) || 1;   // blocks shove sideways, never launch: the push is the horizontal gap
+        resolveContact(dx / hl, 0, dz / hl, rr - hl, 'barrier', qx + dx / hl * 0.3, cy, qz + dz / hl * 0.3, o);
         _sc.set(S[0], S[1], S[2]).applyQuaternion(car.q).add(car.pos);
       }
     }
@@ -8323,7 +8327,7 @@ const PhysicsRig = {
       px = _wl.x; pz = _wl.z;
       if (all4 > 0 && i - all4 < 120 && car.nGround <= 2) few++;
     });
-    return { reversals: rev, twoWheels: few * this.dt };
+    return { reversals: rev, twoWheels: few * this.dt, all4: all4 > 0 };
   },
 };
 const _eT = new THREE.Euler();
@@ -8416,6 +8420,8 @@ function physicsTests(build) {
     check('core: 2 m drop, rebound above ride height (m)', rig.drop(2).rebound, -0.05, 0.1);
     const tilt = rig.tiltDrop(3, 0.1, 0.07);
     check('core: 3 m landing on one corner, time on two wheels after (s)', tilt.twoWheels, 0, 0.05);
+    check('core: 3 m landing on one corner, all four wheels down (1 = yes)', tilt.all4 ? 1 : 0, 1, 1);
+    check('core: 3 m landing on one corner, pitch/roll reversals (count)', tilt.reversals, 0, 10);
     const stepSteer = (dt) => {
       rig.dt = dt; rig.place(SURF.GRAVEL, 25, { road: true });
       rig.step(Math.round(3 / dt), (i) => { rig.ctl.throttle = 0.6; rig.ctl.steer = i * dt > 0.5 ? 0.6 : 0; });
@@ -8438,10 +8444,12 @@ function physicsTests(build) {
     check('core: handbrake on a 15% gravel grade, creep in 30 s (cm)', Math.abs(car.pos.z - z0) * 100, 0, 2);
     // a grass verge: rolling resistance on grass is about 0.08 (a gravel 0.035 plus 0.04), so a launch costs a little, not all of it
     const g0 = rig.launch(SURF.GRAVEL, 40).t100, g1 = rig.launch(SURF.GRAVEL, 40, { verge: 0.04 }).t100;
-    check('verge: 0-100 km/h on grass off the road / on gravel (ratio)', g1 / g0, 1.0, 1.6);
+    check('verge: 0-100 km/h on grass off the road / on gravel (ratio)', g1 / g0, 1.1, 1.4);
   });
   // 5) the soft body, which the rig runs only when asked (rig.place(..., { soft: true }) and rig.drop(h, true)): at rest
   //    it sits where the rigid car does with no beam set, and a 0.5 m drop lands within the rigid car's own figures
+  const keepSoft = Store.data.settings.soft;
+  Store.data.settings.soft = true;                 // (forced on, so a player's SOFT BODY setting can't turn these into rigid-car checks)
   {
     const rigid = {}, soft = {};
     PhysicsRig.run(tyred(TT), (rig) => {
@@ -8451,10 +8459,11 @@ function physicsTests(build) {
     });
     PhysicsRig.run(tyred(TT), (rig) => {
       rig.place(SURF.TARMAC, 0, { soft: true }); rig.step(900);
-      soft.y = car.pos.y; soft.N = car.wheels.map((w) => w.N);
+      soft.y = car.pos.y; soft.N = car.wheels.map((w) => w.N); soft.on = SB.on;
       soft.set = SB.l0.reduce((n, l, b) => n + (Math.abs(l - SB.l00[b]) > 1e-6 * SB.l00[b] ? 1 : 0), 0) + SB.broke;
       soft.d = rig.drop(0.5, true);
     });
+    check('soft: the soft body is on in these checks (1 = yes)', soft.on ? 1 : 0, 1, 1);
     check('soft: ride height at rest vs rigid (cm)', (soft.y - rigid.y) * 100, -0.2, 0.2);
     check('soft: largest corner load off rigid at rest (%)', Math.max(...soft.N.map((n, k) => Math.abs(n / rigid.N[k] - 1))) * 100, 0, 1);
     check('soft: beams set or broken at rest (count)', soft.set, 0, 0);
@@ -8462,9 +8471,10 @@ function physicsTests(build) {
     check('soft: 0.5 m drop, deepest point vs rigid (cm)', (soft.d.dip - rigid.d.dip) * 100, -2, 2);
     check('soft: 0.5 m drop, most compression vs rigid (%)', (soft.d.maxComp / rigid.d.maxComp - 1) * 100, -5, 5);
     check('soft: 0.5 m drop, rebound vs rigid (cm)', (soft.d.rebound - rigid.d.rebound) * 100, -1, 1);   // (a few mm either way: the frame flexes)
-    check('soft: 0.5 m drop, fastest node (m/s)', soft.d.vMax, 0, 10);
+    check('soft: 0.5 m drop, fastest node (m/s)', soft.d.vMax, 0, 4);
     check('soft: 0.5 m drop, beams broken', soft.d.broke, 0, 0);
   }
+  Store.data.settings.soft = keepSoft;
   // 6) the soft body in a crash and a roll-over: a 25 m/s wall with the progressive crush on and off (folded beams pack
   //    solid and push back harder), and a car set down upside down stays there and does not spring up off the ground
   {
@@ -12681,7 +12691,7 @@ function processCarEvents() {
     Cam.shake = Math.max(Cam.shake, Math.min(1, hit.speed * 0.06));
     Cam.kick(hit.nx, hit.nz, k);
     Input.rumble(k, Math.min(1, k * 1.4), 120 + 260 * k);
-    if (racing && hit.speed > 9) { Game.hitStop = Math.min(0.1, 0.035 + (hit.speed - 9) * 0.006); HUD.toast('HEAVY IMPACT', '#ff4d5e'); }   // a beat of stillness sells the weight
+    if (racing && hit.speed > 9) { Game.hitStop = Math.max(Game.hitStop, Math.min(0.1, 0.035 + (hit.speed - 9) * 0.006)); HUD.toast('HEAVY IMPACT', '#ff4d5e'); }   // a beat of stillness sells the weight
     if (racing && hit.speed > 10 && Game.carModel) {                    // panels torn off
       for (let i = 0, n = Math.min(4, Math.floor((hit.speed - 7) / 3)); i < n; i++) {
         Debris.spawn(hit.x, hit.y, hit.z, car.vel.x * 0.5 + hit.nx * 3 + (Math.random() - 0.5) * 4, 2 + Math.random() * 3, car.vel.z * 0.5 + hit.nz * 3 + (Math.random() - 0.5) * 4,
