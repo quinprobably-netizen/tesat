@@ -5686,6 +5686,8 @@ function treeGeometry(parts, snow) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
 }
+// a trunk snaps at its root when the blow's bending moment there passes its strength (wood, Pa) for about this long (s)
+const TREE_STRENGTH = 60e6, TREE_IMPACT_T = 0.2;
 const TREE_KINDS = {
   // Engelmann spruce (Pikes Peak) and Norway spruce (Värmland): a dark narrow cone in tiers
   spruce: { h: [5, 13], w: [0.55, 0.75], parts: (s) => treeGeometry([[new THREE.CylinderGeometry(0.035, 0.05, 0.3, 5), 0.15, 0x4a3626], [new THREE.ConeGeometry(0.3, 0.62, 7), 0.45, 0x22341d],
@@ -5769,7 +5771,10 @@ function buildMountainDecor(rng) {
     if (!geos.has(gk)) geos.set(gk, K.parts(snow ? 0.75 : 0));
     const key = gk + ':' + Math.floor(x / CELL) * 100000 + Math.floor(z / CELL);
     let c = cells.get(key); if (!c) cells.set(key, c = { gk, list: [], low: !!K.low });
-    const col = Math.abs(LQ2.d) < zone + 4 && !K.low ? { x, z, r: 0.5, y0: y - 1, y1: y + h, kind: 'tree', brk: h < 16 } : null;
+    // the trunk: radius about 1.1 cm per metre of height (a 10 m tree is 22 cm across at the root), solid up to the
+    // crown (3 m) and no more; the crown above is foliage a car drives through
+    const trunkR = 0.011 * h;
+    const col = Math.abs(LQ2.d) < zone + 4 && !K.low ? { x, z, r: trunkR, y0: y - 1, y1: y + Math.min(h, 3), kind: 'tree', brk: true, base: y, mcap: TREE_STRENGTH * Math.PI * trunkR ** 3 / 4, sway: null } : null;
     if (col) addCollider(col);
     c.list.push({ x, y: y - 0.35, z, h, w, rot: r3 * TAU, shade: 0.75 + 0.45 * r2, col });
   }
@@ -7060,7 +7065,7 @@ for (let j = 0; j < 12; j++) {
   for (const across of [-1, 1]) DISC.push({ across, rad: 0.5, c, s });
 }
 /* ---- soft body: the car as nodes and beams, the way BeamNG builds one ----
-   With Settings > SOFT-BODY on, the body is a lattice of 44 point masses (floor, waist and roof) joined by stiff
+   With Settings > SOFT-BODY on, the body is a lattice of point masses (floor, waist and roof) joined by stiff
    spring-damper beams instead of one rigid body. The wheels, tyres, powertrain and aids work as before and push on
    the nodes nearest where they act (addForceAt); whatever the rigid model applies as a pure force or torque (gravity,
    the aids, the wheels' gyroscopes) is spread over the nodes so the car as a whole gets exactly the same push. The
@@ -7072,7 +7077,7 @@ for (let j = 0; j < 12; j++) {
    which keeps them stiff and stable. The physics test rig (RIG_GROUND) always runs the rigid body, so the garage
    ratings and self-tests are unchanged. */
 const SB = {
-  SUB: 10, FR: [0, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 1], EZ: 0.1, NOSE: 0.65, EA: 4e6, C: 1200, YIELD: 0.004, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22, DENT: 1, DENT_MAX: 0.15, DENSE: 0.6, DENSE_K: 3,
+  SUB: 10, FR: [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 0.75, 0.8, 0.85, 0.9, 0.95, 1], EZ: 0.15, NOSE: 0.035, EA: 4e6, C: 1200, CE: 60, YIELD: 0.008, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22, DENT: 1, DENT_MAX: 0.15, DENSE: 0.6, DENSE_K: 3,
   on: false, ready: false, synced: false, key: null, n: 0, M: 0, ver: 0,
   rest: null, loc: null, m: null, x: null, v: null, fe: null, f: null, off: new THREE.Vector3(),
   ba: null, bb: null, l0: null, l00: null, ok: null, nb: 0, gh: null,
@@ -7330,7 +7335,8 @@ const SB = {
         if (L > L00 * (1 + this.BREAK) || l0[b] < 0.5 * L00) { ok[b] = 0; this.lost[ba[b]]++; this.lost[bb[b]]++; this.broke++; this.ver++; continue; }
         const yb = ys[b] * L00;
         if (L - l0[b] > yb) l0[b] = L - yb; else if (l0[b] - L > yb) l0[b] = L + yb;
-        let fs = ea[b] * (L - l0[b]) + this.C * ((V[b3] - V[a3]) * ux + (V[b3 + 1] - V[a3 + 1]) * uy + (V[b3 + 2] - V[a3 + 2]) * uz);
+        // damping: a crumple beam gets the small crush rate term CE (a crumpling zone resists its rate little), the cabin the full C
+        let fs = ea[b] * (L - l0[b]) + (endB[b] ? this.CE : this.C) * ((V[b3] - V[a3]) * ux + (V[b3 + 1] - V[a3 + 1]) * uy + (V[b3 + 2] - V[a3 + 2]) * uz);
         // densification: a crumple-zone beam crushed past DENSE of its length is packed solid, and pushes back harder the further it goes
         if (endB[b] && L < this.DENSE * L00) fs -= ea[b] * this.DENSE_K * (this.DENSE * L00 - L);
         f[a3] += fs * ux; f[a3 + 1] += fs * uy; f[a3 + 2] += fs * uz;
@@ -7386,7 +7392,7 @@ const SB = {
       const d2 = dx * dx + dy * dy + dz * dz, rr = R + c.r;
       if (d2 >= rr * rr || d2 < 1e-8) continue;
       const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, nz = dz / d;
-      this.contact(i, nx, ny, nz, rr - d, c.kind, c.brk && BREAK_V[c.kind] ? c : null, null);
+      this.contact(i, nx, ny, nz, rr - d, c.kind, c.brk ? c : null, null);
     }
     for (const o of this.blocks) {
       if (o.gone) continue;
@@ -7415,7 +7421,7 @@ const SB = {
         if (qy < c.y0 || qy > c.y1) continue;
         const dx = X[a3] + t * ex - c.x, dz = X[a3 + 2] + t * ez - c.z, d = Math.hypot(dx, dz), rr = R + c.r;
         if (d >= rr || d < 1e-6) continue;
-        const nx = dx / d, nz = dz / d, pen = rr - d, brk = c.brk && BREAK_V[c.kind] ? c : null;
+        const nx = dx / d, nz = dz / d, pen = rr - d, brk = c.brk ? c : null;
         this.contact(ba[b], nx, 0, nz, pen * (1 - t), c.kind, brk, null);
         this.contact(bb[b], nx, 0, nz, pen * t, c.kind, brk, null);
         if (c.gone) break;
@@ -7435,7 +7441,7 @@ const SB = {
         const cy = clamp(p.y, c.y0, c.y1), dx = p.x - c.x, dy = p.y - cy, dz = p.z - c.z, d2 = dx * dx + dy * dy + dz * dz, rr = R + c.r;
         if (d2 >= rr * rr || d2 < 1e-8) continue;
         const d = Math.sqrt(d2);
-        if (rr - d > pen) { pen = rr - d; nx = dx / d; ny = dy / d; nz = dz / d; kind = c.kind; brk = c.brk && BREAK_V[c.kind] ? c : null; }
+        if (rr - d > pen) { pen = rr - d; nx = dx / d; ny = dy / d; nz = dz / d; kind = c.kind; brk = c.brk ? c : null; }
       }
       for (const o of this.blocks) {
         if (o.gone || pen > 0) continue;
@@ -7481,7 +7487,7 @@ const SB = {
           if (c.r - d > pen) { pen = c.r - d; nx = ex / d; ny = ey / d; nz = ez / d; }
         }
         if (!pen) continue;
-        const brk = c.brk && BREAK_V[c.kind] ? c : null;
+        const brk = c.brk ? c : null;
         for (let i = 0; i < 3; i++) this.contact(M.i[i], nx, ny, nz, pen * M.w[i], c.kind, brk, null);
         if (c.gone) break;
       }
@@ -7516,11 +7522,12 @@ const SB = {
     X[k] += nx * pen * share; X[k + 1] += ny * pen * share; X[k + 2] += nz * pen * share;
     if (obj) { obj.x -= nx * pen * (1 - share); obj.z -= nz * pen * (1 - share); obj.moving = true; obj.ch.moving = true; }
     if (vn >= 0) return;
-    const broke = brk && -vn > BREAK_V[kind] ? brk : null;
+    const broke = brk && snaps(brk, kind, vn, X[k + 1]) ? brk : null;
     if (broke) broke.gone = true;
     const kObj = obj ? 1 / obj.mass : 0, e = obj ? CONTACT.e : restitution(-vn), invM = 1 / mi + kObj;
     let jn = -(1 + e) * vn / invM;
     if (broke) jn *= 0.3;                                         // snapping it takes only part of the blow
+    else if (brk && kind === 'tree') Breakables.sway(brk, jn * (X[k + 1] - brk.base), nx, nz);
     _jr.set(X[k] - car.pos.x, X[k + 1] - car.pos.y, X[k + 2] - car.pos.z); _jn.set(nx, ny, nz);
     const Ec = (broke ? 0.5 : 1) * 0.5 * (1 - e * e) * vn * vn / (contactInvMass(_jr, _jn) + kObj);   // impact energy, as the rigid path takes it
     const tx = ux - vn * nx, ty = uy - vn * ny, tz = uz - vn * nz, vt = Math.hypot(tx, ty, tz);
@@ -8097,8 +8104,14 @@ const BLOCK_HL = CHICANE.blockW / 2 - CHICANE.blockD / 2;
 const CONTACT = { e: 0.25, mu: 0.4 };
 // a soft touch bounces off; a hard hit crumples the bodywork, which soaks up the energy instead of handing it back
 const restitution = (vn) => lerp(0.35, 0.06, clamp((vn - 3) / 15, 0, 1));
-// closing speed (m/s) above which a breakable thing gives way: the car snaps it and keeps some of its speed
-const BREAK_V = { tree: 12, sign: 6 };
+// closing speed (m/s) above which a sign gives way: the car snaps it and keeps some of its speed
+const BREAK_V = { sign: 6 };
+/** Does a breakable piece of scenery give way to this blow (closing speed vn, m/s, at height y)? A tree snaps at its root
+ *  when the blow's moment there (the car's momentum, bouncing as restitution says, acting for TREE_IMPACT_T and levered
+ *  from the root up to the contact) passes the trunk's bending strength; a sign at a closing speed of BREAK_V. */
+function snaps(c, kind, vn, y) {
+  return kind === 'tree' ? (1 + restitution(-vn)) * -vn * CAR.mass * (y - c.base) > c.mcap * TREE_IMPACT_T : -vn > BREAK_V[kind];
+}
 const _jr = new THREE.Vector3(), _jn = new THREE.Vector3(), _jt = new THREE.Vector3(), _jv = new THREE.Vector3(), _jx = new THREE.Vector3();
 /** Change in the contact point's velocity along unit vector d per unit impulse along d (the inverse effective mass). */
 function contactInvMass(r, d) {
@@ -8122,8 +8135,9 @@ function resolveContact(nx, ny, nz, pen, kind, px, py, pz, obj, brk) {
   if (vn >= 0) return;
   const kObj = obj ? 1 / obj.mass : 0, invM = contactInvMass(_jr, _jn) + kObj;
   let jn = -(1 + (obj ? CONTACT.e : restitution(-vn))) * vn / invM;
-  const broke = brk && brk.brk && -vn > BREAK_V[kind] ? brk : null;
+  const broke = brk && snaps(brk, kind, vn, py) ? brk : null;
   if (broke) { broke.gone = true; jn *= 0.3; }
+  else if (brk && kind === 'tree') Breakables.sway(brk, jn * (py - brk.base), nx, nz);
   // friction: against the sliding velocity across the contact, capped by μ·jn and by what would just stop the slide
   _jt.copy(_jv).addScaledVector(_jn, -vn);
   const vt = _jt.length();
@@ -8507,6 +8521,22 @@ function physicsTests(build) {
     const on = crash(K), off = crash(0);
     check('soft: 25 m/s wall, nose crush with progressive crush vs without (%)', (on.crush / off.crush - 1) * 100, -30, -5);
     check('soft: 25 m/s wall, beams broken with progressive crush vs without (count)', on.broke, 0, off.broke);
+    // a tree trunk at the nose: a 7 m tree (1.1 cm of radius per metre) snaps at 10 m/s, a 14 m one stands at 15 m/s
+    const treeHit = (h, v) => {
+      const r = 0.011 * h, T = { x: 0, z: 0, r, y0: -1, y1: 3, kind: 'tree', brk: true, base: 0, mcap: TREE_STRENGTH * Math.PI * r ** 3 / 4, gone: false, sway: null };
+      const g = SB.gather;
+      SB.gather = function () { this.cand.length = 0; this.blocks.length = 0; this.cand.push(T); };
+      PhysicsRig.run(tyred(TT), (rig) => {
+        rig.place(SURF.TARMAC, v, { soft: true });
+        let nose = -1e9; for (let i = 0; i < SB.n; i++) nose = Math.max(nose, SB.rest[3 * i + 2]);
+        T.z = car.pos.z + nose + 1.0;
+        rig.step(120, () => {});
+      });
+      SB.gather = g;
+      return T.gone;
+    };
+    check('soft: 10 m/s into a 7 m tree, trunk snapped (1 = yes)', treeHit(7, 10) ? 1 : 0, 1, 1);
+    check('soft: 15 m/s into a 14 m tree, trunk snapped (1 = yes)', treeHit(14, 15) ? 1 : 0, 0, 0);
     let up = 0, climb = 0;
     PhysicsRig.run(tyred(TT), (rig) => {
       rig.place(SURF.TARMAC, 0, { drop: 0.8, soft: true });
@@ -12573,10 +12603,27 @@ const Debris = {
 
 /** Trees and signs the car snaps: each falls over away from the car, about its foot, and lies there. */
 const _kq = new THREE.Quaternion(), _kq2 = new THREE.Quaternion(), _kp = new THREE.Vector3(), _ks = new THREE.Vector3(), _km = new THREE.Matrix4(), _ka = new THREE.Vector3();
+const _kax = new THREE.Vector3();
 const Breakables = {
-  falling: [],
+  falling: [], swaying: [],
+  /** A tree that survives a blow sways: the blow's moment about its root sets the trunk leaning away from the car, and it springs back upright. */
+  sway(c, moment, nx, nz) {
+    const t = c.tree && c.tree.t;
+    if (!t || c.fall) return;
+    if (!c.sway) { c.sway = { ax: new THREE.Vector3(), th: 0, w: 0 }; this.swaying.push(c); }
+    const s = c.sway;
+    _kax.set(nz, 0, -nx);                                       // the lean's axis: positive leans toward the car
+    if (s.ax.dot(_kax) < 0) { s.th = -s.th; s.w = -s.w; }      // keep one sense for the angle when the hit comes from the other side
+    s.ax.copy(_kax);
+    s.w -= moment / (500 * Math.PI * c.r * c.r * t.h ** 3 / 3);  // wood (500 kg/m3) about its root: a solid rod's inertia
+  },
+  unsway(c) {
+    if (!c.sway) return;
+    c.sway = null; this.swaying.splice(this.swaying.indexOf(c), 1);
+  },
   knock(c, vx, vz, speed) {
     if (c.fall) return;
+    this.unsway(c);
     const l = Math.hypot(vx, vz) || 1;
     c.fall = { ax: new THREE.Vector3(vz / l, 0, -vx / l), ang: 0, w: Math.min(2, speed * 0.06), q0: c.grp ? new THREE.Quaternion().setFromEuler(c.rot0) : null };
     TR.broken.push(c); this.falling.push(c);
@@ -12590,10 +12637,17 @@ const Breakables = {
       if (f.ang >= max) { f.ang = max; f.w *= -0.25; if (Math.abs(f.w) < 0.1) this.falling.splice(i, 1); }
       this.apply(c);
     }
+    for (let i = this.swaying.length - 1; i >= 0; i--) {
+      const c = this.swaying[i], s = c.sway, wn = 2 * Math.PI / (0.1 * c.tree.t.h);   // about 1 s for a 10 m tree
+      s.w += (-wn * wn * s.th - 0.2 * wn * s.w) * dt;              // a spring with a tenth of critical damping
+      s.th += s.w * dt;
+      if (Math.abs(s.th) < 1e-4 && Math.abs(s.w) < 1e-3) this.unsway(c);
+      this.apply(c);
+    }
   },
   apply(c) {
-    const f = c.fall, a = f ? f.ang : 0;
-    _kq.setFromAxisAngle(f ? f.ax : _ka.set(1, 0, 0), a);
+    const f = c.fall, s = c.sway, a = f ? f.ang : s ? s.th : 0;
+    _kq.setFromAxisAngle(f ? f.ax : s ? s.ax : _ka.set(1, 0, 0), a);
     if (c.tree) {
       const { mesh, k, t } = c.tree;
       _kq.multiply(_kq2.setFromAxisAngle(UP, t.rot));
@@ -12603,6 +12657,8 @@ const Breakables = {
   },
   reset() {
     if (!TR) return;
+    for (const c of this.swaying) { c.sway = null; this.apply(c); }
+    this.swaying.length = 0;
     for (const c of TR.broken) { c.gone = false; if (c.fall) { c.fall.ang = 0; this.apply(c); } c.fall = null; }
     TR.broken.length = 0; this.falling.length = 0;
   },
