@@ -5686,8 +5686,9 @@ function treeGeometry(parts, snow) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
 }
-// a trunk snaps at its root when the blow's bending moment there passes its strength (wood, Pa) for about this long (s)
-const TREE_STRENGTH = 60e6, TREE_IMPACT_T = 0.2;
+// a trunk snaps at its root when the blow's bending moment there passes its strength (wood, Pa) for about this long (s).
+// 64 MPa is dry Engelmann spruce's bending strength (Wood Handbook, via the Oregon State table); green wood is weaker
+const TREE_STRENGTH = 64e6, TREE_IMPACT_T = 0.2;
 const TREE_KINDS = {
   // Engelmann spruce (Pikes Peak) and Norway spruce (Värmland): a dark narrow cone in tiers
   spruce: { h: [5, 13], w: [0.55, 0.75], parts: (s) => treeGeometry([[new THREE.CylinderGeometry(0.035, 0.05, 0.3, 5), 0.15, 0x4a3626], [new THREE.ConeGeometry(0.3, 0.62, 7), 0.45, 0x22341d],
@@ -5771,9 +5772,9 @@ function buildMountainDecor(rng) {
     if (!geos.has(gk)) geos.set(gk, K.parts(snow ? 0.75 : 0));
     const key = gk + ':' + Math.floor(x / CELL) * 100000 + Math.floor(z / CELL);
     let c = cells.get(key); if (!c) cells.set(key, c = { gk, list: [], low: !!K.low });
-    // the trunk: radius about 1.1 cm per metre of height (a 10 m tree is 22 cm across at the root), solid up to the
+    // the trunk: radius about 0.5 cm per metre of height (stand pine: 19 cm across at 19 m), solid up to the
     // crown (3 m) and no more; the crown above is foliage a car drives through
-    const trunkR = 0.011 * h;
+    const trunkR = 0.005 * h;
     const col = Math.abs(LQ2.d) < zone + 4 && !K.low ? { x, z, r: trunkR, y0: y - 1, y1: y + Math.min(h, 3), kind: 'tree', brk: true, base: y, mcap: TREE_STRENGTH * Math.PI * trunkR ** 3 / 4, sway: null } : null;
     if (col) addCollider(col);
     c.list.push({ x, y: y - 0.35, z, h, w, rot: r3 * TAU, shade: 0.75 + 0.45 * r2, col });
@@ -8521,9 +8522,9 @@ function physicsTests(build) {
     const on = crash(K), off = crash(0);
     check('soft: 25 m/s wall, nose crush with progressive crush vs without (%)', (on.crush / off.crush - 1) * 100, -30, -5);
     check('soft: 25 m/s wall, beams broken with progressive crush vs without (count)', on.broke, 0, off.broke);
-    // a tree trunk at the nose: a 7 m tree (1.1 cm of radius per metre) snaps at 10 m/s, a 14 m one stands at 15 m/s
+    // a tree trunk at the nose: a 7 m tree snaps at 10 m/s, a 20 m one (20 cm across) stands at 15 m/s
     const treeHit = (h, v) => {
-      const r = 0.011 * h, T = { x: 0, z: 0, r, y0: -1, y1: 3, kind: 'tree', brk: true, base: 0, mcap: TREE_STRENGTH * Math.PI * r ** 3 / 4, gone: false, sway: null };
+      const r = 0.005 * h, T = { x: 0, z: 0, r, y0: -1, y1: 3, kind: 'tree', brk: true, base: 0, mcap: TREE_STRENGTH * Math.PI * r ** 3 / 4, gone: false, sway: null };
       const g = SB.gather;
       SB.gather = function () { this.cand.length = 0; this.blocks.length = 0; this.cand.push(T); };
       PhysicsRig.run(tyred(TT), (rig) => {
@@ -8536,7 +8537,7 @@ function physicsTests(build) {
       return T.gone;
     };
     check('soft: 10 m/s into a 7 m tree, trunk snapped (1 = yes)', treeHit(7, 10) ? 1 : 0, 1, 1);
-    check('soft: 15 m/s into a 14 m tree, trunk snapped (1 = yes)', treeHit(14, 15) ? 1 : 0, 0, 0);
+    check('soft: 15 m/s into a 20 m tree, trunk snapped (1 = yes)', treeHit(20, 15) ? 1 : 0, 0, 0);
     let up = 0, climb = 0;
     PhysicsRig.run(tyred(TT), (rig) => {
       rig.place(SURF.TARMAC, 0, { drop: 0.8, soft: true });
