@@ -6110,6 +6110,7 @@ function spectatorBody() {
 function spectatorMaterial() {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, flatShading: true });
   mat.onBeforeCompile = (sh) => {
+    hazeUniforms(sh);
     sh.vertexShader = 'attribute float aShirt;\n' + sh.vertexShader.replace('#include <color_vertex>',
       THREE.ShaderChunk.color_vertex.replace('vColor.rgb *= instanceColor.rgb;', 'vColor.rgb *= mix(vec3(1.0), instanceColor.rgb, aShirt);'));
   };
@@ -13395,15 +13396,16 @@ const TyreMarks = {
   /** A new mesh per stage (the old one goes with stageGroup). */
   build(group) {
     const N = this.MAX = LOW_SPEC ? 4000 : 6000;
-    this.pos = new Float32Array(N * 12); this.col = new Float32Array(N * 16);
+    this.pos = new Float32Array(N * 12); this.nrm = new Float32Array(N * 12); this.col = new Float32Array(N * 16);
     const idx = new Uint32Array(N * 6);
     for (let s = 0; s < N; s++) idx.set([s * 4, s * 4 + 1, s * 4 + 2, s * 4, s * 4 + 2, s * 4 + 3], s * 6);
     this.posAttr = new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage);
     this.colAttr = new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage);
+    this.nrmAttr = new THREE.BufferAttribute(this.nrm, 3).setUsage(THREE.DynamicDrawUsage);
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', this.posAttr); geo.setAttribute('color', this.colAttr);
+    geo.setAttribute('position', this.posAttr); geo.setAttribute('normal', this.nrmAttr); geo.setAttribute('color', this.colAttr);
     geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.setDrawRange(0, 0);
-    const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    const mat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide,   // lit like the ground under it
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 1;
@@ -13454,10 +13456,11 @@ const TyreMarks = {
   },
   /** One quad from the wheel's last point to this one, written into the next ring slot. */
   quad(st, x, y, z, lt, n, c, a) {
-    const s = this.head, P = this.pos, C = this.col, hw = this.HALF_W, L = this.LIFT;
+    const s = this.head, P = this.pos, Nr = this.nrm, C = this.col, hw = this.HALF_W, L = this.LIFT;
     const put = (i, px, py, pz) => {
-      const o = s * 4 + i;
+      const o = s * 4 + i, q = i < 2;
       P[o * 3] = px; P[o * 3 + 1] = py; P[o * 3 + 2] = pz;
+      Nr[o * 3] = q ? st.nx : n.x; Nr[o * 3 + 1] = q ? st.ny : n.y; Nr[o * 3 + 2] = q ? st.nz : n.z;
       C[o * 4] = c.r; C[o * 4 + 1] = c.g; C[o * 4 + 2] = c.b; C[o * 4 + 3] = a;
     };
     put(0, st.x - st.lx * hw + st.nx * L, st.y - st.ly * hw + st.ny * L, st.z - st.lz * hw + st.nz * L);
@@ -13473,7 +13476,7 @@ const TyreMarks = {
   flush() {
     if (this.dLo < 0) return;
     const lo = this.dLo, n = this.dHi - lo + 1; this.dLo = -1;
-    for (const [a, stride] of [[this.posAttr, 12], [this.colAttr, 16]]) {
+    for (const [a, stride] of [[this.posAttr, 12], [this.nrmAttr, 12], [this.colAttr, 16]]) {
       if (a.updateRanges.length > 16) { a.clearUpdateRanges(); a.addUpdateRange(0, a.array.length); }
       else a.addUpdateRange(lo * stride, n * stride);
       a.needsUpdate = true;
