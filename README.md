@@ -46,13 +46,12 @@ The stage select groups them as SPACE, WRC 2026, HILLCLIMB and TEST. Every stage
 
 ## Cars
 
-Seventeen cars, each built from its real specifications: engine, power and torque curve, gearbox, differentials, weight and weight split, wheelbase and tracks, wheel travel, tyre size, brake discs and dimensions. Where a figure was never published (most Group S prototypes, many gear ratios), it is an estimate and the garage CAR tab says so.
+Sixteen cars, each built from its real specifications: engine, power and torque curve, gearbox, differentials, weight and weight split, wheelbase and tracks, wheel travel, tyre size, brake discs and dimensions. Where a figure was never published (most Group S prototypes, many gear ratios), it is an estimate and the garage CAR tab says so.
 
 | Car | Real car | Engine | Power | Torque | Weight | Gearbox | Drive |
 |---|---|---|---|---|---|---|---|
 | MINI | Mini Cooper S, 1964 Monte Carlo winner | 1.07 L I4 (A-series) | 90 hp | 95 N·m | 650 kg | 4-speed, no synchro on first | FWD, open diff |
 | RS200 | Ford RS200 (1986), Group B | 1.8 L I4 turbo (Cosworth BDT) | 444 hp | 490 N·m | 1,050 kg | 5-speed synchro | 4WD, three viscous diffs |
-| RS 002 | Audi Sport quattro RS 002 (1987), Group S | 2.1 L I5 turbo, mid-mounted | 690 hp | 660 N·m | 1,000 kg | 5-speed synchro | 4WD, Torsen centre |
 | SAMARA S | Lada Samara S-proto (1989) | 1.6 L I4 turbo, mid-mounted | 350 hp | 400 N·m | 980 kg | 5-speed dog box | 4WD, viscous centre |
 | ECV | Lancia ECV (1986), Group S | 1.8 L I4 twin-turbo (Triflux) | 592 hp | 538 N·m | 930 kg | 5-speed Hewland dog box | 4WD, viscous centre |
 | ECV II | Lancia ECV2 (1988) | 1.8 L I4 twin-turbo (Triflux) | 592 hp | 538 N·m | 910 kg | 6-speed dog box | 4WD, viscous centre |
@@ -62,7 +61,7 @@ Seventeen cars, each built from its real specifications: engine, power and torqu
 | IBIZA BIMOTOR | SEAT Ibiza Bimotor (1986-87) | Two 1.5 L I4s (System Porsche), one per axle | 280 hp | 310 N·m | 1,080 kg | Two linked 5-speed synchro boxes | 4WD, one engine per axle |
 | C3 WRC | Citroën C3 WRC (2017-19) | 1.6 L I4 turbo, 36 mm restrictor | 380 hp | 450 N·m | 1,190 kg | 6-speed Sadev sequential | 4WD, active centre |
 | FIESTA WRC | Ford Fiesta WRC (2017-21) | 1.6 L I4 turbo (EcoBoost), 36 mm restrictor | 380 hp | 450 N·m | 1,190 kg | 6-speed Ricardo sequential | 4WD, active centre |
-| IMPREZA WRC | Subaru Impreza WRC2008 | 2.0 L flat-4 turbo (EJ20) | 300 hp | 650 N·m | 1,230 kg | 6-speed Prodrive sequential | 4WD, active centre |
+| IMPREZA WRC | Subaru Impreza WRC2008 | 2.0 L flat-4 turbo (EJ20) | 300 hp | 520 N·m | 1,230 kg | 6-speed Prodrive sequential | 4WD, active centre |
 | YARIS WRC | Toyota Yaris WRC (2017-21) | 1.6 L I4 turbo, 36 mm restrictor | 380 hp | 450 N·m | 1,190 kg | 6-speed Xtrac sequential | 4WD, active centre |
 | POLO R WRC | Volkswagen Polo R WRC (2013-16) | 1.6 L I4 turbo (TSI), 33 mm restrictor | 318 hp | 425 N·m | 1,200 kg | 6-speed Ricardo sequential | 4WD, no centre diff |
 | POWERSTAR | Iveco Powerstar Dakar truck (2012), FIA T5 | 12.9 L I6 turbo diesel | 840 hp | 3,600 N·m | 9,300 kg | 16-speed ZF | 4WD, locked centre |
@@ -70,7 +69,7 @@ Seventeen cars, each built from its real specifications: engine, power and torqu
 
 Each body is lofted from traces of the real car's side, top and plan views, at its real length, width, height and overhangs, with its own glasshouse, lamps, intakes, splitter, rear wing and wheels. Drag uses the published drag coefficient where one exists; downforce is estimated.
 
-**Gearboxes.** Each box shifts like the real one. The WRC sequentials flat-shift (ignition cut up, auto-blip down, one gear per pull). The dog boxes and synchromesh boxes are H-pattern: the clutch goes down and boost falls away during the change, you can skip gates, and a synchromesh box is slower the more the revs must change. Anti-lag follows the era: none on most Group B and Group S cars, Audi's recirculating system on the RS 002, bang-bang ALS on the WRC cars. Reverse is its own gear.
+**Gearboxes.** Each box shifts like the real one. The WRC sequentials flat-shift (ignition cut up, auto-blip down, one gear per pull). The dog boxes and synchromesh boxes are H-pattern: the clutch goes down and boost falls away during the change, you can skip gates, and a synchromesh box is slower the more the revs must change. Anti-lag follows the era: none on the Group B and Group S cars or the trucks, bang-bang ALS on the WRC cars. Reverse is its own gear.
 
 ## Driving model
 
@@ -89,8 +88,8 @@ Before each stage the service park sets springs, dampers, anti-roll bars, final 
 
 ## Garage
 
-- **CAR.** The fifteen cars above on a live 3D preview you can spin, with every real figure and its aero package.
-- **DRIVER.** Eight real drivers, each sitting in the car with their real co-driver: Henri Toivonen, Michèle Mouton, Ari Vatanen, Walter Röhrl, Stig Blomqvist, Tony Pond, Kalle Rovanperä, and Ivan "Ironman" Stewart, who drives solo. The driver is looks only.
+- **CAR.** The sixteen cars above on a live 3D preview you can spin, with every real figure and its aero package.
+- **DRIVER.** Sixteen real drivers, each sitting in the car with their real co-driver: Henri Toivonen, Michèle Mouton, Ari Vatanen, Walter Röhrl, Stig Blomqvist, Tony Pond, Kalle Rovanperä, Thierry Neuville, Ott Tänak, Marcus Grönholm, Paddy Hopkirk, Colin McRae, Sébastien Ogier, Hannu Mikkola, Sébastien Loeb, and Ivan "Ironman" Stewart, who drives solo. The driver is looks only.
 - **LIVERY.** The car's WORKS livery (repainted from period photos) or a PAINT colour from a full-spectrum picker, then up to 16 layers of your own stripes, numbers, text and roof colour.
 
 Every build gets a **PI** (performance index, 100 to 999) and a class: D, C, B, A, S1, S2 and X. Six ratings (speed, handling, acceleration, launch, braking and offroad) are measured on the same physics you drive.
@@ -102,7 +101,7 @@ Every build gets a **PI** (performance index, 100 to 999) and a class: D, C, B, 
 - **PLAY.** Pick a stage, its weather and time of day, and race the clock. Each stage has a leaderboard and ghosts.
 - **RALLY.** The fourteen WRC stages back to back. Damage carries over, and between stages you have 30 minutes of service to choose repairs; every minute over costs 10 s.
 - **EVENTS:**
-  - **Career.** Start in the 1964 Mini with 8,000 in prize money and climb the eras (1960s classics, Group B, Group S, Group A, World Rally Cars, Rally1, Unlimited), buying cars and hiring better co-drivers, who make fewer wrong calls.
+  - **Career.** Start in the 1964 Mini with 8,000 in prize money and climb the eras (1960s classics, Group B, Group S, World Rally Cars, the 2017-21 widebody World Rally Cars, Unlimited), buying cars and hiring better co-drivers, who make fewer wrong calls.
   - **Weekly.** A new six-stage championship every Monday for one car class, with set conditions; your first finished run on each round counts.
   - **Hillclimb.** Pikes Peak and the Col de Turini as a time-attack series.
   - **Raid.** Three desert legs north of Jeddah by roadbook only: no racing line, no voice, 40 L of fuel, two spare sets of tyres that wear, and overnight service between legs.
