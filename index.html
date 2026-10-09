@@ -4771,8 +4771,10 @@ vec2 wp = vWPos.xz;
 float camDist = length(vWPos - cameraPosition);
 float hf = 1.0 - smoothstep(30.0, 150.0, camDist);           // fine detail (and bump) fades out with distance
 float fp = length(fwidth(wp));                                // metres per pixel: anything smaller than a few pixels is left out
-float hfFine = hf * (1.0 - smoothstep(0.006, 0.025, fp));
-float bCm = 1.0 - smoothstep(0.0015, 0.004, fp), bStone = 1.0 - smoothstep(0.004, 0.012, fp);   // bump only from what spans several pixels
+float hfFine = hf * (1.0 - smoothstep(0.01, 0.06, fp));
+// bump only from what spans several pixels, fading over a long stretch of distance so the ground near the camera
+// doesn't read as a different material from the ground a few metres further on
+float bCm = 1.0 - smoothstep(0.002, 0.012, fp), bStone = 1.0 - smoothstep(0.006, 0.05, fp);
 // two detail maps, each read at a few scales and rotations so no tile repeats visibly
 const mat2 rrRot = mat2(0.8, 0.6, -0.6, 0.8);
 vec4 A1 = texture2D(uDetA, wp * 0.24);                       // 4.2 m tile
@@ -4962,7 +4964,7 @@ if (uWet > 0.001) {
   rrRough = mix(rrRough, min(rrRough, glossy), wetK);
   rrRough = mix(rrRough, 0.04, film);
 }
-vec2 rrDH = vec2(dFdx(rrH), dFdy(rrH)) * (1.0 - smoothstep(0.01, 0.04, fp)) * hf * uBump * (1.0 - 0.8 * film);   // standing water is flat
+vec2 rrDH = vec2(dFdx(rrH), dFdy(rrH)) * (1.0 - smoothstep(0.02, 0.09, fp)) * hf * uBump * (1.0 - 0.8 * film);   // standing water is flat
 #ifdef RR_TALUS
 rrDH += vec2(dFdx(hBld), dFdy(hBld)) * 0.6 * sx4.w * (1.0 - smoothstep(0.04, 0.14, fp)) * hf * uBump;   // the boulders' own bump reaches further out
 #endif
@@ -5046,7 +5048,7 @@ function makeTerrainMaterial(def) {
     sh.uniforms.uHW = { value: def.hw };
     sh.uniforms.uStripe = { value: stripe };
     sh.uniforms.uLines = { value: def.roadLines || 0 };
-    sh.uniforms.uBump = { value: LOW_SPEC ? 0.6 : 1.4 };
+    sh.uniforms.uBump = { value: LOW_SPEC ? 0.5 : 0.9 };
     sh.uniforms.uDetA = { value: det[0] };
     sh.uniforms.uDetB = { value: det[1] };
     if (lc) { sh.uniforms.uLC = { value: lc.tex }; sh.uniforms.uLCo = { value: lc.o }; sh.uniforms.uLCs = { value: lc.s }; }
