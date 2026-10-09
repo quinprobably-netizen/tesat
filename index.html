@@ -2748,6 +2748,47 @@ renderer.toneMappingExposure = 1.05;
 document.getElementById('app').prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
+/* Haze: on top of the linear fog (which weather thickens), an exponential haze that is denser low down, so distant
+   hills fade toward the horizon colour and valleys hold more of it than the peaks; a thin mist layer can lie in the
+   lowest ground. Facing the sun, the haze takes on its colour. Patched into three's fog chunks for every built-in
+   material; HAZE_U reaches each one through the Material default onBeforeCompile (a material with its own
+   onBeforeCompile calls hazeUniforms itself). Zero density leaves the old linear fog. */
+const HAZE_U = {
+  uHaze: { value: new THREE.Vector4(0, 1 / 700, 0, 0) },          // density per metre at y0, falloff per metre, y0, sun glow
+  uMist: { value: new THREE.Vector4(0, 1 / 35, 0, 0) },           // the low mist layer: density, falloff, y0
+  uHazeSun: { value: new THREE.Vector3(0, 1, 0) }, uHazeSunCol: { value: new THREE.Color(1, 0.9, 0.75) },
+};
+function hazeUniforms(sh) { Object.assign(sh.uniforms, HAZE_U); }
+THREE.Material.prototype.onBeforeCompile = hazeUniforms;
+THREE.ShaderChunk.fog_pars_vertex = '#ifdef USE_FOG\n varying float vFogDepth;\n varying vec3 vFogWorld;\n#endif';
+THREE.ShaderChunk.fog_vertex = '#ifdef USE_FOG\n vFogDepth = - mvPosition.z;\n vFogWorld = (mvPosition.xyz - viewMatrix[3].xyz) * mat3(viewMatrix);\n#endif';
+THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
+uniform vec3 fogColor; varying float vFogDepth; varying vec3 vFogWorld;
+uniform vec4 uHaze; uniform vec4 uMist; uniform vec3 uHazeSun; uniform vec3 uHazeSunCol;
+#ifdef FOG_EXP2
+uniform float fogDensity;
+#else
+uniform float fogNear; uniform float fogFar;
+#endif
+// optical depth of a layer with density a * exp(-b (y - y0)) along the ray from the camera to the fragment
+float rrLayer(vec4 L, vec3 v, float d) {
+  float bdy = L.y * v.y;
+  float k = abs(bdy) > 1e-4 ? (1.0 - exp(-bdy)) / bdy : 1.0 - 0.5 * bdy;
+  return L.x * exp(-L.y * (cameraPosition.y - L.z)) * k * d;
+}
+#endif`;
+THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
+#ifdef FOG_EXP2
+float fogFactor = 1.0 - exp(- fogDensity * fogDensity * vFogDepth * vFogDepth);
+#else
+float fogFactor = smoothstep(fogNear, fogFar, vFogDepth);
+#endif
+vec3 rrFv = vFogWorld - cameraPosition; float rrFd = max(length(rrFv), 1e-3);
+float rrOD = rrLayer(uHaze, rrFv, rrFd) + rrLayer(uMist, rrFv, rrFd);
+fogFactor = 1.0 - (1.0 - fogFactor) * exp(-min(rrOD, 30.0));
+float rrSunF = pow(max(dot(rrFv / rrFd, uHazeSun), 0.0), 6.0) * uHaze.w;
+gl_FragColor.rgb = mix(gl_FragColor.rgb, mix(fogColor, uHazeSunCol, rrSunF), fogFactor);
+#endif`;
 const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.3, 6500);
 scene.add(camera);
 
@@ -2908,6 +2949,7 @@ function makeCanvas(w, h, draw, aniso = true) {
 // They write display colour straight to the screen. With post effects on they draw into a linear HDR buffer that
 // OutputPass then tone-maps (ACES) and sRGB-encodes, so rrOut undoes both first and the colour lands where it did.
 const POST_U = { uPost: { value: 0 }, uPostExposure: { value: 1 } };
+const WET_U = { value: 0 };   // how wet the ground looks (the terrain shader), 0 dry to 1 soaked
 const GLSL_POST = `
 uniform float uPost; uniform float uPostExposure;
 vec3 rrOut(vec3 c) {
@@ -3259,6 +3301,7 @@ const Sky = {
     // Lights.
     sunLight.color.set(s.sunColor).convertSRGBToLinear(); sunLight.intensity = s.sunIntensity * LIGHT_PI;
     hemiLight.color.set(def.hemi.sky).convertSRGBToLinear(); hemiLight.groundColor.set(def.hemi.ground).convertSRGBToLinear(); hemiLight.intensity = def.hemi.intensity * LIGHT_PI;
+    if (TR && TR.groundTint && TR.def === def) tintBounce();
   },
   /** Sky, planet and ring are "infinitely far": they follow the camera. */
   update(dt, ringY) {
@@ -4907,7 +4950,19 @@ diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.015), vec3(0.8, 0.5, 0.03), 
 float rrRough = clamp(dot(sw4, vec4(0.95 - 0.1 * rStones, rIce, rMetal, 0.9)) + dot(sx4, vec4(rTar - 0.2 * (yl + wl + dash), rSnow, rGround, rTal)), 0.04, 1.0);
 rrRough = mix(rrRough, 0.85, rockF);
 float rrMetal = sw4.z * 0.5 * (1.0 - grime * 0.5);
-vec2 rrDH = vec2(dFdx(rrH), dFdy(rrH)) * (1.0 - smoothstep(0.01, 0.04, fp)) * hf * uBump;
+// a wet stage in the rain: porous ground darkens and turns glossy, water stands in the worn wheel tracks and runs on
+// the tarmac; snow and ice don't change. Only the look: the grip in the wet is Cond.mu's.
+float film = 0.0;
+if (uWet > 0.001) {
+  float porous = dot(sw4, vec4(0.6, 0.0, 0.15, 0.85)) + dot(sx4, vec4(0.75, 0.0, 0.55, 0.5));
+  float wetK = uWet * porous;
+  film = uWet * smoothstep(0.35, 0.85, ruts) * (sx4.x + sw4.w) * (0.6 + 0.4 * A2.r);
+  diffuseColor.rgb *= 1.0 - 0.45 * wetK - 0.15 * film;
+  float glossy = dot(sw4, vec4(0.25, 0.0, 0.12, 0.3)) + dot(sx4, vec4(0.16, 0.0, 0.55, 0.35));   // the roughest a wet surface stays
+  rrRough = mix(rrRough, min(rrRough, glossy), wetK);
+  rrRough = mix(rrRough, 0.04, film);
+}
+vec2 rrDH = vec2(dFdx(rrH), dFdy(rrH)) * (1.0 - smoothstep(0.01, 0.04, fp)) * hf * uBump * (1.0 - 0.8 * film);   // standing water is flat
 #ifdef RR_TALUS
 rrDH += vec2(dFdx(hBld), dFdy(hBld)) * 0.6 * sx4.w * (1.0 - smoothstep(0.04, 0.14, fp)) * hf * uBump;   // the boulders' own bump reaches further out
 #endif
@@ -4975,8 +5030,9 @@ async function inflateB64(b64) {
   const bin = new Uint8Array(await (await fetch('data:application/octet-stream;base64,' + b64)).arrayBuffer());
   return new Uint8Array(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
 }
+let TERRAIN_MAT = null;   // the current stage's ground (Cond turns its reflections up in the wet)
 function makeTerrainMaterial(def) {
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0.0, envMapIntensity: def.sky.day ? 0.3 : 0.7 });
+  const mat = TERRAIN_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0.0, envMapIntensity: def.sky.day ? 0.3 : 0.7 });
   const stripe = def.style === 'platform' ? 1 : 0, det = detailTextures();
   // (defines are part of three's program cache key; buildStage adds one per surface the stage uses: RR_S0..RR_S6)
   mat.defines = {};
@@ -4985,6 +5041,8 @@ function makeTerrainMaterial(def) {
   if (def.earth && def.earth.talus) mat.defines.RR_TALUS = 1;
   if (def.style === 'mountain') mat.defines.RR_ROCK = 1;
   mat.onBeforeCompile = (sh) => {
+    hazeUniforms(sh);
+    sh.uniforms.uWet = WET_U;
     sh.uniforms.uHW = { value: def.hw };
     sh.uniforms.uStripe = { value: stripe };
     sh.uniforms.uLines = { value: def.roadLines || 0 };
@@ -4996,7 +5054,7 @@ function makeTerrainMaterial(def) {
       .replace('#include <common>', '#include <common>\nattribute vec4 surfW;\nattribute vec4 surfX;\nattribute vec2 trk;\nvarying vec4 vSurfW;\nvarying vec4 vSurfX;\nvarying vec2 vTrk;\nvarying vec3 vWPos;\nvarying float vNrmY;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSurfW = surfW; vSurfX = surfX; vTrk = trk; vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vNrmY = objectNormal.y;');
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uHW;\nuniform float uStripe;\nuniform float uLines;\nuniform float uBump;\nuniform sampler2D uDetA;\nuniform sampler2D uDetB;\n#ifdef RR_LC\nuniform sampler2D uLC;\nuniform vec2 uLCo;\nuniform vec2 uLCs;\n#endif\nvarying vec4 vSurfW;\nvarying vec4 vSurfX;\nvarying vec2 vTrk;\nvarying vec3 vWPos;\nvarying float vNrmY;\n' + GLSL_NOISE + TERRAIN_BUMP)
+      .replace('#include <common>', '#include <common>\nuniform float uHW;\nuniform float uWet;\nuniform float uStripe;\nuniform float uLines;\nuniform float uBump;\nuniform sampler2D uDetA;\nuniform sampler2D uDetB;\n#ifdef RR_LC\nuniform sampler2D uLC;\nuniform vec2 uLCo;\nuniform vec2 uLCs;\n#endif\nvarying vec4 vSurfW;\nvarying vec4 vSurfX;\nvarying vec2 vTrk;\nvarying vec3 vWPos;\nvarying float vNrmY;\n' + GLSL_NOISE + TERRAIN_BUMP)
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + TERRAIN_FRAG)
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = rrPerturb(-vViewPosition, normal, rrDH, faceDirection);')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = rrRough;')
@@ -5143,6 +5201,7 @@ function buildRibbon(mat) {
   }
   computeRibbonNormals(0, N - 1);
   colorRibbon(0, N - 1);
+  if (PAL.mtn && !TR.def.moon) shadeRibbon();
   const ROWS = 40;
   for (let r0 = 0; r0 < N - 1; r0 += ROWS) {
     const r1 = Math.min(N - 1, r0 + ROWS);
@@ -5246,6 +5305,51 @@ function colorRibbon(i0, i1) {
     R.sw[v * 4] = sw0; R.sw[v * 4 + 1] = sw1; R.sw[v * 4 + 2] = sw2; R.sw[v * 4 + 3] = sw3;
     R.sx[v * 4] = sw4; R.sx[v * 4 + 1] = sw5; R.sx[v * 4 + 2] = sw6; R.sx[v * 4 + 3] = sw7;
   }
+}
+
+/** Earth stages: ambient occlusion baked into the ground's colour. Ground lying lower than what is around it (a gully,
+ *  a road cut between its banks, a hollow) gets less of the sky and darkens, at two scales (6 m and 20 m), and the
+ *  forest floor under the canopy is darker than open ground. */
+function shadeRibbon() {
+  const R = TR.ribbon, M = R.M, N = R.N, P = R.pos, hw = TR.hw, offs = R.offs;
+  const partner = (j, dist, dir) => { let q = j; while (q + dir >= 0 && q + dir < M && R.kind[q + dir] === 0 && Math.abs(offs[q + dir] - offs[j]) < dist) q += dir; return q; };
+  const sides = [6, 20].map((dist) => ({ dist, rows: Math.round(dist / DS), L: offs.map((_, j) => partner(j, dist, -1)), Rt: offs.map((_, j) => partner(j, dist, 1)) }));
+  const E = TR.def.earth || {}, dens = (E.trees || []).length ? clamp((E.density ?? 10000) / 10000, 0, 1) : 0;
+  const ao = new Float32Array(N * M);
+  for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) {
+    if (R.kind[j] !== 0) continue;
+    const v = i * M + j, y = P[v * 3 + 1];
+    let occ = 0;
+    for (const S of sides) {
+      const a = Math.max(0, i - S.rows), b = Math.min(N - 1, i + S.rows);
+      const avg = (P[(a * M + j) * 3 + 1] + P[(b * M + j) * 3 + 1] + P[(i * M + S.L[j]) * 3 + 1] + P[(i * M + S.Rt[j]) * 3 + 1]) / 4;
+      occ += clamp((avg - y) / S.dist, 0, 0.7) * (S.dist === 6 ? 0.55 : 0.45);
+    }
+    ao[v] = occ;
+  }
+  for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) {
+    if (R.kind[j] !== 0) continue;
+    const v = i * M + j, x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2], ad = Math.abs(R.dAt[v]);
+    const canopy = ad > hw + 6 ? dens * forestAt(x, z, y) * smoothstep(hw + 6, hw + 14, ad) * 0.16 : 0;
+    const k = (1 - Math.min(0.42, ao[v])) * (1 - canopy);
+    R.col[v * 3] *= k; R.col[v * 3 + 1] *= k; R.col[v * 3 + 2] *= k;
+  }
+}
+/** The light thrown back up off the ground takes the colour of this stage's real ground (its average off-road
+ *  colour, lit by the sun) at the brightness the stage's hemisphere light was tuned to. */
+function bounceFromGround() {
+  const R = TR.ribbon, c = new THREE.Color(0, 0, 0); let n = 0;
+  for (let v = 0; v < R.N * R.M; v += 37) {
+    if (R.kind[v % R.M] !== 0 || Math.abs(R.dAt[v]) < TR.hw + 2) continue;
+    c.r += R.col[v * 3]; c.g += R.col[v * 3 + 1]; c.b += R.col[v * 3 + 2]; n++;
+  }
+  TR.groundTint = n ? c.multiplyScalar(1 / n) : null;
+  if (TR.groundTint) tintBounce();
+}
+function tintBounce() {
+  const g = hemiLight.groundColor, lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+  const t = _c2.copy(TR.groundTint).multiply(sunLight.color), L = lum(t), L0 = lum(g);
+  if (L > 1e-4) g.lerp(t.multiplyScalar(L0 / L), 0.6);
 }
 
 /** Distant terrain (hills and mountains): a coarse heightfield that dives under the ribbon; on a small moon it curves away over the horizon. */
@@ -11070,12 +11174,12 @@ void main(){
   gl_PointSize = palpha > 0.002 ? clamp(psize * uScale / max(-mv.z, 0.1), 1.0, 300.0) : 0.0;
 }`;
 const PARTICLE_FS = `${GLSL_POST}
-uniform float uSoft;
+uniform float uSoft; uniform float uLight;
 varying vec3 vCol; varying float vAlpha;
 void main(){
   vec2 c = gl_PointCoord - 0.5; float d = length(c) * 2.0;
   if (d > 1.0) discard;
-  gl_FragColor = vec4(rrOut(vCol), vAlpha * pow(1.0 - d, uSoft));
+  gl_FragColor = vec4(rrOut(vCol * uLight), vAlpha * pow(1.0 - d, uSoft));
 }`;
 class Particles {
   constructor(max, additive, soft) {
@@ -11088,7 +11192,7 @@ class Particles {
     const mk = (arr, n) => new THREE.BufferAttribute(arr, n).setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('position', mk(this.pos, 3)); geo.setAttribute('pcolor', mk(this.col, 3));
     geo.setAttribute('palpha', mk(this.alpha, 1)); geo.setAttribute('psize', mk(this.size, 1));
-    this.mat = new THREE.ShaderMaterial({ uniforms: { ...POST_U, uScale: { value: 500 }, uSoft: { value: soft } }, vertexShader: PARTICLE_VS, fragmentShader: PARTICLE_FS,
+    this.mat = new THREE.ShaderMaterial({ uniforms: { ...POST_U, uScale: { value: 500 }, uSoft: { value: soft }, uLight: { value: 1 } }, vertexShader: PARTICLE_VS, fragmentShader: PARTICLE_FS,
       transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
     this.points = new THREE.Points(geo, this.mat);
     this.points.frustumCulled = false; this.points.renderOrder = additive ? 6 : 5;
@@ -11133,6 +11237,8 @@ const FX = {
     this.dust.update(dt, g); this.glow.update(dt, g);
     const scale = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
     this.dust.mat.uniforms.uScale.value = scale; this.glow.mat.uniforms.uScale.value = scale;
+    // dust and spray are lit like the scene around them: dim under cloud, dark at night (the glow lights itself)
+    if (this.dayRef) this.dust.mat.uniforms.uLight.value = clamp((sunLight.intensity + 1.5 * hemiLight.intensity) / this.dayRef, 0.12, 1.1);
   },
   clear() { this.dust.clear(); this.glow.clear(); },
   /** What flies off an impact depends on what was hit: chips and leaves off a tree, grit off rock, water and plastic off
@@ -12875,9 +12981,33 @@ function emitCarParticles(dt, ctl) {
   const def = TR.def, sp = car.speed;
   carAxes();
   const bx = car.vel.x * 0.3 - AZ.x * (1.5 + sp * 0.06), bz = car.vel.z * 0.3 - AZ.z * (1.5 + sp * 0.06);
+  const wet = Cond.kind === 'rain' ? Cond.k : 0, dry = Cond.kind === 'clear' ? 1 : Cond.kind === 'fog' ? 0.5 : 0;
+  // on a dry loose road the dust hangs in the air behind the car for seconds, drifting off in a light wind
+  const sr = car.wheels[2].grounded ? car.wheels[2] : car.wheels[3], ss = sr.gs.road ? sr.gs.surf : def.surf.off;
+  if (sr.grounded && sp > 6 && dry > 0 && (ss === SURF.GRAVEL || ss === SURF.REGOLITH)) {
+    Game.hangEmit = (Game.hangEmit || 0) + dt * sp * 1.1 * dry * (LOW_SPEC ? 0.5 : 1);
+    const pc = particleColor(ss);
+    while (Game.hangEmit >= 1) {
+      Game.hangEmit -= 1;
+      const r1 = Math.random() - 0.5, r2 = Math.random() - 0.5, r3 = Math.random(), c = 0.9 + 0.15 * r3;
+      FX.dust.emit(Draw.pos.x - AZ.x * 2.6 + r1 * 2, Draw.pos.y + 0.6 + r3, Draw.pos.z - AZ.z * 2.6 + r2 * 2, car.vel.x * 0.12 + 0.6 + r1, 0.25 + 0.4 * r3, car.vel.z * 0.12 + 0.3 + r2,
+        4 + 2.5 * r3, 1.6 + r3, 1.1, pc.r * c, pc.g * c, pc.b * c, 0.22, 0, 0.7);
+    }
+  }
   for (let k = 0; k < 4; k++) {
     const w = car.wheels[k], cw = CAR.wheels[k];
     if (!w.grounded) continue;
+    // spray: the tyres lift a mist of water off a wet road, more with speed
+    const wsurf = w.gs.road ? w.gs.surf : def.surf.off;
+    if (wet > 0.1 && sp > 5 && wsurf !== SURF.SNOW && wsurf !== SURF.ICE) {
+      w.spray = (w.spray || 0) + dt * sp * 0.55 * wet * (cw.front ? 0.5 : 1) * (LOW_SPEC ? 0.5 : 1);
+      const sx = w.mount.x - AY.x * w.dist, sy = w.mount.y - AY.y * w.dist + 0.15, sz = w.mount.z - AY.z * w.dist;
+      while (w.spray >= 1) {
+        w.spray -= 1;
+        const r1 = Math.random() - 0.5, r2 = Math.random() - 0.5, r3 = Math.random();
+        FX.dust.emit(sx, sy, sz, bx * 0.7 + r1 * 2.5, 0.5 + r3 * 1.6, bz * 0.7 + r2 * 2.5, 0.6 + 0.6 * r3, 0.35, 2.6, 0.82, 0.84, 0.87, 0.38 * wet, 0.4, 1.5);
+      }
+    }
     const rear = !cw.front;
     const slip = Math.abs(w.slipLat) + (w.sliding ? 2 : 0) + (w.spinning ? 3 : 0);
     const surf = w.gs.road ? w.gs.surf : def.surf.off;
@@ -12885,6 +13015,7 @@ function emitCarParticles(dt, ctl) {
     if (surf === SURF.METAL) rate = (w.sliding || (ctl.handbrake && rear) || w.bottomed) ? slip * 7 + 8 : 0;
     if (surf === SURF.TARMAC) rate = (w.sliding || w.spinning || (ctl.handbrake && rear)) ? slip * 4 + 6 : 0;
     if (surf === SURF.ICE) rate *= 0.7;
+    if (wet && (surf === SURF.GRAVEL || surf === SURF.REGOLITH)) rate *= 1 - 0.6 * wet;   // wet gravel throws grit, not dust
     w.emit = Math.min(8, w.emit + rate * dt);
     const x = w.mount.x - AY.x * w.dist, y = w.mount.y - AY.y * w.dist + 0.1, z = w.mount.z - AY.z * w.dist;
     const pc = particleColor(surf);
@@ -13224,7 +13355,9 @@ function buildStage(def) {
   const culled = new Set(TR.cells.map((c) => c.mesh));
   stageGroup.traverse((o) => { if (o.isInstancedMesh && !culled.has(o)) o.frustumCulled = false; });
   let minY = Infinity; for (let i = 0; i < TR.N; i++) minY = Math.min(minY, TR.cy[i]);
-  TR.ringY = minY - 34;
+  TR.ringY = minY - 34; TR.lowY = minY;
+  bounceFromGround();
+  Cond.stageBuilt();
   HUD.setupStage();
   const tg = Store.data.targets || (Store.data.targets = {});
   if (tg[def.id] !== TR.targetTime) { tg[def.id] = TR.targetTime; Store.save(); }
@@ -14295,7 +14428,7 @@ const TIMES = ['day', 'dusk', 'night'];
 // grip in the wet or under falling snow, per surface (regolith, ice, metal, gravel, tarmac, snow): wet tarmac loses
 // about a third, wet gravel binds and loses little, fresh snow over tarmac and gravel is close to packed snow
 const WET_MU = { rain: [0.9, 0.85, 0.7, 0.92, 0.7, 0.95], snow: [0.88, 1, 0.72, 0.8, 0.6, 1], fog: [1, 1, 0.96, 0.98, 0.95, 1] };
-const _fogGrey = new THREE.Color(0.62, 0.65, 0.68), _fogNight = new THREE.Color(0.03, 0.035, 0.05);
+const _fogGrey = new THREE.Color(0.62, 0.65, 0.68), _fogNight = new THREE.Color(0.03, 0.035, 0.05), _overcast = new THREE.Color(0.5, 0.53, 0.56);
 const Cond = {
   weather: 'clear', time: 'day', kind: 'clear', k: 0, onset: 0, said: false, skyKey: null, base: null,
   mu: new Float32Array(6).fill(1),               // grip per surface (weather × tyre wear), read by the tyres
@@ -14327,9 +14460,15 @@ const Cond = {
       else Sky.configure(Object.assign({}, def, { sky: this.skyFor(def), hemi: this.time === 'dusk'
         ? { sky: 0x8a7aa0, ground: def.hemi.ground, intensity: def.hemi.intensity * 0.55 } : { sky: 0x2a3a5a, ground: 0x0c0c12, intensity: 0.12 } }));
     }
-    this.base = { sun: sunLight.intensity, hemi: hemiLight.intensity, fog: scene.fog ? [scene.fog.near, scene.fog.far] : null, col: scene.fog ? scene.fog.color.clone() : null };
+    this.captureBase();
     this.lamps();
     this.applyK();
+  },
+  /** A stage was just built under its own day sky: take that as the base the weather works from. */
+  stageBuilt() { this.skyKey = TR.def.id + ':day'; this.captureBase(); FX.dayRef = sunLight.intensity + 1.5 * hemiLight.intensity; this.applyK(); },
+  captureBase() {
+    this.base = { sun: sunLight.intensity, hemi: hemiLight.intensity, hemiCol: hemiLight.color.clone(), fog: scene.fog ? [scene.fog.near, scene.fog.far] : null, col: scene.fog ? scene.fog.color.clone() : null,
+      env: TERRAIN_MAT ? TERRAIN_MAT.envMapIntensity : 0.3 };
   },
   /** Headlights: dipped by day, full beam at dusk, full beam plus the light pod at night. */
   lamps() {
@@ -14339,8 +14478,13 @@ const Cond = {
   },
   applyK() {
     const k = this.k, b = this.base, kind = this.kind; if (!b) return;
-    const dim = kind === 'fog' ? 0.45 : kind === 'clear' ? 0 : 0.42;
-    sunLight.intensity = b.sun * (1 - dim * k); hemiLight.intensity = b.hemi * (1 - dim * 0.4 * k);
+    // overcast: the cloud takes most of the sun's direct light but the sky's diffuse light stays, greyer, and what
+    // shadows are left go soft
+    const dim = kind === 'clear' ? 0 : kind === 'snow' ? 0.62 : 0.72;
+    sunLight.intensity = b.sun * (1 - dim * k); hemiLight.intensity = b.hemi * (1 + 0.25 * dim * k);
+    hemiLight.color.copy(b.hemiCol).lerp(this.time === 'night' ? b.hemiCol : _overcast, 0.6 * dim * k);
+    sunLight.shadow.radius = 2 + 5 * dim * k;
+    this.envLook();
     if (scene.fog && b.fog) {
       const far = { fog: 150, rain: 650, snow: 380 }[kind] || b.fog[1];
       scene.fog.far = lerp(b.fog[1], Math.min(b.fog[1], far), k); scene.fog.near = lerp(b.fog[0], Math.min(b.fog[0], far * 0.08), k);
@@ -14349,6 +14493,19 @@ const Cond = {
     Precip.veil(scene.fog ? scene.fog.color : _fogGrey, kind === 'clear' ? 0 : k * (kind === 'fog' ? 0.92 : 0.6));
     const m = WET_MU[kind], g = Raid.gripMul(), wt = car.tune ? car.tune.wet : 1;   // each compound loses its own share in the wet
     for (let i = 0; i < 6; i++) this.mu[i] = (m ? Math.max(0.2, 1 - (1 - m[i]) * k * wt) : 1) * g;
+  },
+  /** The stage's air and ground under this weather: haze that thickens in the rain and at dusk, mist in the lowest
+   *  ground, and how wet the ground looks. Earth stages only (the moons have no air to haze). */
+  envLook() {
+    const k = this.k, kind = this.kind, def = TR.def, b = this.base, earth = !!def.earth && !def.moon;
+    const wet = kind === 'rain' ? k : 0, murk = kind === 'rain' || kind === 'fog' || kind === 'snow' ? k : 0, dusk = this.time === 'dusk', night = this.time === 'night';
+    const y0 = TR.lowY !== undefined ? TR.lowY : TR.yLo;
+    HAZE_U.uHaze.value.set(earth ? 3.4e-4 * (1 + 1.5 * murk + (dusk ? 0.5 : 0)) : 0, 1 / 700, y0, earth && !night ? (dusk ? 0.9 : 0.5) * (1 - 0.85 * murk) : 0);
+    HAZE_U.uMist.value.set(earth ? (dusk ? 2e-3 : 6e-4) + 0.01 * murk : 0, 1 / 35, y0, 0);
+    HAZE_U.uHazeSun.value.copy(SUN_DIR); HAZE_U.uHazeSunCol.value.copy(sunLight.color).multiplyScalar(dusk ? 1.1 : 1.25);
+    if (scene.fog) HAZE_U.uHazeSunCol.value.lerp(scene.fog.color, 0.35);
+    WET_U.value = wet;
+    if (TERRAIN_MAT && b) TERRAIN_MAT.envMapIntensity = b.env * (1 + 1.6 * wet);   // wet ground mirrors the sky
   },
   update(dt) {
     const st = Game.state;
@@ -15402,7 +15559,7 @@ function init() {
   window.RegolithRally = {
     AudioSys, EngineSound, Game, Cam, car, Post, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
-    placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, Impacts, ROAD, GEO, perfRatings, tuneFor,
+    HAZE_U, WET_U, FX, placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, Impacts, ROAD, GEO, perfRatings, tuneFor,
     openService, leaveService, pauseGame, finishRace, showFinish, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, recSetup, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
