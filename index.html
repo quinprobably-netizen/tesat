@@ -2204,7 +2204,7 @@ const STAGES = [
   },
 ];
 /** The stages run back to back in a rally (the WRC rounds: not the test park or the hillclimbs). */
-const RALLY_STAGES = STAGES.filter((d) => !d.test && !d.hill).length;
+const RALLY_STAGES = WRC_STAGES.length;   // (they come first in STAGES; the test park, hillclimbs and off-world stages follow)
 // stage select groups (display order only; stage indexes, saves and boards are unchanged)
 const stageWorld = (d) => d.test ? 'test' : d.hill ? 'climb' : d.earth && !d.moon ? 'earth' : 'space';
 const STAGE_GROUPS = [
@@ -2819,7 +2819,7 @@ function drivetrainText(spec) {
   if (spec.front >= 1) return `Front-wheel drive, ${d(spec.fdiff)} front differential`;
   if (spec.twin) return `Four-wheel drive from two engines, the front one driving the front axle and the rear one the rear, with nothing linking the axles; ${d(spec.fdiff)} front, ${d(spec.rdiff)} rear`;
   if (DIFF_TYPES[spec.centre].lock) return `Four-wheel drive with no centre differential (front and rear axles locked together); ${d(spec.fdiff)} front, ${d(spec.rdiff)} rear`;
-  return `Four-wheel drive, ${Math.round(spec.front * 100)}/${Math.round(100 - spec.front * 100)} front/rear through a ${d(spec.centre)} centre differential; ${d(spec.fdiff)} front, ${d(spec.rdiff)} rear`;
+  return `Four-wheel drive, ${Math.round(spec.front * 100)}/${Math.round(100 - spec.front * 100)} front/rear through ${/^[aeiou]/i.test(d(spec.centre)) ? 'an' : 'a'} ${d(spec.centre)} centre differential; ${d(spec.fdiff)} front, ${d(spec.rdiff)} rear`;
 }
 /* ---- each car's real chassis, shared by the physics and the model ----
    The body builders draw every car in one model space: wheel centres at x ±1.02, z +1.38 / −1.30 and y −0.44,
@@ -2877,11 +2877,12 @@ function carGeometry(body, mass) {
     spheres: [[0, 0.1, 1.05], [0, 0.1, -1.05]].map((p) => pt(p).concat(1.15 * (sx + sz) / 2)),
   };
 }
+const DMG_REF_KG = 950;   // crash damage scales with weight around a 950 kg car (the Delta S4 it was tuned on): lighter cars take more
 function tuneFor(setup, build) {
   const su = TUNE.susp[setup.susp], dp = TUNE.damp[setup.damp] || TUNE.damp[1], gr = TUNE.gear[setup.gear];
   build = cleanBuild(build || DEFAULT_BUILD);
   const sp = CAR_SPECS[build.body] || CAR_SPECS[0], aero = CAR_AERO[build.body] || CAR_AERO[0];
-  const mass = sp.kg + REF_PILOT_KG + FUEL_KG, dm = mass - (CAR_SPECS[0].kg + REF_PILOT_KG + FUEL_KG);
+  const mass = sp.kg + REF_PILOT_KG + FUEL_KG, dm = sp.kg - DMG_REF_KG;
   // (landings: every car's springs are rated to the same ride frequency, so a landing loads each car's alike)
   const tn = { k: su.k, c: su.c, db: dp.b, dr: dp.r, arb: TUNE.arb[setup.arb] || 1, land: su.land, v: gr.v,
     gears: sp.gears, final: sp.final / gr.v,
@@ -2940,7 +2941,7 @@ function topSpeed(tn) {
 const PI_CLASSES = [[998, 'X', '#5ef08c'], [900, 'S2', '#3d8bff'], [800, 'S1', '#b06bff'], [700, 'A', '#ff4d5e'], [600, 'B', '#ff8a3a'], [500, 'C', '#ffd23d'], [0, 'D', '#58f0ff']];
 function piClass(pi) { for (const c of PI_CLASSES) if (pi > c[0] || c[0] === 0) return { cls: c[1], color: c[2] }; return { cls: 'D', color: '#58f0ff' }; }
 const PI_SCALE = { speed: [150, 260], t160: [13, 5.4], t100: [6.2, 2.6], corner: [0.445, 0.757], brake: [74.4, 41.9], offroad: [0.4, 0.8] };
-const PI_BASE = 240;                              // the Group B cars and the PRERUNNER, with their real figures, land in A class; the restricted Rally1 cars in B
+const PI_BASE = 240;                              // the Group B and S cars and the World Rally Cars, with their real figures, land in A and S1 (the Ibiza Bimotor in B); the MINI and the trucks in D
 function perfRatings(build, setup) {
   const tn = tuneFor(setup || DEFAULT_SETUP, build), sp = tn.spec, m = tn.mass;
   const surfMu = (i) => SURF_INFO[i].mu * tn.mu[i];
@@ -4344,7 +4345,7 @@ function buildGrid() {
 }
 function gridKey(ix, iz) { return (ix + 4096) * 8192 + (iz + 4096); }
 
-/** Full-throttle acceleration (m/s², before grip and slope) of the reference car (the default TWINCHARGER on
+/** Full-throttle acceleration (m/s², before grip and slope) of the reference car (the default car, the MINI, on
  *  the standard final drive, best gear, full boost) at speed v on surface `surf`: its engine through its real
  *  gears (with the rotating parts' inertia), less drag and rolling resistance. Target times and the AI's speed
  *  plan use it, so they are the same whichever car is in the garage. */
@@ -8595,18 +8596,18 @@ const _eT = new THREE.Euler();
 /* Real-world figures each car is checked against (physicsTests): 0-100 km/h and 100-0 km/h on tarmac (s, m) on
    tarmac tyres, the peak g on a tarmac skidpad at 25 m/s and a gravel one at 15 m/s, 100-0 on gravel (m) on gravel
    tyres, and top speed (km/h). Where a car's own figure was published the range is built round it (src); the rest
-   are the ranges its class ran in period: Group B and S (1985-87), 1.6 T World Rally Cars (2011-16) and 2017-21 ones
-   with their bigger restrictor and aero, a 1960s Mini on period-width tyres. */
+   are the ranges its class ran in period: Group B and S (1985-89), World Rally Cars before 2017 (2.0 T to 2010, 1.6 T 2011-16) and 2017-21 ones
+   with their bigger restrictor and aero, a 1960s Mini on period-width tyres, and 9-10 t rally-raid trucks. */
 const REAL_CLASS = {
   B:   { t100: [2.8, 4.6], b100: [29, 42], skT: [0.9, 1.4], skG: [0.6, 0.9], b100G: [42, 58], top: [180, 260] },
-  B2:  { t100: [3.4, 5.6], b100: [29, 42], skT: [0.9, 1.4], skG: [0.6, 0.9], b100G: [42, 58], top: [175, 240] },   // under 350 bhp
+  B2:  { t100: [3.4, 5.6], b100: [29, 42], skT: [0.9, 1.4], skG: [0.6, 0.9], b100G: [42, 58], top: [175, 240] },   // 350 bhp and under
   W11: { t100: [3.3, 4.6], b100: [28, 40], skT: [0.95, 1.45], skG: [0.62, 0.92], b100G: [42, 57], top: [180, 230] },
   W17: { t100: [3.0, 4.4], b100: [27, 40], skT: [1.0, 1.5], skG: [0.62, 0.95], b100G: [42, 57], top: [185, 235] },
   M:   { t100: [9.2, 13.8], b100: [33, 52], skT: [0.72, 1.05], skG: [0.5, 0.8], b100G: [46, 68], top: [145, 180] },
   T5:  { t100: [10, 22], b100: [35, 60], skT: [0.45, 0.85], skG: [0.3, 0.7], b100G: [55, 100], top: [130, 190] },   // 9-10 t trucks: no published 0-100 or skidpad
 };
 const REAL_REF = {
-  'MINI': { cls: 'M', src: 'Cooper S 1275: 0-60 mph 10.9 s, 96 mph (road test, 1964)' },
+  'MINI': { cls: 'M', src: 'the nearest road test, a Cooper S 1275: 0-60 mph 10.9 s, 96 mph (1964)' },
   'RS200': { cls: 'B' }, 'SAMARA S': { cls: 'B2' }, 'ECV': { cls: 'B' }, 'ECV II': { cls: 'B' },
   '222D': { cls: 'B' }, 'KADETT 4X4': { cls: 'B' }, 'ASTRA 4S': { cls: 'B2' }, 'IBIZA BIMOTOR': { cls: 'B2' },
   'C3 WRC': { cls: 'W17' }, 'FIESTA WRC': { cls: 'W17' }, 'YARIS WRC': { cls: 'W17' }, 'POWERSTAR': { cls: 'T5' }, 'PHOENIX': { cls: 'T5' },
@@ -12156,7 +12157,7 @@ const NEW_CARS = [
     // at the front, 37/63 viscous centre; 1,050 kg works weight; ratios and the rest of the curve (est.)
     spec: { engine: '1.8 L inline-4 turbo (Cosworth BDT)', cyl: 4, layout: 'inline', pitch: 1.03, hp: 444, hpAt: 8000, nm: 490, nmAt: 5500, redline: 8500, idle: 1000, lag: 0.55, offBoost: 0.55,
       voice: { pipe: 1.5, prim: 0.8, tail: 'race', intake: 'turbo', bov: 'flutter' },   // Cosworth BDT, short exhaust out of the tail, no dump valve: the Garrett flutters on a lift
-      curve: [[1000, 160], [2000, 210], [3000, 280], [4000, 390], [5000, 470], [5500, 490], [6500, 470], [7500, 420], [8000, 391], [8500, 350]],
+      curve: [[1000, 160], [2000, 210], [3000, 280], [4000, 390], [5000, 470], [5500, 490], [6500, 470], [7500, 420], [8000, 395], [8500, 350]],
       disp: 1.803, launch: 5000, Ie: 0.1, enginePos: 'mid',
       // FF Developments 5-speed at the front, rally ratios with the 4.375 axle and 1.043 transfer (4.565 overall);
       // three viscous couplings (centre, front, rear); no anti-lag: the BDT is all lag, then all boost
@@ -12516,7 +12517,7 @@ const NEW_CARS = [
     // panels, 960 kg (GM Dealer Sport); torque curve, ratios and drive split (est.)
     spec: { engine: '2.4 L inline-4, 16-valve', cyl: 4, layout: 'inline', pitch: 0.96, hp: 340, hpAt: 7500, nm: 340, nmAt: 5500, redline: 8000, idle: 950, lag: 0, offBoost: 1,
       voice: { pipe: 3.0, prim: 0.9, tail: 'race', intake: 'itb', intakeHz: 260 },   // big naturally aspirated sixteen-valve four on individual throttles: the intake honks
-      curve: [[1000, 180], [2000, 225], [3000, 265], [4000, 300], [5000, 330], [5500, 340], [6500, 335], [7500, 319], [8000, 290]],
+      curve: [[1000, 180], [2000, 225], [3000, 265], [4000, 300], [5000, 330], [5500, 340], [6500, 335], [7500, 323], [8000, 290]],
       disp: 2.42, launch: 5000, Ie: 0.12, enginePos: 'front',
       box: '5-speed Xtrac dog box (ratios est.)', gears: [2.8, 1.95, 1.5, 1.2, 1.0], final: 4.4, rev: 3.0, shift: 0.13, boxType: 'dog', als: 0,
       kg: 960, front: 0.4, centre: 'viscous', fdiff: 'lsdF', rdiff: 'lsd',
@@ -12562,7 +12563,7 @@ const NEW_CARS = [
     // a spinning front axle takes nothing from the rear one. Weight (est.)
     spec: { engine: 'Twin 1.5 L inline-4s (System Porsche), one per axle', cyl: 4, layout: 'inline', pitch: 0.94, hp: 280, hpAt: 7200, nm: 310, nmAt: 5500, redline: 7800, idle: 950, lag: 0, offBoost: 1,
       voice: { pipe: 2.4, pipe2: 1.1, prim: 0.8, tail: 'race', intake: 'carb', intakeHz: 300 },   // two engines, each at its own revs: the front's long pipe, the rear's short one
-      curve: [[1000, 160], [2000, 205], [3000, 245], [4000, 278], [5000, 302], [5500, 310], [6500, 296], [7200, 274], [7800, 240]],
+      curve: [[1000, 160], [2000, 205], [3000, 245], [4000, 278], [5000, 302], [5500, 310], [6500, 296], [7200, 277], [7800, 240]],
       disp: 2.922, launch: 5000, Ie: 0.14, enginePos: 'front',
       box: 'Two 5-speed synchromesh boxes, linked shift (ratios est.)', gears: [3.0, 2.05, 1.55, 1.22, 1.0], final: 4.6, rev: 3.1, shift: 0.15, boxType: 'synchro',
       kg: 1080, front: 0.5, twin: true, centre: 'twin', fdiff: 'lsdF', rdiff: 'lsd',
@@ -12619,7 +12620,7 @@ const NEW_CARS = [
   { name: 'C3 WRC', blurb: 'Citroën C3 WRC (2017-19), a World Rally Car of the wide-body 2017 rules: 1.6 turbo through a 36 mm restrictor, active centre diff and the biggest aero of the era.',
     // 1.6 L turbo, 380 hp at 6,000 rpm (Citroën; its quoted 400 N·m
     // cannot make that, so the curve holds the 450 N·m it needs); 4.128 m long, 1.875 m wide, 2.54 m wheelbase,
-    // 1,190 kg minimum; height from the traced body; ratios and tracks (est.); the active centre is modelled as a viscous coupling
+    // 1,190 kg minimum; height from the traced body; ratios and tracks (est.)
     spec: { engine: '1.6 L inline-4 turbo, 36 mm restrictor', cyl: 4, layout: 'inline', pitch: 1.04, hp: 380, hpAt: 6000, nm: 450, nmAt: 4500, redline: 8000, idle: 1000, lag: 0.25, offBoost: 0.65,
       voice: { pipe: 3.0, prim: 0.55, tail: 'open', intake: 'restrictor', bov: 'dump' },   // Rally-era 1.6: restrictor roar, constant anti-lag, ignition-cut cracks on paddle upshifts
       curve: [[1000, 200], [2000, 310], [3000, 390], [4000, 435], [4500, 450], [5000, 450], [6000, 450], [7000, 360], [8000, 290]],
@@ -12747,12 +12748,13 @@ const NEW_CARS = [
         P.text('FORD', 1.65, -0.35, 0.07, '#f4f4f2', { w: 0.35 }); P.text('EcoBoost', 0.6, -0.55, 0.045, '#c9ccd2', { w: 0.4 });
       },
       top(P) { P.ellipse(1.5, 0, 0.3, '#f5c400'); for (let i = 0; i < 6; i++) for (let j = 0; j < 8; j++) if ((i + j) % 2) P.rect(-0.4 - i * 0.25, -0.65 - i * 0.25, -1.4 + j * 0.35, -1.05 + j * 0.35, '#3b4f86'); } } },
-  { name: 'IMPREZA WRC', blurb: 'Subaru Impreza WRC2008, the GE hatchback on the WRX STI: an EJ20 flat-four turbo with 650 N·m from 4,000 rpm, long travel and Subaru\'s gold wheels.',
-    // EJ20 flat-four turbo, 300 bhp at 5,500 rpm, 650 N·m at 4,000 (Subaru); 4.415 m long, 1.8 m wide, 2.625 m wheelbase,
-    // 1,230 kg; active centre modelled as a viscous coupling; ratios (est.)
-    spec: { engine: '2.0 L flat-4 turbo (EJ20)', cyl: 4, layout: 'flat', pitch: 0.95, hp: 300, hpAt: 5500, nm: 650, nmAt: 4000, redline: 7000, idle: 1000, lag: 0.35, offBoost: 0.6,
+  { name: 'IMPREZA WRC', blurb: 'Subaru Impreza WRC2008, the GE hatchback on the WRX STI: an EJ20 flat-four turbo with a fat midrange through the restrictor, long travel and Subaru\'s gold wheels.',
+    // EJ20 flat-four turbo, 300 bhp at 5,500 rpm (Subaru; its quoted 650 N·m at 4,000 would make 365 hp there, so the
+    // curve holds the 520 N·m that 300 hp leaves room for); 4.415 m long, 1.8 m wide, 2.625 m wheelbase, 1,230 kg;
+    // ratios (est.)
+    spec: { engine: '2.0 L flat-4 turbo (EJ20)', cyl: 4, layout: 'flat', pitch: 0.95, hp: 300, hpAt: 5500, nm: 520, nmAt: 4000, redline: 7000, idle: 1000, lag: 0.35, offBoost: 0.6,
       voice: { amps: [1, 0.86, 1, 0.86], hdr: [0, 0.45, 0, 0.45], uneven: 1.3, pipe: 3.2, prim: 0.7, tail: 'open', intake: 'restrictor', bov: 'dump' },   // EJ20 boxer: the 1-3-2-4 pulses reach the collector unevenly (the boxer burble)
-      curve: [[1000, 250], [2000, 450], [3000, 600], [4000, 650], [4500, 620], [5000, 520], [5500, 390], [6000, 330], [6500, 290], [7000, 250]],
+      curve: [[1000, 220], [2000, 400], [3000, 500], [4000, 520], [4500, 470], [5000, 425], [5500, 389], [6000, 350], [6500, 315], [7000, 280]],
       disp: 1.994, launch: 4000, Ie: 0.1, enginePos: 'front',
       // 2006-10 rules: active centre differential, mechanical front and rear
       box: '6-speed Prodrive sequential (ratios est.)', gears: [3.0, 2.25, 1.8, 1.5, 1.27, 1.1], final: 4.0, rev: 2.9, shift: 0.06, boxType: 'seq', als: 2,
@@ -12956,8 +12958,8 @@ const NEW_CARS = [
       kg: 9300, front: 0.5, centre: 'locking', fdiff: 'lsd', rdiff: 'lsd', muScale: 0.65, rigid: true,   // truck tyres grip about a third less than the car compounds (est.); rigid: no soft-body frame, which sags and bounces under 9 t
       wb: 4.4, track: [2.05, 2.05], wf: 0.5, cgH: 1.05, dims: [6.8, 2.55, 3], travel: 0.4,
       tyre: { r: 0.58, w: 0.4, rim: 20, kg: 60, size: '20 in truck tyre (est.)' }, disc: [420, 400] },
-    // drag: a tall box on a cab-over (Cd about 0.9 on about 5.6 m²); no wing, very little downforce (est.)
-    aero: { cda: 5, cdaSide: 8, claF: 0.05, claR: 0.08, pitch: 0.02, ge: 0.1, text: 'A tall flat-sided box over a cab-over nose, with a slatted grille and a bumper; no wing, and little downforce' },
+    // drag: a tall box behind a short-bonneted cab (Cd about 0.9 on about 5.6 m²); no wing, very little downforce (est.)
+    aero: { cda: 5, cdaSide: 8, claF: 0.05, claR: 0.08, pitch: 0.02, ge: 0.1, text: 'A tall flat-sided box behind a short bonnet, with a slatted grille and a bumper; no wing, and little downforce' },
     // the Powerstar's short bonnet ahead of a Stralis-type cab (Iveco; photos of the De Rooy trucks, Motorpasion 2011):
     // the grille, headlamps in the wings and driving lamps in the steel bumper; heights (est.)
     shape: truckShape({ nose: 1.15, tail: 1.25, bumper: 1.0, yb: 0.55, bonnet: [1.0, 1.9], cab: [-0.2, -2.0], belt: 2.12, roof: 3.0, box: 2.95, slope: 0.28,
@@ -12985,10 +12987,10 @@ const NEW_CARS = [
       voice: { cyl: 6, pipe: 2, prim: 0.6, tail: 'open', intake: 'turbo', bov: 'dump', burble: 0.2 },
       curve: [[600, 2800], [900, 3450], [1200, 3800], [1600, 3550], [2000, 3150], [2200, 2900], [2400, 2500], [2600, 2000]],
       disp: 12.5, launch: 1200, Ie: 0.9, enginePos: 'front',
-      box: 'ZF/Gyrtech 16-speed manual (ratios est.)', gears: [12, 10.06, 8.43, 7.07, 5.92, 4.96, 4.16, 3.49, 2.92, 2.45, 2.05, 1.72, 1.44, 1.21, 1.01, 0.85], final: 3.73, rev: 2.8, shift: 0.25, boxType: 'seq', als: 0,
+      box: 'ZF/Gyrtech 16-speed manual (ratios est.)', gears: [12, 10.06, 8.43, 7.07, 5.92, 4.96, 4.16, 3.49, 2.92, 2.45, 2.05, 1.72, 1.44, 1.21, 1.01, 0.85], final: 4.2, rev: 2.8, shift: 0.25, boxType: 'seq', als: 0,
       kg: 9500, front: 0.5, centre: 'locking', fdiff: 'lsd', rdiff: 'lsd', muScale: 0.65, rigid: true,
       wb: 4.29, track: [2.1, 2.075], wf: 0.5, cgH: 1.05, dims: [6.53, 2.5, 3.21], travel: 0.4,
-      tyre: { r: 0.55, w: 0.36, rim: 20, kg: 60, size: '14.00R20 (est.)' }, disc: [420, 400] },
+      tyre: { r: 0.62, w: 0.37, rim: 20, kg: 60, size: '14.00R20' }, disc: [420, 400] },
     aero: { cda: 4.8, cdaSide: 7.5, claF: 0.05, claR: 0.08, pitch: 0.02, ge: 0.1, text: 'A tall flat-sided box over a cab-over nose, with a bumper and a grille; no wing, and little downforce' },
     // the Phoenix's DAF-derived cab-over cab with its flat face, and a box body that stands above the cab's roof
     // (Buggyra and auto.cz photos, 2016); heights (est.)
@@ -17398,18 +17400,17 @@ const ERAS = [
   { name: '1960s CLASSICS', cars: ['MINI'], events: [
     { name: 'COUPE DES ALPES', stages: ['wrc-monte', 'wrc-croatia'], prize: [9000, 6000, 4000], diff: 1.16 },
     { name: 'RAC CLASSIC', stages: ['wrc-sweden', 'wrc-finland'], prize: [11000, 7000, 4500], diff: 1.14 }] },
-  { name: 'GROUP B 1982-86', cars: ['TWINCHARGER', 'FIVE-POT', 'T16', 'STRADALE', 'RS WEDGE', 'SIX-R', 'RS200', 'KADETT 4X4', 'SAMARA S', 'ASTRA 4S', 'IBIZA BIMOTOR'], events: [
+  { name: 'GROUP B 1982-87', cars: ['RS200', 'IBIZA BIMOTOR'], events: [
     { name: 'TOUR DE ASFALTO', stages: ['wrc-canarias', 'wrc-italy'], prize: [42000, 26000, 15000], diff: 1.06 },
     { name: '1000 LAKES', stages: ['wrc-finland', 'wrc-estonia', 'wrc-sweden'], prize: [52000, 32000, 18000], diff: 1.05 }] },
-  { name: 'GROUP S 1986-87', cars: ['222D', 'RS002', 'ECV', 'ECV II'], events: [
+  { name: 'GROUP S 1985-89', cars: ['222D', 'ECV', 'ECV II', 'KADETT 4X4', 'ASTRA 4S', 'SAMARA S'], events: [
     { name: 'GROUP S TEST DAYS', stages: ['wrc-portugal', 'wrc-croatia'], prize: [60000, 38000, 22000], diff: 1.03 }] },
-  { name: 'GROUP A 1987-96', cars: ['INTEGRALE'], events: [
-    { name: 'SAFARI & ACROPOLIS', stages: ['wrc-kenya', 'wrc-acropolis'], prize: [55000, 34000, 20000], diff: 1.04 }] },
-  { name: 'WORLD RALLY CARS 1997-2016', cars: ['FOCUS WRC', 'IMPREZA WRC', 'XSARA WRC', 'C4 WRC', 'MINI JCW', 'POLO R WRC'], events: [
+  // (Group A and Rally1 had no car left in the garage, so their events moved into the World Rally Car eras)
+  { name: 'WORLD RALLY CARS 1997-2016', cars: ['IMPREZA WRC', 'POLO R WRC'], events: [
+    { name: 'SAFARI & ACROPOLIS', stages: ['wrc-kenya', 'wrc-acropolis'], prize: [55000, 34000, 20000], diff: 1.04 },
     { name: 'WORLD TOUR', stages: ['wrc-japan', 'wrc-chile', 'wrc-paraguay'], prize: [70000, 44000, 26000], diff: 1.01 }] },
   { name: 'WRC 2017-21', cars: ['C3 WRC', 'FIESTA WRC', 'YARIS WRC'], events: [
-    { name: 'WIDEBODY ERA', stages: ['wrc-portugal', 'wrc-italy', 'wrc-saudi'], prize: [80000, 50000, 30000], diff: 1.0 }] },
-  { name: 'RALLY1 2022-26', cars: ['GR YARIS', 'I20 N', 'PUMA'], events: [
+    { name: 'WIDEBODY ERA', stages: ['wrc-portugal', 'wrc-italy', 'wrc-saudi'], prize: [80000, 50000, 30000], diff: 1.0 },
     { name: 'WRC 2026 FINALE', stages: ['wrc-monte', 'wrc-sweden', 'wrc-finland', 'wrc-saudi'], prize: [120000, 70000, 40000], diff: 0.98 }] },
   { name: 'UNLIMITED', cars: null, events: [
     { name: 'RACE TO THE CLOUDS', stages: ['pikes'], prize: [150000, 80000, 40000], diff: 0.97 }] },
@@ -17468,10 +17469,12 @@ const Career = {
     h += '</div><div><h4>YOUR CARS</h4>' + C.owned.map((b) => `<button class="mini${b === C.car ? ' on' : ''}" data-car="${b}">${GARAGE.body.opts[b].name}</button>`).join(' ');
     h += '<h4>CO-DRIVERS</h4>' + CODRIVERS.map((c, i) => `<div class="ev-row"><span><b>${c.full}</b><small>${c.name} · ${c.blurb}</small></span>${i <= C.cod ? (i === C.cod ? '<i class="medal-t">HIRED</i>' : '') : `<button class="mini" data-hire="${i}">HIRE ${money(c.cost)}</button>`}</div>`).join('');
     h += '<h4>DEALER</h4>';
+    // each era sells its own cars; the cars no era names (the rally-raid trucks) are sold in the last, UNLIMITED
     ERAS.forEach((e, i) => {
-      if (!e.cars || i > C.era) return;
-      for (const n of e.cars) {
-        const b = carIdx(n); if (b < 0 || C.owned.includes(b)) continue;
+      if (i > C.era) return;
+      for (let b = 0; b < GARAGE.body.opts.length; b++) {
+        if (this.eraOf(b) !== i || C.owned.includes(b)) continue;
+        const n = GARAGE.body.opts[b].name;
         const R = _perfCache.has(String(b) + '|') ? ratingsFor(Object.assign({}, Store.data.garage, { body: b })) : null;
         h += `<div class="ev-row"><span><b>${n}</b><small>${e.name}${R ? ' · ' + R.cls + ' ' + R.pi : ''}</small></span><button class="mini" data-buy="${b}">BUY ${R ? money(this.price(b)) : ''}</button></div>`;
       }
