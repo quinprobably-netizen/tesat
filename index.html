@@ -12938,6 +12938,100 @@ function emitCarParticles(dt, ctl) {
   }
 }
 
+/* Tyre marks: dark rubber on tarmac while a wheel slides, spins or brakes hard; darker compressed grooves on gravel,
+   snow and regolith all the time (fainter when rolling, stronger when sliding). One quad ribbon per stage in a ring
+   buffer. A wheel adds a segment each STEP metres it rolls and breaks its ribbon when it leaves the ground. Visual only. */
+const TYRE_RUBBER = srgb(0x1b1b1e);
+const TyreMarks = {
+  STEP: 0.25, HALF_W: 0.1, LIFT: 0.025, JUMP: 2,      // metres: segment length, half width, lift above the ground, a jump that starts a new ribbon
+  /** A new mesh per stage (the old one goes with stageGroup). */
+  build(group) {
+    const N = this.MAX = LOW_SPEC ? 4000 : 6000;
+    this.pos = new Float32Array(N * 12); this.col = new Float32Array(N * 16);
+    const idx = new Uint32Array(N * 6);
+    for (let s = 0; s < N; s++) idx.set([s * 4, s * 4 + 1, s * 4 + 2, s * 4, s * 4 + 2, s * 4 + 3], s * 6);
+    this.posAttr = new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage);
+    this.colAttr = new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', this.posAttr); geo.setAttribute('color', this.colAttr);
+    geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.setDrawRange(0, 0);
+    const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh.frustumCulled = false; this.mesh.renderOrder = 1;
+    group.add(this.mesh);
+    this.wheels = car.wheels.map(() => ({ on: false, x: 0, y: 0, z: 0, lx: 0, ly: 0, lz: 0, nx: 0, ny: 1, nz: 0 }));
+    this.head = 0; this.count = 0; this.dLo = -1; this.dHi = -1;
+  },
+  /** Run start, restart, menu loop: every mark goes. */
+  clear() {
+    if (!this.mesh) return;
+    this.head = 0; this.count = 0; this.mesh.geometry.setDrawRange(0, 0);
+    for (const st of this.wheels) st.on = false;
+  },
+  /** Once per physics frame, after emitCarParticles. Reads the wheels' contact points the same way emitCarParticles does. */
+  update(ctl) {
+    if (!this.mesh) return;
+    carAxes();
+    const def = TR.def, hard = ctl.brake > 0.6 && car.speed > 5;
+    for (let k = 0; k < 4; k++) {
+      const w = car.wheels[k], st = this.wheels[k];
+      if (!w.grounded) { st.on = false; continue; }
+      const surf = w.gs.road ? w.gs.surf : def.surf.off;
+      const slide = w.sliding || w.spinning;
+      let alpha = 0, c = null;
+      if (surf === SURF.TARMAC) {
+        if (slide || hard) { alpha = slide ? 0.55 : 0.3; c = TYRE_RUBBER; }
+      } else if (surf === SURF.GRAVEL || surf === SURF.SNOW || surf === SURF.REGOLITH) {
+        const hex = def.colors.surf[surf];
+        alpha = slide ? 0.6 : 0.3; c = srgb(hex !== undefined ? hex : 0x55575a).multiplyScalar(0.45);
+      }
+      if (!alpha) { st.on = false; continue; }
+      const x = w.mount.x - AY.x * w.dist, y = w.mount.y - AY.y * w.dist, z = w.mount.z - AY.z * w.dist;
+      if (st.on) {
+        const dx = x - st.x, dy = y - st.y, dz = z - st.z;
+        if (dx * dx + dy * dy + dz * dz > this.JUMP * this.JUMP) st.on = false;   // a respawn, not a skid
+      }
+      if (!st.on) { this.setPoint(st, x, y, z, w); st.on = true; continue; }
+      const dx = x - st.x, dy = y - st.y, dz = z - st.z;
+      if (dx * dx + dy * dy + dz * dz < this.STEP * this.STEP) continue;
+      this.quad(st, x, y, z, w.lt, w.n, c, alpha);
+      this.setPoint(st, x, y, z, w);
+    }
+    this.flush();
+  },
+  setPoint(st, x, y, z, w) {
+    st.x = x; st.y = y; st.z = z; st.lx = w.lt.x; st.ly = w.lt.y; st.lz = w.lt.z; st.nx = w.n.x; st.ny = w.n.y; st.nz = w.n.z;
+  },
+  /** One quad from the wheel's last point to this one, written into the next ring slot. */
+  quad(st, x, y, z, lt, n, c, a) {
+    const s = this.head, P = this.pos, C = this.col, hw = this.HALF_W, L = this.LIFT;
+    const put = (i, px, py, pz) => {
+      const o = s * 4 + i;
+      P[o * 3] = px; P[o * 3 + 1] = py; P[o * 3 + 2] = pz;
+      C[o * 4] = c.r; C[o * 4 + 1] = c.g; C[o * 4 + 2] = c.b; C[o * 4 + 3] = a;
+    };
+    put(0, st.x - st.lx * hw + st.nx * L, st.y - st.ly * hw + st.ny * L, st.z - st.lz * hw + st.nz * L);
+    put(1, st.x + st.lx * hw + st.nx * L, st.y + st.ly * hw + st.ny * L, st.z + st.lz * hw + st.nz * L);
+    put(2, x + lt.x * hw + n.x * L, y + lt.y * hw + n.y * L, z + lt.z * hw + n.z * L);
+    put(3, x - lt.x * hw + n.x * L, y - lt.y * hw + n.y * L, z - lt.z * hw + n.z * L);
+    this.head = (s + 1) % this.MAX; this.count = Math.min(this.count + 1, this.MAX);
+    this.mesh.geometry.setDrawRange(0, this.count * 6);
+    if (this.dLo < 0) { this.dLo = this.dHi = s; } else { this.dLo = Math.min(this.dLo, s); this.dHi = Math.max(this.dHi, s); }
+  },
+  /** Queues the slots written since the last upload. The renderer uploads and clears the queue, so ranges pile up
+   *  across updates that were not rendered; past a few, one full upload is cheaper than many small ones. */
+  flush() {
+    if (this.dLo < 0) return;
+    const lo = this.dLo, n = this.dHi - lo + 1; this.dLo = -1;
+    for (const [a, stride] of [[this.posAttr, 12], [this.colAttr, 16]]) {
+      if (a.updateRanges.length > 16) { a.clearUpdateRanges(); a.addUpdateRange(0, a.array.length); }
+      else a.addUpdateRange(lo * stride, n * stride);
+      a.needsUpdate = true;
+    }
+  },
+};
+
 function updateCarVisual(dt, ctl) {
   const M = Game.carModel;
   M.group.position.copy(Draw.pos); M.group.quaternion.copy(Draw.q);
@@ -13220,6 +13314,7 @@ function buildStage(def) {
   buildChicanes(rng);
   planForCar(tuneFor(DEFAULT_SETUP, Store.data.garage));   // the AI's line and the line on screen: this car's, rebuilt when the car changes
   buildPaceNotes();
+  TyreMarks.build(stageGroup);                          // fresh marks for each stage (the old mesh is disposed with stageGroup)
   linearizeMaterials(stageGroup);
   const culled = new Set(TR.cells.map((c) => c.mesh));
   stageGroup.traverse((o) => { if (o.isInstancedMesh && !culled.has(o)) o.frustumCulled = false; });
@@ -13248,7 +13343,7 @@ function loadStage(def, then) {
 }
 function resetRunState() {
   Game.runCount++;
-  FX.clear();
+  FX.clear(); TyreMarks.clear();
   for (const g of TR.gates) g.passed = false;
   setGateColors(0);
   resetChicanes();
@@ -15336,6 +15431,7 @@ function update(dt) {
     processCarEvents();
     updateCarVisual(dt, ctl);
     emitCarParticles(dt, ctl);
+    TyreMarks.update(ctl);
     updateDamageFx(dt, ctl);
     updateScenery(dt, Game.clock);
     raceLogic(dt);
@@ -15400,7 +15496,7 @@ function init() {
   linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
   // Small debugging / automation surface (autopilot lets you watch the AI drive a full stage).
   window.RegolithRally = {
-    AudioSys, EngineSound, Game, Cam, car, Post, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
+    AudioSys, EngineSound, Game, Cam, car, Post, TyreMarks, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, Impacts, ROAD, GEO, perfRatings, tuneFor,
     openService, leaveService, pauseGame, finishRace, showFinish, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, recSetup, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
