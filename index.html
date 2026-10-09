@@ -7629,7 +7629,7 @@ function birdGeometry() {
   const pos = [], nrm = [], wing = [];
   const addGeo = (g, m) => {
     g.applyMatrix4(m);
-    const ng = g.toNonIndexed(), p = ng.attributes.position.array, n = ng.attributes.normal.array;
+    const ng = g.index ? g.toNonIndexed() : g, p = ng.attributes.position.array, n = ng.attributes.normal.array;
     for (let k = 0; k < p.length; k += 3) { pos.push(p[k], p[k + 1], p[k + 2]); nrm.push(n[k], n[k + 1], n[k + 2]); wing.push(0); }
     g.dispose(); ng.dispose();
   };
