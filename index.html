@@ -2669,7 +2669,8 @@ function topSpeed(tn) {
     let f = 0;
     for (let k = 0; k < tn.gears.length; k++) f = Math.max(f, gearPull(tn, k, v));
     const A = aeroLevel(tn, v);
-    if (f >= A.drag + crr * (m * 9.81 + A.df)) best = v;
+    // (the driveline's shaft drag too: each of the four wheel shafts gives up DRIVE.shaftDrag·ω, 4·shaftDrag·v/r² at the road)
+    if (f >= A.drag + crr * (m * 9.81 + A.df) + 4 * DRIVE.shaftDrag * v / (tn.r * tn.r)) best = v;
   }
   return best;
 }
@@ -2692,9 +2693,8 @@ function perfRatings(build, setup) {
     const L = rig.launch(SURF.TARMAC, 25);
     return { t100: L.t100, t160: L.t160, corner: (rig.skidpad(SURF.GRAVEL, 15).g + rig.skidpad(SURF.GRAVEL, 30).g) / 2, brakeDist: rig.brake(SURF.GRAVEL, 100 / 3.6).dist };
   });
-  // turn-in (yaw inertia against the wheelbase, steering lock) sharpens what the skidpad holds
-  const agility = Math.sqrt(m * tn.geo.a * tn.geo.b / tn.geo.inertia.y);
-  const corner = run.corner * Math.sqrt(tn.steer) * agility, brakeDist = run.brakeDist;
+  // the skidpad's corner speed, scaled by the steering lock (the yaw inertia is a fixed multiple of m·a·b in the model, so a turn-in term here would only reward the engine's position)
+  const corner = run.corner * Math.sqrt(tn.steer), brakeDist = run.brakeDist;
   const offroad = ((surfMu(SURF.GRAVEL) + surfMu(SURF.REGOLITH) + surfMu(SURF.ICE)) / 3) * (!sp.front ? 0.86 : sp.front >= 1 ? 0.93 : 1);
   const vTop = tn.vmax * 3.6;                         // where the best gear's pull meets drag and rolling resistance (topSpeed)
   const r = (x, [a, b]) => clamp((x - a) / (b - a) * 10, 0, 10);
@@ -5686,6 +5686,9 @@ function treeGeometry(parts, snow) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
 }
+// a trunk snaps at its root when the blow's bending moment there passes its strength (wood, Pa) for about this long (s).
+// 64 MPa is dry Engelmann spruce's bending strength (Wood Handbook, via the Oregon State table); green wood is weaker
+const TREE_STRENGTH = 64e6, TREE_IMPACT_T = 0.2;
 const TREE_KINDS = {
   // Engelmann spruce (Pikes Peak) and Norway spruce (Värmland): a dark narrow cone in tiers
   spruce: { h: [5, 13], w: [0.55, 0.75], parts: (s) => treeGeometry([[new THREE.CylinderGeometry(0.035, 0.05, 0.3, 5), 0.15, 0x4a3626], [new THREE.ConeGeometry(0.3, 0.62, 7), 0.45, 0x22341d],
@@ -5769,7 +5772,10 @@ function buildMountainDecor(rng) {
     if (!geos.has(gk)) geos.set(gk, K.parts(snow ? 0.75 : 0));
     const key = gk + ':' + Math.floor(x / CELL) * 100000 + Math.floor(z / CELL);
     let c = cells.get(key); if (!c) cells.set(key, c = { gk, list: [], low: !!K.low });
-    const col = Math.abs(LQ2.d) < zone + 4 && !K.low ? { x, z, r: 0.5, y0: y - 1, y1: y + h, kind: 'tree', brk: h < 16 } : null;
+    // the trunk: radius about 0.5 cm per metre of height (stand pine: 19 cm across at 19 m), solid up to the
+    // crown (3 m) and no more; the crown above is foliage a car drives through
+    const trunkR = 0.005 * h;
+    const col = Math.abs(LQ2.d) < zone + 4 && !K.low ? { x, z, r: trunkR, y0: y - 1, y1: y + Math.min(h, 3), kind: 'tree', brk: true, base: y, mcap: TREE_STRENGTH * Math.PI * trunkR ** 3 / 4, sway: null } : null;
     if (col) addCollider(col);
     c.list.push({ x, y: y - 0.35, z, h, w, rot: r3 * TAU, shade: 0.75 + 0.45 * r2, col });
   }
@@ -6603,7 +6609,7 @@ function relaxCoeffs(ax, h, sig) {
 const DRIVE = {
   sub: 4,              // implicit substeps per physics step
   Kc: 20000,           // stiffness of a coupling that holds (a locked clutch or diff, a brake holding its wheel), N·m per rad/s
-  shaftDrag: 0.3,      // bearing and gear drag at each wheel (N·m per rad/s)
+  shaftDrag: 0.15,     // bearing and gear drag at each wheel (N·m per rad/s); the gears' own loss is in eta, so this is the rest. At 0.3 the MINI topped out at 134 km/h against its road test's 154 (96 mph)
 };
 const GEARBOX = { idle: 0.12, redline: 8500, rpmMax: 9300 };   // follow the car (setCarTune), for the rev counter
 const AIR_RHO = 1.2;   // at sea level (the space stages breathe it too)
@@ -6895,7 +6901,8 @@ function drivelineStep(dt, ctl, G, th0) {
   // launch clutch still keeps the engine from stalling, so whichever is further out wins
   const pedal = 1 - smoothstep(0.15, 0.8, ctl.clutch || 0);
   const clutch = (c, we, wC, hb) => {
-    const eng = G === 0 || dip || hb ? 0 : pedal * smoothstep(sp.idle * 1.05, sp.launch, Math.max(we, Math.abs(G * wC)) * 60 / TAU);
+    // (rolling back against the gear, the driveline would turn the engine backwards: the clutch lets go rather than clamp it)
+    const eng = G === 0 || dip || hb || G * wC < -1 ? 0 : pedal * smoothstep(sp.idle * 1.05, sp.launch, Math.max(we, Math.abs(G * wC)) * 60 / TAU);
     setCpl(c, eng > 0.002, DRIVE.Kc, sp.clutchT * eSh * eng);
   };
   const cl = C[0], cl2 = C[8];
@@ -6903,8 +6910,9 @@ function drivelineStep(dt, ctl, G, th0) {
   cl.u[0] = 1; cl.u[1] = cl.u[2] = -G * c0; cl.u[3] = cl.u[4] = -G * c2;
   if (twin) { clutch(cl2, om[5], 0.5 * (om[3] + om[4]), ctl.handbrake || ctl.clutchIn); cl2.u[5] = 1; cl2.u[3] = cl2.u[4] = -G * 0.5; } else cl2.on = false;
   // differentials (the centre one lets go while the handbrake is pulled, so the rears can lock)
-  const Tin = Math.abs(G * car.Tcl), power = car.Tcl * G >= 0;
-  if (twin) { C[1].on = false; diffCpl(C[2], sp.fdiff, Tin, power, false, ctl); diffCpl(C[3], sp.rdiff, Math.abs(G * car.Tcl2), power, false, ctl); }
+  // power: the engine is driving its axle (Tcl > 0 in every gear, reverse included; the gear's sign is in G, not here)
+  const Tin = Math.abs(G * car.Tcl), power = car.Tcl >= 0, power2 = car.Tcl2 >= 0;
+  if (twin) { C[1].on = false; diffCpl(C[2], sp.fdiff, Tin, power, false, ctl); diffCpl(C[3], sp.rdiff, Math.abs(G * car.Tcl2), power2, false, ctl); }
   else {
     if (s && !ctl.handbrake) diffCpl(C[1], sp.centre, Tin, power, true, ctl); else C[1].on = false;
     if (s) diffCpl(C[2], sp.fdiff, Tin * s, power, false, ctl); else C[2].on = false;
@@ -7058,7 +7066,7 @@ for (let j = 0; j < 12; j++) {
   for (const across of [-1, 1]) DISC.push({ across, rad: 0.5, c, s });
 }
 /* ---- soft body: the car as nodes and beams, the way BeamNG builds one ----
-   With Settings > SOFT-BODY on, the body is a lattice of 44 point masses (floor, waist and roof) joined by stiff
+   With Settings > SOFT-BODY on, the body is a lattice of point masses (floor, waist and roof) joined by stiff
    spring-damper beams instead of one rigid body. The wheels, tyres, powertrain and aids work as before and push on
    the nodes nearest where they act (addForceAt); whatever the rigid model applies as a pure force or torque (gravity,
    the aids, the wheels' gyroscopes) is spread over the nodes so the car as a whole gets exactly the same push. The
@@ -7070,7 +7078,7 @@ for (let j = 0; j < 12; j++) {
    which keeps them stiff and stable. The physics test rig (RIG_GROUND) always runs the rigid body, so the garage
    ratings and self-tests are unchanged. */
 const SB = {
-  SUB: 10, FR: [0, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 1], EZ: 0.1, NOSE: 0.65, EA: 4e6, C: 1200, YIELD: 0.004, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22, DENT: 1, DENT_MAX: 0.15, DENSE: 0.6, DENSE_K: 3,
+  SUB: 10, FR: [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 0.75, 0.8, 0.85, 0.9, 0.95, 1], EZ: 0.15, NOSE: 0.035, EA: 4e6, C: 1200, CE: 60, YIELD: 0.008, BREAK: 0.25, KG: 6e5, CG: 9000, MU: 0.7, RN: 0.22, DENT: 1, DENT_MAX: 0.15, DENSE: 0.6, DENSE_K: 3,
   on: false, ready: false, synced: false, key: null, n: 0, M: 0, ver: 0,
   rest: null, loc: null, m: null, x: null, v: null, fe: null, f: null, off: new THREE.Vector3(),
   ba: null, bb: null, l0: null, l00: null, ok: null, nb: 0, gh: null,
@@ -7328,7 +7336,8 @@ const SB = {
         if (L > L00 * (1 + this.BREAK) || l0[b] < 0.5 * L00) { ok[b] = 0; this.lost[ba[b]]++; this.lost[bb[b]]++; this.broke++; this.ver++; continue; }
         const yb = ys[b] * L00;
         if (L - l0[b] > yb) l0[b] = L - yb; else if (l0[b] - L > yb) l0[b] = L + yb;
-        let fs = ea[b] * (L - l0[b]) + this.C * ((V[b3] - V[a3]) * ux + (V[b3 + 1] - V[a3 + 1]) * uy + (V[b3 + 2] - V[a3 + 2]) * uz);
+        // damping: a crumple beam gets the small crush rate term CE (a crumpling zone resists its rate little), the cabin the full C
+        let fs = ea[b] * (L - l0[b]) + (endB[b] ? this.CE : this.C) * ((V[b3] - V[a3]) * ux + (V[b3 + 1] - V[a3 + 1]) * uy + (V[b3 + 2] - V[a3 + 2]) * uz);
         // densification: a crumple-zone beam crushed past DENSE of its length is packed solid, and pushes back harder the further it goes
         if (endB[b] && L < this.DENSE * L00) fs -= ea[b] * this.DENSE_K * (this.DENSE * L00 - L);
         f[a3] += fs * ux; f[a3 + 1] += fs * uy; f[a3 + 2] += fs * uz;
@@ -7384,7 +7393,7 @@ const SB = {
       const d2 = dx * dx + dy * dy + dz * dz, rr = R + c.r;
       if (d2 >= rr * rr || d2 < 1e-8) continue;
       const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, nz = dz / d;
-      this.contact(i, nx, ny, nz, rr - d, c.kind, c.brk && BREAK_V[c.kind] ? c : null, null);
+      this.contact(i, nx, ny, nz, rr - d, c.kind, c.brk ? c : null, null);
     }
     for (const o of this.blocks) {
       if (o.gone) continue;
@@ -7394,7 +7403,7 @@ const SB = {
       const dx = X[k] - qx, dy = X[k + 1] - cy, dz = X[k + 2] - qz, d2 = dx * dx + dy * dy + dz * dz, rr = R + CHICANE.blockD / 2;
       if (d2 >= rr * rr || d2 < 1e-8) continue;
       const hl = Math.hypot(dx, dz) || 1;
-      this.contact(i, dx / hl, 0, dz / hl, rr - Math.sqrt(d2), 'barrier', null, o);
+      this.contact(i, dx / hl, 0, dz / hl, rr - hl, 'barrier', null, o);
     }
   },
   /** Posts and trunks thinner than the gaps between nodes meet the beams too, so they can't slip into the car:
@@ -7413,7 +7422,7 @@ const SB = {
         if (qy < c.y0 || qy > c.y1) continue;
         const dx = X[a3] + t * ex - c.x, dz = X[a3 + 2] + t * ez - c.z, d = Math.hypot(dx, dz), rr = R + c.r;
         if (d >= rr || d < 1e-6) continue;
-        const nx = dx / d, nz = dz / d, pen = rr - d, brk = c.brk && BREAK_V[c.kind] ? c : null;
+        const nx = dx / d, nz = dz / d, pen = rr - d, brk = c.brk ? c : null;
         this.contact(ba[b], nx, 0, nz, pen * (1 - t), c.kind, brk, null);
         this.contact(bb[b], nx, 0, nz, pen * t, c.kind, brk, null);
         if (c.gone) break;
@@ -7432,7 +7441,8 @@ const SB = {
         if (c.gone) continue;
         const cy = clamp(p.y, c.y0, c.y1), dx = p.x - c.x, dy = p.y - cy, dz = p.z - c.z, d2 = dx * dx + dy * dy + dz * dz, rr = R + c.r;
         if (d2 >= rr * rr || d2 < 1e-8) continue;
-        const d = Math.sqrt(d2); nx = dx / d; ny = dy / d; nz = dz / d; pen = rr - d; kind = c.kind; brk = c.brk && BREAK_V[c.kind] ? c : null;
+        const d = Math.sqrt(d2);
+        if (rr - d > pen) { pen = rr - d; nx = dx / d; ny = dy / d; nz = dz / d; kind = c.kind; brk = c.brk ? c : null; }
       }
       for (const o of this.blocks) {
         if (o.gone || pen > 0) continue;
@@ -7440,7 +7450,7 @@ const SB = {
         const qx = o.x + ex * t, qz = o.z + ez * t, cy = clamp(p.y, o.y, o.y + CHICANE.blockH);
         const dx = p.x - qx, dy = p.y - cy, dz = p.z - qz, d2 = dx * dx + dy * dy + dz * dz, rr = R + CHICANE.blockD / 2;
         if (d2 >= rr * rr || d2 < 1e-8) continue;
-        const hl = Math.hypot(dx, dz) || 1; nx = dx / hl; ny = 0; nz = dz / hl; pen = rr - Math.sqrt(d2); kind = 'barrier'; obj = o;
+        const hl = Math.hypot(dx, dz) || 1; nx = dx / hl; ny = 0; nz = dz / hl; pen = rr - hl; kind = 'barrier'; obj = o;
       }
       if (pen > 0) for (let j = 0; j < 4; j++) if (W[j] > 0.05) this.contact(I[j], nx, ny, nz, pen * W[j] * 2, kind, brk, obj);
     }
@@ -7478,7 +7488,7 @@ const SB = {
           if (c.r - d > pen) { pen = c.r - d; nx = ex / d; ny = ey / d; nz = ez / d; }
         }
         if (!pen) continue;
-        const brk = c.brk && BREAK_V[c.kind] ? c : null;
+        const brk = c.brk ? c : null;
         for (let i = 0; i < 3; i++) this.contact(M.i[i], nx, ny, nz, pen * M.w[i], c.kind, brk, null);
         if (c.gone) break;
       }
@@ -7495,8 +7505,8 @@ const SB = {
           const px = P[j] - (o.x + ex * t2), py = P[j + 1] - clamp(P[j + 1], o.y, o.y + CHICANE.blockH), pz = P[j + 2] - (o.z + ez * t2);
           const d2 = px * px + py * py + pz * pz;
           if (d2 >= bh * bh || d2 < 1e-8) continue;
-          const d = Math.sqrt(d2), hl = Math.hypot(px, pz) || 1;
-          if (bh - d > pen) { pen = bh - d; nx = px / hl; nz = pz / hl; }
+          const hl = Math.hypot(px, pz);
+          if (hl > 1e-6 && bh - hl > pen) { pen = bh - hl; nx = px / hl; nz = pz / hl; }
         }
         if (!pen) continue;
         for (let i = 0; i < 3; i++) this.contact(M.i[i], nx, 0, nz, pen * M.w[i], 'barrier', null, o);
@@ -7513,11 +7523,12 @@ const SB = {
     X[k] += nx * pen * share; X[k + 1] += ny * pen * share; X[k + 2] += nz * pen * share;
     if (obj) { obj.x -= nx * pen * (1 - share); obj.z -= nz * pen * (1 - share); obj.moving = true; obj.ch.moving = true; }
     if (vn >= 0) return;
-    const broke = brk && -vn > BREAK_V[kind] ? brk : null;
+    const broke = brk && snaps(brk, kind, vn, X[k + 1]) ? brk : null;
     if (broke) broke.gone = true;
     const kObj = obj ? 1 / obj.mass : 0, e = obj ? CONTACT.e : restitution(-vn), invM = 1 / mi + kObj;
     let jn = -(1 + e) * vn / invM;
     if (broke) jn *= 0.3;                                         // snapping it takes only part of the blow
+    else if (brk && kind === 'tree') Breakables.sway(brk, jn * (X[k + 1] - brk.base), nx, nz);
     _jr.set(X[k] - car.pos.x, X[k + 1] - car.pos.y, X[k + 2] - car.pos.z); _jn.set(nx, ny, nz);
     const Ec = (broke ? 0.5 : 1) * 0.5 * (1 - e * e) * vn * vn / (contactInvMass(_jr, _jn) + kObj);   // impact energy, as the rigid path takes it
     const tx = ux - vn * nx, ty = uy - vn * ny, tz = uz - vn * nz, vt = Math.hypot(tx, ty, tz);
@@ -7688,7 +7699,7 @@ function throttleType(sp) {
 }
 // bar; pads' running gap as a share of full pressure; hydraulic lag (s); ABS dump and build rates (bar/s) and the braking
 // slip (share of the tyre's peak) it dumps above and holds above; handbrake lever (s)
-const BRAKES = { pMax: 110, gap: 0.02, tau: 0.035, dump: 800, build: 800, hi: 1.5, lo: 1.15, hbOn: 0.08, hbOff: 0.05 };
+const BRAKES = { pMax: 110, gap: 0.02, tau: 0.035, dump: 800, build: 800, hi: 1.15, lo: 1.05, hbOn: 0.08, hbOff: 0.05 };   // ABS: dump 15% past the peak slip, hold near it, rebuild below 5%
 /** Manifold load (0-1) the butterfly's open area A gives at engine speed rf (share of the redline): 1 when wide open. */
 function throttleLoad(tt, A, rf) {
   return (1 - Math.exp(-tt.area * A / rf)) / (1 - Math.exp(-tt.area / rf));
@@ -7886,7 +7897,7 @@ function stepVehicle(dt, ctl) {
   // when the car slides further than a keyboard can catch (body slip past b0) or yaws faster than the steering asks
   // for, it wants a yaw moment back toward the direction of travel, and gets it by braking the front wheel on that
   // side, up to that tyre's grip; the engine is trimmed while it works. It rests
-  // while the handbrake is held and while you drift on purpose. SPORT only steps in on a big slide, and gently.
+  // while the handbrake is held. FULL straightens every slide (its yaw term eases off in a drift on purpose); SPORT only steps in on a big slide, and gently.
   const sm = fc && fc.stab ? fc.stab : Game.autopilot || Game.state !== 'racing' ? 'full' : stabMode();
   const SA = car.stab = STAB[sm] || STAB.full;
   if (ctl.handbrake) car.hbTimer = 0.35; else car.hbTimer = Math.max(0, (car.hbTimer || 0) - dt);
@@ -7927,10 +7938,12 @@ function stepVehicle(dt, ctl) {
   if (car.tc && th0 > 0 && ctl.brake < 0.02) {
     let over = 0;
     for (let k = drv0; k < drv1; k++) { const w = car.wheels[k]; if (w.grounded) over = Math.max(over, w.kap * Math.sign(rev ? -1 : 1) / w.ts.kp); }
-    car.tcF = over > 1.35 ? Math.max(0.05, car.tcF - dt * 6 * (over - 0.9)) : Math.min(1, car.tcF + dt * 2.5);
+    car.tcF = over > 1.1 ? Math.max(0.05, car.tcF - dt * 6 * (over - 0.9)) : Math.min(1, car.tcF + dt * 2.5);
   } else car.tcF = Math.min(1, car.tcF + dt * 4);
-  car.tcCut = car.tc && th0 > 0.05 && car.tcF < 0.95;
-  if (car.tc) th0 *= car.tcF;
+  // the traction control eases the throttle only off the brake: the driver's pedal is never cut while braking
+  const tcOn = car.tc && ctl.brake < 0.02;
+  car.tcCut = tcOn && th0 > 0.05 && car.tcF < 0.95;
+  if (tcOn) th0 *= car.tcF;
   // the stability control trims the engine while it brakes a wheel, but never while the driver is on the brake pedal:
   // then the throttle stays wholly the driver's
   if (car.esc && ctl.brake < 0.02) th0 *= 1 - escTrim;
@@ -7951,7 +7964,7 @@ function stepVehicle(dt, ctl) {
     if (!w.grounded) { w.J = 0; continue; }
     w.sliding = w.slip > 1.15;
     w.locked = w.pB > BRAKES.gap * BRAKES.pMax && Math.abs(w.vLong) > 2 && Math.abs(w.om * CAR.radius) < 0.15 * Math.abs(w.vLong);
-    w.spinning = k >= drv0 && k < drv1 && w.kap > 1.6 * w.ts.kp && Math.abs(w.om * CAR.radius) > 2;
+    w.spinning = k >= drv0 && k < drv1 && w.kap * (rev ? -1 : 1) > 1.6 * w.ts.kp && Math.abs(w.om * CAR.radius) > 2;
     w.slipLat = w.vLat;
     _ft.copy(w.fw).multiplyScalar(w.Fx).addScaledVector(w.lt, w.Fy);
     addForceAt(_ft, w.cp);
@@ -8075,8 +8088,8 @@ function collideObstacles() {
         const dx = _sc.x - qx, dy = _sc.y - cy, dz = _sc.z - qz;
         const d2 = dx * dx + dy * dy + dz * dz, rr = R + CHICANE.blockD / 2;
         if (d2 >= rr * rr || d2 < 1e-8) continue;
-        const d = Math.sqrt(d2), hl = Math.hypot(dx, dz) || 1;   // blocks shove sideways, never launch
-        resolveContact(dx / hl, 0, dz / hl, rr - d, 'barrier', qx + dx / hl * 0.3, cy, qz + dz / hl * 0.3, o);
+        const hl = Math.hypot(dx, dz) || 1;   // blocks shove sideways, never launch: the push is the horizontal gap
+        resolveContact(dx / hl, 0, dz / hl, rr - hl, 'barrier', qx + dx / hl * 0.3, cy, qz + dz / hl * 0.3, o);
         _sc.set(S[0], S[1], S[2]).applyQuaternion(car.q).add(car.pos);
       }
     }
@@ -8092,8 +8105,14 @@ const BLOCK_HL = CHICANE.blockW / 2 - CHICANE.blockD / 2;
 const CONTACT = { e: 0.25, mu: 0.4 };
 // a soft touch bounces off; a hard hit crumples the bodywork, which soaks up the energy instead of handing it back
 const restitution = (vn) => lerp(0.35, 0.06, clamp((vn - 3) / 15, 0, 1));
-// closing speed (m/s) above which a breakable thing gives way: the car snaps it and keeps some of its speed
-const BREAK_V = { tree: 12, sign: 6 };
+// closing speed (m/s) above which a sign gives way: the car snaps it and keeps some of its speed
+const BREAK_V = { sign: 6 };
+/** Does a breakable piece of scenery give way to this blow (closing speed vn, m/s, at height y)? A tree snaps at its root
+ *  when the blow's moment there (the car's momentum, bouncing as restitution says, acting for TREE_IMPACT_T and levered
+ *  from the root up to the contact) passes the trunk's bending strength; a sign at a closing speed of BREAK_V. */
+function snaps(c, kind, vn, y) {
+  return kind === 'tree' ? (1 + restitution(-vn)) * -vn * CAR.mass * (y - c.base) > c.mcap * TREE_IMPACT_T : -vn > BREAK_V[kind];
+}
 const _jr = new THREE.Vector3(), _jn = new THREE.Vector3(), _jt = new THREE.Vector3(), _jv = new THREE.Vector3(), _jx = new THREE.Vector3();
 /** Change in the contact point's velocity along unit vector d per unit impulse along d (the inverse effective mass). */
 function contactInvMass(r, d) {
@@ -8117,8 +8136,9 @@ function resolveContact(nx, ny, nz, pen, kind, px, py, pz, obj, brk) {
   if (vn >= 0) return;
   const kObj = obj ? 1 / obj.mass : 0, invM = contactInvMass(_jr, _jn) + kObj;
   let jn = -(1 + (obj ? CONTACT.e : restitution(-vn))) * vn / invM;
-  const broke = brk && brk.brk && -vn > BREAK_V[kind] ? brk : null;
+  const broke = brk && snaps(brk, kind, vn, py) ? brk : null;
   if (broke) { broke.gone = true; jn *= 0.3; }
+  else if (brk && kind === 'tree') Breakables.sway(brk, jn * (py - brk.base), nx, nz);
   // friction: against the sliding velocity across the contact, capped by μ·jn and by what would just stop the slide
   _jt.copy(_jv).addScaledVector(_jn, -vn);
   const vt = _jt.length();
@@ -8323,7 +8343,7 @@ const PhysicsRig = {
       px = _wl.x; pz = _wl.z;
       if (all4 > 0 && i - all4 < 120 && car.nGround <= 2) few++;
     });
-    return { reversals: rev, twoWheels: few * this.dt };
+    return { reversals: rev, twoWheels: few * this.dt, all4: all4 > 0 };
   },
 };
 const _eT = new THREE.Euler();
@@ -8416,6 +8436,8 @@ function physicsTests(build) {
     check('core: 2 m drop, rebound above ride height (m)', rig.drop(2).rebound, -0.05, 0.1);
     const tilt = rig.tiltDrop(3, 0.1, 0.07);
     check('core: 3 m landing on one corner, time on two wheels after (s)', tilt.twoWheels, 0, 0.05);
+    check('core: 3 m landing on one corner, all four wheels down (1 = yes)', tilt.all4 ? 1 : 0, 1, 1);
+    check('core: 3 m landing on one corner, pitch/roll reversals (count)', tilt.reversals, 0, 10);
     const stepSteer = (dt) => {
       rig.dt = dt; rig.place(SURF.GRAVEL, 25, { road: true });
       rig.step(Math.round(3 / dt), (i) => { rig.ctl.throttle = 0.6; rig.ctl.steer = i * dt > 0.5 ? 0.6 : 0; });
@@ -8438,10 +8460,12 @@ function physicsTests(build) {
     check('core: handbrake on a 15% gravel grade, creep in 30 s (cm)', Math.abs(car.pos.z - z0) * 100, 0, 2);
     // a grass verge: rolling resistance on grass is about 0.08 (a gravel 0.035 plus 0.04), so a launch costs a little, not all of it
     const g0 = rig.launch(SURF.GRAVEL, 40).t100, g1 = rig.launch(SURF.GRAVEL, 40, { verge: 0.04 }).t100;
-    check('verge: 0-100 km/h on grass off the road / on gravel (ratio)', g1 / g0, 1.0, 1.6);
+    check('verge: 0-100 km/h on grass off the road / on gravel (ratio)', g1 / g0, 1.1, 1.4);
   });
   // 5) the soft body, which the rig runs only when asked (rig.place(..., { soft: true }) and rig.drop(h, true)): at rest
   //    it sits where the rigid car does with no beam set, and a 0.5 m drop lands within the rigid car's own figures
+  const keepSoft = Store.data.settings.soft;
+  Store.data.settings.soft = true;                 // (forced on, so a player's SOFT BODY setting can't turn these into rigid-car checks)
   {
     const rigid = {}, soft = {};
     PhysicsRig.run(tyred(TT), (rig) => {
@@ -8451,10 +8475,11 @@ function physicsTests(build) {
     });
     PhysicsRig.run(tyred(TT), (rig) => {
       rig.place(SURF.TARMAC, 0, { soft: true }); rig.step(900);
-      soft.y = car.pos.y; soft.N = car.wheels.map((w) => w.N);
+      soft.y = car.pos.y; soft.N = car.wheels.map((w) => w.N); soft.on = SB.on;
       soft.set = SB.l0.reduce((n, l, b) => n + (Math.abs(l - SB.l00[b]) > 1e-6 * SB.l00[b] ? 1 : 0), 0) + SB.broke;
       soft.d = rig.drop(0.5, true);
     });
+    check('soft: the soft body is on in these checks (1 = yes)', soft.on ? 1 : 0, 1, 1);
     check('soft: ride height at rest vs rigid (cm)', (soft.y - rigid.y) * 100, -0.2, 0.2);
     check('soft: largest corner load off rigid at rest (%)', Math.max(...soft.N.map((n, k) => Math.abs(n / rigid.N[k] - 1))) * 100, 0, 1);
     check('soft: beams set or broken at rest (count)', soft.set, 0, 0);
@@ -8462,9 +8487,10 @@ function physicsTests(build) {
     check('soft: 0.5 m drop, deepest point vs rigid (cm)', (soft.d.dip - rigid.d.dip) * 100, -2, 2);
     check('soft: 0.5 m drop, most compression vs rigid (%)', (soft.d.maxComp / rigid.d.maxComp - 1) * 100, -5, 5);
     check('soft: 0.5 m drop, rebound vs rigid (cm)', (soft.d.rebound - rigid.d.rebound) * 100, -1, 1);   // (a few mm either way: the frame flexes)
-    check('soft: 0.5 m drop, fastest node (m/s)', soft.d.vMax, 0, 10);
+    check('soft: 0.5 m drop, fastest node (m/s)', soft.d.vMax, 0, 4);
     check('soft: 0.5 m drop, beams broken', soft.d.broke, 0, 0);
   }
+  Store.data.settings.soft = keepSoft;
   // 6) the soft body in a crash and a roll-over: a 25 m/s wall with the progressive crush on and off (folded beams pack
   //    solid and push back harder), and a car set down upside down stays there and does not spring up off the ground
   {
@@ -8496,6 +8522,22 @@ function physicsTests(build) {
     const on = crash(K), off = crash(0);
     check('soft: 25 m/s wall, nose crush with progressive crush vs without (%)', (on.crush / off.crush - 1) * 100, -30, -5);
     check('soft: 25 m/s wall, beams broken with progressive crush vs without (count)', on.broke, 0, off.broke);
+    // a tree trunk at the nose: a 7 m tree snaps at 10 m/s, a 20 m one (20 cm across) stands at 15 m/s
+    const treeHit = (h, v) => {
+      const r = 0.005 * h, T = { x: 0, z: 0, r, y0: -1, y1: 3, kind: 'tree', brk: true, base: 0, mcap: TREE_STRENGTH * Math.PI * r ** 3 / 4, gone: false, sway: null };
+      const g = SB.gather;
+      SB.gather = function () { this.cand.length = 0; this.blocks.length = 0; this.cand.push(T); };
+      PhysicsRig.run(tyred(TT), (rig) => {
+        rig.place(SURF.TARMAC, v, { soft: true });
+        let nose = -1e9; for (let i = 0; i < SB.n; i++) nose = Math.max(nose, SB.rest[3 * i + 2]);
+        T.z = car.pos.z + nose + 1.0;
+        rig.step(120, () => {});
+      });
+      SB.gather = g;
+      return T.gone;
+    };
+    check('soft: 10 m/s into a 7 m tree, trunk snapped (1 = yes)', treeHit(7, 10) ? 1 : 0, 1, 1);
+    check('soft: 15 m/s into a 20 m tree, trunk snapped (1 = yes)', treeHit(20, 15) ? 1 : 0, 0, 0);
     let up = 0, climb = 0;
     PhysicsRig.run(tyred(TT), (rig) => {
       rig.place(SURF.TARMAC, 0, { drop: 0.8, soft: true });
@@ -12562,10 +12604,27 @@ const Debris = {
 
 /** Trees and signs the car snaps: each falls over away from the car, about its foot, and lies there. */
 const _kq = new THREE.Quaternion(), _kq2 = new THREE.Quaternion(), _kp = new THREE.Vector3(), _ks = new THREE.Vector3(), _km = new THREE.Matrix4(), _ka = new THREE.Vector3();
+const _kax = new THREE.Vector3();
 const Breakables = {
-  falling: [],
+  falling: [], swaying: [],
+  /** A tree that survives a blow sways: the blow's moment about its root sets the trunk leaning away from the car, and it springs back upright. */
+  sway(c, moment, nx, nz) {
+    const t = c.tree && c.tree.t;
+    if (!t || c.fall) return;
+    if (!c.sway) { c.sway = { ax: new THREE.Vector3(), th: 0, w: 0 }; this.swaying.push(c); }
+    const s = c.sway;
+    _kax.set(nz, 0, -nx);                                       // the lean's axis: positive leans toward the car
+    if (s.ax.dot(_kax) < 0) { s.th = -s.th; s.w = -s.w; }      // keep one sense for the angle when the hit comes from the other side
+    s.ax.copy(_kax);
+    s.w -= moment / (500 * Math.PI * c.r * c.r * t.h ** 3 / 3);  // wood (500 kg/m3) about its root: a solid rod's inertia
+  },
+  unsway(c) {
+    if (!c.sway) return;
+    c.sway = null; this.swaying.splice(this.swaying.indexOf(c), 1);
+  },
   knock(c, vx, vz, speed) {
     if (c.fall) return;
+    this.unsway(c);
     const l = Math.hypot(vx, vz) || 1;
     c.fall = { ax: new THREE.Vector3(vz / l, 0, -vx / l), ang: 0, w: Math.min(2, speed * 0.06), q0: c.grp ? new THREE.Quaternion().setFromEuler(c.rot0) : null };
     TR.broken.push(c); this.falling.push(c);
@@ -12579,10 +12638,17 @@ const Breakables = {
       if (f.ang >= max) { f.ang = max; f.w *= -0.25; if (Math.abs(f.w) < 0.1) this.falling.splice(i, 1); }
       this.apply(c);
     }
+    for (let i = this.swaying.length - 1; i >= 0; i--) {
+      const c = this.swaying[i], s = c.sway, wn = 2 * Math.PI / (0.1 * c.tree.t.h);   // about 1 s for a 10 m tree
+      s.w += (-wn * wn * s.th - 0.2 * wn * s.w) * dt;              // a spring with a tenth of critical damping
+      s.th += s.w * dt;
+      if (Math.abs(s.th) < 1e-4 && Math.abs(s.w) < 1e-3) this.unsway(c);
+      this.apply(c);
+    }
   },
   apply(c) {
-    const f = c.fall, a = f ? f.ang : 0;
-    _kq.setFromAxisAngle(f ? f.ax : _ka.set(1, 0, 0), a);
+    const f = c.fall, s = c.sway, a = f ? f.ang : s ? s.th : 0;
+    _kq.setFromAxisAngle(f ? f.ax : s ? s.ax : _ka.set(1, 0, 0), a);
     if (c.tree) {
       const { mesh, k, t } = c.tree;
       _kq.multiply(_kq2.setFromAxisAngle(UP, t.rot));
@@ -12592,6 +12658,8 @@ const Breakables = {
   },
   reset() {
     if (!TR) return;
+    for (const c of this.swaying) { c.sway = null; this.apply(c); }
+    this.swaying.length = 0;
     for (const c of TR.broken) { c.gone = false; if (c.fall) { c.fall.ang = 0; this.apply(c); } c.fall = null; }
     TR.broken.length = 0; this.falling.length = 0;
   },
@@ -12681,7 +12749,7 @@ function processCarEvents() {
     Cam.shake = Math.max(Cam.shake, Math.min(1, hit.speed * 0.06));
     Cam.kick(hit.nx, hit.nz, k);
     Input.rumble(k, Math.min(1, k * 1.4), 120 + 260 * k);
-    if (racing && hit.speed > 9) { Game.hitStop = Math.min(0.1, 0.035 + (hit.speed - 9) * 0.006); HUD.toast('HEAVY IMPACT', '#ff4d5e'); }   // a beat of stillness sells the weight
+    if (racing && hit.speed > 9) { Game.hitStop = Math.max(Game.hitStop, Math.min(0.1, 0.035 + (hit.speed - 9) * 0.006)); HUD.toast('HEAVY IMPACT', '#ff4d5e'); }   // a beat of stillness sells the weight
     if (racing && hit.speed > 10 && Game.carModel) {                    // panels torn off
       for (let i = 0, n = Math.min(4, Math.floor((hit.speed - 7) / 3)); i < n; i++) {
         Debris.spawn(hit.x, hit.y, hit.z, car.vel.x * 0.5 + hit.nx * 3 + (Math.random() - 0.5) * 4, 2 + Math.random() * 3, car.vel.z * 0.5 + hit.nz * 3 + (Math.random() - 0.5) * 4,
@@ -15150,6 +15218,8 @@ function frame(now) {
   adaptResolution(raw);
   if (update(dt)) { if (Game.state === 'photo') Photo.draw(); else Post.render(); }
 }
+/** The controls the car last drove on: a frame with no physics step shows these. */
+let lastCtl = IDLE_CTL;
 /** Advance the whole game by dt seconds. Returns false while nothing is ready to draw. */
 function update(dt) {
   Input.poll(dt);
@@ -15161,12 +15231,12 @@ function update(dt) {
   if (st !== 'paused' && st !== 'photo') {
     if (Game.hitStop > 0) { Game.hitStop -= dt; dt *= 0.06; }
     Game.clock += dt;
-    AI.dt = dt;
-    ctl = chooseControls();
     Game.acc += dt;
     let steps = 0;
-    while (Game.acc >= PHYS_DT && steps < 8) { Draw.keep(); stepVehicle(PHYS_DT, ctl); Game.acc -= PHYS_DT; steps++; }
+    // the controls are read for every physics step, so the driver's inputs reach the car at 120 Hz, not once a frame
+    while (Game.acc >= PHYS_DT && steps < 8) { Draw.keep(); AI.dt = PHYS_DT; ctl = chooseControls(); stepVehicle(PHYS_DT, ctl); Game.acc -= PHYS_DT; steps++; }
     if (steps >= 8) Game.acc = 0;
+    if (steps) lastCtl = ctl; else ctl = lastCtl;
     Draw.blend(Game.acc / PHYS_DT);
     processCarEvents();
     updateCarVisual(dt, ctl);
