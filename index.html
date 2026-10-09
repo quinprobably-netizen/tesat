@@ -5565,6 +5565,9 @@ function buildOsm(rng) {
       const x = R[1 + 2 * k], z = R[2 + 2 * k], a = Math.max(0, k - 1), b = Math.min(n - 1, k + 1);
       let tx = R[1 + 2 * b] - R[1 + 2 * a], tz = R[2 + 2 * b] - R[2 + 2 * a]; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
       if (roadDist(x, z) < hw + w / 2 + 2) { prev = -1; continue; }
+      // only where the game's ground actually forms a channel; elsewhere the strip would lie on the hillside
+      const yc = heightGlobal(x, z), o = w / 2 + 6;
+      if (Math.min(heightGlobal(x - tz * o, z + tx * o), heightGlobal(x + tz * o, z - tx * o)) < yc + 0.3) { prev = -1; continue; }
       const v = P.length / 3;
       for (const sd of [-1, 1]) { const px = x - tz * sd * w / 2, pz = z + tx * sd * w / 2; P.push(px, heightGlobal(px, pz) + 0.12, pz); }
       if (prev >= 0) I.push(prev, v, prev + 1, prev + 1, v, v + 1);
