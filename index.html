@@ -5655,7 +5655,8 @@ function cellInstances(geo, mat, items, size, far) {
   }
   for (const list of cells.values()) {
     const mesh = new THREE.InstancedMesh(geo.clone(), mat, list.length), ctr = new THREE.Vector3();
-    list.forEach((it, k) => { mesh.setMatrixAt(k, it.m); mesh.setColorAt(k, it.c); ctr.x += it.x; ctr.y += it.y; ctr.z += it.z; });
+    list.forEach((it, k) => { mesh.setMatrixAt(k, it.m); mesh.setColorAt(k, it.c); it.mesh = mesh; it.idx = k; ctr.x += it.x; ctr.y += it.y; ctr.z += it.z; });
+    mesh.userData.items = list;                                    // the cell's own items, by instance index (Trample writes into them)
     ctr.multiplyScalar(1 / list.length);
     let rad = 0; for (const it of list) rad = Math.max(rad, Math.hypot(it.x - ctr.x, it.y - ctr.y, it.z - ctr.z) + it.r);
     cullCell(mesh, ctr, rad, far);
@@ -6144,6 +6145,96 @@ function clumpGeometry() {
   g.computeVertexNormals();
   return g;
 }
+/** Vertex code for the grass and bushes, after begin_vertex: the trees' wind, the same gust formula and phase as
+ *  TREE_WIND_GLSL, on a clock twice as quick. The sway is aSway metres at the tip (per instance: a tuft about 6 cm, a
+ *  bush about 3 cm) and grows with the height fraction squared, so the roots stay put. */
+const CLUMP_WIND_GLSL = `
+#ifdef USE_INSTANCING
+{
+  vec3 ia = instanceMatrix[0].xyz, ib = instanceMatrix[2].xyz;
+  vec3 root = (modelMatrix * vec4(instanceMatrix[3].xyz, 1.0)).xyz;
+  float ph = root.x * 0.031 + root.z * 0.047 + 1.5 * fract(sin(dot(root.xz, vec2(12.9898, 78.233))) * 43758.5453);
+  float gust = (sin(uTime * 1.8 + ph) + 0.4 * sin(uTime * 4.2 + ph * 1.7 + 1.3)) / 1.4;
+  float yf = clamp(transformed.y, 0.0, 1.0);
+  float d = aSway * (uAmp / 0.02) * yf * yf * gust;                    // metres at the tip, along the wind
+  vec3 W = vec3(uDir.x, 0.0, uDir.y);
+  transformed += vec3(dot(W, ia) / max(dot(ia, ia), 1e-8), 0.0, dot(W, ib) / max(dot(ib, ib), 1e-8)) * d;
+}
+#endif
+`;
+/** Trampling: a wheel that rolls over a roadside clump flattens it for the rest of the run. The clumps sit in 10 m
+ *  buckets, so a wheel tests only the clumps in its own and the eight neighbouring buckets. A flattened clump is
+ *  written straight into its cell mesh (instance matrix and sway) and that mesh alone is flagged for upload. Looks only:
+ *  it reads the car and writes nothing back. */
+const Trample = {
+  LEAN: 1.0, SQUASH: 0.35, BUCKET: 10, STEP: 0.15, JUMP: 3, MIN_SPEED: 1,
+  grid: null, flat: [], prev: new Float64Array(8), had: [false, false, false, false],
+  build(clumps) {
+    this.grid = new Map(); this.flat = []; this.had.fill(false);
+    for (const c of clumps) {
+      const key = this.key(c.x, c.z);
+      let b = this.grid.get(key); if (!b) this.grid.set(key, b = []);
+      b.push(c);
+    }
+  },
+  key(x, z) { return Math.floor(x / this.BUCKET) * 100000 + Math.floor(z / this.BUCKET); },
+  /** Once per frame: each grounded wheel's contact point (the tyre-mark point), swept from where it was last frame in
+   *  steps of STEP metres so a fast car cannot step over a clump. A respawn (a jump of JUMP metres) tests nothing. */
+  update() {
+    if (!this.grid) return;
+    carAxes();
+    for (let k = 0; k < 4; k++) {
+      const w = car.wheels[k];
+      if (!w.grounded || car.speed < this.MIN_SPEED) { this.had[k] = false; continue; }
+      const x = w.mount.x - AY.x * w.dist, z = w.mount.z - AY.z * w.dist, p = this.prev, o = 2 * k;
+      if (this.had[k]) {
+        const dx = x - p[o], dz = z - p[o + 1], L = Math.hypot(dx, dz);
+        if (L < this.JUMP) {
+          const n = Math.max(1, Math.ceil(L / this.STEP));
+          for (let j = 1; j <= n; j++) this.test(p[o] + dx * j / n, p[o + 1] + dz * j / n);
+        }
+      } else this.test(x, z);
+      p[o] = x; p[o + 1] = z; this.had[k] = true;
+    }
+  },
+  test(x, z) {
+    const kx = Math.floor(x / this.BUCKET), kz = Math.floor(z / this.BUCKET);
+    for (let i = kx - 1; i <= kx + 1; i++) for (let j = kz - 1; j <= kz + 1; j++) {
+      const b = this.grid.get(i * 100000 + j); if (!b) continue;
+      for (const c of b) {
+        if (c.flat) continue;
+        const dx = x - c.x, dz = z - c.z;
+        if (dx * dx + dz * dz < c.tr * c.tr) this.flatten(c, car.vel.x, car.vel.z);
+      }
+    }
+  },
+  /** Lean the clump over toward the travel direction (about the ground axis UP x travel, so a positive angle tips its
+   *  blades forward) and squash it to SQUASH of its height. Its sway shrinks with it. */
+  flatten(c, vx, vz) {
+    const L = Math.hypot(vx, vz); if (L < 1e-3) return;
+    const ax = _tpAx.set(vz / L, 0, -vx / L);
+    _tpQ.setFromAxisAngle(ax, this.LEAN).multiply(_tpQy.setFromAxisAngle(UP, c.yaw));
+    _tpM.compose(_tpP.set(c.x, c.y - 0.02, c.z), _tpQ, _tpS.set(c.w, c.h * this.SQUASH, c.w));
+    const mesh = c.mesh, sw = mesh.geometry.attributes.aSway;
+    mesh.setMatrixAt(c.idx, _tpM); mesh.instanceMatrix.needsUpdate = true;
+    sw.array[c.idx] = c.sway * this.SQUASH; sw.needsUpdate = true;
+    c.flat = true; this.flat.push(c);
+  },
+  /** Run restart: every flattened clump stands up again, and only the meshes that changed are re-uploaded. */
+  reset() {
+    this.had.fill(false);
+    if (!this.flat.length) return;
+    const touched = new Set();
+    for (const c of this.flat) {
+      c.flat = false; c.mesh.setMatrixAt(c.idx, c.m); c.mesh.geometry.attributes.aSway.array[c.idx] = c.sway;
+      touched.add(c.mesh);
+    }
+    for (const mesh of touched) { mesh.instanceMatrix.needsUpdate = true; mesh.geometry.attributes.aSway.needsUpdate = true; }
+    this.flat = [];
+  },
+};
+const _tpAx = new THREE.Vector3(), _tpQ = new THREE.Quaternion(), _tpQy = new THREE.Quaternion(), _tpM = new THREE.Matrix4(),
+  _tpP = new THREE.Vector3(), _tpS = new THREE.Vector3();
 /** Roadside ground clutter on Earth stages: grass tufts and low bushes (clumps), and small stones, scattered on both
     verges from the road edge out to 25 m from the centre line, denser at the edge. The ground colour beside each item
     comes from offroadColor, so tufts follow the stage's grass, straw or snow. Looks only: no colliders, no physics.
@@ -6177,14 +6268,29 @@ function buildVerge(rng) {
       const h = bush ? lerp(0.8, 1.5, r3) : lerp(0.22, 0.55, r3), w = h * (bush ? lerp(1.1, 1.5, r4) : lerp(0.9, 1.4, r4));
       tc.copy(gc).lerp(bush ? forest : light, bush ? 0.45 : 0.3).multiplyScalar(0.9 + 0.2 * r5);
       const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y - 0.02, z), q, new THREE.Vector3(w, h, w));
-      clumps.push({ m, c: tc.clone(), x, y, z, r: Math.hypot(w, h) });
+      // yaw, size and sway are kept for Trample (it rebuilds the clump's matrix); tr is the radius a wheel must reach
+      // to flatten it: the footprint (about half its width) plus half a tyre
+      clumps.push({ m, c: tc.clone(), x, y, z, r: Math.hypot(w, h), yaw: r5 * TAU, w, h, sway: bush ? 0.03 : lerp(0.05, 0.08, r4), tr: 0.5 * w + 0.12 });
     }
   }
   const clumpGeo = clumpGeometry(), stoneGeo = makeRockGeometry(def.seed + 5, 1);
   const clumpMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true, side: THREE.DoubleSide, envMapIntensity: 0.3 });
+  clumpMat.onBeforeCompile = (sh) => {
+    hazeUniforms(sh);
+    sh.uniforms.uTime = TREE_WIND.uTime; sh.uniforms.uAmp = TREE_WIND.uAmp; sh.uniforms.uDir = TREE_WIND.uDir;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uAmp;\nuniform vec2 uDir;\nattribute float aSway;');
+    sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + CLUMP_WIND_GLSL);
+  };
   const stoneMat = new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true, envMapIntensity: 0.3 });
   // culled squares of 100 m; short far factor so they only draw near the camera. Clumps and stones cast no shadow.
-  const meshes = cellInstances(clumpGeo, clumpMat, clumps, 100, 0.3).concat(cellInstances(stoneGeo, stoneMat, stones, 100, 0.3));
+  const clumpMeshes = cellInstances(clumpGeo, clumpMat, clumps, 100, 0.3);
+  for (const mesh of clumpMeshes) {                                // each cell's sway, per instance, in metres at the tip
+    const list = mesh.userData.items, sway = new Float32Array(list.length);
+    list.forEach((it, k) => { sway[k] = it.sway; });
+    mesh.geometry.setAttribute('aSway', new THREE.InstancedBufferAttribute(sway, 1));
+  }
+  Trample.build(clumps);
+  const meshes = clumpMeshes.concat(cellInstances(stoneGeo, stoneMat, stones, 100, 0.3));
   for (const m of meshes) m.receiveShadow = true;
   clumpGeo.dispose(); stoneGeo.dispose();
 }
@@ -14163,7 +14269,7 @@ function loadStage(def, then) {
 }
 function resetRunState() {
   Game.runCount++;
-  FX.clear(); TyreMarks.clear(); resetCarDirt();
+  FX.clear(); TyreMarks.clear(); resetCarDirt(); Trample.reset();
   for (const g of TR.gates) g.passed = false;
   setGateColors(0);
   resetChicanes();
@@ -16285,6 +16391,7 @@ function update(dt) {
     emitCarParticles(dt, ctl);
     updateCarDirt(dt);
     TyreMarks.update(ctl);
+    Trample.update();
     updateDamageFx(dt, ctl);
     updateScenery(dt, Game.clock);
     Birds.update(dt);
@@ -16350,7 +16457,7 @@ function init() {
   linearizeMaterials(Ghost.mesh); linearizeMaterials(Rival.mesh);
   // Small debugging / automation surface (autopilot lets you watch the AI drive a full stage).
   window.RegolithRally = {
-    AudioSys, EngineSound, Game, Birds, Cam, car, Post, TyreMarks, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
+    AudioSys, EngineSound, Game, Birds, Cam, car, Post, TyreMarks, Trample, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
     HAZE_U, WET_U, DIRT_U, CLOUD_U, FX, placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, Impacts, ROAD, GEO, perfRatings, tuneFor,
     openService, leaveService, pauseGame, finishRace, showFinish, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, recSetup, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
