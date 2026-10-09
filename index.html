@@ -2760,6 +2760,15 @@ const HAZE_U = {
 };
 function hazeUniforms(sh) { Object.assign(sh.uniforms, HAZE_U); }
 THREE.Material.prototype.onBeforeCompile = hazeUniforms;
+/* Dirt on the car: a level 0..1 that builds up on loose ground (updateCarDirt), painted onto the body's paint by
+   dirtPatch: low on the sides, splashes climbing them, the wheel arches and the rear, broken up by noise. The colour is
+   the surface's particle colour (going to mud when it rains on gravel). One shared object, so every body material follows. */
+const DIRT_U = {
+  uDirt: { value: 0 }, uDirtCol: { value: new THREE.Color(0.25, 0.2, 0.14) },   // uDirtCol in linear space
+  uGround: { value: -0.5 },                                                       // the ground in the car's frame (m)
+  uWheels: { value: [new THREE.Vector2(), new THREE.Vector2(), new THREE.Vector2(), new THREE.Vector2()] },   // wheel centres (x, z)
+};
+const _dirtS = new THREE.Color(0.5, 0.42, 0.32);   // the colour as authored (sRGB)
 THREE.ShaderChunk.fog_pars_vertex = '#ifdef USE_FOG\n varying float vFogDepth;\n varying vec3 vFogWorld;\n#endif';
 THREE.ShaderChunk.fog_vertex = '#ifdef USE_FOG\n vFogDepth = - mvPosition.z;\n vFogWorld = (mvPosition.xyz - viewMatrix[3].xyz) * mat3(viewMatrix);\n#endif';
 THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
@@ -10944,6 +10953,41 @@ for (const c of NEW_CARS) {
   BODY_BUILDERS.push(d.build || ((K) => gsCar(K, d)));
 }
 
+const DIRT_GLSL = `#include <common>
+uniform float uDirt; uniform vec3 uDirtCol; uniform float uGround; uniform vec2 uWheels[4];
+varying vec3 vDirtPos;
+float dirtHash(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
+float dirtNoise(vec3 p) {
+  vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(dirtHash(i), dirtHash(i + vec3(1, 0, 0)), f.x), mix(dirtHash(i + vec3(0, 1, 0)), dirtHash(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(dirtHash(i + vec3(0, 0, 1)), dirtHash(i + vec3(1, 0, 1)), f.x), mix(dirtHash(i + vec3(0, 1, 1)), dirtHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+// how much dirt sits on this point of the body (0..1), in the car's frame (x across, y up, z forward)
+float dirtAmount() {
+  vec3 p = vDirtPos;
+  float hm = p.y - uGround;                                   // height above the ground (m)
+  float side = smoothstep(0.45, 0.8, abs(p.x));               // the flanks, not the roof or bonnet
+  float low = (1.0 - smoothstep(0.05, 0.55, hm)) * (0.45 + 0.55 * side);
+  float splash = (1.0 - smoothstep(0.35, 1.25, hm)) * side * 0.7;   // splashes climbing the sides, fading up
+  float arch = 0.0;
+  for (int k = 0; k < 4; k++) arch = max(arch, (1.0 - smoothstep(0.3, 0.85, length(p.xz - uWheels[k]))) * smoothstep(0.05, 0.3, hm) * (1.0 - smoothstep(0.6, 1.0, hm)));
+  float rear = smoothstep(-1.3, -2.0, p.z) * (1.0 - smoothstep(0.3, 1.2, hm)) * 0.85;
+  float base = max(max(low, arch), max(splash, rear));
+  float n = dirtNoise(p * 3.5) * 0.65 + dirtNoise(p * 11.0) * 0.35;   // patchy, not even
+  return clamp(uDirt * base * (0.3 + 1.1 * smoothstep(0.25, 0.7, n)) * 1.5, 0.0, 1.0);
+}`;
+/** Give a car body material the dirt: the colour mixes in where it is dirty, and it goes matte and a little less metallic. */
+function dirtPatch(mat) {
+  mat.onBeforeCompile = (sh) => {
+    hazeUniforms(sh); Object.assign(sh.uniforms, DIRT_U);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vDirtPos;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvDirtPos = position;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', DIRT_GLSL)
+      .replace('#include <color_fragment>', '#include <color_fragment>\n  float dirtM = dirtAmount();\n  diffuseColor.rgb = mix(diffuseColor.rgb, uDirtCol, dirtM);')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, max(roughnessFactor, 0.9), dirtM);')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n  metalnessFactor *= 1.0 - 0.7 * dirtM;');
+  };
+}
 function buildCarModel(build) {
   build = cleanBuild(build);
   const accentHex = GARAGE.color.opts[build.color].hex, pilot = GARAGE.pilot.opts[build.pilot];
@@ -10952,6 +10996,8 @@ function buildCarModel(build) {
   // the car's real chassis (carGeometry): the shell is drawn in the shared model space, then mapped onto the real
   // car; wheels, brakes, coil-overs and anti-roll bars go straight in at the real positions
   const geo = carGeometry(body, CAR_SPECS[body].kg), map = geo.map, sp = CAR_SPECS[body];
+  DIRT_U.uGround.value = geo.mountY - geo.rest + geo.sag - geo.r;   // the wheels' ride-height pivots less the tyre radius
+  geo.wheels.forEach((cw, k) => DIRT_U.uWheels.value[k].set(cw.x, cw.z));
   const shell = new THREE.Group(); g.add(shell);
   const paintOpt = GARAGE.color.opts[build.color], metal = paintOpt.metal || 0.45, rough = paintOpt.rough || 0.32;
   const works = !!paintOpt.works;
@@ -10980,6 +11026,7 @@ function buildCarModel(build) {
   const side = atlas ? paint : new THREE.MeshStandardMaterial({ map: livery, metalness: metal, roughness: rough });
   const topTex = makeCanvas(128, 256, (c, w, h) => { c.fillStyle = accentCss; c.fillRect(0, 0, w, h); drawDecal(c, w, h, build.decal, numCss, true); });
   const top = atlas ? paint : new THREE.MeshStandardMaterial({ map: topTex, metalness: metal, roughness: rough });
+  for (const m of new Set([paint, side, top])) dirtPatch(m);   // the body takes the dirt; glass, lamps, trim and crew don't
   const add = (geo, mat, x, y, z, rx, ry, rz) => {
     const mm = new THREE.Mesh(geo, mat); mm.position.set(x, y, z); mm.rotation.set(rx || 0, ry || 0, rz || 0);
     mm.castShadow = true; mm.receiveShadow = true; shell.add(mm); return mm;
@@ -11458,6 +11505,7 @@ function updateCrew(M, dt) {
 if (document.fonts && document.fonts.load) document.fonts.load('italic 800 20px "Barlow Condensed"').then(() => { LIV_CACHE.clear(); _helmetTex.clear(); _suitTex.clear(); if (Game.carModel) rebuildCarModel(); }).catch(() => {});
 /** Swap the player's car model for the current garage build. */
 function rebuildCarModel() {
+  resetCarDirt();
   setCarTune(tuneFor(DEFAULT_SETUP, Store.data.garage));   // the physics follows the car on show (the stage setup applies at the start)
   const old = Game.carModel;
   if (old) { scene.remove(old.group); disposeObject(old.group); }
@@ -13297,6 +13345,38 @@ function processCarEvents() {
   }
 }
 
+/** Dirt gained per metre, per wheel on the ground, on each surface: 0.6 after 10 km of gravel, 0.05 after 10 km of tarmac. */
+function dirtRate(surf) {
+  return surf === SURF.GRAVEL || surf === SURF.REGOLITH ? 6e-5 : surf === SURF.SNOW ? 3e-5 : surf === SURF.TARMAC ? 5e-6 : 0;
+}
+const _dirtT = new THREE.Color(), _mud = new THREE.Color(0x3b342d);
+function resetCarDirt() { DIRT_U.uDirt.value = 0; }
+/* Dirt builds up with the distance driven on loose ground, faster while the wheels slide or spin, and mud sticks
+   harder when it rains on gravel. The colour blends toward the latest loose surface over a few hundred metres. */
+function updateCarDirt(dt) {
+  const st = Game.state;
+  if (st === 'garage' || st === 'menu' || st === 'loading') { resetCarDirt(); return; }   // the car on show is clean
+  const def = TR.def, d = Math.max(0, car.speed) * dt, wet = Cond.kind === 'rain' ? Cond.k : 0;
+  let gain = 0, last = -1;
+  for (let k = 0; k < 4; k++) {
+    const w = car.wheels[k];
+    if (!w.grounded) continue;
+    const surf = w.gs.road ? w.gs.surf : def.surf.off, r = dirtRate(surf);
+    if (!r) continue;
+    const mud = surf === SURF.GRAVEL && wet > 0 ? 1 + wet : 1;
+    const slide = (w.sliding ? 0.6 : 0) + (w.spinning ? 0.6 : 0) + 0.15 * Math.min(4, Math.abs(w.slipLat));
+    gain += r * mud * (1 + slide);
+    last = surf;
+  }
+  const v0 = DIRT_U.uDirt.value;
+  if (last >= 0 && d > 0) {
+    _dirtT.copy(particleColor(last));
+    if (last === SURF.GRAVEL && wet > 0) _dirtT.lerp(_mud, 0.75 * wet);
+    _dirtS.lerp(_dirtT, v0 < 0.02 ? 1 : 1 - Math.exp(-d / 300));
+  }
+  DIRT_U.uDirt.value = clamp(v0 + gain * d / 4, 0, 1);
+  DIRT_U.uDirtCol.value.copy(_dirtS).convertSRGBToLinear();
+}
 const _pcol = new THREE.Color();
 function particleColor(surf) {
   // display-space colours (particle shader output is not tone mapped)
@@ -13805,7 +13885,7 @@ function loadStage(def, then) {
 }
 function resetRunState() {
   Game.runCount++;
-  FX.clear(); TyreMarks.clear();
+  FX.clear(); TyreMarks.clear(); resetCarDirt();
   for (const g of TR.gates) g.passed = false;
   setGateColors(0);
   resetChicanes();
@@ -15920,6 +16000,7 @@ function update(dt) {
     processCarEvents();
     updateCarVisual(dt, ctl);
     emitCarParticles(dt, ctl);
+    updateCarDirt(dt);
     TyreMarks.update(ctl);
     updateDamageFx(dt, ctl);
     updateScenery(dt, Game.clock);
@@ -15987,7 +16068,7 @@ function init() {
   window.RegolithRally = {
     AudioSys, EngineSound, Game, Cam, car, Post, TyreMarks, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
-    HAZE_U, WET_U, FX, placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, Impacts, ROAD, GEO, perfRatings, tuneFor,
+    HAZE_U, WET_U, DIRT_U, FX, placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, Impacts, ROAD, GEO, perfRatings, tuneFor,
     openService, leaveService, pauseGame, finishRace, showFinish, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, recSetup, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
