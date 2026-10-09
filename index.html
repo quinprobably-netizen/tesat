@@ -2792,7 +2792,7 @@ const HAZE_U = {
   uMist: { value: new THREE.Vector4(0, 1 / 35, 0, 0) },           // the low mist layer: density, falloff, y0
   uHazeSun: { value: new THREE.Vector3(0, 1, 0) }, uHazeSunCol: { value: new THREE.Color(1, 0.9, 0.75) },
 };
-function hazeUniforms(sh) { Object.assign(sh.uniforms, HAZE_U); }
+function hazeUniforms(sh) { Object.assign(sh.uniforms, HAZE_U, CLOUD_U); }
 THREE.Material.prototype.onBeforeCompile = hazeUniforms;
 /* Dirt on the car: a level 0..1 that builds up on loose ground (updateCarDirt), painted onto the body's paint by
    dirtPatch: low on the sides, splashes climbing them, the wheel arches and the rear, broken up by noise. The colour is
@@ -2881,6 +2881,38 @@ if (SHADOW_FAR_EXTENT) {
   if ((THREE.ShaderChunk.lights_fragment_begin.match(/rrSunShadow/g) || []).length !== 3) console.warn('[Regolith Rally] far shadow cascade: lights chunk not patched');
 }
 const SUN_DIR = new THREE.Vector3(0.5, 0.4, 0.2).normalize();
+/* Drifting cloud shadows on Earth stages: a soft cloud field on the ground, projected up the sun ray, that takes the
+   sun's direct light down to a quarter under a cloud (rrCloudSun, in the lights chunk below). Cover 0 switches it off
+   and costs one branch. Cond.envLook() sets the cover per stage and weather; Cond.update() moves uCloudTime on. */
+const CLOUD_U = {
+  uCloudCover: { value: 0 },                                 // share of the ground under cloud, 0 to 1
+  uCloudTime: { value: 0 },                                  // seconds, advanced by Cond.update
+  uCloudWind: { value: new THREE.Vector2(6.5, 3.5) },        // drift on the ground plane (x, z) in m/s: about 7.4 m/s
+  uCloudSun: { value: SUN_DIR },                             // unit vector towards the sun
+};
+/* The sun's direct light at a fragment (view-space position mvPos): 1 in the open, 0.25 under cloud. A point at height y
+   is sampled where its sun ray meets the cloud field on the ground plane, so shadows fall right on slopes. Three fbm
+   octaves give cells of roughly 300 to 800 m; the threshold rises with cover and the smoothstep edge is about 60 m. */
+THREE.ShaderChunk.lights_pars_begin = `uniform float uCloudCover; uniform float uCloudTime; uniform vec2 uCloudWind; uniform vec3 uCloudSun;
+float rrCloudHash( vec2 p ) { vec3 p3 = fract( vec3( p.xyx ) * 0.1031 ); p3 += dot( p3, p3.yzx + 33.33 ); return fract( ( p3.x + p3.y ) * p3.z ); }
+float rrCloudNoise( vec2 p ) {
+	vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
+	return mix( mix( rrCloudHash( i ), rrCloudHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( rrCloudHash( i + vec2( 0.0, 1.0 ) ), rrCloudHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y );
+}
+float rrCloudSun( vec3 mvPos ) {
+	if ( uCloudCover <= 0.0 ) return 1.0;
+	vec3 w = ( mvPos - viewMatrix[ 3 ].xyz ) * mat3( viewMatrix );
+	vec2 q = w.xz - w.y * uCloudSun.xz / max( uCloudSun.y, 0.2 ) - uCloudWind * uCloudTime;
+	float d = 0.5 * rrCloudNoise( q / 450.0 ) + 0.3 * rrCloudNoise( q / 225.0 + vec2( 17.3, 5.1 ) ) + 0.2 * rrCloudNoise( q / 110.0 + vec2( 3.7, 91.2 ) );
+	return mix( 1.0, 0.25, smoothstep( 0.715 - 0.416 * uCloudCover, 0.765 - 0.416 * uCloudCover, d ) );
+}
+` + THREE.ShaderChunk.lights_pars_begin;
+{
+  const rrAnchor = '\t\tgetDirectionalLightInfo( directionalLight, directLight );\n';
+  THREE.ShaderChunk.lights_fragment_begin = THREE.ShaderChunk.lights_fragment_begin.replace(rrAnchor,
+    rrAnchor + '\t\t#if UNROLLED_LOOP_INDEX == 0\n\t\tdirectLight.color *= rrCloudSun( - vViewPosition );   // the sun is directionalLights[0]\n\t\t#endif\n');
+  if (!THREE.ShaderChunk.lights_fragment_begin.includes('rrCloudSun( - vViewPosition )')) console.warn('[Regolith Rally] cloud shadows: lights chunk not patched');
+}
 
 let stageGroup = new THREE.Group();   // everything owned by the current stage, disposed on stage change
 scene.add(stageGroup);
@@ -15089,6 +15121,10 @@ const Cond = {
     HAZE_U.uHazeSun.value.copy(SUN_DIR); HAZE_U.uHazeSunCol.value.copy(sunLight.color).multiplyScalar(dusk ? 1.1 : 1.25);
     if (scene.fog) HAZE_U.uHazeSunCol.value.lerp(scene.fog.color, 0.35);
     WET_U.value = wet;
+    // drifting cloud shadows: a dry desert sky is thinner than the European ones; dusk is lower; night and the moons have none,
+    // and the cloud thickens into the overcast weather (which dims the sun already) as the weather comes in
+    const dry = def.id === 'wrc-saudi' || def.id === 'wrc-kenya' || def.id.startsWith('raid-');
+    CLOUD_U.uCloudCover.value = earth && !night ? (dusk ? 0.3 : dry ? 0.2 : 0.4) * (kind === 'clear' ? 1 : 1 - k) : 0;
     if (TERRAIN_MAT && b) TERRAIN_MAT.envMapIntensity = b.env * (1 + 1.6 * wet);   // wet ground mirrors the sky
   },
   update(dt) {
@@ -15102,6 +15138,7 @@ const Cond = {
         AudioSys.speak(this.kind === 'snow' ? "it's snowing, careful now" : "rain's coming in, careful", true);
       }
     } else if (Raid.on) this.applyK();             // the tyres wear through the run
+    CLOUD_U.uCloudTime.value += dt;
     Precip.update(dt, this.kind === 'rain' || this.kind === 'snow' ? this.k : 0, this.kind);
   },
 };
@@ -16148,7 +16185,7 @@ function init() {
   window.RegolithRally = {
     AudioSys, EngineSound, Game, Cam, car, Post, TyreMarks, STAGES, Store, startRace, enterMenu, loadStage, scene, renderer, camera, get track() { return TR; },
     setAutopilot(v) { Game.autopilot = !!v; },
-    HAZE_U, WET_U, DIRT_U, FX, placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, Impacts, ROAD, GEO, perfRatings, tuneFor,
+    HAZE_U, WET_U, DIRT_U, CLOUD_U, FX, placeCar, forceControls(c) { Game.forceCtl = c || null; }, physicsTests, PhysicsRig, SB, Impacts, ROAD, GEO, perfRatings, tuneFor,
     openService, leaveService, pauseGame, finishRace, showFinish, startRally, Rally, Cond, Raid, Raid2, Career, Weekly, Climb, Live, Hub, Photo, Dash, Recce, Repairs, CoDriver, LiveryEd, RivalGap, startEvent, stageById, Garage, Menu, Settings, Tilt, Input, GARAGE, GEARBOX, buildCarModel, linearizeMaterials, DEFAULT_BUILD, MODEL_BOX, LIVERIES, BODY_BUILDERS, RIM_STYLES, TAILPIPES, CAR_AERO, martini, SUSP, CAR, CAR_SPECS, perfRatings, tuneFor, recSetup, rebuildCarModel, get carModel() { return Game.carModel; }, stageDef, stageCode, parseStageCode, chicaneLine, encodeGhost, decodeGhost, importGhost, ghostMeta, Rival,
     /** Run the simulation headlessly (no rendering) for `seconds` of game time. */
     simulate(seconds, step) { const h = step || 1 / 60; for (let t = 0; t < seconds; t += h) update(h); },
