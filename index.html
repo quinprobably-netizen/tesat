@@ -7331,7 +7331,7 @@ const SB = {
   ba: null, bb: null, l0: null, l00: null, ok: null, nb: 0, gh: null,
   Fa: new THREE.Vector3(), Ta: new THREE.Vector3(), Ii: new Float64Array(9), cand: [], blocks: [], hit: null, mounts: [],
   disc: new Float64Array(DISC.length * 3),                                  // the tyre disc's sample points (collideWheels)
-  active() { return (!RIG_GROUND.on || RIG_GROUND.soft) && Store.data.settings.soft !== false; },
+  active() { return (!RIG_GROUND.on || RIG_GROUND.soft) && Store.data.settings.soft !== false && !(car.tune && car.tune.spec.rigid); },
   /** The lattice for the current car, from its hull (width, waist, roof, length) and ride height. */
   build() {
     let xm = 0, ym = -1e9, yb = 1e9, z0 = 1e9, z1 = -1e9;
@@ -12861,7 +12861,7 @@ const NEW_CARS = [
       curve: [[600, 2700], [900, 3300], [1200, 3600], [1600, 3350], [2000, 2950], [2200, 2720], [2400, 2350], [2600, 1900]],
       disp: 12.9, launch: 1200, Ie: 0.9, enginePos: 'front',
       box: 'ZF 16-speed servo-shift, 0.89 transfer (ratios est.)', gears: [11.54, 9.69, 8.14, 6.83, 5.74, 4.82, 4.05, 3.4, 2.85, 2.4, 2.01, 1.69, 1.42, 1.19, 1, 0.84], final: 3.69, rev: 2.8, shift: 0.25, boxType: 'seq', als: 0,
-      kg: 9300, front: 0.5, centre: 'locking', fdiff: 'lsd', rdiff: 'lsd', muScale: 0.65,   // truck tyres grip about a third less than the car compounds (est.)
+      kg: 9300, front: 0.5, centre: 'locking', fdiff: 'lsd', rdiff: 'lsd', muScale: 0.65, rigid: true,   // truck tyres grip about a third less than the car compounds (est.); rigid: no soft-body frame, which sags and bounces under 9 t
       wb: 4.4, track: [2.05, 2.05], wf: 0.5, cgH: 1.05, dims: [6.8, 2.55, 3], travel: 0.4,
       tyre: { r: 0.58, w: 0.4, rim: 20, kg: 60, size: '20 in truck tyre (est.)' }, disc: [420, 400] },
     // drag: a tall box on a cab-over (Cd about 0.9 on about 5.6 m²); no wing, very little downforce (est.)
@@ -12880,7 +12880,7 @@ const NEW_CARS = [
       curve: [[600, 2800], [900, 3450], [1200, 3800], [1600, 3550], [2000, 3150], [2200, 2900], [2400, 2500], [2600, 2000]],
       disp: 12.5, launch: 1200, Ie: 0.9, enginePos: 'front',
       box: 'ZF/Gyrtech 16-speed manual (ratios est.)', gears: [12, 10.06, 8.43, 7.07, 5.92, 4.96, 4.16, 3.49, 2.92, 2.45, 2.05, 1.72, 1.44, 1.21, 1.01, 0.85], final: 3.73, rev: 2.8, shift: 0.25, boxType: 'seq', als: 0,
-      kg: 9500, front: 0.5, centre: 'locking', fdiff: 'lsd', rdiff: 'lsd', muScale: 0.65,
+      kg: 9500, front: 0.5, centre: 'locking', fdiff: 'lsd', rdiff: 'lsd', muScale: 0.65, rigid: true,
       wb: 4.29, track: [2.1, 2.075], wf: 0.5, cgH: 1.05, dims: [6.53, 2.5, 3.21], travel: 0.4,
       tyre: { r: 0.55, w: 0.36, rim: 20, kg: 60, size: '14.00R20 (est.)' }, disc: [420, 400] },
     aero: { cda: 4.8, cdaSide: 7.5, claF: 0.05, claR: 0.08, pitch: 0.02, ge: 0.1, text: 'A tall flat-sided box over a cab-over nose, with a bumper and a grille; no wing, and little downforce' },
