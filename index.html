@@ -8491,11 +8491,16 @@ const SB = {
     P.forEach((p, i) => { const w = wt[i]; sy += w * p[1]; sz += w * p[2]; syy += w * p[1] * p[1]; szz += w * p[2] * p[2]; syz += w * p[1] * p[2]; });
     const det = syy * szz - syz * syz, a = (-sy * szz + sz * syz) / det, b = (-sz * syy + sy * syz) / det;
     this.m = new Float64Array(n); let M = 0;
-    // (that weighting is kept within limits; what's left of the offset is carried by `off`)
+    // (that weighting is kept within limits; what's left of the offset is shifted out below)
     for (let i = 0; i < n; i++) { this.m[i] = wt[i] * clamp(1 + a * P[i][1] + b * P[i][2], 0.6, 1.8); M += this.m[i]; }
     this.off.set(0, 0, 0);
     for (let i = 0; i < n; i++) { this.m[i] *= CAR.mass / M; this.off.x += this.m[i] * P[i][0]; this.off.y += this.m[i] * P[i][1]; this.off.z += this.m[i] * P[i][2]; }
     this.M = CAR.mass; this.off.multiplyScalar(1 / this.M);
+    // what's left of the offset (about 1 cm in z) is taken out of the rest shape, so the lattice's centre of mass is the
+    // car's own: the rigid model's weight and tyre forces act there, and in the air the soft car's gravity torque is the
+    // rigid car's (left as it was, the lattice pitched 1.7x as fast as the rigid car on a fall)
+    for (const p of P) { p[0] -= this.off.x; p[1] -= this.off.y; p[2] -= this.off.z; }
+    this.off.set(0, 0, 0);
     this.rest = new Float64Array(n * 3); P.forEach((p, i) => this.rest.set(p, i * 3));
     this.loc = this.rest.slice(); this.x = new Float64Array(n * 3); this.v = new Float64Array(n * 3);
     this.fe = new Float64Array(n * 3); this.f = new Float64Array(n * 3); this.gh = new Float64Array(n); this.gn = new Float64Array(n * 3);
@@ -8507,14 +8512,19 @@ const SB = {
     }
     this.nb = A.length; this.ba = Int32Array.from(A); this.bb = Int32Array.from(B);
     this.l00 = Float64Array.from(L); this.l0 = this.l00.slice(); this.ok = new Uint8Array(this.nb).fill(1);
-    // strength by region: the cabin (and the roof over it) is a stiff, strong safety cell; the nose and tail crumple
+    // strength by region: the cabin (and the roof over it) is a stiff, strong safety cell; the nose and tail crumple.
+    // The suspension mounts sit in the crumple zones, so ordinary loads (a kerb, a bump, braking) would yield their
+    // beams for good: beams touching a mount yield like the cabin's, so the frame bends only at crash loads
+    this.mounts = CAR.wheels.map((cw) => this.weights(cw.x, CAR.mountY, cw.z));
+    const mountN = new Uint8Array(n); for (const m of this.mounts) for (const i of m.i) mountN[i] = 1;
     const EZ = this.EZ, end = (i) => fr[i] >= 0 && (fr[i] <= EZ || fr[i] >= 1 - EZ), cab = (i) => fr[i] < 0 || (fr[i] >= 0.25 && fr[i] <= 0.75);
     this.cab = []; for (let i = 0; i < n; i++) if (cab(i)) this.cab.push(i);
     this.ys = new Float64Array(this.nb); this.ea = new Float64Array(this.nb); this.dz = new Uint8Array(this.nb);
     this.deg = new Float64Array(n); this.lost = new Float64Array(n); this.gone = new Uint8Array(n);
     for (let b = 0; b < this.nb; b++) {
       const i = A[b], j = B[b], c = cab(i) && cab(j), e = end(i) || end(j);
-      this.ys[b] = this.YIELD * (c ? 2.6 : e ? 0.7 : 1); this.ea[b] = this.EA / L[b] * (c ? 1.3 : 1) * (e ? this.NOSE : 1);   // nose and tail beams softened: the denser rows put more beams across each section
+      const mt = mountN[i] || mountN[j];
+      this.ys[b] = this.YIELD * (c || mt ? 2.6 : e ? 0.7 : 1); this.ea[b] = this.EA / L[b] * (c ? 1.3 : 1) * (e ? this.NOSE : 1);   // nose and tail beams softened: the denser rows put more beams across each section
       this.dz[b] = e ? 1 : 0; this.deg[i]++; this.deg[j]++;
     }
     // substeps: enough that the stiffest node (its beams' stiffness and damping against its mass) stays stable
@@ -8523,7 +8533,6 @@ const SB = {
     let hMax = 1;
     for (let i = 0; i < n; i++) hMax = Math.min(hMax, Math.sqrt(0.8 * this.m[i] / kS[i]), this.m[i] / cS[i]);
     this.sub = clamp(Math.ceil(PHYS_DT / hMax), this.SUB, 32);
-    this.mounts = CAR.wheels.map((cw) => this.weights(cw.x, CAR.mountY, cw.z));
     // a point ahead of and above each mount: how the bent body turns the wheel (toe) and leans it (camber)
     this.mFwd = CAR.wheels.map((cw) => this.weights(cw.x, CAR.mountY, cw.z + 0.3));
     this.mUp = CAR.wheels.map((cw) => this.weights(cw.x, CAR.mountY + 0.3, cw.z));
