@@ -16328,7 +16328,7 @@ const Precip = {
 };
 
 /* ---- the raid: fuel in the tank and rubber on the tyres, carried from leg to leg ---- */
-/* Night lamps: the headlight shafts and the moths they light. Visual only: nothing here reads or writes the physics. */
+/* Night lamps: the headlight shafts. Visual only: nothing here reads or writes the physics. */
 const BEAM_VS = `
 varying float vZ; varying vec3 vN; varying vec3 vV;
 void main(){
@@ -16345,32 +16345,8 @@ void main(){
   float along = pow(1.0 - clamp(vZ / uLen, 0.0, 1.0), 1.6) * smoothstep(0.0, 1.5, vZ);
   gl_FragColor = vec4(rrOut(vec3(0.92, 0.94, 0.98)), uAmt * along * pow(facing, 1.4) * 0.3);
 }`;
-const MOTH_VS = `
-attribute float aSeed;
-uniform vec3 uL0; uniform vec3 uL1; uniform vec3 uD; uniform float uScale; uniform float uGain; uniform float uT; uniform float uSize;
-varying float vLit;
-float lampLit(vec3 p, vec3 L){                                          // a lamp's beam: bright on its axis, gone off it, fading out by 25 m
-  vec3 d = p - L; float s = dot(d, uD); vec3 r = d - s * uD; float w = 0.45 + 0.12 * s;
-  return exp(-dot(r, r) / (w * w) * 1.5) * smoothstep(0.6, 3.0, s) * (1.0 - smoothstep(17.0, 25.5, s));
-}
-void main(){
-  float lit = (lampLit(position, uL0) + lampLit(position, uL1)) * uGain;
-  lit *= 0.7 + 0.3 * sin(uT * (9.0 + 7.0 * aSeed) + 31.0 * aSeed);     // wing beat
-  vLit = clamp(lit * 1.3, 0.0, 1.0);
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  gl_Position = projectionMatrix * mv;
-  gl_PointSize = vLit > 0.003 ? clamp(uSize * uScale / max(-mv.z, 0.1), 2.0, 12.0) : 0.0;
-}`;
-const MOTH_FS = `${GLSL_POST}
-varying float vLit;
-void main(){
-  vec2 c = gl_PointCoord - 0.5; float d = length(c) * 2.0;
-  if (d > 1.0) discard;
-  gl_FragColor = vec4(rrOut(vec3(1.0, 0.86, 0.58) * vLit), vLit * pow(1.0 - d, 1.2));
-}`;
-const _nv = new THREE.Vector3();
 const Night = {
-  N: LOW_SPEC ? 100 : 200, amt: 0, moths: null,
+  amt: 0,
   /** Two open cones from the lamps, along the car's axis: 40 m long, a little wider than the beam. Built once per car model. */
   attach(M) {
     const sp = M.spot, L = 40, a = 0.1, mat = new THREE.ShaderMaterial({ uniforms: { ...POST_U, uAmt: { value: 0 }, uLen: { value: L } },
@@ -16410,63 +16386,6 @@ const Night = {
     const beamsOn = shown && Cam.mode !== 'cockpit' && this.amt > 0.003;
     M.beams.g.visible = beamsOn;
     M.beams.mat.uniforms.uAmt.value = this.amt;
-    // moths: Earth stages with warm air, clear or foggy, at dusk or night (the lamps are the only light on them)
-    const cold = def.surf.base === SURF.SNOW || def.surf.base === SURF.ICE;
-    const mothsOn = shown && earth && !cold && night && (Cond.kind === 'clear' || Cond.kind === 'fog');
-    if (this.moths && this.moths.owner !== stageGroup) this.moths = null;  // the stage was rebuilt: its points went with the old group
-    if (mothsOn) {
-      if (!this.moths) this.buildMoths(M);
-      this.moths.points.visible = true;
-      this.stepMoths(dt, M);
-    } else if (this.moths) this.moths.points.visible = false;
-  },
-  buildMoths(M) {
-    const N = this.N, pos = new Float32Array(N * 3), seed = new Float32Array(N);
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
-    geo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
-    const v3 = () => ({ value: new THREE.Vector3() });
-    const mat = new THREE.ShaderMaterial({ uniforms: { ...POST_U, uL0: v3(), uL1: v3(), uD: v3(), uScale: { value: 500 }, uGain: { value: 1 }, uT: { value: 0 }, uSize: { value: 0.07 } },
-      vertexShader: MOTH_VS, fragmentShader: MOTH_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
-    const points = new THREE.Points(geo, mat);
-    points.frustumCulled = false; points.renderOrder = 6; points.visible = false;
-    stageGroup.add(points);
-    // anchors live in the car's own frame (z ahead, x across, y up): the air flows back past the car at its speed
-    const m = this.moths = { points, owner: stageGroup, pos, seed, L: new Float32Array(N * 3), D: new Float32Array(N * 2), P: new Float32Array(N * 4) };
-    for (let i = 0; i < N; i++) {
-      this.spawn(m, i, true);
-      const w = (1.5 + Math.random() * 3.5) * (Math.random() < 0.5 ? -1 : 1);
-      m.P[i * 4] = Math.random() * TAU; m.P[i * 4 + 1] = w; m.P[i * 4 + 2] = 0.15 + Math.random() * 0.35; m.P[i * 4 + 3] = 0.1 + Math.random() * 0.25;
-      seed[i] = Math.random();
-    }
-  },
-  /** Car-frame point to world. */
-  toWorld(M, x, y, z, out) { return out.set(x, y, z).applyQuaternion(M.group.quaternion).add(M.group.position); },
-  /** A moth's anchor in the car's frame: anywhere in the beam 3 to 22 m ahead on the first spawn, else at the far edge
-   *  (24.5 to 25.4 m) where the lamps barely reach, so it brightens as it comes toward the car and never pops into view. */
-  spawn(m, i, first) {
-    const lz = first ? 3 + Math.random() * 19 : 24.5 + Math.random() * 0.9, lx = (Math.random() * 2 - 1) * (0.3 + 0.08 * lz), ly = 0.3 + Math.random() * 2;
-    m.L[i * 3] = lx; m.L[i * 3 + 1] = ly; m.L[i * 3 + 2] = lz;
-    const h = Math.random() * TAU, s = 0.05 + Math.random() * 0.15;
-    m.D[i * 2] = Math.cos(h) * s; m.D[i * 2 + 1] = Math.sin(h) * s;
-  },
-  stepMoths(dt, M) {
-    const m = this.moths, N = this.N, t = Game.clock, sp = car.speed;
-    for (let i = 0; i < N; i++) {
-      const a3 = i * 3, p4 = i * 4;
-      m.L[a3] += m.D[i * 2] * dt; m.L[a3 + 1] += m.D[i * 2 + 1] * dt; m.L[a3 + 2] -= sp * dt;
-      const x = m.L[a3], y = m.L[a3 + 1], z = m.L[a3 + 2];
-      if (z < 0.6 || z > 25.5 || Math.abs(x) > 1.2 + 0.18 * z || y < -0.2 || y > 2.8) this.spawn(m, i, false);
-      const ph = m.P[p4] + m.P[p4 + 1] * t, R = m.P[p4 + 2], V = m.P[p4 + 3];   // orbit about the anchor, bobbing
-      this.toWorld(M, m.L[a3] + R * Math.cos(ph), m.L[a3 + 1] + V * Math.sin(2.3 * ph + m.P[p4]), m.L[a3 + 2] + R * Math.sin(ph), _nv);
-      m.pos[a3] = _nv.x; m.pos[a3 + 1] = _nv.y; m.pos[a3 + 2] = _nv.z;
-    }
-    m.points.geometry.attributes.position.needsUpdate = true;
-    const u = m.points.material.uniforms, sy = M.spot.position.y, sz = M.spot.position.z;
-    this.toWorld(M, -0.5, sy, sz, u.uL0.value); this.toWorld(M, 0.5, sy, sz, u.uL1.value);
-    u.uD.value.set(0, 0, 1).applyQuaternion(M.group.quaternion);
-    u.uScale.value = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
-    u.uGain.value = Cond.time === 'night' ? 1 : 0.6; u.uT.value = t;
   },
 };
 const Raid = {
